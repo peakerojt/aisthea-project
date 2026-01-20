@@ -1,0 +1,252 @@
+import React, { useState } from 'react';
+import { ViewState } from '../types';
+
+interface ProductItem {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  stock: number;
+  status: 'In Stock' | 'Low Stock' | 'Out of Stock';
+  img: string;
+  category: string;
+}
+
+const INITIAL_PRODUCTS: ProductItem[] = [
+  { id: '1', name: 'Obsidian Structure Coat', sku: '9921', price: 1850, stock: 24, status: 'In Stock', img: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?q=80&w=200&auto=format&fit=crop', category: 'Coats & Jackets' },
+  { id: '2', name: 'Velvet Noir Blazer', sku: '4022', price: 950, stock: 0, status: 'Out of Stock', img: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?q=80&w=200&auto=format&fit=crop', category: 'Coats & Jackets' },
+  { id: '3', name: 'Silk Asymmetric Dress', sku: '4099', price: 1450, stock: 8, status: 'Low Stock', img: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?q=80&w=200&auto=format&fit=crop', category: 'Dresses' },
+  { id: '4', name: 'Minimalist Gold Cuff', sku: '1004', price: 450, stock: 112, status: 'In Stock', img: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?q=80&w=200&auto=format&fit=crop', category: 'Accessories' },
+];
+
+export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ setView }) => {
+  const [products, setProducts] = useState<ProductItem[]>(INITIAL_PRODUCTS);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [categoryFilter, setCategoryFilter] = useState<string>('All');
+
+  const filteredProducts = products.filter(product => {
+    const statusMatch = statusFilter === 'All' || product.status === statusFilter;
+    const categoryMatch = categoryFilter === 'All' || product.category === categoryFilter;
+    return statusMatch && categoryMatch;
+  });
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredProducts.map(p => p.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectRow = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const deleteSelected = () => {
+    if (window.confirm(`Are you sure you want to delete ${selectedIds.length} items?`)) {
+      setProducts(prev => prev.filter(p => !selectedIds.includes(p.id)));
+      setSelectedIds([]);
+    }
+  };
+
+  const markAsInStock = () => {
+    setProducts(prev => prev.map(p => 
+      selectedIds.includes(p.id) ? { ...p, status: 'In Stock', stock: p.stock === 0 ? 10 : p.stock } : p
+    ));
+    setSelectedIds([]);
+  };
+
+  const isAllSelected = filteredProducts.length > 0 && filteredProducts.every(p => selectedIds.includes(p.id));
+
+  return (
+    <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col">
+       <header className="h-20 flex items-center justify-between mb-8">
+         <div>
+           <h2 className="text-2xl font-bold text-white">Product Inventory</h2>
+           <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Manage your catalog</p>
+         </div>
+         <div className="flex gap-4">
+            <button 
+              onClick={() => setView('ADMIN_CREATE_PRODUCT')}
+              className="bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-[0.1em] px-6 py-3 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[18px]">add</span> Add New Product
+            </button>
+         </div>
+       </header>
+
+       <div className="bg-surface-dark border border-white/5 rounded-xl shadow-2xl flex flex-col flex-1">
+         {/* Toolbar */}
+         <div className={`p-6 border-b border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4 transition-colors ${selectedIds.length > 0 ? 'bg-primary/5' : ''}`}>
+            {selectedIds.length > 0 ? (
+               <div className="w-full flex items-center justify-between animate-fade-in">
+                  <div className="flex items-center gap-4">
+                     <span className="text-sm font-bold text-white">{selectedIds.length} Selected</span>
+                     <div className="h-4 w-px bg-white/10"></div>
+                     <button onClick={() => setSelectedIds([])} className="text-xs text-gray-400 hover:text-white uppercase tracking-wider font-bold">Cancel</button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                     <button 
+                        onClick={markAsInStock}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded text-xs uppercase tracking-wider font-bold transition-colors border border-emerald-500/20"
+                     >
+                        <span className="material-symbols-outlined text-[18px]">inventory_2</span> Mark In Stock
+                     </button>
+                     <button 
+                        onClick={deleteSelected}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded text-xs uppercase tracking-wider font-bold transition-colors border border-red-500/20"
+                     >
+                        <span className="material-symbols-outlined text-[18px]">delete</span> Delete Selected
+                     </button>
+                  </div>
+               </div>
+            ) : (
+               <>
+                <div className="flex items-center gap-4">
+                  <button className="text-xs uppercase tracking-widest font-bold text-primary border-b-2 border-primary pb-1">All Products</button>
+                  <button className="text-xs uppercase tracking-widest font-bold text-white/40 hover:text-white pb-1 transition-colors">Published</button>
+                  <button className="text-xs uppercase tracking-widest font-bold text-white/40 hover:text-white pb-1 transition-colors">Drafts</button>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`flex items-center gap-2 px-3 py-1.5 border rounded text-xs uppercase tracking-wider transition-colors ${showFilters ? 'bg-white text-black border-white' : 'border-white/10 text-white/60 hover:text-white hover:border-white/30'}`}
+                  >
+                     <span className="material-symbols-outlined text-[16px]">filter_list</span> Filter
+                  </button>
+                  <button className="flex items-center gap-2 px-3 py-1.5 border border-white/10 rounded text-xs uppercase tracking-wider text-white/60 hover:text-white hover:border-white/30 transition-colors">
+                     <span className="material-symbols-outlined text-[16px]">download</span> Export
+                  </button>
+                </div>
+               </>
+            )}
+         </div>
+
+         {/* Filter Panel */}
+         {showFilters && selectedIds.length === 0 && (
+             <div className="p-6 border-b border-white/5 bg-white/[0.02] flex flex-wrap gap-6 animate-fade-in">
+                 <div className="flex flex-col gap-2">
+                     <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Status</label>
+                     <select 
+                         value={statusFilter} 
+                         onChange={(e) => setStatusFilter(e.target.value)}
+                         className="bg-black/20 border border-white/10 rounded px-3 py-1.5 text-xs text-white focus:border-primary focus:ring-0 min-w-[140px]"
+                     >
+                         <option value="All">All Statuses</option>
+                         <option value="In Stock">In Stock</option>
+                         <option value="Low Stock">Low Stock</option>
+                         <option value="Out of Stock">Out of Stock</option>
+                     </select>
+                 </div>
+                 <div className="flex flex-col gap-2">
+                     <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Category</label>
+                     <select 
+                         value={categoryFilter} 
+                         onChange={(e) => setCategoryFilter(e.target.value)}
+                         className="bg-black/20 border border-white/10 rounded px-3 py-1.5 text-xs text-white focus:border-primary focus:ring-0 min-w-[140px]"
+                     >
+                         <option value="All">All Categories</option>
+                         <option value="Coats & Jackets">Coats & Jackets</option>
+                         <option value="Dresses">Dresses</option>
+                         <option value="Accessories">Accessories</option>
+                     </select>
+                 </div>
+                 <div className="flex items-end">
+                     <button 
+                         onClick={() => { setStatusFilter('All'); setCategoryFilter('All'); }}
+                         className="text-xs text-gray-500 hover:text-white uppercase tracking-wider font-bold h-[30px] px-2"
+                     >
+                         Reset Filters
+                     </button>
+                 </div>
+             </div>
+         )}
+
+         <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-white/[0.02]">
+                <tr className="text-[10px] uppercase tracking-widest text-white/50 border-b border-white/5">
+                  <th className="px-6 py-4 font-semibold w-12">
+                     <input 
+                        type="checkbox" 
+                        checked={isAllSelected}
+                        onChange={handleSelectAll}
+                        className="rounded border-white/20 bg-transparent text-primary focus:ring-0 cursor-pointer" 
+                     />
+                  </th>
+                  <th className="px-6 py-4 font-semibold">Product Details</th>
+                  <th className="px-6 py-4 font-semibold">Category</th>
+                  <th className="px-6 py-4 font-semibold">Price</th>
+                  <th className="px-6 py-4 font-semibold">Inventory</th>
+                  <th className="px-6 py-4 font-semibold">Status</th>
+                  <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm divide-y divide-white/5">
+                {filteredProducts.map((p) => {
+                  const isSelected = selectedIds.includes(p.id);
+                  return (
+                  <tr key={p.id} className={`group transition-colors ${isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-white/[0.02]'}`}>
+                    <td className="px-6 py-4">
+                        <input 
+                           type="checkbox" 
+                           checked={isSelected}
+                           onChange={() => handleSelectRow(p.id)}
+                           className="rounded border-white/20 bg-transparent text-primary focus:ring-0 cursor-pointer" 
+                        />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-16 bg-white/5 rounded overflow-hidden flex-shrink-0 border border-white/5">
+                          <img src={p.img} alt={p.name} className="w-full h-full object-cover" />
+                        </div>
+                        <div>
+                          <p className={`font-medium transition-colors ${isSelected ? 'text-primary' : 'text-white group-hover:text-primary'}`}>{p.name}</p>
+                          <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">SKU-{p.sku}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-white/70">{p.category}</td>
+                    <td className="px-6 py-4 text-white/90">${p.price.toFixed(2)}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <span className="text-white/90">{p.stock} in stock</span>
+                        <span className="text-[10px] text-white/30">2 variants</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border ${
+                        p.status === 'In Stock' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
+                        p.status === 'Out of Stock' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
+                        'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          p.status === 'In Stock' ? 'bg-emerald-400' : p.status === 'Out of Stock' ? 'bg-red-400' : 'bg-yellow-400'
+                        }`}></span>
+                        {p.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                       <button className="text-white/40 hover:text-white transition-colors p-2 rounded hover:bg-white/10"><span className="material-symbols-outlined text-[20px]">edit_square</span></button>
+                    </td>
+                  </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {filteredProducts.length === 0 && (
+               <div className="flex flex-col items-center justify-center py-20 text-white/30">
+                  <span className="material-symbols-outlined text-4xl mb-2">filter_alt_off</span>
+                  <p className="text-sm">No products match your filters</p>
+                  <button onClick={() => { setStatusFilter('All'); setCategoryFilter('All'); }} className="mt-4 text-primary text-xs font-bold uppercase tracking-wider hover:underline">Clear Filters</button>
+               </div>
+            )}
+         </div>
+       </div>
+    </div>
+  );
+};
