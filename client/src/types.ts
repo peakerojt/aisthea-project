@@ -1,3 +1,4 @@
+
 export interface Product {
   id: string;
   name: string;
@@ -39,10 +40,46 @@ export type ViewState =
   | 'STORE_DETAIL' 
   | 'STORE_CART' 
   | 'STORE_STYLIST'
+  | 'STORE_PROFILE'
+  | 'AUTH_LOGIN'
+  | 'AUTH_SIGNUP'
   | 'ADMIN_DASHBOARD' 
   | 'ADMIN_PRODUCTS' 
   | 'ADMIN_CREATE_PRODUCT'
   | 'ADMIN_ORDERS' 
-  | 'ADMIN_TRACKING';
+  | 'ADMIN_TRACKING'
+  | 'ADMIN_CUSTOMERS'
+  | 'ADMIN_ANALYTICS'
+  | 'ADMIN_RESTOCK';
 
 export type CategoryType = 'Men' | 'Women' | 'Accessories';
+
+// Shared Types for Admin
+export interface ProductItem {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  stock: number;
+  status: 'In Stock' | 'Low Stock' | 'Out of Stock';
+  image: string; // Changed from img to image for consistency
+  category: string;
+  description?: string;
+}
+
+export interface RestockItem {
+  productId: string;
+  productName: string;
+  sku: string;
+  quantity: number;
+  unitCost: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  supplier: string;
+  date: string;
+  items: RestockItem[];
+  totalCost: number;
+  status: 'Pending' | 'Received';
+}

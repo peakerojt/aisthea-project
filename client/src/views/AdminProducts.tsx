@@ -1,36 +1,35 @@
+
 import React, { useState } from 'react';
-import { ViewState } from '../types';
-
-interface ProductItem {
-  id: string;
-  name: string;
-  sku: string;
-  price: number;
-  stock: number;
-  status: 'In Stock' | 'Low Stock' | 'Out of Stock';
-  img: string;
-  category: string;
-}
-
-const INITIAL_PRODUCTS: ProductItem[] = [
-  { id: '1', name: 'Obsidian Structure Coat', sku: '9921', price: 1850, stock: 24, status: 'In Stock', img: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?q=80&w=200&auto=format&fit=crop', category: 'Coats & Jackets' },
-  { id: '2', name: 'Velvet Noir Blazer', sku: '4022', price: 950, stock: 0, status: 'Out of Stock', img: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?q=80&w=200&auto=format&fit=crop', category: 'Coats & Jackets' },
-  { id: '3', name: 'Silk Asymmetric Dress', sku: '4099', price: 1450, stock: 8, status: 'Low Stock', img: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?q=80&w=200&auto=format&fit=crop', category: 'Dresses' },
-  { id: '4', name: 'Minimalist Gold Cuff', sku: '1004', price: 450, stock: 112, status: 'In Stock', img: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?q=80&w=200&auto=format&fit=crop', category: 'Accessories' },
-];
+import { ViewState, ProductItem } from '../types';
+import { useProducts } from '../contexts/ProductContext';
+import { Trash2, Edit2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ setView }) => {
-  const [products, setProducts] = useState<ProductItem[]>(INITIAL_PRODUCTS);
+  // Read Data and Actions from Context
+  const { products, updateProduct, deleteProduct } = useProducts();
+  
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+
+  // Inline Editing State
+  const [editingCell, setEditingCell] = useState<{id: string, field: 'price' | 'stock'} | null>(null);
+  const [editValue, setEditValue] = useState<string | number>('');
+  
+  // Toast State
+  const [toast, setToast] = useState<{message: string, visible: boolean} | null>(null);
 
   const filteredProducts = products.filter(product => {
     const statusMatch = statusFilter === 'All' || product.status === statusFilter;
     const categoryMatch = categoryFilter === 'All' || product.category === categoryFilter;
     return statusMatch && categoryMatch;
   });
+
+  const showToast = (message: string) => {
+    setToast({ message, visible: true });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -46,24 +45,91 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ s
     );
   };
 
+  // Delete Action with Confirmation
+  const handleDeleteRow = (id: string, name: string) => {
+      if(window.confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
+          deleteProduct(id);
+          showToast('Product deleted successfully');
+      }
+  };
+
   const deleteSelected = () => {
     if (window.confirm(`Are you sure you want to delete ${selectedIds.length} items?`)) {
-      setProducts(prev => prev.filter(p => !selectedIds.includes(p.id)));
+      selectedIds.forEach(id => deleteProduct(id));
       setSelectedIds([]);
+      showToast('Products deleted successfully');
     }
   };
 
   const markAsInStock = () => {
-    setProducts(prev => prev.map(p => 
-      selectedIds.includes(p.id) ? { ...p, status: 'In Stock', stock: p.stock === 0 ? 10 : p.stock } : p
-    ));
+    selectedIds.forEach(id => {
+       const product = products.find(p => p.id === id);
+       if(product) {
+           updateProduct(id, { 
+               status: 'In Stock', 
+               stock: product.stock === 0 ? 10 : product.stock 
+           });
+       }
+    });
     setSelectedIds([]);
+    showToast('Selected products marked as In Stock');
+  };
+
+  // Inline Editing Functions
+  const startEditing = (id: string, field: 'price' | 'stock', value: number) => {
+    setEditingCell({ id, field });
+    setEditValue(value);
+  };
+
+  // Quick Update Action (onBlur)
+  const saveEdit = () => {
+    if (!editingCell) return;
+
+    const { id, field } = editingCell;
+    const numValue = Number(editValue);
+
+    if (!isNaN(numValue) && numValue >= 0) {
+       const updates: Partial<ProductItem> = { [field]: numValue };
+       // Call Context Update
+       updateProduct(id, updates);
+       showToast(`${field === 'price' ? 'Price' : 'Stock'} updated`);
+    }
+    setEditingCell(null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') saveEdit();
+    if (e.key === 'Escape') setEditingCell(null);
+  };
+
+  const toggleStatus = (id: string) => {
+    const product = products.find(p => p.id === id);
+    if (!product) return;
+
+    const newStatus = product.status === 'Out of Stock' ? 'In Stock' : 'Out of Stock';
+    // If enabling stock from 0, give it a default value of 10
+    const newStock = newStatus === 'In Stock' && product.stock === 0 ? 10 : (newStatus === 'Out of Stock' ? 0 : product.stock);
+    
+    updateProduct(id, { status: newStatus, stock: newStock });
+    showToast('Product status updated');
   };
 
   const isAllSelected = filteredProducts.length > 0 && filteredProducts.every(p => selectedIds.includes(p.id));
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col">
+    <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col relative">
+       {/* Toast Notification */}
+       {toast && toast.visible && (
+         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-fade-in-up">
+            <div className="bg-surface-dark border border-white/10 shadow-2xl rounded-full px-6 py-3 flex items-center gap-3">
+               <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center border border-emerald-500/20">
+                  <CheckCircle2 size={12} strokeWidth={4} />
+               </span>
+               <span className="text-sm font-medium text-white">{toast.message}</span>
+            </div>
+         </div>
+       )}
+
        <header className="h-20 flex items-center justify-between mb-8">
          <div>
            <h2 className="text-2xl font-bold text-white">Product Inventory</h2>
@@ -100,7 +166,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ s
                         onClick={deleteSelected}
                         className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded text-xs uppercase tracking-wider font-bold transition-colors border border-red-500/20"
                      >
-                        <span className="material-symbols-outlined text-[18px]">delete</span> Delete Selected
+                        <Trash2 size={16} /> Delete Selected
                      </button>
                   </div>
                </div>
@@ -153,6 +219,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ s
                          <option value="Coats & Jackets">Coats & Jackets</option>
                          <option value="Dresses">Dresses</option>
                          <option value="Accessories">Accessories</option>
+                         <option value="Shoes">Shoes</option>
                      </select>
                  </div>
                  <div className="flex items-end">
@@ -189,6 +256,9 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ s
               <tbody className="text-sm divide-y divide-white/5">
                 {filteredProducts.map((p) => {
                   const isSelected = selectedIds.includes(p.id);
+                  const isEditingPrice = editingCell?.id === p.id && editingCell.field === 'price';
+                  const isEditingStock = editingCell?.id === p.id && editingCell.field === 'stock';
+
                   return (
                   <tr key={p.id} className={`group transition-colors ${isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-white/[0.02]'}`}>
                     <td className="px-6 py-4">
@@ -202,7 +272,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ s
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-16 bg-white/5 rounded overflow-hidden flex-shrink-0 border border-white/5">
-                          <img src={p.img} alt={p.name} className="w-full h-full object-cover" />
+                          <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
                         </div>
                         <div>
                           <p className={`font-medium transition-colors ${isSelected ? 'text-primary' : 'text-white group-hover:text-primary'}`}>{p.name}</p>
@@ -211,27 +281,87 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ s
                       </div>
                     </td>
                     <td className="px-6 py-4 text-white/70">{p.category}</td>
-                    <td className="px-6 py-4 text-white/90">${p.price.toFixed(2)}</td>
+                    
+                    {/* EDITABLE PRICE */}
                     <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-white/90">{p.stock} in stock</span>
-                        <span className="text-[10px] text-white/30">2 variants</span>
+                        {isEditingPrice ? (
+                            <div className="flex items-center gap-1 w-24">
+                                <span className="text-gray-500">$</span>
+                                <input 
+                                    autoFocus
+                                    type="number"
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    onBlur={saveEdit}
+                                    onKeyDown={handleKeyDown}
+                                    className="w-full bg-surface-dark border border-white/20 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none shadow-xl"
+                                />
+                            </div>
+                        ) : (
+                            <div 
+                                onClick={() => startEditing(p.id, 'price', p.price)}
+                                className="text-white/90 cursor-pointer hover:text-white hover:bg-white/5 px-2 py-1 -ml-2 rounded flex items-center gap-1 group/edit w-fit"
+                            >
+                                <span>${p.price.toFixed(2)}</span>
+                                <span className="opacity-0 group-hover/edit:opacity-50 ml-1"><Edit2 size={12} /></span>
+                            </div>
+                        )}
+                    </td>
+
+                    {/* EDITABLE STOCK */}
+                    <td className="px-6 py-4">
+                      {isEditingStock ? (
+                          <input 
+                              autoFocus
+                              type="number"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={saveEdit}
+                              onKeyDown={handleKeyDown}
+                              className="w-20 bg-surface-dark border border-white/20 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none shadow-xl"
+                          />
+                      ) : (
+                        <div 
+                            onClick={() => startEditing(p.id, 'stock', p.stock)}
+                            className="flex flex-col cursor-pointer hover:bg-white/5 px-2 py-1 -ml-2 rounded group/edit w-fit"
+                        >
+                            <span className="text-white/90 flex items-center gap-1">
+                                {p.stock} in stock
+                                <span className="opacity-0 group-hover/edit:opacity-50 ml-1"><Edit2 size={12} /></span>
+                            </span>
+                        </div>
+                      )}
+                    </td>
+                    
+                    {/* STATUS TOGGLE */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                          <button 
+                            onClick={() => toggleStatus(p.id)}
+                            className={`w-10 h-5 rounded-full p-1 transition-colors relative flex items-center ${p.status === 'Out of Stock' ? 'bg-gray-700' : 'bg-emerald-500/80'}`}
+                            title={p.status === 'Out of Stock' ? 'Click to Enable' : 'Click to Disable'}
+                          >
+                             <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${p.status === 'Out of Stock' ? 'translate-x-0' : 'translate-x-4'}`}></div>
+                          </button>
+                          
+                          <span className={`text-[10px] font-bold uppercase tracking-wide ${
+                            p.status === 'In Stock' ? 'text-emerald-400' : 
+                            p.status === 'Out of Stock' ? 'text-red-400' : 
+                            'text-yellow-400'
+                          }`}>
+                            {p.status}
+                          </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border ${
-                        p.status === 'In Stock' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
-                        p.status === 'Out of Stock' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
-                        'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                          p.status === 'In Stock' ? 'bg-emerald-400' : p.status === 'Out of Stock' ? 'bg-red-400' : 'bg-yellow-400'
-                        }`}></span>
-                        {p.status}
-                      </span>
-                    </td>
+
                     <td className="px-6 py-4 text-right">
-                       <button className="text-white/40 hover:text-white transition-colors p-2 rounded hover:bg-white/10"><span className="material-symbols-outlined text-[20px]">edit_square</span></button>
+                       <button 
+                         onClick={() => handleDeleteRow(p.id, p.name)}
+                         className="text-white/40 hover:text-red-500 transition-colors p-2 rounded hover:bg-white/10"
+                         title="Delete Product"
+                       >
+                         <Trash2 size={18} />
+                       </button>
                     </td>
                   </tr>
                   );
@@ -240,7 +370,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ s
             </table>
             {filteredProducts.length === 0 && (
                <div className="flex flex-col items-center justify-center py-20 text-white/30">
-                  <span className="material-symbols-outlined text-4xl mb-2">filter_alt_off</span>
+                  <AlertCircle size={40} className="mb-2" />
                   <p className="text-sm">No products match your filters</p>
                   <button onClick={() => { setStatusFilter('All'); setCategoryFilter('All'); }} className="mt-4 text-primary text-xs font-bold uppercase tracking-wider hover:underline">Clear Filters</button>
                </div>

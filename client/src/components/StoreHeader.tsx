@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Logo } from './Logo';
 import { ViewState, CategoryType } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface StoreHeaderProps {
   setView: (view: ViewState) => void;
@@ -10,6 +11,7 @@ interface StoreHeaderProps {
 
 export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, transparent = false }) => {
   const [isScrolled, setIsScrolled] = useState(false);
+  const { user, role } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -19,11 +21,23 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, 
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleNavClick = (cat: string) => {
-    if (setCategory && (cat === 'Men' || cat === 'Women' || cat === 'Accessories')) {
-        setCategory(cat as CategoryType);
+  const handleNavClick = (item: string) => {
+    if (item === 'Stylist') {
+      setView('STORE_STYLIST');
+    } else if (setCategory && (item === 'Men' || item === 'Women')) {
+      setCategory(item as CategoryType);
     } else {
-        setView('STORE_COLLECTION');
+      setView('STORE_COLLECTION');
+    }
+  };
+
+  const handleUserClick = () => {
+    if (!user) {
+      setView('AUTH_LOGIN');
+    } else if (role === 'admin') {
+      setView('ADMIN_DASHBOARD');
+    } else {
+      setView('STORE_PROFILE');
     }
   };
 
@@ -45,8 +59,8 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, 
            <Logo className="text-xl" />
         </button>
 
-        <nav className="hidden md:flex items-center gap-8 lg:gap-12">
-          {['New Arrivals', 'Women', 'Men', 'Accessories'].map((item) => (
+        <nav className="hidden md:flex items-center gap-12">
+          {['Men', 'Women', 'Stylist'].map((item) => (
              <button 
                 key={item} 
                 onClick={() => handleNavClick(item)}
@@ -55,9 +69,6 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, 
                {item}
              </button>
           ))}
-          <button onClick={() => setView('STORE_STYLIST')} className="text-white/80 hover:text-white text-xs font-bold uppercase tracking-widest">
-            Stylist
-          </button>
         </nav>
 
         <div className="flex items-center gap-4">
@@ -68,7 +79,7 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, 
             <span className="material-symbols-outlined">shopping_bag</span>
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full"></span>
           </button>
-          <button onClick={() => setView('ADMIN_DASHBOARD')} className="text-white/90 hover:text-white p-2" title="Go to Admin">
+          <button onClick={handleUserClick} className="text-white/90 hover:text-white p-2" title={user ? "Profile" : "Sign In"}>
             <span className="material-symbols-outlined">person</span>
           </button>
         </div>

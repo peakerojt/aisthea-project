@@ -20,16 +20,16 @@ const HERO_IMAGES = {
 };
 
 const INITIAL_PRODUCTS = [
-  { id: '1', name: 'The Moto Racer', price: 850, image: 'https://images.unsplash.com/photo-1551028919-38f42197624c?q=80&w=1000&auto=format&fit=crop', tag: 'Best Seller', type: 'Leather Jackets' },
+  { id: '1', name: 'The Moto Racer', price: 850, image: 'https://images.unsplash.com/photo-1520975954732-35dd22299614?q=80&w=1000&auto=format&fit=crop', tag: 'Best Seller', type: 'Leather Jackets' },
   { id: '2', name: 'Vintage Bomber', price: 920, image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?q=80&w=1000&auto=format&fit=crop', tag: 'New', type: 'Bombers' },
-  { id: '3', name: 'Suede Shearling', price: 1200, image: 'https://images.unsplash.com/photo-1520975661595-6453be3f7070?q=80&w=1000&auto=format&fit=crop', type: 'Leather Jackets' },
-  { id: '4', name: 'Cropped Biker', price: 780, image: 'https://images.unsplash.com/photo-1521223890158-5d669a0ee79c?q=80&w=1000&auto=format&fit=crop', type: 'Leather Jackets' },
+  { id: '3', name: 'Suede Shearling', price: 1200, image: 'https://images.unsplash.com/photo-1551028919-38f42197624c?q=80&w=1000&auto=format&fit=crop', type: 'Leather Jackets' },
+  { id: '4', name: 'Cropped Biker', price: 780, image: 'https://images.unsplash.com/photo-1559582798-678dfc71ccd8?q=80&w=1000&auto=format&fit=crop', type: 'Leather Jackets' },
   { id: '5', name: 'Midnight Rider', price: 890, image: 'https://images.unsplash.com/photo-1487222477894-8943e31ef7b2?q=80&w=1000&auto=format&fit=crop', tag: 'Sale', type: 'Denim' },
   { id: '6', name: 'Classic Aviator', price: 1050, image: 'https://images.unsplash.com/photo-1515347619252-60a6bf4fffce?q=80&w=1000&auto=format&fit=crop', type: 'Leather Jackets' },
   { id: '7', name: 'Redline Racer', price: 950, image: 'https://images.unsplash.com/photo-1550246140-5119ae4790b8?q=80&w=1000&auto=format&fit=crop', tag: 'Limited', type: 'Leather Jackets' },
-  { id: '8', name: 'Stealth Bomber', price: 880, image: 'https://images.unsplash.com/photo-1504198458649-3128b932f49e?q=80&w=1000&auto=format&fit=crop', type: 'Bombers' },
-  { id: '9', name: 'Architectural Blazer', price: 720, image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?q=80&w=1000&auto=format&fit=crop', type: 'Blazers' },
-  { id: '10', name: 'Alpine Puffer', price: 1400, image: 'https://images.unsplash.com/photo-1544923246-77307dd654cb?q=80&w=1000&auto=format&fit=crop', type: 'Puffer' },
+  { id: '8', name: 'Stealth Bomber', price: 880, image: 'https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?q=80&w=1000&auto=format&fit=crop', type: 'Bombers' },
+  { id: '9', name: 'Architectural Blazer', price: 720, image: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?q=80&w=1000&auto=format&fit=crop', type: 'Blazers' },
+  { id: '10', name: 'Alpine Puffer', price: 1400, image: 'https://images.unsplash.com/photo-1512353087810-25dfcd100962?q=80&w=1000&auto=format&fit=crop', type: 'Puffer' },
 ];
 
 export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, category = 'Men', setCategory, collection = 'Outerwear', onProductClick }) => {

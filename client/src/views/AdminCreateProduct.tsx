@@ -1,5 +1,8 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { ViewState } from '../types';
+import { useProducts } from '../contexts/ProductContext';
+import { CheckCircle2, Link as LinkIcon } from 'lucide-react';
 
 interface UploadedImage {
   id: string;
@@ -17,19 +20,27 @@ interface VariantItem {
   name: string;
   price: string;
   stock: string;
+  lowStockThreshold: string;
   sku: string;
   image: string | null;
 }
 
 export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> = ({ setView }) => {
+  const { addProduct } = useProducts();
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Product Base Info
+  const [productName, setProductName] = useState('');
+  const [description, setDescription] = useState('');
   const [basePrice, setBasePrice] = useState('');
   const [baseSku, setBaseSku] = useState('');
+  const [category, setCategory] = useState('Coats & Jackets');
+  const [stock, setStock] = useState('0'); // For Simple Product Mode
+  const [status, setStatus] = useState<'In Stock' | 'Out of Stock'>('In Stock');
+  const [manualImageUrl, setManualImageUrl] = useState('');
 
   // Variant Image Upload Refs
   const variantFileInputRef = useRef<HTMLInputElement>(null);
@@ -38,9 +49,13 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
   // Variant State
   const [hasVariants, setHasVariants] = useState(false);
   const [options, setOptions] = useState<VariantOption[]>([
-    { id: 1, name: 'Size', values: ['S', 'M', 'L'] }
+    { id: 1, name: 'Color', values: ['Black', 'White'] },
+    { id: 2, name: 'Size', values: ['S', 'M', 'L'] }
   ]);
   const [variants, setVariants] = useState<VariantItem[]>([]);
+  
+  // Toast
+  const [toast, setToast] = useState<{message: string, visible: boolean} | null>(null);
 
   // Variant Generation Effect
   useEffect(() => {
@@ -79,12 +94,13 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
                 name,
                 price: basePrice || '', // Inherit base price
                 stock: '0',
+                lowStockThreshold: '10', // Default threshold
                 sku: generatedSku,
                 image: null
             };
         });
     });
-  }, [options, hasVariants]); // We generally don't want to re-gen on basePrice/baseSku change to preserve manual edits, unless triggered manually
+  }, [options, hasVariants]); 
 
   // Image Handlers
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,7 +119,6 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Only deactivate if we're leaving the drop zone container entirely, not just entering a child element
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
     setIsDragActive(false);
   };
@@ -129,12 +144,21 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
     setImages(prev => [...prev, ...newImages]);
   };
 
+  const handleAddManualImage = () => {
+    if(!manualImageUrl) return;
+    
+    const newImage = {
+        id: Math.random().toString(36).substr(2, 9),
+        url: manualImageUrl
+    };
+    setImages(prev => [...prev, newImage]);
+    setManualImageUrl('');
+  };
+
   const handleReorderDragStart = (e: React.DragEvent, index: number) => {
     e.stopPropagation();
     setDraggedIndex(index);
-    // Required for Firefox
     e.dataTransfer.effectAllowed = 'move';
-    // Set a transparent drag image if needed, or rely on browser default
   };
 
   const handleReorderDragOver = (e: React.DragEvent, index: number) => {
@@ -157,8 +181,12 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
 
   const removeImage = (index: number) => {
     setImages(prev => {
+        // We generally shouldn't revoke URL if it's external (manual input), but browsers handle this safely usually
+        // Only revoke if blob
         const imgToRemove = prev[index];
-        if (imgToRemove) URL.revokeObjectURL(imgToRemove.url); // Clean up memory
+        if (imgToRemove.url.startsWith('blob:')) {
+            URL.revokeObjectURL(imgToRemove.url); 
+        }
         return prev.filter((_, i) => i !== index);
     });
   };
@@ -194,7 +222,6 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
      setOptions(options.map(o => o.id === id ? { ...o, values: o.values.filter(v => v !== val) } : o));
   };
 
-  // Helper to determine if a value is a color
   const isColorValue = (val: string) => {
       const s = new Option().style;
       s.color = val;
@@ -259,8 +286,69 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
     }
   };
 
+  const getStockStatus = (stock: number, threshold: number) => {
+      if (stock === 0) return { label: 'Out of Stock', color: 'text-red-500 bg-red-500/10 border-red-500/20 icon-red' };
+      if (stock <= threshold) return { label: 'Low Stock', color: 'text-amber-500 bg-amber-500/10 border-amber-500/20 icon-amber' };
+      return { label: 'In Stock', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20 icon-emerald' };
+  };
+
+  // SAVE PRODUCT LOGIC
+  const handleSaveProduct = () => {
+      if (!productName || !basePrice) {
+          alert('Product Name and Price are required.');
+          return;
+      }
+
+      // Calculate Total Stock
+      let finalStock = 0;
+      if (hasVariants) {
+          finalStock = variants.reduce((sum, v) => sum + Number(v.stock || 0), 0);
+      } else {
+          finalStock = Number(stock || 0);
+      }
+
+      // Determine Status
+      let finalStatus: 'In Stock' | 'Low Stock' | 'Out of Stock' = 'In Stock';
+      if (finalStock === 0) finalStatus = 'Out of Stock';
+      else if (finalStock < 10) finalStatus = 'Low Stock';
+      else finalStatus = 'In Stock';
+
+      // Construct Payload
+      const newProduct = {
+          name: productName,
+          sku: baseSku || `SKU-${Date.now()}`,
+          price: Number(basePrice),
+          stock: finalStock,
+          status: finalStatus,
+          image: images.length > 0 ? images[0].url : 'https://images.unsplash.com/photo-1551028919-38f42197624c?q=80&w=200', // Default if no image
+          category: category,
+          description: description
+      };
+
+      addProduct(newProduct);
+      
+      setToast({ message: 'Product Added Successfully', visible: true });
+      
+      setTimeout(() => {
+          setView('ADMIN_PRODUCTS');
+      }, 1500);
+  };
+
   return (
-    <div className="flex flex-col h-full bg-bg-dark">
+    <div className="flex flex-col h-full bg-bg-dark relative">
+       
+       {/* Toast Notification */}
+       {toast && toast.visible && (
+         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-fade-in-up">
+            <div className="bg-surface-dark border border-white/10 shadow-2xl rounded-full px-6 py-3 flex items-center gap-3">
+               <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center border border-emerald-500/20">
+                  <CheckCircle2 size={12} strokeWidth={4} />
+               </span>
+               <span className="text-sm font-medium text-white">{toast.message}</span>
+            </div>
+         </div>
+       )}
+
        <header className="h-16 min-h-[64px] border-b border-white/5 flex items-center justify-between px-8 bg-surface-dark/50 backdrop-blur-md sticky top-0 z-10">
          <div>
            <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
@@ -274,7 +362,10 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
          </div>
          <div className="flex items-center gap-4">
            <button onClick={() => setView('ADMIN_PRODUCTS')} className="text-sm font-medium text-gray-400 hover:text-white px-4 py-2">Discard</button>
-           <button className="flex items-center justify-center gap-2 bg-primary hover:bg-red-700 text-white text-sm font-bold tracking-wide px-6 py-2.5 rounded shadow-lg shadow-primary/20">
+           <button 
+             onClick={handleSaveProduct}
+             className="flex items-center justify-center gap-2 bg-primary hover:bg-red-700 text-white text-sm font-bold tracking-wide px-6 py-2.5 rounded shadow-lg shadow-primary/20"
+           >
              <span className="material-symbols-outlined text-lg">save</span> SAVE PRODUCT
            </button>
          </div>
@@ -286,12 +377,23 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
               <div className="bg-surface-dark rounded-lg p-8 border border-white/5">
                 <div className="flex flex-col gap-6">
                   <label className="flex flex-col gap-2">
-                    <span className="text-sm font-medium text-gray-400">Product Name</span>
-                    <input type="text" placeholder="e.g., NOIR SILK TRENCH" className="w-full bg-transparent border-0 border-b border-white/20 focus:border-primary focus:ring-0 text-3xl font-bold placeholder:text-white/20 px-0 py-2 text-white transition-colors" />
+                    <span className="text-sm font-medium text-gray-400">Product Name *</span>
+                    <input 
+                      type="text" 
+                      placeholder="e.g., NOIR SILK TRENCH" 
+                      value={productName}
+                      onChange={(e) => setProductName(e.target.value)}
+                      className="w-full bg-transparent border-0 border-b border-white/20 focus:border-primary focus:ring-0 text-3xl font-bold placeholder:text-white/20 px-0 py-2 text-white transition-colors" 
+                    />
                   </label>
                   <div className="flex flex-col gap-3 mt-4">
                     <span className="text-sm font-medium text-gray-400">Description</span>
-                    <textarea className="w-full bg-black/20 border border-white/10 rounded p-4 text-base text-white placeholder:text-gray-600 focus:border-primary focus:ring-1 focus:ring-primary min-h-[200px]" placeholder="Enter product details..."></textarea>
+                    <textarea 
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="w-full bg-black/20 border border-white/10 rounded p-4 text-base text-white placeholder:text-gray-600 focus:border-primary focus:ring-1 focus:ring-primary min-h-[200px]" 
+                        placeholder="Enter product details..."
+                    ></textarea>
                   </div>
                 </div>
               </div>
@@ -304,7 +406,9 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
                         {images.length > 0 && (
                              <button 
                                 onClick={() => {
-                                    images.forEach(img => URL.revokeObjectURL(img.url));
+                                    images.forEach(img => {
+                                        if (img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
+                                    });
                                     setImages([]);
                                 }}
                                 className="text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-red-500 transition-colors"
@@ -321,6 +425,27 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
                     </div>
                 </div>
                 
+                {/* Manual Image URL Input */}
+                <div className="flex gap-2 mb-4">
+                   <div className="relative flex-1">
+                      <LinkIcon size={16} className="absolute left-3 top-2.5 text-gray-500" />
+                      <input 
+                         type="text" 
+                         value={manualImageUrl}
+                         onChange={(e) => setManualImageUrl(e.target.value)}
+                         placeholder="Paste image URL (e.g. Unsplash)"
+                         className="w-full bg-black/20 border border-white/10 rounded px-3 pl-10 py-2 text-sm text-white focus:border-primary focus:ring-0"
+                      />
+                   </div>
+                   <button 
+                     onClick={handleAddManualImage}
+                     disabled={!manualImageUrl}
+                     className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+                   >
+                     Add URL
+                   </button>
+                </div>
+
                 <input 
                     type="file" 
                     multiple 
@@ -392,7 +517,10 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
               {/* Variants Section */}
               <div className="bg-surface-dark rounded-lg p-8 border border-white/5">
                 <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-white font-medium">Product Variants</h3>
+                    <div>
+                        <h3 className="text-white font-medium">Product Variants</h3>
+                        <p className="text-xs text-gray-500 mt-1">Manage stock levels and SKUs per variant.</p>
+                    </div>
                     <label className="flex items-center gap-2 cursor-pointer">
                         <input 
                             type="checkbox" 
@@ -400,9 +528,37 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
                             onChange={(e) => setHasVariants(e.target.checked)}
                             className="rounded border-white/20 bg-transparent text-primary focus:ring-0" 
                         />
-                        <span className="text-sm text-gray-400">This product has variants</span>
+                        <span className="text-sm text-gray-400">Enable Variants</span>
                     </label>
                 </div>
+                
+                {/* SIMPLE INVENTORY WHEN VARIANTS DISABLED */}
+                {!hasVariants && (
+                    <div className="animate-fade-in space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs text-gray-500 font-medium">Stock Quantity</label>
+                                <input 
+                                    type="number" 
+                                    value={stock}
+                                    onChange={(e) => setStock(e.target.value)}
+                                    className="w-full bg-black/20 border border-white/10 rounded text-white p-3 text-sm focus:border-primary focus:ring-0" 
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs text-gray-500 font-medium">Status</label>
+                                <select 
+                                    value={status}
+                                    onChange={(e) => setStatus(e.target.value as any)}
+                                    className="w-full bg-black/20 border border-white/10 rounded text-white p-3 text-sm focus:border-primary focus:ring-0"
+                                >
+                                    <option value="In Stock">In Stock</option>
+                                    <option value="Out of Stock">Out of Stock</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {hasVariants && (
                     <div className="space-y-8 animate-fade-in">
@@ -412,7 +568,7 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
                                 <div key={option.id} className="p-4 bg-black/20 rounded border border-white/5">
                                     <div className="flex flex-col md:flex-row gap-4 mb-2">
                                         <div className="w-full md:w-1/3">
-                                            <label className="text-xs text-gray-500 font-medium mb-1 block">Option Name</label>
+                                            <label className="text-xs text-gray-500 font-medium mb-1 block">Attribute Name</label>
                                             <input 
                                                 type="text" 
                                                 value={option.name}
@@ -434,7 +590,7 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
                                             </div>
                                         </div>
                                         <div className="flex-1">
-                                            <label className="text-xs text-gray-500 font-medium mb-1 block">Option Values</label>
+                                            <label className="text-xs text-gray-500 font-medium mb-1 block">Values (Enter to add)</label>
                                             <div className="flex-1 bg-surface-dark border border-white/10 rounded px-3 py-1.5 min-h-[38px] flex flex-wrap gap-2 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
                                                 {option.values.map(val => (
                                                     <span key={val} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/10 text-xs text-white border border-white/10">
@@ -447,7 +603,7 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
                                                 ))}
                                                 <input 
                                                     type="text"
-                                                    placeholder={option.values.length === 0 ? `e.g. ${option.name === 'Color' ? 'Red, #000000' : 'Small, Medium'}` : ""}
+                                                    placeholder={option.values.length === 0 ? `e.g. ${option.name === 'Color' ? 'Black, White' : 'S, M, L'}` : ""}
                                                     onKeyDown={(e) => handleValueKeyDown(e, option.id)}
                                                     className="bg-transparent border-none p-0 text-sm text-white focus:ring-0 w-full min-w-[120px]"
                                                 />
@@ -458,7 +614,7 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
                                 </div>
                             ))}
                             <button onClick={addOption} className="text-xs font-bold text-primary uppercase tracking-wide flex items-center gap-2 hover:text-white transition-colors mt-2">
-                                <span className="material-symbols-outlined text-lg">add_circle</span> Add Another Option
+                                <span className="material-symbols-outlined text-lg">add_circle</span> Add Attribute
                             </button>
                         </div>
 
@@ -499,47 +655,62 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
                                             disabled={!basePrice && !baseSku}
                                             className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${basePrice || baseSku ? 'text-primary hover:text-white' : 'text-gray-600 cursor-not-allowed'}`}
                                         >
-                                            Sync Variant Data
+                                            Sync Data
                                         </button>
                                     </div>
                                 </div>
 
                                 <div className="overflow-x-auto border border-white/10 rounded">
-                                    <table className="w-full text-left text-sm min-w-[600px]">
+                                    <table className="w-full text-left text-sm min-w-[800px]">
                                         <thead className="bg-white/5 text-xs uppercase font-bold text-gray-500">
                                             <tr>
-                                                <th className="px-4 py-3 border-b border-white/10 w-24">Image</th>
-                                                <th className="px-4 py-3 border-b border-white/10">Variant</th>
-                                                <th className="px-4 py-3 border-b border-white/10 w-40">Price / Adj.</th>
-                                                <th className="px-4 py-3 border-b border-white/10 w-32">Stock</th>
-                                                <th className="px-4 py-3 border-b border-white/10 w-40">SKU</th>
+                                                <th className="px-4 py-3 border-b border-white/10 w-20">Img</th>
+                                                <th className="px-4 py-3 border-b border-white/10 w-48">Variant / SKU</th>
+                                                <th className="px-4 py-3 border-b border-white/10 w-32">Price</th>
+                                                <th className="px-4 py-3 border-b border-white/10 w-48">Inventory Control</th>
+                                                <th className="px-4 py-3 border-b border-white/10 w-32 text-center">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-white/5">
-                                            {variants.map((variant, i) => (
+                                            {variants.map((variant, i) => {
+                                                const status = getStockStatus(Number(variant.stock), Number(variant.lowStockThreshold));
+                                                
+                                                return (
                                                 <tr key={variant.id} className="group hover:bg-white/5">
+                                                    {/* Image Column */}
                                                     <td className="px-4 py-3">
-                                                        <div className="w-10 h-10 bg-white/5 rounded border border-white/10 flex items-center justify-center overflow-hidden relative group/img">
+                                                        <div className="w-10 h-12 bg-white/5 rounded border border-white/10 flex items-center justify-center overflow-hidden relative group/img cursor-pointer" onClick={() => triggerVariantImageUpload(variant.id)}>
                                                             {variant.image ? (
                                                                 <>
                                                                     <img src={variant.image} alt="Variant" className="w-full h-full object-cover" />
-                                                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => updateVariant(variant.id, 'image', null)}>
+                                                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity" onClick={(e) => { e.stopPropagation(); updateVariant(variant.id, 'image', null); }}>
                                                                         <span className="material-symbols-outlined text-xs text-white">close</span>
                                                                     </div>
                                                                 </>
                                                             ) : (
-                                                                <button onClick={() => triggerVariantImageUpload(variant.id)} className="w-full h-full flex items-center justify-center hover:bg-white/10 text-gray-500 hover:text-white transition-colors">
-                                                                    <span className="material-symbols-outlined text-lg">add_photo_alternate</span>
-                                                                </button>
+                                                                <span className="material-symbols-outlined text-gray-500 group-hover:text-white transition-colors">add_photo_alternate</span>
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3 text-white font-medium">
-                                                        <span className="flex items-center gap-2">
-                                                            {i === 0 && <span className="w-2 h-2 rounded-full bg-primary" title="Default"></span>}
-                                                            {variant.name}
-                                                        </span>
+
+                                                    {/* Variant Info / SKU */}
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-white font-bold text-sm mb-1 flex items-center gap-2">
+                                                                {variant.name}
+                                                                {i === 0 && <span className="w-1.5 h-1.5 rounded-full bg-primary" title="Default Variant"></span>}
+                                                            </span>
+                                                            <input 
+                                                                type="text" 
+                                                                value={variant.sku}
+                                                                onChange={(e) => updateVariant(variant.id, 'sku', e.target.value)}
+                                                                placeholder="SKU"
+                                                                className="w-full bg-transparent border-0 border-b border-white/10 p-0 text-[11px] text-gray-400 font-mono focus:border-primary focus:ring-0 focus:text-white transition-colors" 
+                                                            />
+                                                        </div>
                                                     </td>
+
+                                                    {/* Price */}
                                                     <td className="px-4 py-3">
                                                         <div className="relative">
                                                             <span className="absolute left-2 top-1.5 text-gray-500 text-xs">$</span>
@@ -547,42 +718,46 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
                                                                 type="number" 
                                                                 value={variant.price}
                                                                 onChange={(e) => updateVariant(variant.id, 'price', e.target.value)}
-                                                                placeholder="0.00"
-                                                                className="w-full bg-black/20 border border-white/10 rounded pl-5 pr-2 py-1 text-xs text-white focus:border-primary focus:ring-0 transition-colors" 
+                                                                className="w-full bg-black/20 border border-white/10 rounded pl-5 pr-2 py-1.5 text-xs text-white focus:border-primary focus:ring-0 transition-colors" 
                                                             />
                                                         </div>
-                                                        {basePrice && variant.price && (
-                                                            <div className="text-[10px] mt-1 text-right font-medium">
-                                                                {(() => {
-                                                                    const diff = parseFloat(variant.price) - parseFloat(basePrice);
-                                                                    if (isNaN(diff) || Math.abs(diff) < 0.01) return null;
-                                                                    return <span className={diff > 0 ? 'text-red-400' : 'text-green-400'}>
-                                                                        {diff > 0 ? '+' : ''}{diff.toFixed(2)}
-                                                                    </span>
-                                                                })()}
+                                                    </td>
+
+                                                    {/* Inventory Control Matrix */}
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex gap-2">
+                                                            <div className="flex-1">
+                                                                <label className="text-[9px] text-gray-500 uppercase font-bold block mb-1">Stock</label>
+                                                                <input 
+                                                                    type="number" 
+                                                                    value={variant.stock}
+                                                                    onChange={(e) => updateVariant(variant.id, 'stock', e.target.value)}
+                                                                    className="w-full bg-black/20 border border-white/10 rounded px-2 py-1.5 text-xs text-white font-bold focus:border-primary focus:ring-0 text-center" 
+                                                                />
                                                             </div>
-                                                        )}
+                                                            <div className="flex-1">
+                                                                <label className="text-[9px] text-gray-500 uppercase font-bold block mb-1">Alert At</label>
+                                                                <input 
+                                                                    type="number" 
+                                                                    value={variant.lowStockThreshold}
+                                                                    onChange={(e) => updateVariant(variant.id, 'lowStockThreshold', e.target.value)}
+                                                                    className="w-full bg-black/20 border border-white/10 rounded px-2 py-1.5 text-xs text-gray-400 focus:border-white focus:text-white focus:ring-0 text-center" 
+                                                                />
+                                                            </div>
+                                                        </div>
                                                     </td>
-                                                    <td className="px-4 py-3">
-                                                        <input 
-                                                            type="number" 
-                                                            value={variant.stock}
-                                                            onChange={(e) => updateVariant(variant.id, 'stock', e.target.value)}
-                                                            placeholder="0"
-                                                            className="w-full bg-black/20 border border-white/10 rounded px-2 py-1 text-xs text-white focus:border-primary focus:ring-0 transition-colors" 
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <input 
-                                                            type="text" 
-                                                            value={variant.sku}
-                                                            onChange={(e) => updateVariant(variant.id, 'sku', e.target.value)}
-                                                            placeholder="SKU-..."
-                                                            className="w-full bg-black/20 border border-white/10 rounded px-2 py-1 text-xs text-white focus:border-primary focus:ring-0 transition-colors" 
-                                                        />
+
+                                                    {/* Status Badge */}
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${status.color}`}>
+                                                            {status.label === 'In Stock' && <span className="w-1.5 h-1.5 rounded-full bg-current"></span>}
+                                                            {status.label === 'Low Stock' && <span className="material-symbols-outlined text-[10px]">warning</span>}
+                                                            {status.label === 'Out of Stock' && <span className="material-symbols-outlined text-[10px]">error</span>}
+                                                            {status.label}
+                                                        </span>
                                                     </td>
                                                 </tr>
-                                            ))}
+                                            )})}
                                         </tbody>
                                     </table>
                                 </div>
@@ -611,10 +786,16 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
                <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Organization</h3>
                <div className="flex flex-col gap-2">
                  <label className="text-xs text-gray-500 font-medium">Category</label>
-                 <select className="w-full bg-black/20 border border-white/10 rounded text-white p-2.5 text-sm focus:border-primary focus:ring-0">
-                   <option>Coats & Jackets</option>
-                   <option>Dresses</option>
-                   <option>Accessories</option>
+                 <select 
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full bg-black/20 border border-white/10 rounded text-white p-2.5 text-sm focus:border-primary focus:ring-0"
+                 >
+                   <option value="Coats & Jackets">Coats & Jackets</option>
+                   <option value="Dresses">Dresses</option>
+                   <option value="Accessories">Accessories</option>
+                   <option value="Bottoms">Bottoms</option>
+                   <option value="Shoes">Shoes</option>
                  </select>
                </div>
                <div className="flex flex-col gap-2">
@@ -638,7 +819,7 @@ export const AdminCreateProduct: React.FC<{ setView: (v: ViewState) => void }> =
                <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Pricing</h3>
                <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
-                     <label className="text-xs text-gray-500 font-medium">Base Price</label>
+                     <label className="text-xs text-gray-500 font-medium">Base Price *</label>
                      <div className="relative">
                         <span className="absolute left-3 top-2.5 text-gray-500 text-sm">$</span>
                         <input 

@@ -1,17 +1,11 @@
 import React from 'react';
-import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
+import { ViewState } from '../types';
 
-const data = [
-  { name: 'Mon', value: 4000 },
-  { name: 'Tue', value: 3000 },
-  { name: 'Wed', value: 5000 },
-  { name: 'Thu', value: 2780 },
-  { name: 'Fri', value: 1890 },
-  { name: 'Sat', value: 6390 },
-  { name: 'Sun', value: 3490 },
-];
+interface AdminDashboardProps {
+  setView?: (view: ViewState) => void;
+}
 
-export const AdminDashboard: React.FC = () => {
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setView }) => {
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-fade-in">
       <header className="flex justify-between items-end pb-4 border-b border-white/5">
@@ -56,36 +50,76 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Chart */}
+        {/* Merchant To-Do List Widget (Replaces Size Chart) */}
         <div className="lg:col-span-8 bg-surface-dark p-8 rounded border border-white/5 shadow-lg flex flex-col">
-           <div className="flex justify-between items-center mb-6">
-             <h3 className="text-lg font-bold uppercase tracking-wide text-white">Size Performance</h3>
-             <div className="flex gap-2">
-               <button className="px-3 py-1.5 text-xs font-bold text-white bg-white/5 rounded">Weekly</button>
-               <button className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:text-white">Monthly</button>
-             </div>
+           <div className="flex justify-between items-center mb-8">
+             <h3 className="text-lg font-bold uppercase tracking-wide text-white flex items-center gap-2">
+               <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+               Attention Needed
+             </h3>
+             <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">3 Alerts</span>
            </div>
            
-           <div className="flex flex-col gap-4 flex-1 justify-center">
-             {['XS', 'S', 'M', 'L', 'XL'].map((size, i) => {
-               const width = [25, 45, 65, 55, 20][i];
-               return (
-                 <div key={size} className="group">
-                   <div className="flex justify-between text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">
-                     <span>{size}</span><span className="text-white">{width}%</span>
-                   </div>
-                   <div className="h-4 bg-[#222] w-full rounded overflow-hidden">
-                     <div className="h-full bg-gradient-to-r from-primary to-[#ff4d46] relative group-hover:brightness-125 transition-all duration-500 ease-out" style={{ width: `${width}%` }}></div>
-                   </div>
-                 </div>
-               );
-             })}
+           <div className="flex flex-col gap-4 flex-1">
+               {/* Pending Orders */}
+               <div 
+                  onClick={() => setView && setView('ADMIN_ORDERS')}
+                  className="group flex items-center gap-5 p-4 bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all rounded cursor-pointer"
+               >
+                  <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20 text-amber-500 group-hover:scale-110 transition-transform shadow-lg shadow-amber-500/10">
+                     <span className="material-symbols-outlined text-xl">package_2</span>
+                  </div>
+                  <div className="flex-1">
+                     <div className="flex justify-between items-start">
+                         <h4 className="text-sm font-bold text-white group-hover:text-amber-500 transition-colors uppercase tracking-wide">Pending Orders</h4>
+                         <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">High Priority</span>
+                     </div>
+                     <p className="text-sm text-gray-400 mt-1">📦 3 New Orders need to be packed.</p>
+                  </div>
+                  <span className="material-symbols-outlined text-gray-600 group-hover:text-white transition-colors">chevron_right</span>
+               </div>
+
+               {/* Low Stock */}
+               <div 
+                  onClick={() => setView && setView('ADMIN_PRODUCTS')}
+                  className="group flex items-center gap-5 p-4 bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all rounded cursor-pointer"
+               >
+                  <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20 text-red-500 group-hover:scale-110 transition-transform shadow-lg shadow-red-500/10">
+                     <span className="material-symbols-outlined text-xl">warning</span>
+                  </div>
+                  <div className="flex-1">
+                     <div className="flex justify-between items-start">
+                        <h4 className="text-sm font-bold text-white group-hover:text-red-500 transition-colors uppercase tracking-wide">Inventory Alert</h4>
+                        <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">Critical</span>
+                     </div>
+                     <p className="text-sm text-gray-400 mt-1">⚠️ Velvet Noir Blazer is down to 0 items.</p>
+                  </div>
+                  <span className="material-symbols-outlined text-gray-600 group-hover:text-white transition-colors">chevron_right</span>
+               </div>
+
+               {/* Returns */}
+               <div 
+                  onClick={() => setView && setView('ADMIN_ORDERS')}
+                  className="group flex items-center gap-5 p-4 bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all rounded cursor-pointer"
+               >
+                  <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20 text-blue-500 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/10">
+                     <span className="material-symbols-outlined text-xl">assignment_return</span>
+                  </div>
+                  <div className="flex-1">
+                     <div className="flex justify-between items-start">
+                        <h4 className="text-sm font-bold text-white group-hover:text-blue-500 transition-colors uppercase tracking-wide">Returns</h4>
+                        <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">Review</span>
+                     </div>
+                     <p className="text-sm text-gray-400 mt-1">1 Return Request pending approval.</p>
+                  </div>
+                  <span className="material-symbols-outlined text-gray-600 group-hover:text-white transition-colors">chevron_right</span>
+               </div>
            </div>
         </div>
 
         {/* Trending Product */}
         <div className="lg:col-span-4 bg-surface-dark rounded border border-white/5 overflow-hidden flex flex-col shadow-lg">
-           <div className="h-56 bg-cover bg-center relative group" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1548036328-c9fa89d128fa?q=80&w=1000&auto=format&fit=crop)' }}>
+           <div className="h-56 bg-cover bg-center relative group" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1000&auto=format&fit=crop)' }}>
              <div className="absolute inset-0 bg-gradient-to-t from-surface-dark via-transparent to-transparent opacity-90"></div>
              <div className="absolute top-4 right-4 bg-white/10 backdrop-blur-md px-3 py-1 rounded text-[10px] font-bold uppercase tracking-widest text-white border border-white/20">Top Trending</div>
              <div className="absolute bottom-6 left-6 right-6">
