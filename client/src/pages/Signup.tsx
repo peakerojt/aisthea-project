@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ViewState } from '../types';
-import { AuthLayout } from '../components/AuthLayout';
+import { AuthLayout } from '../layouts/AuthLayout';
 import { Eye, EyeOff } from 'lucide-react';
 
 interface SignupProps {

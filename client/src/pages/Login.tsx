@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ViewState } from '../types';
-import { AuthLayout } from '../components/AuthLayout';
+import { AuthLayout } from '../layouts/AuthLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, EyeOff, ArrowRight } from 'lucide-react';
 
