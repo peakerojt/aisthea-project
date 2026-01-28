@@ -2,18 +2,16 @@
    PROJECT: AISTHEA
    DATABASE: AISTHEA
    TYPE: SQL Server (T-SQL)
-   VERSION: FINAL (With Explicit Constraints & Indices)
    ============================================================= */
 
 USE master;
 GO
 
--- 1. DROP DATABASE IF EXISTS
 IF EXISTS (SELECT name FROM sys.databases WHERE name = 'AISTHEA')
-BEGIN
-    ALTER DATABASE AISTHEA SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE AISTHEA;
-END
+    BEGIN
+        ALTER DATABASE AISTHEA SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+        DROP DATABASE AISTHEA;
+    END
 GO
 
 CREATE DATABASE AISTHEA;
@@ -23,7 +21,7 @@ USE AISTHEA;
 GO
 
 /* =============================================================
-   2. TẠO BẢNG (TABLES) VỚI RÀNG BUỘC ĐƯỢC ĐẶT TÊN (NAMED CONSTRAINTS)
+   2. TẠO BẢNG (TABLES)
    ============================================================= */
 
 -- Bảng Roles
@@ -36,12 +34,14 @@ CREATE TABLE Roles (
 CREATE TABLE Users (
                        UserId INT IDENTITY(1,1) PRIMARY KEY,
                        Email NVARCHAR(100) NOT NULL UNIQUE,
-                       PasswordHash NVARCHAR(255) NOT NULL,
+                       PasswordHash NVARCHAR(255) NULL,
                        FullName NVARCHAR(100) NOT NULL,
                        Phone NVARCHAR(20),
-                       Status NVARCHAR(20) DEFAULT 'Active',
+                       AvatarUrl NVARCHAR(500) NULL,
+                       Status NVARCHAR(20) NOT NULL DEFAULT 'Active',
                        CreatedAt DATETIME2 DEFAULT GETDATE(),
-                       UpdatedAt DATETIME2 DEFAULT GETDATE()
+                       UpdatedAt DATETIME2 DEFAULT GETDATE(),
+                       CONSTRAINT CHK_User_Status CHECK (Status IN ('Active', 'Banned'))
 );
 
 -- Bảng UserRoles
@@ -51,6 +51,16 @@ CREATE TABLE UserRoles (
                            PRIMARY KEY (UserId, RoleId),
                            CONSTRAINT FK_UserRoles_Users FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE,
                            CONSTRAINT FK_UserRoles_Roles FOREIGN KEY (RoleId) REFERENCES Roles(RoleId) ON DELETE CASCADE
+);
+
+-- Bảng UserLogins
+CREATE TABLE UserLogins (
+                            LoginProvider NVARCHAR(50) NOT NULL,
+                            ProviderKey NVARCHAR(128) NOT NULL,
+                            ProviderDisplayName NVARCHAR(100) NULL,
+                            UserId INT NOT NULL,
+                            PRIMARY KEY (LoginProvider, ProviderKey),
+                            CONSTRAINT FK_UserLogins_Users FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
 );
 
 -- Bảng Addresses
@@ -113,7 +123,7 @@ CREATE TABLE ProductVariants (
                                  CONSTRAINT FK_ProductVariants_Products FOREIGN KEY (ProductId) REFERENCES Products(ProductId) ON DELETE CASCADE
 );
 
--- Bảng Attributes
+-- Bảng Attributes & Values
 CREATE TABLE Attributes (
                             AttributeId INT IDENTITY(1,1) PRIMARY KEY,
                             Name NVARCHAR(50) NOT NULL UNIQUE
@@ -143,10 +153,10 @@ CREATE TABLE ProductImages (
                                ImageUrl NVARCHAR(500) NOT NULL,
                                IsPrimary BIT DEFAULT 0,
                                CONSTRAINT FK_ProductImages_Products FOREIGN KEY (ProductId) REFERENCES Products(ProductId) ON DELETE CASCADE,
-                               CONSTRAINT FK_ProductImages_Variants FOREIGN KEY (VariantId) REFERENCES ProductVariants(VariantId) -- No Cascade để tránh multiple cascade paths
+                               CONSTRAINT FK_ProductImages_Variants FOREIGN KEY (VariantId) REFERENCES ProductVariants(VariantId)
 );
 
--- Bảng Carts
+-- Bảng Carts & CartItems
 CREATE TABLE Carts (
                        CartId INT IDENTITY(1,1) PRIMARY KEY,
                        UserId INT NULL,
@@ -168,7 +178,6 @@ CREATE TABLE Orders (
                         OrderId INT IDENTITY(1,1) PRIMARY KEY,
                         UserId INT NULL,
                         OrderNumber NVARCHAR(50) NOT NULL UNIQUE,
-
                         CustomerName NVARCHAR(100) NOT NULL,
                         CustomerPhone NVARCHAR(20) NOT NULL,
                         ShippingCity NVARCHAR(50) NOT NULL,
@@ -190,8 +199,7 @@ CREATE TABLE Orders (
 CREATE TABLE OrderItems (
                             OrderItemId INT IDENTITY(1,1) PRIMARY KEY,
                             OrderId INT NOT NULL,
-                            VariantId INT NULL, -- Cho phép NULL (Safety Net)
-
+                            VariantId INT NULL,
                             ProductName NVARCHAR(200) NOT NULL,
                             SKU NVARCHAR(50) NOT NULL,
                             VariantName NVARCHAR(200) NOT NULL,
@@ -214,6 +222,7 @@ CREATE TABLE Reviews (
                          CONSTRAINT FK_Reviews_Users FOREIGN KEY (UserId) REFERENCES Users(UserId)
 );
 
+-- Bảng Payments
 CREATE TABLE Payments (
                           PaymentId INT IDENTITY(1,1) PRIMARY KEY,
                           OrderId INT NOT NULL,
@@ -229,3 +238,4 @@ GO
 
 PRINT 'Database Created Successfully with Named Constraints!';
 GO
+
