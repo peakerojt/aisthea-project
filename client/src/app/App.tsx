@@ -1,25 +1,25 @@
 
 import React, { useState, useEffect } from 'react';
-import { ViewState, CategoryType, CartItem } from './types';
-import { useAuth } from './contexts/AuthContext';
-import { AdminSidebar } from './components/AdminSidebar';
-import { StoreHome } from './views/StoreHome';
-import { StoreCategory } from './views/StoreCategory';
-import { StoreCollection } from './views/StoreCollection';
-import { ProductDetail } from './views/ProductDetail';
-import { ShoppingBag } from './views/ShoppingBag';
-import { StoreStylist } from './views/StoreStylist';
-import { StoreProfile } from './views/StoreProfile';
-import { AdminDashboard } from './views/AdminDashboard';
-import { AdminProducts } from './views/AdminProducts';
-import { AdminCreateProduct } from './views/AdminCreateProduct';
-import { AdminOrders } from './views/AdminOrders';
-import { AdminTracking } from './views/AdminTracking';
-import { AdminCustomers } from './views/AdminCustomers';
-import { AdminAnalytics } from './views/AdminAnalytics';
-import { AdminRestock } from './views/AdminRestock';
-import { Login } from './views/Login';
-import { Signup } from './views/Signup';
+import { ViewState, CategoryType, CartItem } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import { AdminSidebar } from '../components/AdminSidebar';
+import { StoreHome } from '../pages/StoreHome';
+import { StoreCategory } from '../pages/StoreCategory';
+import { StoreCollection } from '../pages/StoreCollection';
+import { ProductDetail } from '../pages/ProductDetail';
+import { ShoppingBag } from '../pages/ShoppingBag';
+import { StoreStylist } from '../pages/StoreStylist';
+import { StoreProfile } from '../pages/StoreProfile';
+import { AdminDashboard } from '../pages/AdminDashboard';
+import { AdminProducts } from '../pages/AdminProducts';
+import { AdminCreateProduct } from '../pages/AdminCreateProduct';
+import { AdminOrders } from '../pages/AdminOrders';
+import { AdminTracking } from '../pages/AdminTracking';
+import { AdminCustomers } from '../pages/AdminCustomers';
+import { AdminAnalytics } from '../pages/AdminAnalytics';
+import { AdminRestock } from '../pages/AdminRestock';
+import { Login } from '../pages/Login';
+import { Signup } from '../pages/Signup';
 
 const App: React.FC = () => {
   const { role, user } = useAuth();
