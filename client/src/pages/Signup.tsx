@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ViewState } from '../types';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { Eye, EyeOff } from 'lucide-react';
+import { authService } from '../services/auth.service';
 
 interface SignupProps {
   setView: (view: ViewState) => void;
@@ -10,29 +11,52 @@ interface SignupProps {
 export const Signup: React.FC<SignupProps> = ({ setView }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-      name: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-      newsletter: true
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    newsletter: true
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate signup
-    setView('STORE_HOME');
+    setError(null);
+    setIsLoading(true);
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      await authService.register({
+        email: formData.email,
+        password: formData.password,
+        fullName: formData.name,
+      });
+      // Login or redirect to login
+      setView('AUTH_LOGIN');
+    } catch (err: any) {
+      setError(err.message || 'Registration failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const { name, value, type, checked } = e.target;
-      setFormData(prev => ({
-          ...prev,
-          [name]: type === 'checkbox' ? checked : value
-      }));
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
   };
 
   return (
-    <AuthLayout 
+    <AuthLayout
       backgroundImage="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2000"
       setView={setView}
     >
@@ -43,7 +67,7 @@ export const Signup: React.FC<SignupProps> = ({ setView }) => {
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-        
+
         {/* Full Name */}
         <div className="relative group">
           <input
@@ -90,8 +114,8 @@ export const Signup: React.FC<SignupProps> = ({ setView }) => {
           <label className="absolute text-sm text-gray-500 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-focus:text-primary peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase">
             Password
           </label>
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-0 top-3 text-gray-500 hover:text-white transition-colors"
           >
@@ -117,17 +141,17 @@ export const Signup: React.FC<SignupProps> = ({ setView }) => {
 
         {/* Newsletter Checkbox */}
         <label className="flex items-center gap-3 cursor-pointer group">
-            <div className="relative flex items-center">
-                <input 
-                    type="checkbox" 
-                    name="newsletter" 
-                    checked={formData.newsletter} 
-                    onChange={handleChange}
-                    className="peer appearance-none w-5 h-5 border border-gray-600 rounded-sm bg-transparent checked:bg-primary checked:border-primary transition-all"
-                />
-                <span className="material-symbols-outlined text-white text-sm absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 peer-checked:opacity-100 pointer-events-none">check</span>
-            </div>
-            <span className="text-sm text-gray-400 group-hover:text-white transition-colors">Subscribe to our newsletter for exclusive drops.</span>
+          <div className="relative flex items-center">
+            <input
+              type="checkbox"
+              name="newsletter"
+              checked={formData.newsletter}
+              onChange={handleChange}
+              className="peer appearance-none w-5 h-5 border border-gray-600 rounded-sm bg-transparent checked:bg-primary checked:border-primary transition-all"
+            />
+            <span className="material-symbols-outlined text-white text-sm absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 peer-checked:opacity-100 pointer-events-none">check</span>
+          </div>
+          <span className="text-sm text-gray-400 group-hover:text-white transition-colors">Subscribe to our newsletter for exclusive drops.</span>
         </label>
 
         <div className="flex flex-col gap-4 mt-6">

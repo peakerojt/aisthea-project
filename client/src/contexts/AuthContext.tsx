@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { authService } from '../services/auth.service';
 
 interface User {
   name: string;
@@ -24,19 +25,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const name = email.split('@')[0];
-    const newUser = { name: name.charAt(0).toUpperCase() + name.slice(1), email };
-    setUser(newUser);
-    
-    if (email === 'admin@aisthea.com') {
-      setRole('admin');
-    } else {
-      setRole('customer');
+    try {
+      const response = await authService.login({ email, password });
+      const { user, token } = response;
+
+      setUser({ name: user.name, email: user.email });
+      setRole(user.role === 'Admin' ? 'admin' : 'customer');
+
+      // Store token (optional, for persistence)
+      localStorage.setItem('token', token);
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const logout = () => {

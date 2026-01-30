@@ -1,8 +1,8 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import { PrismaClient } from '../src/generated/client/client';
-import { PrismaMssql } from '@prisma/adapter-mssql';
+import { prisma } from './utils/prisma';
 import dotenv from 'dotenv';
+import authRoutes from './routes/auth.routes';
 
 dotenv.config();
 
@@ -12,10 +12,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Prisma Adapter cho SQL Server (Prisma 7)
-const connectionString = process.env.DATABASE_URL as string;
-const adapter = new PrismaMssql(connectionString);
-const prisma = new PrismaClient({ adapter });
+app.use('/api/auth', authRoutes);
 
 // Route test
 app.get('/', (req: Request, res: Response) => {

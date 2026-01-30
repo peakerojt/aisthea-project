@@ -6,27 +6,33 @@
   "scripts": {
     "dev": "nodemon --exec ts-node --project tsconfig.json src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js"
-  }
-,
+    "start": "node dist/index.js",
+    "studio": "prisma studio"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@prisma/adapter-mssql": "^7.3.0",
-    "@prisma/client": "^7.3.0",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "mssql": "^11.0.1"
+    "jsonwebtoken": "^9.0.3",
+    "mssql": "^11.0.1",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@prisma/client": "^6.19.2",
+    "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.0.10",
+    "@types/node-fetch": "^2.6.13",
+    "dotenv": "^17.2.3",
+    "node-fetch": "^3.3.2",
     "nodemon": "^3.1.11",
-    "prisma": "^7.3.0",
+    "prisma": "^6.19.2",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

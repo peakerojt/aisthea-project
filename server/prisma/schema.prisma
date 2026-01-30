@@ -1,7 +1,43 @@
 generator client {
-  provider     = "prisma-client"
+  provider = "prisma-client"
+  output   = "../src/generated"
 }
 
 datasource db {
   provider = "sqlserver"
+  url      = env("DATABASE_URL") 
+}
+
+model User {
+  userId       Int      @id @default(autoincrement()) @map("UserId")
+  email        String   @unique @map("Email")
+  passwordHash String?  @map("PasswordHash")
+  fullName     String   @map("FullName")
+  status       String   @default("Active") @map("Status")
+  createdAt    DateTime @default(now()) @map("CreatedAt")
+  updatedAt    DateTime @default(now()) @updatedAt @map("UpdatedAt")
+
+  userRoles UserRole[]
+
+  @@map("Users")
+}
+
+model Role {
+  roleId   Int    @id @default(autoincrement()) @map("RoleId")
+  roleName String @unique @map("RoleName")
+
+  userRoles UserRole[]
+
+  @@map("Roles")
+}
+
+model UserRole {
+  userId Int @map("UserId")
+  roleId Int @map("RoleId")
+
+  user   User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  role   Role @relation(fields: [roleId], references: [roleId], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("UserRoles")
 }
