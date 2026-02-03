@@ -24,7 +24,18 @@ export const login = async (req: Request, res: Response) => {
     try {
         const { body } = await loginSchema.parseAsync({ body: req.body });
         const result = await loginUser(body);
-        res.status(200).json(result);
+
+        // Security: Set refresh token as httpOnly cookie
+        res.cookie('refreshToken', result.refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
+        // Return user and access token, exclude refresh token from body
+        const { refreshToken, ...response } = result;
+        res.status(200).json(response);
     } catch (error: any) {
         if (error instanceof ZodError) {
             res.status(400).json({ error: error.issues });

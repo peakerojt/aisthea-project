@@ -2,8 +2,10 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { authService } from '../services/auth.service';
 
 interface User {
+  id: string;
   name: string;
   email: string;
+  roles: string[];
 }
 
 export type UserRole = 'guest' | 'customer' | 'admin';
@@ -11,7 +13,7 @@ export type UserRole = 'guest' | 'customer' | 'admin';
 interface AuthContextType {
   user: User | null;
   role: UserRole;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User | null>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -23,17 +25,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [role, setRole] = useState<UserRole>('guest');
   const [isLoading, setIsLoading] = useState(false);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User | null> => {
     setIsLoading(true);
     try {
       const response = await authService.login({ email, password });
-      const { user, token } = response;
+      const { user: userData, accessToken } = response;
 
-      setUser({ name: user.name, email: user.email });
-      setRole(user.role === 'Admin' ? 'admin' : 'customer');
+      const mappedUser: User = {
+        id: userData.userId,
+        name: userData.fullName,
+        email: userData.email,
+        roles: userData.roles
+      };
 
-      // Store token (optional, for persistence)
-      localStorage.setItem('token', token);
+      setUser(mappedUser);
+      setRole(userData.roles.includes('Admin') ? 'admin' : 'customer');
+
+      // Store token (access token only)
+      if (accessToken) {
+        localStorage.setItem('token', accessToken);
+      }
+
+      return mappedUser;
     } catch (error) {
       console.error('Login error:', error);
       throw error;

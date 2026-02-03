@@ -28,3 +28,7 @@ npm-debug.log*
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Agent Skills
+.agent/
+docs/

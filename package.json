@@ -1,0 +1,14 @@
+{
+    "name": "aisthea-project",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+        "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+        "postinstall": "npm install --prefix server && npm install --prefix client",
+        "start": "npm run dev"
+    },
+    "devDependencies": {
+        "concurrently": "^9.2.1"
+    }
+}

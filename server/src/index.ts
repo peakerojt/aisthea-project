@@ -4,6 +4,8 @@ import { prisma } from './utils/prisma';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes';
 
+import os from 'os';
+
 dotenv.config();
 
 const app = express();
@@ -22,6 +24,21 @@ app.get('/', (req: Request, res: Response) => {
 // Start server
 const PORT = Number(process.env.PORT) || 5000;
 
-app.listen(PORT, () => {
+const getLocalIp = () => {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]!) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return 'localhost';
+};
+
+app.listen(PORT, '0.0.0.0', () => {
+    const localIp = getLocalIp();
     console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`   ➜  Local:   http://localhost:${PORT}/`);
+    console.log(`   ➜  Network: http://${localIp}:${PORT}/`);
 });
