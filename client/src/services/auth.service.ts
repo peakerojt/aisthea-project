@@ -1,7 +1,17 @@
 
-import { RegisterInput, LoginInput } from '../../../server/src/utils/schemas/auth.schema';
+export interface RegisterInput {
+    email: string;
+    password: string;
+    fullName: string;
+}
 
-const API_URL = 'http://localhost:5000/api/auth';
+export interface LoginInput {
+    email: string;
+    password: string;
+}
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/auth';
+
 
 export const authService = {
     async register(data: RegisterInput) {
