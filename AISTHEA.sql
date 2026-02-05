@@ -42,9 +42,14 @@ BEGIN
         Status NVARCHAR(20) NOT NULL DEFAULT 'Active',
         CreatedAt DATETIME2 DEFAULT GETDATE(),
         UpdatedAt DATETIME2 DEFAULT GETDATE(),
-        CONSTRAINT CHK_User_Status CHECK (Status IN ('Active', 'Banned')),
-        CONSTRAINT UQ_Users_GoogleId UNIQUE (GoogleId)
+        CONSTRAINT CHK_User_Status CHECK (Status IN ('Active', 'Banned'))
+        -- CONSTRAINT UQ_Users_GoogleId UNIQUE (GoogleId) -- Removed: SQL Server Unique Constraint allows only ONE NULL.
     );
+    -- Create Filtered Unique Index for GoogleId to allow multiple NULLs
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_Users_GoogleId' AND object_id = OBJECT_ID('Users'))
+    BEGIN
+        CREATE UNIQUE INDEX UQ_Users_GoogleId ON Users(GoogleId) WHERE GoogleId IS NOT NULL;
+    END
     PRINT '✓ Created table: Users';
 END
 
