@@ -36,13 +36,29 @@ export const StoreProfile: React.FC<StoreProfileProps> = ({ setView, setCategory
            </div>
            
            <div className="border-t border-white/10 pt-8 mb-8">
-               <h3 className="text-lg font-bold uppercase tracking-wide mb-4">Recent Orders</h3>
+               <div className="flex items-center justify-between gap-4 mb-4">
+                  <h3 className="text-lg font-bold uppercase tracking-wide">Orders</h3>
+                  <button
+                    onClick={() => setView('STORE_MY_ORDERS')}
+                    className="text-xs font-bold uppercase tracking-widest text-primary hover:text-white transition-colors"
+                  >
+                    View All
+                  </button>
+               </div>
                <div className="bg-black/20 rounded p-6 text-center border border-white/5">
                   <span className="material-symbols-outlined text-4xl text-white/20 mb-2">shopping_bag</span>
-                  <p className="text-gray-500 text-sm">No active orders found.</p>
-                  <button onClick={() => setView('STORE_COLLECTION')} className="mt-4 text-xs font-bold uppercase tracking-widest text-primary hover:text-white transition-colors">
-                     Start Shopping
-                  </button>
+                  <p className="text-gray-500 text-sm">Check your order history and details.</p>
+                  <div className="mt-4 flex items-center justify-center gap-3 flex-wrap">
+                    <button
+                      onClick={() => setView('STORE_MY_ORDERS')}
+                      className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors"
+                    >
+                      My Orders
+                    </button>
+                    <button onClick={() => setView('STORE_COLLECTION')} className="text-xs font-bold uppercase tracking-widest text-primary hover:text-white transition-colors">
+                      Start Shopping
+                    </button>
+                  </div>
                </div>
            </div>
 

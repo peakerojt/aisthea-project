@@ -9,6 +9,7 @@ import { ProductDetail } from '../pages/ProductDetail';
 import { ShoppingBag } from '../pages/ShoppingBag';
 import { StoreStylist } from '../pages/StoreStylist';
 import { StoreProfile } from '../pages/StoreProfile';
+import { StoreMyOrders } from '../pages/StoreMyOrders';
 import { AdminDashboard } from '../pages/AdminDashboard';
 import { AdminProducts } from '../pages/AdminProducts';
 import { AdminCreateProduct } from '../pages/AdminCreateProduct';
@@ -131,6 +132,7 @@ const App: React.FC = () => {
       {view === 'STORE_CART' && <ShoppingBag setView={setView} setCategory={handleCategoryClick} cart={cart} updateQuantity={updateQuantity} removeItem={removeItem} />}
       {view === 'STORE_STYLIST' && <StoreStylist setView={setView} setCategory={handleCategoryClick} onProductClick={handleProductClick} />}
       {view === 'STORE_PROFILE' && <StoreProfile setView={setView} setCategory={handleCategoryClick} />}
+      {view === 'STORE_MY_ORDERS' && <StoreMyOrders setView={setView} setCategory={handleCategoryClick} />}
       {view === 'AUTH_LOGIN' && <Login setView={setView} />}
       {view === 'AUTH_SIGNUP' && <Signup setView={setView} />}
       {view === 'AUTH_CALLBACK' && <OAuthCallback setView={setView} />}

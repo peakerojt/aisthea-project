@@ -10,8 +10,14 @@ export interface AuthRequest extends Request {
 }
 
 export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    // 1) Try to get token from HTTP-only cookie first (cookie-based auth)
+    let token = req.cookies?.accessToken;
+
+    // 2) Fallback to Authorization header (Bearer token)
+    if (!token) {
+        const authHeader = req.headers['authorization'];
+        token = authHeader && authHeader.split(' ')[1];
+    }
 
     if (token == null) return res.sendStatus(401);
 

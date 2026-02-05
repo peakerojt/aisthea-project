@@ -41,6 +41,7 @@ export type ViewState =
   | 'STORE_CART'
   | 'STORE_STYLIST'
   | 'STORE_PROFILE'
+  | 'STORE_MY_ORDERS'
   | 'AUTH_LOGIN'
   | 'AUTH_SIGNUP'
   | 'AUTH_CALLBACK'

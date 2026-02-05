@@ -68,6 +68,15 @@ export const login = async (req: Request, res: Response) => {
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
+        // Also set access token as HTTP-only cookie for cookie-based auth
+        res.cookie('accessToken', result.accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 15 * 60 * 1000, // 15 minutes
+            path: '/'
+        });
+
         // Return user and access token, exclude refresh token from body
         const { refreshToken, ...response } = result;
         res.status(200).json(response);
