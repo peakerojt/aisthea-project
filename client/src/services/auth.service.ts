@@ -1,4 +1,3 @@
-
 export interface RegisterInput {
     email: string;
     password: string;
@@ -10,41 +9,23 @@ export interface LoginInput {
     password: string;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/auth';
-
+import { api } from '../utils/api';
+import { AuthSession } from '../types';
 
 export const authService = {
     async register(data: RegisterInput) {
-        const response = await fetch(`${API_URL}/register`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data),
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Registration failed');
-        }
-
-        return response.json();
+        return api.post('/api/auth/register', data);
     },
 
     async login(data: LoginInput) {
-        const response = await fetch(`${API_URL}/login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data),
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Login failed');
-        }
-
-        return response.json();
+        return api.post('/api/auth/login', data);
     },
+
+    async getSession(): Promise<AuthSession> {
+        return api.get<AuthSession>('/api/auth/session');
+    },
+
+    async logout() {
+        return api.post('/api/auth/logout');
+    }
 };

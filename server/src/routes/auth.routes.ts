@@ -1,12 +1,35 @@
 
 import { Router } from 'express';
-import { register, login } from '../controllers/auth.controller';
+import { register, login, googleCallback, getSession, logout } from '../controllers/auth.controller';
 import { authenticateToken } from '../middlewares/auth.middleware';
+import passport from 'passport';
 
 const router = Router();
 
 router.post('/register', register);
 router.post('/login', login);
+
+// Session management
+router.get('/session', getSession);
+router.post('/logout', logout);
+
+// Google OAuth routes
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+// Debug endpoint to check OAuth config
+router.get('/google/debug', (req, res) => {
+    res.json({
+        clientId: process.env.GOOGLE_CLIENT_ID ? `${process.env.GOOGLE_CLIENT_ID.substring(0, 20)}...` : 'NOT SET',
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'SET (hidden)' : 'NOT SET',
+        callbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
+        isConfigured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+    });
+});
+
+router.get('/google/callback',
+    passport.authenticate('google', { failureRedirect: '/auth/callback?error=auth_failed', session: false }),
+    googleCallback
+);
 
 // Example protected route
 router.get('/me', authenticateToken, (req: any, res) => {

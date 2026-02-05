@@ -19,6 +19,7 @@ import { AdminAnalytics } from '../pages/AdminAnalytics';
 import { AdminRestock } from '../pages/AdminRestock';
 import { Login } from '../pages/Login';
 import { Signup } from '../pages/Signup';
+import { OAuthCallback } from '../pages/OAuthCallback';
 
 const App: React.FC = () => {
   const { role } = useAuth();
@@ -33,12 +34,16 @@ const App: React.FC = () => {
   // Gọi API lấy sản phẩm từ SQL Server khi App khởi chạy
   useEffect(() => {
     fetch('http://localhost:5000/api/products')
-        .then((res) => res.json())
-        .then((data) => {
-          console.log("Dữ liệu từ SQL Server:", data);
-          setDbProducts(data);
-        })
-        .catch((err) => console.error("Lỗi kết nối Backend:", err));
+      .then((res) => res.json())
+      .then((data) => {
+
+        setDbProducts(data);
+      })
+      .catch((err) => {
+        console.error("Lỗi kết nối Backend:", err);
+        // Fallback to empty array on error so UI doesn't break
+        setDbProducts([]);
+      });
   }, []);
 
   // Protected Route Logic
@@ -101,35 +106,36 @@ const App: React.FC = () => {
 
   if (isAdminView) {
     return (
-        <div className="flex h-screen w-full bg-bg-dark text-white font-sans overflow-hidden">
-          <AdminSidebar currentView={view} setView={setView} />
-          <main className="flex-1 h-full overflow-y-auto bg-bg-dark relative">
-            {view === 'ADMIN_DASHBOARD' && <AdminDashboard setView={setView} />}
-            {view === 'ADMIN_PRODUCTS' && <AdminProducts setView={setView} />}
-            {view === 'ADMIN_CREATE_PRODUCT' && <AdminCreateProduct setView={setView} />}
-            {view === 'ADMIN_RESTOCK' && <AdminRestock />}
-            {view === 'ADMIN_ORDERS' && <AdminOrders />}
-            {view === 'ADMIN_CUSTOMERS' && <AdminCustomers />}
-            {view === 'ADMIN_ANALYTICS' && <AdminAnalytics />}
-          </main>
-        </div>
+      <div className="flex h-screen w-full bg-bg-dark text-white font-sans overflow-hidden">
+        <AdminSidebar currentView={view} setView={setView} />
+        <main className="flex-1 h-full overflow-y-auto bg-bg-dark relative">
+          {view === 'ADMIN_DASHBOARD' && <AdminDashboard setView={setView} />}
+          {view === 'ADMIN_PRODUCTS' && <AdminProducts setView={setView} />}
+          {view === 'ADMIN_CREATE_PRODUCT' && <AdminCreateProduct setView={setView} />}
+          {view === 'ADMIN_RESTOCK' && <AdminRestock />}
+          {view === 'ADMIN_ORDERS' && <AdminOrders />}
+          {view === 'ADMIN_CUSTOMERS' && <AdminCustomers />}
+          {view === 'ADMIN_ANALYTICS' && <AdminAnalytics />}
+        </main>
+      </div>
     );
   }
 
   return (
-      <div className="text-white font-sans antialiased">
-        {/* Bạn có thể truyền dbProducts vào các component con ở đây nếu muốn hiển thị dữ liệu thật */}
-        {view === 'STORE_HOME' && <StoreHome setView={setView} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} />}
-        {view === 'STORE_CATEGORY' && <StoreCategory setView={setView} category={activeCategory} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} />}
-        {view === 'STORE_COLLECTION' && <StoreCollection setView={setView} category={activeCategory} setCategory={handleCategoryClick} collection={activeCollection} onProductClick={handleProductClick} />}
-        {view === 'STORE_DETAIL' && <ProductDetail setView={setView} setCategory={handleCategoryClick} addToCart={addToCart} cartCount={cart.reduce((acc, item) => acc + item.quantity, 0)} product={selectedProduct} />}
-        {view === 'STORE_CART' && <ShoppingBag setView={setView} setCategory={handleCategoryClick} cart={cart} updateQuantity={updateQuantity} removeItem={removeItem} />}
-        {view === 'STORE_STYLIST' && <StoreStylist setView={setView} setCategory={handleCategoryClick} onProductClick={handleProductClick} />}
-        {view === 'STORE_PROFILE' && <StoreProfile setView={setView} setCategory={handleCategoryClick} />}
-        {view === 'AUTH_LOGIN' && <Login setView={setView} />}
-        {view === 'AUTH_SIGNUP' && <Signup setView={setView} />}
-        {view === 'ADMIN_TRACKING' && <AdminTracking setView={setView} setCategory={handleCategoryClick} />}
-      </div>
+    <div className="text-white font-sans antialiased">
+      {/* Bạn có thể truyền dbProducts vào các component con ở đây nếu muốn hiển thị dữ liệu thật */}
+      {view === 'STORE_HOME' && <StoreHome setView={setView} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} />}
+      {view === 'STORE_CATEGORY' && <StoreCategory setView={setView} category={activeCategory} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} />}
+      {view === 'STORE_COLLECTION' && <StoreCollection setView={setView} category={activeCategory} setCategory={handleCategoryClick} collection={activeCollection} onProductClick={handleProductClick} />}
+      {view === 'STORE_DETAIL' && <ProductDetail setView={setView} setCategory={handleCategoryClick} addToCart={addToCart} cartCount={cart.reduce((acc, item) => acc + item.quantity, 0)} product={selectedProduct} />}
+      {view === 'STORE_CART' && <ShoppingBag setView={setView} setCategory={handleCategoryClick} cart={cart} updateQuantity={updateQuantity} removeItem={removeItem} />}
+      {view === 'STORE_STYLIST' && <StoreStylist setView={setView} setCategory={handleCategoryClick} onProductClick={handleProductClick} />}
+      {view === 'STORE_PROFILE' && <StoreProfile setView={setView} setCategory={handleCategoryClick} />}
+      {view === 'AUTH_LOGIN' && <Login setView={setView} />}
+      {view === 'AUTH_SIGNUP' && <Signup setView={setView} />}
+      {view === 'AUTH_CALLBACK' && <OAuthCallback setView={setView} />}
+      {view === 'ADMIN_TRACKING' && <AdminTracking setView={setView} setCategory={handleCategoryClick} />}
+    </div>
   );
 };
 

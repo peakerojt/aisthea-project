@@ -1,67 +1,162 @@
 /* =============================================================
                  (PERFORMANCE OPTIMIZATION)
    ============================================================= */
+
+USE AISTHEA;
+GO
+
+PRINT 'Starting index creation...';
 GO
 
 -- --- TỐI ƯU BẢNG USERS (Quan trọng cho tính năng Login/Ban) ---
 -- Tăng tốc Login: Tìm Email và kiểm tra ngay Status có Active không
-CREATE NONCLUSTERED INDEX IX_Users_Email_Status ON Users(Email, Status);
--- Tăng tốc Admin Dashboard: Lọc danh sách người dùng bị Ban
-CREATE NONCLUSTERED INDEX IX_Users_Status ON Users(Status);
--- Tìm kiếm người dùng
-CREATE NONCLUSTERED INDEX IX_Users_Phone ON Users(Phone);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Users_Email_Status' AND object_id = OBJECT_ID('Users'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Users_Email_Status ON Users(Email, Status);
+    PRINT '✓ Created index: IX_Users_Email_Status';
+END
 
+-- Tăng tốc Admin Dashboard: Lọc danh sách người dùng bị Ban
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Users_Status' AND object_id = OBJECT_ID('Users'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Users_Status ON Users(Status);
+    PRINT '✓ Created index: IX_Users_Status';
+END
+
+-- Tìm kiếm người dùng
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Users_Phone' AND object_id = OBJECT_ID('Users'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Users_Phone ON Users(Phone);
+    PRINT '✓ Created index: IX_Users_Phone';
+END
 
 -- --- TỐI ƯU BẢNG PRODUCTS ---
--- Tăng tốc lọc sản phẩm theo Danh mục và Thương hiệu
-CREATE NONCLUSTERED INDEX IX_Products_CategoryId ON Products(CategoryId);
-CREATE NONCLUSTERED INDEX IX_Products_BrandId ON Products(BrandId);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Products_CategoryId' AND object_id = OBJECT_ID('Products'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Products_CategoryId ON Products(CategoryId);
+    PRINT '✓ Created index: IX_Products_CategoryId';
+END
 
--- Tăng tốc tìm kiếm theo Tên sản phẩm và sắp xếp theo Giá
-CREATE NONCLUSTERED INDEX IX_Products_Name ON Products(Name);
-CREATE NONCLUSTERED INDEX IX_Products_BasePrice ON Products(BasePrice);
-CREATE NONCLUSTERED INDEX IX_Products_Status ON Products(Status);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Products_BrandId' AND object_id = OBJECT_ID('Products'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Products_BrandId ON Products(BrandId);
+    PRINT '✓ Created index: IX_Products_BrandId';
+END
 
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Products_Name' AND object_id = OBJECT_ID('Products'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Products_Name ON Products(Name);
+    PRINT '✓ Created index: IX_Products_Name';
+END
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Products_BasePrice' AND object_id = OBJECT_ID('Products'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Products_BasePrice ON Products(BasePrice);
+    PRINT '✓ Created index: IX_Products_BasePrice';
+END
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Products_Status' AND object_id = OBJECT_ID('Products'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Products_Status ON Products(Status);
+    PRINT '✓ Created index: IX_Products_Status';
+END
 
 -- --- TỐI ƯU BẢNG PRODUCT VARIANTS ---
--- Tăng tốc khi JOIN từ Product sang Variant
-CREATE NONCLUSTERED INDEX IX_ProductVariants_ProductId ON ProductVariants(ProductId);
--- Tăng tốc khi query tồn kho (Stock)
-CREATE NONCLUSTERED INDEX IX_ProductVariants_StockQuantity ON ProductVariants(StockQuantity);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_ProductVariants_ProductId' AND object_id = OBJECT_ID('ProductVariants'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_ProductVariants_ProductId ON ProductVariants(ProductId);
+    PRINT '✓ Created index: IX_ProductVariants_ProductId';
+END
 
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_ProductVariants_StockQuantity' AND object_id = OBJECT_ID('ProductVariants'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_ProductVariants_StockQuantity ON ProductVariants(StockQuantity);
+    PRINT '✓ Created index: IX_ProductVariants_StockQuantity';
+END
 
 -- --- TỐI ƯU BẢNG ORDERS ---
--- Tăng tốc hiển thị "Đơn hàng của tôi"
-CREATE NONCLUSTERED INDEX IX_Orders_UserId ON Orders(UserId);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Orders_UserId' AND object_id = OBJECT_ID('Orders'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Orders_UserId ON Orders(UserId);
+    PRINT '✓ Created index: IX_Orders_UserId';
+END
 
--- Tăng tốc Dashboard thống kê
-CREATE NONCLUSTERED INDEX IX_Orders_CreatedAt ON Orders(CreatedAt);
-CREATE NONCLUSTERED INDEX IX_Orders_Status ON Orders(Status);
-CREATE NONCLUSTERED INDEX IX_Orders_OrderNumber ON Orders(OrderNumber);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Orders_CreatedAt' AND object_id = OBJECT_ID('Orders'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Orders_CreatedAt ON Orders(CreatedAt);
+    PRINT '✓ Created index: IX_Orders_CreatedAt';
+END
 
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Orders_Status' AND object_id = OBJECT_ID('Orders'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Orders_Status ON Orders(Status);
+    PRINT '✓ Created index: IX_Orders_Status';
+END
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Orders_OrderNumber' AND object_id = OBJECT_ID('Orders'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Orders_OrderNumber ON Orders(OrderNumber);
+    PRINT '✓ Created index: IX_Orders_OrderNumber';
+END
 
 -- --- TỐI ƯU BẢNG ORDER ITEMS ---
--- Tăng tốc khi xem "Chi tiết đơn hàng"
-CREATE NONCLUSTERED INDEX IX_OrderItems_OrderId ON OrderItems(OrderId);
-CREATE NONCLUSTERED INDEX IX_OrderItems_VariantId ON OrderItems(VariantId);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OrderItems_OrderId' AND object_id = OBJECT_ID('OrderItems'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_OrderItems_OrderId ON OrderItems(OrderId);
+    PRINT '✓ Created index: IX_OrderItems_OrderId';
+END
 
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OrderItems_VariantId' AND object_id = OBJECT_ID('OrderItems'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_OrderItems_VariantId ON OrderItems(VariantId);
+    PRINT '✓ Created index: IX_OrderItems_VariantId';
+END
 
 -- --- TỐI ƯU CÁC BẢNG LIÊN KẾT KHÁC ---
--- Tăng tốc load Giỏ hàng
-CREATE NONCLUSTERED INDEX IX_CartItems_CartId ON CartItems(CartId);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_CartItems_CartId' AND object_id = OBJECT_ID('CartItems'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_CartItems_CartId ON CartItems(CartId);
+    PRINT '✓ Created index: IX_CartItems_CartId';
+END
 
--- Tăng tốc hiển thị Review
-CREATE NONCLUSTERED INDEX IX_Reviews_ProductId ON Reviews(ProductId);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Reviews_ProductId' AND object_id = OBJECT_ID('Reviews'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_Reviews_ProductId ON Reviews(ProductId);
+    PRINT '✓ Created index: IX_Reviews_ProductId';
+END
 
--- Tăng tốc lọc biến thể theo thuộc tính
-CREATE NONCLUSTERED INDEX IX_VariantAttributes_ValueId ON VariantAttributes(ValueId);
-CREATE NONCLUSTERED INDEX IX_VariantAttributes_VariantId ON VariantAttributes(VariantId);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_VariantAttributes_ValueId' AND object_id = OBJECT_ID('VariantAttributes'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_VariantAttributes_ValueId ON VariantAttributes(ValueId);
+    PRINT '✓ Created index: IX_VariantAttributes_ValueId';
+END
 
-CREATE NONCLUSTERED INDEX IX_UserLogins_UserId ON UserLogins(UserId);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_VariantAttributes_VariantId' AND object_id = OBJECT_ID('VariantAttributes'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_VariantAttributes_VariantId ON VariantAttributes(VariantId);
+    PRINT '✓ Created index: IX_VariantAttributes_VariantId';
+END
 
-CREATE UNIQUE NONCLUSTERED INDEX UX_ProductImages_Primary
-    ON ProductImages(ProductId)
-    WHERE IsPrimary = 1;
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_UserLogins_UserId' AND object_id = OBJECT_ID('UserLogins'))
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_UserLogins_UserId ON UserLogins(UserId);
+    PRINT '✓ Created index: IX_UserLogins_UserId';
+END
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UX_ProductImages_Primary' AND object_id = OBJECT_ID('ProductImages'))
+BEGIN
+    CREATE UNIQUE NONCLUSTERED INDEX UX_ProductImages_Primary
+        ON ProductImages(ProductId)
+        WHERE IsPrimary = 1;
+    PRINT '✓ Created index: UX_ProductImages_Primary';
+END
 
 GO
-PRINT 'Indices Created Successfully! Database Optimized with User Status Support.';
+
+PRINT '';
+PRINT '========================================';
+PRINT '✓ Index optimization complete!';
+PRINT '  All indexes verified/created';
+PRINT '  Database ready for production';
+PRINT '========================================';
+GO

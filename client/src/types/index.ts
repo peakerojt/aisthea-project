@@ -33,20 +33,21 @@ export interface CartItem {
   ref: string;
 }
 
-export type ViewState = 
-  | 'STORE_HOME' 
+export type ViewState =
+  | 'STORE_HOME'
   | 'STORE_CATEGORY'
-  | 'STORE_COLLECTION' 
-  | 'STORE_DETAIL' 
-  | 'STORE_CART' 
+  | 'STORE_COLLECTION'
+  | 'STORE_DETAIL'
+  | 'STORE_CART'
   | 'STORE_STYLIST'
   | 'STORE_PROFILE'
   | 'AUTH_LOGIN'
   | 'AUTH_SIGNUP'
-  | 'ADMIN_DASHBOARD' 
-  | 'ADMIN_PRODUCTS' 
+  | 'AUTH_CALLBACK'
+  | 'ADMIN_DASHBOARD'
+  | 'ADMIN_PRODUCTS'
   | 'ADMIN_CREATE_PRODUCT'
-  | 'ADMIN_ORDERS' 
+  | 'ADMIN_ORDERS'
   | 'ADMIN_TRACKING'
   | 'ADMIN_CUSTOMERS'
   | 'ADMIN_ANALYTICS'
@@ -83,3 +84,22 @@ export interface PurchaseOrder {
   totalCost: number;
   status: 'Pending' | 'Received';
 }
+
+// Authentication Types
+export interface AuthSession {
+  isAuthenticated: boolean;
+  user?: {
+    userId: number;
+    email: string;
+    fullName: string;
+    avatarUrl?: string | null;
+    roles: string[];
+  };
+}
+
+export interface AuthError {
+  error: string;
+  code?: string;
+  message?: string;
+}
+

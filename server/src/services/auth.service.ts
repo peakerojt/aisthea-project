@@ -118,3 +118,105 @@ export const loginUser = async (input: LoginInput) => {
         refreshToken,
     };
 };
+
+// ============================================
+// GOOGLE OAUTH SERVICES
+// ============================================
+
+/**
+ * Upsert UserLogin record for OAuth provider
+ * Creates new record or updates existing one with fresh tokens
+ */
+export const upsertUserLogin = async (
+    userId: number,
+    provider: string,
+    providerKey: string,
+    tokens: {
+        accessToken: string;
+        refreshToken?: string;
+        expiresIn?: number;
+    },
+    providerDisplayName?: string
+) => {
+    // Calculate token expiry (default 1 hour if not provided)
+    const expiresInSeconds = tokens.expiresIn || 3600;
+    const tokenExpiry = new Date(Date.now() + expiresInSeconds * 1000);
+
+    const userLogin = await prisma.userLogin.upsert({
+        where: {
+            loginProvider_providerKey: {
+                loginProvider: provider,
+                providerKey: providerKey,
+            },
+        },
+        update: {
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken || null,
+            tokenExpiry,
+            providerDisplayName,
+            updatedAt: new Date(),
+        },
+        create: {
+            loginProvider: provider,
+            providerKey: providerKey,
+            userId,
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken || null,
+            tokenExpiry,
+            providerDisplayName,
+        },
+    });
+
+    return userLogin;
+};
+
+/**
+ * Get OAuth tokens for a user and provider
+ */
+export const getOAuthTokens = async (userId: number, provider: string) => {
+    const userLogin = await prisma.userLogin.findFirst({
+        where: {
+            userId,
+            loginProvider: provider,
+        },
+    });
+
+    if (!userLogin) {
+        return null;
+    }
+
+    return {
+        accessToken: userLogin.accessToken,
+        refreshToken: userLogin.refreshToken,
+        tokenExpiry: userLogin.tokenExpiry,
+    };
+};
+
+/**
+ * Check if OAuth token is still valid
+ */
+export const isOAuthTokenValid = async (userId: number, provider: string): Promise<boolean> => {
+    const tokens = await getOAuthTokens(userId, provider);
+
+    if (!tokens || !tokens.tokenExpiry) {
+        return false;
+    }
+
+    // Check if token expires in more than 5 minutes
+    const bufferTime = 5 * 60 * 1000; // 5 minutes
+    return tokens.tokenExpiry.getTime() > Date.now() + bufferTime;
+};
+
+/**
+ * Delete UserLogin record (unlink OAuth provider)
+ */
+export const unlinkOAuthProvider = async (userId: number, provider: string) => {
+    const deleted = await prisma.userLogin.deleteMany({
+        where: {
+            userId,
+            loginProvider: provider,
+        },
+    });
+
+    return deleted.count > 0;
+};
