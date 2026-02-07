@@ -32,3 +32,6 @@ Thumbs.db
 # Agent Skills
 .agent/
 docs/
+
+# Postman Collection (local only)
+*.postman_collection.json

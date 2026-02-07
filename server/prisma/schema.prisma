@@ -16,7 +16,7 @@ model User {
   phone        String?     @map("Phone") @db.NVarChar(20)
   avatarUrl    String?     @map("AvatarUrl") @db.NVarChar(500)
   googleId     String?     @unique(map: "UQ_Users_GoogleId") @map("GoogleId") @db.NVarChar(255)
-  status       String      @default("Active", map: "DF__Users__Status__4F7CD00D") @map("Status") @db.NVarChar(20)
+  status       String      @default("Pending", map: "DF__Users__Status__4F7CD00D") @map("Status") @db.NVarChar(20)
   createdAt    DateTime?   @default(now(), map: "DF__Users__CreatedAt__5070F446") @map("CreatedAt")
   updatedAt    DateTime?   @default(now(), map: "DF__Users__UpdatedAt__5165187F") @updatedAt @map("UpdatedAt")
   addresses    Address[]
@@ -24,11 +24,35 @@ model User {
   reviews      Review[]
   userLogins   UserLogin[]
   userRoles    UserRole[]
+  verificationTokens EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
 
   @@index([email, status], map: "IX_Users_Email_Status")
   @@index([phone], map: "IX_Users_Phone")
   @@index([status], map: "IX_Users_Status")
   @@map("Users")
+}
+
+model EmailVerificationToken {
+  tokenId   Int      @id @default(autoincrement()) @map("TokenId")
+  userId    Int      @map("UserId")
+  token     String   @unique @map("Token") @db.NVarChar(255)
+  expiresAt DateTime @map("ExpiresAt")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  user      User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("EmailVerificationTokens")
+}
+
+model PasswordResetToken {
+  tokenId   Int      @id @default(autoincrement()) @map("TokenId")
+  userId    Int      @map("UserId")
+  token     String   @unique @map("Token") @db.NVarChar(255)
+  expiresAt DateTime @map("ExpiresAt")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  user      User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("PasswordResetTokens")
 }
 
 model Role {

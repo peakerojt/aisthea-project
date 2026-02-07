@@ -39,10 +39,10 @@ BEGIN
         Phone NVARCHAR(20),
         AvatarUrl NVARCHAR(500) NULL,
         GoogleId NVARCHAR(255) NULL,
-        Status NVARCHAR(20) NOT NULL DEFAULT 'Active',
+        Status NVARCHAR(20) NOT NULL DEFAULT 'Pending',
         CreatedAt DATETIME2 DEFAULT GETDATE(),
         UpdatedAt DATETIME2 DEFAULT GETDATE(),
-        CONSTRAINT CHK_User_Status CHECK (Status IN ('Active', 'Banned'))
+        CONSTRAINT CHK_User_Status CHECK (Status IN ('Active', 'Banned', 'Pending'))
         -- CONSTRAINT UQ_Users_GoogleId UNIQUE (GoogleId) -- Removed: SQL Server Unique Constraint allows only ONE NULL.
     );
     -- Create Filtered Unique Index for GoogleId to allow multiple NULLs
@@ -51,6 +51,34 @@ BEGIN
         CREATE UNIQUE INDEX UQ_Users_GoogleId ON Users(GoogleId) WHERE GoogleId IS NOT NULL;
     END
     PRINT '✓ Created table: Users';
+END
+
+-- Bảng EmailVerificationTokens (depends on Users)
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'EmailVerificationTokens')
+BEGIN
+    CREATE TABLE EmailVerificationTokens (
+        TokenId INT IDENTITY(1,1) PRIMARY KEY,
+        UserId INT NOT NULL,
+        Token NVARCHAR(255) NOT NULL UNIQUE,
+        ExpiresAt DATETIME2 NOT NULL,
+        CreatedAt DATETIME2 DEFAULT GETDATE(),
+        CONSTRAINT FK_EmailVerificationTokens_Users FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
+    );
+    PRINT '✓ Created table: EmailVerificationTokens';
+END
+
+-- Bảng PasswordResetTokens (depends on Users)
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'PasswordResetTokens')
+BEGIN
+    CREATE TABLE PasswordResetTokens (
+        TokenId INT IDENTITY(1,1) PRIMARY KEY,
+        UserId INT NOT NULL,
+        Token NVARCHAR(255) NOT NULL UNIQUE,
+        ExpiresAt DATETIME2 NOT NULL,
+        CreatedAt DATETIME2 DEFAULT GETDATE(),
+        CONSTRAINT FK_PasswordResetTokens_Users FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
+    );
+    PRINT '✓ Created table: PasswordResetTokens';
 END
 
 -- Bảng Brands

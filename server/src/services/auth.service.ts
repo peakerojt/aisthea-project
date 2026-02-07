@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma';
 import { RegisterInput, LoginInput } from '../utils/schemas/auth.schema';
+import { createVerificationToken } from './verification.service';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const REFRESH_SECRET = process.env.REFRESH_SECRET;
@@ -26,13 +27,13 @@ export const registerUser = async (input: RegisterInput) => {
 
     // Transaction to create user and assign default role
     const result = await prisma.$transaction(async (tx) => {
-        // 1. Create User
+        // 1. Create User with Pending status (requires email verification)
         const user = await tx.user.create({
             data: {
                 email,
                 passwordHash,
                 fullName,
-                status: 'Active',
+                status: 'Pending',
             },
         });
 
@@ -58,10 +59,14 @@ export const registerUser = async (input: RegisterInput) => {
         return user;
     });
 
+    // Create verification token and send email
+    await createVerificationToken(result.userId, result.email, result.fullName);
+
     return {
         userId: result.userId,
         email: result.email,
         fullName: result.fullName,
+        requiresVerification: true,
     };
 };
 
@@ -83,8 +88,12 @@ export const loginUser = async (input: LoginInput) => {
         throw new Error('Invalid email or password');
     }
 
-    if (user.status !== 'Active') {
-        throw new Error('User account is not active');
+    if (user.status === 'Pending') {
+        throw new Error('Please verify your email before logging in');
+    }
+
+    if (user.status === 'Banned') {
+        throw new Error('Your account has been banned');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);

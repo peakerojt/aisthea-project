@@ -27,5 +27,13 @@ export const authService = {
 
     async logout() {
         return api.post('/api/auth/logout');
+    },
+
+    async verifyEmail(email: string, code: string) {
+        return api.post('/api/auth/verify-email', { email, code });
+    },
+
+    async resendVerification(email: string) {
+        return api.post('/api/auth/resend-verification', { email });
     }
 };

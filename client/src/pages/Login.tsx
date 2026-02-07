@@ -100,7 +100,7 @@ export const Login: React.FC<LoginProps> = ({ setView }) => {
         </div>
 
         <div className="flex justify-end">
-          <button type="button" className="text-xs text-gray-400 hover:text-white transition-colors font-medium">Forgot Password?</button>
+          <button type="button" onClick={() => setView('AUTH_FORGOT_PASSWORD')} className="text-xs text-gray-400 hover:text-white transition-colors font-medium">Forgot Password?</button>
         </div>
 
         <div className="flex flex-col gap-4 mt-4">

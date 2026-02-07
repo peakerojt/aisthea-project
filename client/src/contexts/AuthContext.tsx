@@ -19,6 +19,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isLoading: boolean;
   initializeAuth: () => Promise<void>;
+  refreshSession: () => Promise<void>;
   setUserFromSession: (session: AuthSession) => void;
 }
 
@@ -33,9 +34,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   /**
    * Initialize authentication on app load by checking session
    */
-  const initializeAuth = async () => {
-    if (initialized) return;
-
+  /**
+   * Check session status from server
+   */
+  const checkSession = async () => {
     setIsLoading(true);
     try {
       const session = await authService.getSession();
@@ -63,15 +65,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         errorMessage.includes('401');
 
       if (!isExpectedError) {
-        console.error('Failed to initialize auth:', error);
+        console.error('Failed to check session:', error);
       }
 
       setUser(null);
       setRole('guest');
     } finally {
       setIsLoading(false);
-      setInitialized(true);
     }
+  };
+
+  /**
+   * Initialize authentication on app load
+   */
+  const initializeAuth = async () => {
+    if (initialized) return;
+    await checkSession();
+    setInitialized(true);
   };
 
   /**
@@ -85,7 +95,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     try {
       const response = await authService.login({ email, password });
-      const { user: userData, accessToken } = response;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { user: userData, accessToken } = response as any;
 
       const mappedUser: User = {
         id: userData.userId,
@@ -183,7 +194,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, login, register, logout, isLoading, initializeAuth, setUserFromSession }}>
+    <AuthContext.Provider value={{ user, role, login, register, logout, isLoading, initializeAuth, refreshSession: checkSession, setUserFromSession }}>
       {children}
     </AuthContext.Provider>
   );

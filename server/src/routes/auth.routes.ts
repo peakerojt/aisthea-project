@@ -1,6 +1,6 @@
 
 import { Router } from 'express';
-import { register, login, googleCallback, getSession, logout } from '../controllers/auth.controller';
+import { register, login, googleCallback, getSession, logout, verifyEmail, resendVerification, passwordResetInit } from '../controllers/auth.controller';
 import { authenticateToken } from '../middlewares/auth.middleware';
 import passport from 'passport';
 
@@ -8,6 +8,16 @@ const router = Router();
 
 router.post('/register', register);
 router.post('/login', login);
+
+// Email verification routes
+router.post('/verify-email', verifyEmail);
+router.post('/resend-verification', resendVerification);
+
+// Password reset routes
+import { forgotPassword, resetPassword } from '../controllers/auth.controller';
+router.post('/forgot-password', forgotPassword);
+router.get('/reset-password-init', passwordResetInit); // New: validates token and sets cookie
+router.post('/reset-password', resetPassword);
 
 // Session management
 router.get('/session', getSession);

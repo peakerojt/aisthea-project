@@ -8,18 +8,7 @@ export const configureGoogleStrategy = () => {
     const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
     const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback';
 
-    // Debug: Log OAuth configuration (hide secret for security)
-    console.log('🔐 Google OAuth Configuration:');
-    if (GOOGLE_CLIENT_ID) {
-        console.log('   Client ID:', `${GOOGLE_CLIENT_ID.substring(0, 20)}...`);
-        console.log('   Client ID Length:', GOOGLE_CLIENT_ID.length);
-        console.log('   Client ID first 5 chars code:', GOOGLE_CLIENT_ID.substring(0, 5).split('').map(c => c.charCodeAt(0)));
-        console.log('   Client ID last 5 chars code:', GOOGLE_CLIENT_ID.substring(GOOGLE_CLIENT_ID.length - 5).split('').map(c => c.charCodeAt(0)));
-    } else {
-        console.log('   Client ID: NOT SET');
-    }
-    console.log('   Client Secret:', GOOGLE_CLIENT_SECRET ? `${GOOGLE_CLIENT_SECRET.substring(0, 10)}...` : 'NOT SET');
-    console.log('   Callback URL:', GOOGLE_CALLBACK_URL);
+
 
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
         console.warn('⚠️  Google OAuth credentials not configured. Google login will not be available.');

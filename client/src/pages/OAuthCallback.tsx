@@ -13,74 +13,33 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ setView }) => {
 
     useEffect(() => {
         const handleCallback = async () => {
-            // Parse URL parameters
-            const params = new URLSearchParams(window.location.search);
-            const success = params.get('success');
-            const errorParam = params.get('error');
-            const errorMessage = params.get('message');
+            try {
+                // Directly check session - auth state is in HTTP-only cookie
+                const session = await api.get<AuthSession>('/api/auth/session');
 
-            // Handle error from OAuth callback
-            if (errorParam) {
-                console.error('OAuth error:', errorParam, errorMessage);
-                setError(getErrorMessage(errorParam, errorMessage));
+                if (session.isAuthenticated && session.user) {
+                    // Update AuthContext with the session data
+                    setUserFromSession(session);
 
-                // Redirect to login after showing error
-                setTimeout(() => {
-                    setView('AUTH_LOGIN');
-                }, 3000);
-                return;
-            }
-
-            // If success flag is present, verify session
-            if (success === 'true') {
-                try {
-                    // Call session endpoint to get authenticated user data
-                    const session = await api.get<AuthSession>('/api/auth/session');
-
-                    if (session.isAuthenticated && session.user) {
-                        // Update AuthContext with the session data
-                        setUserFromSession(session);
-
-
-
-                        // Redirect based on role
-                        if (session.user.roles.includes('Admin')) {
-                            setView('ADMIN_DASHBOARD');
-                        } else {
-                            setView('STORE_HOME');
-                        }
+                    // Redirect based on role
+                    if (session.user.roles.includes('Admin')) {
+                        setView('ADMIN_DASHBOARD');
                     } else {
-                        setError('Authentication failed - no user session');
-                        setTimeout(() => setView('AUTH_LOGIN'), 3000);
+                        setView('STORE_HOME');
                     }
-                } catch (err: any) {
-                    console.error('Failed to verify session:', err);
-                    setError(err.message || 'Failed to verify authentication');
+                } else {
+                    setError('Authentication failed - no user session');
                     setTimeout(() => setView('AUTH_LOGIN'), 3000);
                 }
-            } else {
-                // No success or error parameter - shouldn't happen
-                setError('Invalid callback state');
-                setTimeout(() => setView('AUTH_LOGIN'), 2000);
+            } catch (err: any) {
+                console.error('Failed to verify session:', err);
+                setError(err.message || 'Failed to verify authentication');
+                setTimeout(() => setView('AUTH_LOGIN'), 3000);
             }
         };
 
         handleCallback();
-    }, [setView]);
-
-    /**
-     * Get user-friendly error message from error code
-     */
-    const getErrorMessage = (code: string, message?: string | null): string => {
-        const errorMessages: Record<string, string> = {
-            'auth_failed': 'Google authentication failed. Please try again.',
-            'invalid_user': 'Unable to retrieve user information from Google.',
-            'server_error': 'Server configuration error. Please contact support.',
-            'callback_failed': message || 'Authentication callback failed. Please try again.',
-        };
-
-        return errorMessages[code] || 'An unexpected error occurred during login.';
-    };
+    }, [setView, setUserFromSession]);
 
     return (
         <div className="min-h-screen bg-black flex items-center justify-center">

@@ -105,13 +105,18 @@ export const Signup: React.FC<SignupProps> = ({ setView }) => {
   const onSubmit = async (data: SignupFormInputs) => {
     setServerError(null);
     try {
-      await registerUser({
+      // Register user - no longer auto-logs in
+      const response = await authService.register({
         email: data.email,
         password: data.password,
         fullName: data.fullName,
       });
-      // Redirect to landing page after successful registration
-      setView('STORE_HOME');
+
+      // Store email for verification page
+      sessionStorage.setItem('pendingVerificationEmail', data.email);
+
+      // Redirect to email verification page
+      setView('EMAIL_VERIFICATION');
     } catch (err: any) {
       setServerError(err.message || 'Registration failed');
     }

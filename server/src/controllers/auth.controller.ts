@@ -5,53 +5,128 @@ import { registerSchema, loginSchema } from '../utils/schemas/auth.schema';
 import { z, ZodError } from 'zod';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma';
+import { verifyEmailToken, resendVerificationEmail } from '../services/verification.service';
 
 export const register = async (req: Request, res: Response) => {
     try {
         const { body } = await registerSchema.parseAsync({ body: req.body });
-        // Register user
+
+        // Register user (status: Pending, sends verification email)
         const newUser = await registerUser(body);
 
-        // Auto-login: Generate tokens
-        // We need to fetch the full user with roles to generate tokens properly, 
-        // OR we can rely on what registerUser returns if we update it.
-        // However, registerUser currently returns { userId, email, fullName }.
-        // We need to loginUser to get tokens easily or duplicate logic.
-        // Let's use loginUser style logic or call loginUser if password is available.
-        // Since we have the plain password in 'body', we can just call loginUser internally!
-
-        const loginResult = await loginUser({ email: body.email, password: body.password });
-
-        // Security: Set refresh token as httpOnly cookie
-        res.cookie('refreshToken', loginResult.refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        // Return success message - user needs to verify email before login
+        res.status(201).json({
+            message: 'Registration successful! Please check your email to verify your account.',
+            requiresVerification: true,
+            email: newUser.email,
         });
-
-        res.cookie('accessToken', loginResult.accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 15 * 60 * 1000 // 15 minutes
-        });
-
-        // Return user and access token, exclude refresh token from body
-        const { refreshToken, ...response } = loginResult;
-
-        // Return 201 for creation, but with login data
-        res.status(201).json({ message: 'User registered and logged in successfully', ...response });
 
     } catch (error: any) {
         if (error instanceof ZodError) {
             res.status(400).json({ error: error.issues });
         } else if (error.message === 'Email already exists') {
             res.status(409).json({ error: error.message });
+        } else if (error.message === 'Failed to send verification email') {
+            res.status(500).json({ error: 'Registration successful but failed to send verification email. Please try resending.' });
         } else {
             console.error("Registration error:", error);
             res.status(500).json({ error: 'Internal Server Error', details: error.message });
         }
+    }
+};
+
+// Verify email with 6-digit code
+export const verifyEmail = async (req: Request, res: Response) => {
+    try {
+        const { code, email } = req.body;
+
+
+
+        if (!code || typeof code !== 'string') {
+            return res.status(400).json({ error: 'Verification code is required' });
+        }
+
+        if (!email || typeof email !== 'string') {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        // Verify the code (token)
+        const result = await verifyEmailToken(code);
+
+        // Set auth cookies for auto-login
+        res.cookie('accessToken', result.accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 15 * 60 * 1000, // 15 minutes
+            path: '/'
+        });
+
+        res.cookie('refreshToken', result.refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            path: '/'
+        });
+
+        res.json({
+            success: true,
+            message: 'Email verified successfully!',
+            user: {
+                userId: result.userId,
+                email: result.email,
+                fullName: result.fullName,
+                avatarUrl: result.avatarUrl,
+                roles: result.roles,
+            }
+        });
+    } catch (error: any) {
+        console.error('Email verification error:', error);
+
+        if (error.message === 'Invalid verification token') {
+            return res.status(400).json({ error: 'Invalid verification code' });
+        }
+        if (error.message.includes('expired')) {
+            return res.status(400).json({ error: error.message, code: 'TOKEN_EXPIRED' });
+        }
+        if (error.message === 'Email is already verified') {
+            return res.status(400).json({ error: error.message, code: 'ALREADY_VERIFIED' });
+        }
+
+        res.status(500).json({ error: 'Failed to verify email' });
+    }
+};
+
+// Resend verification email
+export const resendVerification = async (req: Request, res: Response) => {
+    try {
+        const { email } = req.body;
+
+        if (!email || typeof email !== 'string') {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        await resendVerificationEmail(email);
+
+        res.json({
+            success: true,
+            message: 'Verification email has been sent. Please check your inbox.',
+        });
+    } catch (error: any) {
+        console.error('Resend verification error:', error);
+
+        if (error.message === 'No account found with this email') {
+            return res.status(404).json({ error: error.message });
+        }
+        if (error.message === 'Email is already verified') {
+            return res.status(400).json({ error: error.message, code: 'ALREADY_VERIFIED' });
+        }
+        if (error.message === 'This account has been banned') {
+            return res.status(403).json({ error: error.message });
+        }
+
+        res.status(500).json({ error: 'Failed to resend verification email' });
     }
 };
 
@@ -83,8 +158,12 @@ export const login = async (req: Request, res: Response) => {
     } catch (error: any) {
         if (error instanceof ZodError) {
             res.status(400).json({ error: error.issues });
-        } else if (error.message === 'Invalid email or password' || error.message === 'User account is not active') {
+        } else if (error.message === 'Invalid email or password') {
             res.status(401).json({ error: error.message });
+        } else if (error.message === 'Please verify your email before logging in') {
+            res.status(403).json({ error: error.message, code: 'EMAIL_NOT_VERIFIED' });
+        } else if (error.message === 'Your account has been banned') {
+            res.status(403).json({ error: error.message, code: 'ACCOUNT_BANNED' });
         } else {
             res.status(500).json({ error: 'Internal Server Error', details: error.message });
         }
@@ -153,13 +232,15 @@ export const googleCallback = (req: Request, res: Response) => {
         // Log successful OAuth (without sensitive data)
 
 
-        // Redirect to frontend callback WITHOUT tokens in URL (security improvement)
+        // Redirect to frontend callback WITHOUT any parameters (clean URL)
+        // Auth state is verified via session cookie
         const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-        res.redirect(`${clientUrl}/auth/callback?success=true`);
+        res.redirect(`${clientUrl}/auth/callback`);
     } catch (error: any) {
         console.error('Google OAuth callback error:', error);
         const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-        res.redirect(`${clientUrl}/auth/callback?error=callback_failed&message=${encodeURIComponent(error.message || 'Unknown error')}`);
+        // Even on error, redirect to clean URL - let frontend check session
+        res.redirect(`${clientUrl}/auth/callback`);
     }
 };
 
@@ -254,5 +335,103 @@ export const logout = (req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Logout error:', error);
         res.status(500).json({ error: 'Failed to logout' });
+    }
+}
+
+
+// Password Reset Flow
+export const forgotPassword = async (req: Request, res: Response) => {
+    try {
+        const { email } = req.body;
+        if (!email || typeof email !== 'string') {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        const { createPasswordResetToken } = await import('../services/password.service');
+        await createPasswordResetToken(email);
+
+        res.json({
+            success: true,
+            message: 'If an account exists with this email, a password reset link has been sent.'
+        });
+    } catch (error: any) {
+        console.error('Forgot password error:', error);
+        res.status(500).json({ error: 'Failed to process forgot password request' });
+    }
+};
+
+// Password reset initialization - validates token from email link and sets cookie
+export const passwordResetInit = async (req: Request, res: Response) => {
+    try {
+        const { token } = req.query;
+
+        if (!token || typeof token !== 'string') {
+            // Redirect to frontend with error
+            const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+            return res.redirect(`${clientUrl}/reset-password?error=invalid_link`);
+        }
+
+        // Validate token exists in database
+        const { validatePasswordResetToken } = await import('../services/password.service');
+        const isValid = await validatePasswordResetToken(token);
+
+        if (!isValid) {
+            const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+            return res.redirect(`${clientUrl}/reset-password?error=expired_token`);
+        }
+
+        // Set token in HTTP-only cookie (secure, not visible in URL)
+        res.cookie('resetToken', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 60 * 60 * 1000, // 1 hour
+            path: '/'
+        });
+
+        // Redirect to clean URL (no token visible)
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+        res.redirect(`${clientUrl}/reset-password`);
+    } catch (error: any) {
+        console.error('Password reset init error:', error);
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+        res.redirect(`${clientUrl}/reset-password?error=server_error`);
+    }
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+    try {
+        // Check for token in cookie first (new secure flow), then fallback to body (backward compatibility)
+        const token = req.cookies.resetToken || req.body.token;
+        const { newPassword } = req.body;
+
+        if (!token || typeof token !== 'string') {
+            return res.status(400).json({ error: 'Reset token is required', code: 'MISSING_TOKEN' });
+        }
+
+        if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+        }
+
+        const { resetPassword: resetPasswordService } = await import('../services/password.service');
+        await resetPasswordService(token, newPassword);
+
+        // Clear the reset token cookie after successful reset
+        res.clearCookie('resetToken', { path: '/' });
+
+        res.json({
+            success: true,
+            message: 'Password has been reset successfully. You can now login with your new password.'
+        });
+    } catch (error: any) {
+        console.error('Reset password error:', error);
+
+        if (error.message === 'Invalid or expired password reset token' || error.message === 'Password reset token has expired') {
+            // Clear invalid token cookie
+            res.clearCookie('resetToken', { path: '/' });
+            return res.status(400).json({ error: error.message, code: 'INVALID_TOKEN' });
+        }
+
+        res.status(500).json({ error: 'Failed to reset password' });
     }
 };

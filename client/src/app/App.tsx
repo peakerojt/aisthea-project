@@ -21,6 +21,9 @@ import { AdminRestock } from '../pages/AdminRestock';
 import { Login } from '../pages/Login';
 import { Signup } from '../pages/Signup';
 import { OAuthCallback } from '../pages/OAuthCallback';
+import { EmailVerification } from '../pages/EmailVerification';
+import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from '../pages/auth/ResetPasswordPage';
 
 const App: React.FC = () => {
   const { role } = useAuth();
@@ -28,6 +31,22 @@ const App: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<CategoryType>('Men');
   const [activeCollection, setActiveCollection] = useState<string>('Outerwear');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+
+  // Handle URL routing on page load
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const pathname = url.pathname;
+
+    // Check for OAuth callback
+    if (pathname.includes('auth/callback')) {
+      setView('AUTH_CALLBACK');
+    }
+
+    // Check for Reset Password
+    if (pathname.includes('/reset-password')) {
+      setView('AUTH_RESET_PASSWORD');
+    }
+  }, []);
 
   // State để chứa danh sách sản phẩm lấy từ Database
   const [dbProducts, setDbProducts] = useState<any[]>([]);
@@ -136,6 +155,9 @@ const App: React.FC = () => {
       {view === 'AUTH_LOGIN' && <Login setView={setView} />}
       {view === 'AUTH_SIGNUP' && <Signup setView={setView} />}
       {view === 'AUTH_CALLBACK' && <OAuthCallback setView={setView} />}
+      {view === 'AUTH_FORGOT_PASSWORD' && <ForgotPasswordPage setView={setView} />}
+      {view === 'AUTH_RESET_PASSWORD' && <ResetPasswordPage setView={setView} />}
+      {view === 'EMAIL_VERIFICATION' && <EmailVerification setView={setView} email={sessionStorage.getItem('pendingVerificationEmail') || undefined} />}
       {view === 'ADMIN_TRACKING' && <AdminTracking setView={setView} setCategory={handleCategoryClick} />}
     </div>
   );
