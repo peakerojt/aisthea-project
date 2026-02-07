@@ -144,12 +144,13 @@ export const Signup: React.FC<SignupProps> = ({ setView }) => {
         <div className="relative group">
           <input
             type="text"
+            autoComplete="off"
             {...register('fullName')}
             className={`block py-4 px-0 w-full text-base text-white bg-transparent border-0 border-b appearance-none focus:outline-none focus:ring-0 peer transition-colors ${errors.fullName ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-primary'
               }`}
             placeholder=" "
           />
-          <label className={`absolute text-sm duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase ${errors.fullName ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
+          <label className={`absolute text-sm duration-300 transform -translate-y-6 scale-75 top-3 z-0 origin-[0] peer-focus:left-0 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase pointer-events-none ${errors.fullName ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
             }`}>
             Full Name
           </label>
@@ -164,12 +165,13 @@ export const Signup: React.FC<SignupProps> = ({ setView }) => {
         <div className="relative group">
           <input
             type="email"
+            autoComplete="off"
             {...register('email')}
             className={`block py-4 px-0 w-full text-base text-white bg-transparent border-0 border-b appearance-none focus:outline-none focus:ring-0 peer transition-colors ${errors.email ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-primary'
               }`}
             placeholder=" "
           />
-          <label className={`absolute text-sm duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase ${errors.email ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
+          <label className={`absolute text-sm duration-300 transform -translate-y-6 scale-75 top-3 z-0 origin-[0] peer-focus:left-0 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase pointer-events-none ${errors.email ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
             }`}>
             Email Address
           </label>
@@ -184,12 +186,13 @@ export const Signup: React.FC<SignupProps> = ({ setView }) => {
         <div className="relative group">
           <input
             type={showPassword ? 'text' : 'password'}
+            autoComplete="new-password"
             {...register('password')}
             className={`block py-4 px-0 w-full text-base text-white bg-transparent border-0 border-b appearance-none focus:outline-none focus:ring-0 peer transition-colors pr-10 ${errors.password ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-primary'
               }`}
             placeholder=" "
           />
-          <label className={`absolute text-sm duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase ${errors.password ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
+          <label className={`absolute text-sm duration-300 transform -translate-y-6 scale-75 top-3 z-0 origin-[0] peer-focus:left-0 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase pointer-events-none ${errors.password ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
             }`}>
             Password
           </label>
@@ -215,12 +218,13 @@ export const Signup: React.FC<SignupProps> = ({ setView }) => {
         <div className="relative group mb-2">
           <input
             type="password"
+            autoComplete="new-password"
             {...register('confirmPassword')}
             className={`block py-4 px-0 w-full text-base text-white bg-transparent border-0 border-b appearance-none focus:outline-none focus:ring-0 peer transition-colors ${errors.confirmPassword ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-primary'
               }`}
             placeholder=" "
           />
-          <label className={`absolute text-sm duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-0 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase ${errors.confirmPassword ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
+          <label className={`absolute text-sm duration-300 transform -translate-y-6 scale-75 top-3 z-0 origin-[0] peer-focus:left-0 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase pointer-events-none ${errors.confirmPassword ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
             }`}>
             Confirm Password
           </label>

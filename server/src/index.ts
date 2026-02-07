@@ -38,8 +38,10 @@ app.get('/', (req: Request, res: Response) => {
 // So I should just remove my duplicate addition and only add product routes.
 import productRoutes from './routes/product.routes';
 import orderRoutes from './routes/order.routes';
+import userRoutes from './routes/user.routes';
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/users', userRoutes);
 
 // Start server
 const PORT = Number(process.env.PORT) || 5000;
