@@ -12,6 +12,7 @@ import {
     getRecentOrders,
 } from '../controllers/user.controller';
 import { authenticateToken } from '../middlewares/auth.middleware';
+import { upload } from '../middleware/upload.middleware';
 
 const router = Router();
 
@@ -22,8 +23,8 @@ router.use(authenticateToken);
 router.get('/profile', getProfile);
 router.put('/profile', updateProfile);
 
-// Avatar routes
-router.post('/avatar', uploadAvatar);
+// Avatar routes - supports both file upload and base64 JSON
+router.post('/avatar', upload.single('file'), uploadAvatar);
 router.delete('/avatar', deleteAvatar);
 
 // Address routes

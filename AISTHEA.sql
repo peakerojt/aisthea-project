@@ -370,9 +370,74 @@ GO
 PRINT '';
 PRINT '========================================';
 PRINT '✓ Database Schema Ready!';
-PRINT '  - Database: AISTHEA';
-PRINT '  - Tables: 19';
-PRINT '  - Foreign Keys: 21';
-PRINT '  - Google OAuth: Enabled';
 PRINT '========================================';
+GO
+
+/* =============================================================
+   SCHEMA UPDATES - CLOUDINARY INTEGRATION
+   Description: Increase URL column sizes for Cloudinary support
+   Date: 2026-02-08
+   ============================================================= */
+
+PRINT '';
+PRINT 'Applying Cloudinary integration updates...';
+GO
+
+-- Increase Users.AvatarUrl from NVARCHAR(500) to NVARCHAR(1000)
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Users') AND name = 'AvatarUrl')
+BEGIN
+    PRINT 'Updating Users.AvatarUrl to NVARCHAR(1000)...';
+    
+    ALTER TABLE Users
+    ALTER COLUMN AvatarUrl NVARCHAR(1000) NULL;
+    
+    PRINT '✓ Users.AvatarUrl updated successfully';
+END
+GO
+
+-- Increase ProductImages.ImageUrl from NVARCHAR(500) to NVARCHAR(1000)
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('ProductImages') AND name = 'ImageUrl')
+BEGIN
+    PRINT 'Updating ProductImages.ImageUrl to NVARCHAR(1000)...';
+    
+    ALTER TABLE ProductImages
+    ALTER COLUMN ImageUrl NVARCHAR(1000) NOT NULL;
+    
+    PRINT '✓ ProductImages.ImageUrl updated successfully';
+END
+GO
+
+PRINT '';
+PRINT '========================================';
+PRINT '✓ URL Column Resize Complete!';
+PRINT '========================================';
+GO
+
+/* =============================================================
+   SCHEMA UPDATES - THUMBNAIL URL SUPPORT
+   Description: Add ThumbnailUrl column for optimized 300x300 thumbnails
+   Date: 2026-02-08
+   ============================================================= */
+
+PRINT '';
+PRINT 'Adding ThumbnailUrl column for thumbnail support...';
+GO
+
+-- Add ThumbnailUrl column if it doesn't exist
+IF NOT EXISTS (
+    SELECT 1 
+    FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_NAME = 'ProductImages' 
+    AND COLUMN_NAME = 'ThumbnailUrl'
+)
+BEGIN
+    ALTER TABLE ProductImages ADD ThumbnailUrl NVARCHAR(1000) NULL;
+    PRINT '✓ Added ThumbnailUrl column to ProductImages table';
+END
+ELSE
+BEGIN
+    PRINT '⚠ ThumbnailUrl column already exists';
+END
+GO
+
 GO

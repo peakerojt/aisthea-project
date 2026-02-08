@@ -1,4 +1,5 @@
 import { PrismaClient } from '../generated/client';
+import { cloudinaryService } from './cloudinary.service';
 
 const prisma = new PrismaClient();
 
@@ -91,7 +92,7 @@ export class UserService {
     }
 
     /**
-     * Upload avatar (base64)
+     * Upload avatar (base64) to Cloudinary
      */
     async uploadAvatar(userId: number, avatarBase64: string) {
         // Validate base64 string
@@ -99,18 +100,40 @@ export class UserService {
             throw new Error('Invalid image format. Only images are allowed.');
         }
 
-        // Check file size (max 2MB)
+        // Check file size (max 5MB)
         const base64Size = Buffer.from(avatarBase64.split(',')[1], 'base64').length;
-        const maxSize = 2 * 1024 * 1024; // 2MB
+        const maxSize = 5 * 1024 * 1024; // 5MB
 
         if (base64Size > maxSize) {
-            throw new Error('Image size exceeds 2MB limit');
+            throw new Error('Image size exceeds 5MB limit');
         }
 
+        // Get current user to check for existing avatar
+        const currentUser = await prisma.user.findUnique({
+            where: { userId },
+            select: { avatarUrl: true },
+        });
+
+        // Delete old avatar from Cloudinary if exists
+        if (currentUser?.avatarUrl && currentUser.avatarUrl.includes('cloudinary.com')) {
+            try {
+                const publicId = cloudinaryService.extractPublicId(currentUser.avatarUrl);
+                if (publicId) {
+                    await cloudinaryService.deleteImage(publicId);
+                }
+            } catch (error) {
+                console.warn('Failed to delete old avatar, continuing with upload:', error);
+            }
+        }
+
+        // Upload new avatar to Cloudinary
+        const uploadResult = await cloudinaryService.uploadAvatar(avatarBase64, userId);
+
+        // Update user with new Cloudinary URL
         const updatedUser = await prisma.user.update({
             where: { userId },
             data: {
-                avatarUrl: avatarBase64,
+                avatarUrl: uploadResult.secureUrl,
                 updatedAt: new Date(),
             },
             select: {
@@ -123,9 +146,29 @@ export class UserService {
     }
 
     /**
-     * Delete avatar
+     * Delete avatar from Cloudinary and database
      */
     async deleteAvatar(userId: number) {
+        // Get current user to retrieve avatar URL
+        const currentUser = await prisma.user.findUnique({
+            where: { userId },
+            select: { avatarUrl: true },
+        });
+
+        // Delete from Cloudinary if it's a Cloudinary URL
+        if (currentUser?.avatarUrl && currentUser.avatarUrl.includes('cloudinary.com')) {
+            try {
+                const publicId = cloudinaryService.extractPublicId(currentUser.avatarUrl);
+                if (publicId) {
+                    await cloudinaryService.deleteImage(publicId);
+                }
+            } catch (error) {
+                console.error('Failed to delete avatar from Cloudinary:', error);
+                // Continue with database deletion even if Cloudinary deletion fails
+            }
+        }
+
+        // Clear avatar URL in database
         const updatedUser = await prisma.user.update({
             where: { userId },
             data: {

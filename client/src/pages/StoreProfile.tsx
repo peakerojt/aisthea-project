@@ -105,18 +105,19 @@ export const StoreProfile: React.FC<StoreProfileProps> = ({ setView, setCategory
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file
+    // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+      alert('Please select an image file (JPEG, PNG, GIF, or WebP)');
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Image size must be less than 2MB');
+    // Validate file size (5MB limit for Cloudinary)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size must be less than 5MB');
       return;
     }
 
-    // Convert to base64
+    // Convert to base64 for upload
     const reader = new FileReader();
     reader.onloadend = () => {
       setAvatarPreview(reader.result as string);
@@ -129,9 +130,10 @@ export const StoreProfile: React.FC<StoreProfileProps> = ({ setView, setCategory
 
     try {
       setUploadingAvatar(true);
-      await userService.uploadAvatar(avatarPreview);
+      const response = await userService.uploadAvatar(avatarPreview);
       await loadProfileData();
       setAvatarPreview(null);
+      alert(response.message || 'Avatar uploaded successfully to cloud storage!');
     } catch (err: any) {
       alert(err.message || 'Failed to upload avatar');
     } finally {

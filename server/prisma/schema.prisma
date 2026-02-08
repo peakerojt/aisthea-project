@@ -14,7 +14,7 @@ model User {
   passwordHash String?     @map("PasswordHash") @db.NVarChar(255)
   fullName     String      @map("FullName") @db.NVarChar(100)
   phone        String?     @map("Phone") @db.NVarChar(20)
-  avatarUrl    String?     @map("AvatarUrl") @db.NVarChar(500)
+  avatarUrl    String?     @map("AvatarUrl") @db.NVarChar(1000)
   googleId     String?     @unique(map: "UQ_Users_GoogleId") @map("GoogleId") @db.NVarChar(255)
   status       String      @default("Pending", map: "DF__Users__Status__4F7CD00D") @map("Status") @db.NVarChar(20)
   createdAt    DateTime?   @default(now(), map: "DF__Users__CreatedAt__5070F446") @map("CreatedAt")
@@ -203,13 +203,14 @@ model VariantAttribute {
 }
 
 model ProductImage {
-  imageId   Int             @id(map: "PK__ProductI__7516F70CF209EF66") @default(autoincrement()) @map("ImageId")
-  productId Int             @map("ProductId")
-  variantId Int?            @map("VariantId")
-  imageUrl  String          @map("ImageUrl") @db.NVarChar(500)
-  isPrimary Boolean?        @default(false, map: "DF__ProductIm__IsPri__151B244E") @map("IsPrimary")
-  product   Product         @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ProductImages_Products")
-  variant   ProductVariant? @relation(fields: [variantId], references: [variantId], onDelete: NoAction, onUpdate: NoAction, map: "FK_ProductImages_Variants")
+  imageId      Int             @id(map: "PK__ProductI__7516F70CF209EF66") @default(autoincrement()) @map("ImageId")
+  productId    Int             @map("ProductId")
+  variantId    Int?            @map("VariantId")
+  imageUrl     String          @map("ImageUrl") @db.NVarChar(1000)
+  thumbnailUrl String?         @map("ThumbnailUrl") @db.NVarChar(1000)
+  isPrimary    Boolean?        @default(false, map: "DF__ProductIm__IsPri__151B244E") @map("IsPrimary")
+  product      Product         @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ProductImages_Products")
+  variant      ProductVariant? @relation(fields: [variantId], references: [variantId], onDelete: NoAction, onUpdate: NoAction, map: "FK_ProductImages_Variants")
 
   @@map("ProductImages")
 }

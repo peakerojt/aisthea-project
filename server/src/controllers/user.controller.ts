@@ -52,24 +52,72 @@ export const updateProfile = async (req: Request, res: Response) => {
 
 /**
  * Upload avatar
+ * Supports two input methods:
+ * 1. Multipart file upload (recommended for Postman testing)
+ * 2. Base64 JSON data (for frontend)
  */
 export const uploadAvatar = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user.userId;
-        const { avatar } = req.body;
+        let avatarBase64: string;
 
-        if (!avatar) {
+        // Check if file was uploaded (multipart/form-data)
+        if ((req as any).file) {
+            const file = (req as any).file as Express.Multer.File;
+            console.log('▶ Avatar upload via file:', {
+                filename: file.originalname,
+                mimetype: file.mimetype,
+                size: `${(file.size / 1024).toFixed(2)} KB`,
+            });
+
+            // Convert file buffer to base64
+            const base64 = file.buffer.toString('base64');
+            avatarBase64 = `data:${file.mimetype};base64,${base64}`;
+        }
+        // Otherwise, check for base64 JSON data
+        else if (req.body.avatar) {
+            const { avatar } = req.body;
+
+            // Validate base64 format
+            if (!avatar.startsWith('data:image/')) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid image format. Please upload a valid image file (JPEG, PNG, GIF, or WebP).',
+                });
+            }
+
+            // Extract MIME type for validation
+            const mimeType = avatar.split(';')[0].split(':')[1];
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+            if (!allowedTypes.includes(mimeType)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Unsupported image type: ${mimeType}. Allowed types: JPEG, PNG, GIF, WebP`,
+                });
+            }
+
+            console.log('▶ Avatar upload via base64 JSON:', {
+                mimetype: mimeType,
+                size: `${(avatar.length * 0.75 / 1024).toFixed(2)} KB`,
+            });
+
+            avatarBase64 = avatar;
+        }
+        // No valid input provided
+        else {
             return res.status(400).json({
                 success: false,
-                message: 'Avatar data is required',
+                message: 'No avatar provided. Please upload a file or send base64 data in the "avatar" field.',
             });
         }
 
-        const updatedUser = await userService.uploadAvatar(userId, avatar);
+        // Upload to Cloudinary
+        const updatedUser = await userService.uploadAvatar(userId, avatarBase64);
 
         res.status(200).json({
             success: true,
-            message: 'Avatar uploaded successfully',
+            message: 'Avatar uploaded successfully to cloud storage',
             data: updatedUser,
         });
     } catch (error: any) {
@@ -80,6 +128,7 @@ export const uploadAvatar = async (req: Request, res: Response) => {
         });
     }
 };
+
 
 /**
  * Delete avatar
