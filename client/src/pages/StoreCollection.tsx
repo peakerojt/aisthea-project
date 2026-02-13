@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StoreHeader } from '../components/StoreHeader';
 import { ViewState, CategoryType } from '../types';
 import { api } from '../utils/api';
+import { getCloudinaryProductCard } from '../utils/cloudinary';
 
 interface Product {
   id: string;
@@ -44,6 +45,27 @@ const formatPrice = (price: number): string => {
   return new Intl.NumberFormat('vi-VN').format(price);
 };
 
+// Map Route Categories to SQL Data Categories
+const CATEGORY_MAPPING: Record<string, Record<string, string[]>> = {
+  Men: {
+    Outerwear: ['Nam - Áo khoác'],
+    Tops: ['Nam - Áo'],
+    Bottoms: ['Nam - Quần'],
+    Shoes: ['Giày dép'],
+    Accessories: ['Phụ kiện']
+  },
+  Women: {
+    Outerwear: ['Nữ - Áo khoác'], // Placeholder, might be empty in seed
+    Tops: ['Nữ - Áo'],
+    Bottoms: ['Nữ - Quần', 'Váy & Đầm'],
+    Shoes: ['Giày dép'],
+    Accessories: ['Phụ kiện']
+  },
+  Accessories: {
+    All: ['Phụ kiện']
+  }
+};
+
 export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, category = 'Men', setCategory, collection = 'Outerwear', onProductClick }) => {
   const heroImage = HERO_IMAGES[collection as keyof typeof HERO_IMAGES] || HERO_IMAGES.Default;
 
@@ -72,7 +94,7 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
           id: product.productId.toString(),
           name: product.name,
           price: typeof product.basePrice === 'string' ? parseFloat(product.basePrice) : product.basePrice,
-          image: product.images?.[0]?.thumbnailUrl || product.images?.[0]?.imageUrl || 'https://images.unsplash.com/photo-1487222477894-8943e31ef7b2?q=80&w=1000&auto=format&fit=crop',
+          image: product.images?.[0]?.thumbnailUrl || product.images?.[0]?.imageUrl || '',
           type: product.category?.name || 'Uncategorized',
           tag: product.status === 'Active' ? undefined : product.status
         }));
@@ -89,12 +111,33 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
     fetchProducts();
   }, []);
 
-  // Get unique categories from products
-  const categories = ['All', ...new Set(products.map(p => p.type))];
+  // 1. Filter products based on Route (Category + Collection)
+  const categoryProducts = React.useMemo(() => {
+    if (loading || products.length === 0) return [];
 
-  // Apply Filters
-  const filteredProducts = products.filter(product => {
-    // 1. Category Filter (Horizontal Bar)
+    // Safety check for category/collection
+    const mapCategory = category;
+    const mapCollection = collection || 'Tops';
+
+    // Get valid SQL categories for this view
+    const validSqlCategories = CATEGORY_MAPPING[mapCategory]?.[mapCollection];
+
+    if (!validSqlCategories) {
+      // If no specific mapping (e.g. "All"), maybe return everything for that gender?
+      // For now, return everything if no mapping found to avoid empty page, or specific logic
+      return products;
+    }
+
+    return products.filter(p => validSqlCategories.includes(p.type));
+  }, [products, category, collection, loading]);
+
+  // 2. Get unique categories for the Horizontal Filter Bar from the *filtered* list
+  // This ensures we only show "Nam - Áo" when in Men's Tops, etc.
+  const categories = ['All', ...new Set(categoryProducts.map(p => p.type))];
+
+  // 3. Apply Local Filters (Horizontal Bar, Price, Sort)
+  const filteredProducts = categoryProducts.filter(product => {
+    // Category Filter (Horizontal Bar)
     if (activeCategoryFilter !== 'All' && product.type !== activeCategoryFilter) return false;
 
     // 2. Price Filter
@@ -276,7 +319,7 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-16 pb-32">
               {filteredProducts.map((product) => (
                 <div key={product.id} className="group flex flex-col gap-5 cursor-pointer" onClick={() => onProductClick(product)}>
-                  <div className="relative aspect-[4/5] w-full overflow-hidden bg-gray-900">
+                  <div className="relative aspect-square w-full overflow-hidden bg-gray-900">
                     {product.tag && (
                       <div className={`absolute top-4 left-4 z-10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest ${product.tag === 'Best Seller' ? 'bg-white text-black' : product.tag === 'Sale' ? 'bg-primary text-white' : 'bg-black/50 backdrop-blur-md text-white border border-white/20'}`}>
                         {product.tag}
@@ -292,10 +335,10 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
                     </button>
                   </div>
 
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-2 py-4">
                     <div className="flex justify-between items-start">
-                      <h3 className="text-base font-bold text-white group-hover:text-primary transition-colors uppercase tracking-wide">{product.name}</h3>
-                      <p className="text-sm font-medium text-white">{formatPrice(product.price)}đ</p>
+                      <h3 className="text-lg font-bold text-white group-hover:text-primary transition-colors uppercase tracking-wide">{product.name}</h3>
+                      <p className="text-base font-bold text-white">{formatPrice(product.price)}đ</p>
                     </div>
                     {product.tag === 'Sale' && <p className="text-xs text-primary font-bold uppercase">Extra 20% Off</p>}
                   </div>

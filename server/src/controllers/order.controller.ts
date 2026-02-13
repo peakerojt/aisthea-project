@@ -148,3 +148,43 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+export const createOrder = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { paymentMethod, shippingAddress } = req.body;
+
+    if (!paymentMethod) {
+      return res.status(400).json({ error: 'Payment method is required' });
+    }
+
+    // Call Stored Procedure for Checkout
+    // sp_Checkout returns a single row with OrderId and Status
+    const result: any[] = await prisma.$queryRaw`EXEC sp_Checkout @UserId = ${userId}, @PaymentMethod = ${paymentMethod}`;
+
+    if (!result || result.length === 0) {
+      throw new Error('Checkout execution returned no result.');
+    }
+
+    const row = result[0];
+    const orderId = row.OrderId || row.orderId;
+
+    res.json({
+      success: true,
+      orderId,
+      message: 'Order created successfully'
+    });
+
+  } catch (error: any) {
+    console.error('Checkout Error:', error);
+    // Parse SQL error message if possible
+    res.status(500).json({
+      error: 'Checkout failed',
+      details: error.message
+    });
+  }
+};

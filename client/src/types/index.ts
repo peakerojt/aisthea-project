@@ -67,7 +67,8 @@ export interface ProductItem {
   price: number;
   stock: number;
   status: 'In Stock' | 'Low Stock' | 'Out of Stock';
-  image: string; // Changed from img to image for consistency
+  image: string; // Primary image for backward compatibility
+  images?: { imageUrl: string; thumbnailUrl?: string }[]; // Multiple images for gallery
   category: string;
   description?: string;
 }

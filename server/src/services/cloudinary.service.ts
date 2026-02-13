@@ -207,19 +207,21 @@ class CloudinaryService {
                 }
             );
 
-            // Generate thumbnail URL with transformations
+            // Generate thumbnail URL with transformations (2x for Retina)
             const thumbnailUrl = this.generateOptimizedUrl(uploadResult.public_id, {
-                width: 300,
-                height: 300,
+                width: 600,  // 2x for Retina (displays at 300px CSS)
+                height: 600,
                 crop: 'fill',
-                quality: 'auto',
+                quality: 'auto:good',
                 fetchFormat: 'auto',
+                dpr: 'auto',  // Critical for Retina displays
             });
 
             // Generate optimized original URL
             const optimizedUrl = this.generateOptimizedUrl(uploadResult.public_id, {
-                quality: 'auto',
+                quality: 'auto:good',
                 fetchFormat: 'auto',
+                dpr: 'auto',
             });
 
             return {
@@ -292,6 +294,7 @@ class CloudinaryService {
             crop?: string;
             quality?: string;
             fetchFormat?: string;
+            dpr?: string;  // Add DPR support for Retina
         }
     ): string {
         const transformations: any = {};
@@ -301,6 +304,7 @@ class CloudinaryService {
         if (options.crop) transformations.crop = options.crop;
         if (options.quality) transformations.quality = options.quality;
         if (options.fetchFormat) transformations.fetch_format = options.fetchFormat;
+        if (options.dpr) transformations.dpr = options.dpr;  // Enable DPR for Retina
 
         return cloudinary.url(publicId, {
             secure: true,
@@ -382,8 +386,9 @@ class CloudinaryService {
                 width,
                 height,
                 crop,
-                quality: 'auto',
+                quality: 'auto:good',
                 fetch_format: 'auto',
+                dpr: 'auto',  // Critical for Retina displays
             },
         });
     }

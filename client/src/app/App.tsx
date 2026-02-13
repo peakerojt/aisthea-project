@@ -75,10 +75,7 @@ const App: React.FC = () => {
   }, [view, role]);
 
   // Cart State (Giữ nguyên dữ liệu mẫu để hiển thị UI)
-  const [cart, setCart] = useState<CartItem[]>([
-    { id: 'item-1', name: 'Midnight Silk Trench', ref: '892-3301-BLK', price: 850, image: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?q=80&w=500&auto=format&fit=crop', color: 'Onyx', size: 'M', quantity: 1 },
-    { id: 'item-2', name: 'Ankle Chelsea Boot', ref: '442-9921-LTH', price: 420, image: 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?q=80&w=500&auto=format&fit=crop', color: 'Black', size: '42', quantity: 1 }
-  ]);
+  const [cart, setCart] = useState<CartItem[]>([]);
 
   const addToCart = (item: CartItem) => {
     setCart(prev => {

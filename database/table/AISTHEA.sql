@@ -434,10 +434,13 @@ BEGIN
     ALTER TABLE ProductImages ADD ThumbnailUrl NVARCHAR(1000) NULL;
     PRINT '✓ Added ThumbnailUrl column to ProductImages table';
 END
-ELSE
+ELSE    
 BEGIN
     PRINT '⚠ ThumbnailUrl column already exists';
 END
 GO
+
+ALTER TABLE Users DROP CONSTRAINT CHK_User_Status;
+ALTER TABLE Users ADD CONSTRAINT CHK_User_Status CHECK (Status IN ('Active', 'Banned', 'Pending'));
 
 GO
