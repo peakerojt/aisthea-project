@@ -33,6 +33,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isHovering, setIsHovering] = useState(false);
+    const [imgLoaded, setImgLoaded] = useState(false);
 
     // Use images array if available, otherwise fall back to single image
     const imageList = images.length > 0
@@ -83,15 +84,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             onMouseLeave={handleMouseLeave}
         >
             {/* Image Container */}
-            <div className="relative aspect-square overflow-hidden bg-surface-dark rounded-lg">
+            <div className="relative aspect-square overflow-hidden bg-[#f0f0ee] rounded-sm">
+                {/* Skeleton shimmer while loading */}
+                {!imgLoaded && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-white/10 to-white/5 animate-pulse" />
+                )}
                 {/* Main Image */}
                 <img
                     src={optimizedImageUrl}
                     alt={name}
-                    className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
+                    loading="lazy"
+                    onLoad={() => setImgLoaded(true)}
                     onError={(e) => {
                         e.currentTarget.src = 'https://via.placeholder.com/400x600?text=No+Image';
+                        setImgLoaded(true);
                     }}
+                    className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
                 />
 
                 {/* Hover Overlay */}

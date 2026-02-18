@@ -1,27 +1,49 @@
 /**
  * Cloudinary URL Optimization Utility
- * Generates sharp, optimized images for Retina displays
+ *
+ * Handles two URL formats from the database:
+ *   Clean:       .../upload/aisthea_products_2026/1_1.jpg
+ *   Pre-transformed: .../upload/c_fill,w_300,h_300/aisthea_products_2026/1_1.jpg
  */
 
 export interface CloudinaryOptions {
     width?: number;
     height?: number;
     quality?: 'auto' | 'auto:eco' | 'auto:good' | 'auto:best';
-    crop?: 'fill' | 'fit' | 'scale' | 'pad' | 'thumb';
-    gravity?: 'auto' | 'center' | 'face' | 'faces';
+    crop?: 'fill' | 'fit' | 'scale' | 'pad' | 'thumb' | 'limit';
+    gravity?: 'auto' | 'center' | 'face' | 'faces' | 'north' | 'south';
     dpr?: 'auto' | '1.0' | '2.0' | '3.0';
+    sharpen?: boolean;
 }
 
 /**
- * Optimize Cloudinary URL for Retina displays
- * @param cloudinaryUrl - Original Cloudinary URL
- * @param options - Transformation options
+ * Strips existing Cloudinary transformation segments from the asset path.
+ *
+ * A transformation segment is a slash-delimited part that contains Cloudinary
+ * parameter patterns like `c_`, `w_`, `h_`, `f_`, `q_`, `e_`, `g_`, `dpr_`.
+ * Folder names like `aisthea_products_2026` do NOT match this pattern.
+ *
+ * Examples:
+ *   "c_fill,w_300,h_300/aisthea_products_2026/1_1.jpg"
+ *     → "aisthea_products_2026/1_1.jpg"
+ *   "aisthea_products_2026/1_1.jpg"
+ *     → "aisthea_products_2026/1_1.jpg"  (unchanged)
+ */
+function stripTransformations(assetPath: string): string {
+    // Match leading segments that look like Cloudinary transformations.
+    // A transformation segment contains params like: c_fill, w_300, h_300, f_auto, q_auto, e_sharpen, dpr_2
+    // Pattern: one or more comma-separated tokens of the form [a-z]+_[a-zA-Z0-9.:]+
+    const transformPattern = /^(?:[a-z]+_[a-zA-Z0-9.:]+(?:,[a-z]+_[a-zA-Z0-9.:]+)*\/)+/;
+    return assetPath.replace(transformPattern, '');
+}
+
+/**
+ * Optimize a Cloudinary URL with the given transformation options.
  */
 export function optimizeCloudinaryUrl(
     cloudinaryUrl: string,
     options: CloudinaryOptions = {}
 ): string {
-    // Return original if not a Cloudinary URL
     if (!cloudinaryUrl || !cloudinaryUrl.includes('cloudinary.com')) {
         return cloudinaryUrl;
     }
@@ -29,66 +51,69 @@ export function optimizeCloudinaryUrl(
     const {
         width,
         height,
-        quality = 'auto:good',
+        quality = 'auto:best',
         crop = 'fill',
-        gravity = 'auto',
-        dpr = 'auto'
+        gravity = 'center',
+        dpr = '2.0',
+        sharpen = true,
     } = options;
 
-    // Extract parts from Cloudinary URL
     const uploadIndex = cloudinaryUrl.indexOf('/upload/');
     if (uploadIndex === -1) return cloudinaryUrl;
 
-    const baseUrl = cloudinaryUrl.substring(0, uploadIndex + 8); // Include '/upload/'
-    const assetPath = cloudinaryUrl.substring(uploadIndex + 8);
-
-    // Remove existing transformations from assetPath if present
-    const cleanAssetPath = assetPath.replace(/^[^/]+\//, '').replace(/^v\d+\//, '');
+    const baseUrl = cloudinaryUrl.substring(0, uploadIndex + 8); // includes '/upload/'
+    const rawAssetPath = cloudinaryUrl.substring(uploadIndex + 8);
+    const cleanAssetPath = stripTransformations(rawAssetPath);
 
     // Build transformation string
-    const transformations: string[] = ['f_auto', `q_${quality}`, `dpr_${dpr}`];
+    const t: string[] = ['f_auto', `q_${quality}`, `dpr_${dpr}`];
+    if (width) t.push(`w_${width}`);
+    if (height) t.push(`h_${height}`);
+    if (crop) t.push(`c_${crop}`);
+    if (gravity) t.push(`g_${gravity}`);
+    if (sharpen) t.push('e_sharpen:80');
 
-    if (width) transformations.push(`w_${width}`);
-    if (height) transformations.push(`h_${height}`);
-    if (crop) transformations.push(`c_${crop}`);
-    if (gravity && crop === 'fill') transformations.push(`g_${gravity}`);
-
-    return `${baseUrl}${transformations.join(',')}/${cleanAssetPath}`;
+    return `${baseUrl}${t.join(',')}/${cleanAssetPath}`;
 }
 
 /**
- * Get optimized thumbnail URL (600x600 for 300px display)
+ * Product card thumbnail — 800×800 square @ 2× retina.
+ * Uses c_fill + g_north to keep the top (collar area) of garments.
+ */
+export function getCloudinaryProductCard(cloudinaryUrl: string): string {
+    return optimizeCloudinaryUrl(cloudinaryUrl, {
+        width: 800,
+        height: 800,
+        quality: 'auto:best',
+        crop: 'fill',
+        gravity: 'north',
+        dpr: '2.0',
+        sharpen: true,
+    });
+}
+
+/**
+ * Small thumbnail (used in cart, search results, etc.)
  */
 export function getCloudinaryThumbnail(cloudinaryUrl: string): string {
     return optimizeCloudinaryUrl(cloudinaryUrl, {
         width: 600,
         height: 600,
-        quality: 'auto:good',
+        quality: 'auto:best',
         crop: 'fill',
-        gravity: 'auto'
+        gravity: 'north',
+        sharpen: true,
     });
 }
 
 /**
- * Get optimized product card image (600x800 for 300x400 display)
- */
-export function getCloudinaryProductCard(cloudinaryUrl: string): string {
-    return optimizeCloudinaryUrl(cloudinaryUrl, {
-        width: 600,
-        height: 800,
-        quality: 'auto:good',
-        crop: 'fill',
-        gravity: 'auto'
-    });
-}
-
-/**
- * Get optimized full-size product image (1200px for 600px display)
+ * Full-size product image (product detail page)
  */
 export function getCloudinaryFullSize(cloudinaryUrl: string): string {
     return optimizeCloudinaryUrl(cloudinaryUrl, {
         width: 1200,
         quality: 'auto:best',
-        crop: 'scale'
+        crop: 'limit',
+        sharpen: true,
     });
 }
