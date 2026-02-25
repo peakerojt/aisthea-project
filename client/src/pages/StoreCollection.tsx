@@ -115,6 +115,8 @@ const ProductGridCard: React.FC<{ product: Product; onProductClick: (p: any) => 
   );
 };
 
+const ITEMS_PER_PAGE = 8;
+
 export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, category = 'Men', setCategory, collection = 'Outerwear', onProductClick }) => {
 
   const heroImage = HERO_IMAGES[collection as keyof typeof HERO_IMAGES] || HERO_IMAGES.Default;
@@ -123,6 +125,7 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // State for Filters
   const [activeCategoryFilter, setActiveCategoryFilter] = useState('All');
@@ -224,6 +227,18 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
       default: return 0; // Featured
     }
   });
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [category, collection, activeCategoryFilter, sortOption, priceRange, selectedSizes]);
+
+  // 4. Paginate results
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const toggleSize = (size: string) => {
     setSelectedSizes(prev =>
@@ -352,7 +367,7 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
                 ))}
               </div>
               <div className="flex items-center gap-4 ml-auto">
-                <span className="text-xs font-bold uppercase tracking-widest text-gray-500">{filteredProducts.length} Products</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-500">{filteredProducts.length} Products {totalPages > 1 && `(Page ${currentPage}/${totalPages})`}</span>
                 <div className="h-4 w-px bg-white/20"></div>
                 <button
                   onClick={() => setIsFilterDrawerOpen(true)}
@@ -391,7 +406,7 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
             </div>
           ) : filteredProducts.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-16 pb-32">
-              {filteredProducts.map((product, index) => (
+              {paginatedProducts.map((product, index) => (
                 <ProductGridCard
                   key={product.id}
                   product={product}
@@ -420,14 +435,34 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
           )}
 
           {/* Pagination */}
-          {filteredProducts.length > 0 && (
+          {totalPages > 1 && (
             <div className="flex justify-center border-t border-border-dark py-12">
               <div className="flex items-center gap-2">
-                <button className="w-10 h-10 flex items-center justify-center border border-white/10 hover:bg-white/5 transition-colors"><span className="material-symbols-outlined text-sm">chevron_left</span></button>
-                <button className="w-10 h-10 flex items-center justify-center bg-primary text-white text-sm font-bold">1</button>
-                <button className="w-10 h-10 flex items-center justify-center border border-white/10 hover:bg-white/5 transition-colors text-sm font-medium">2</button>
-                <button className="w-10 h-10 flex items-center justify-center border border-white/10 hover:bg-white/5 transition-colors text-sm font-medium">3</button>
-                <button className="w-10 h-10 flex items-center justify-center border border-white/10 hover:bg-white/5 transition-colors"><span className="material-symbols-outlined text-sm">chevron_right</span></button>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className={`w-10 h-10 flex items-center justify-center border border-white/10 hover:bg-white/5 transition-colors ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                >
+                  <span className="material-symbols-outlined text-sm">chevron_left</span>
+                </button>
+
+                {[...Array(totalPages)].map((_, i) => (
+                  <button
+                    key={i + 1}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`w-10 h-10 flex items-center justify-center text-sm transition-all ${currentPage === i + 1 ? 'bg-primary text-white font-bold' : 'border border-white/10 hover:bg-white/5 font-medium'}`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className={`w-10 h-10 flex items-center justify-center border border-white/10 hover:bg-white/5 transition-colors ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : ''}`}
+                >
+                  <span className="material-symbols-outlined text-sm">chevron_right</span>
+                </button>
               </div>
             </div>
           )}
