@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { StoreHeader } from '../components/StoreHeader';
 import { CategoryType, ViewState } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { orderService, Order, OrderDetail } from '../services/order.service';
+import { orderService, Order } from '../services/order.service';
 
 interface StoreMyOrdersProps {
   setView: (v: ViewState) => void;
@@ -15,10 +15,6 @@ export const StoreMyOrders: React.FC<StoreMyOrdersProps> = ({ setView, setCatego
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
-
-  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
-  const [selectedOrderDetail, setSelectedOrderDetail] = useState<OrderDetail | null>(null);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
 
   const [statusFilter, setStatusFilter] = useState<string>('');
 
@@ -55,25 +51,9 @@ export const StoreMyOrders: React.FC<StoreMyOrdersProps> = ({ setView, setCatego
     loadOrders();
   }, [role, statusFilter]);
 
-  const openOrderDetail = async (orderId: number) => {
-    setSelectedOrderId(orderId);
-    setIsDetailLoading(true);
-    setSelectedOrderDetail(null);
-    setError(null);
-    try {
-      const detail = await orderService.getMyOrderDetail(orderId);
-      setSelectedOrderDetail(detail);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load order detail');
-    } finally {
-      setIsDetailLoading(false);
-    }
-  };
-
-  const closeModal = () => {
-    setSelectedOrderId(null);
-    setSelectedOrderDetail(null);
-    setIsDetailLoading(false);
+  const goToOrderDetailPage = (orderId: number) => {
+    // Điều hướng sang route mới /orders/:id (React Router sẽ xử lý)
+    window.location.href = `/orders/${orderId}`;
   };
 
   return (
@@ -163,7 +143,7 @@ export const StoreMyOrders: React.FC<StoreMyOrdersProps> = ({ setView, setCatego
 
                     <div className="flex items-center gap-2 justify-end">
                       <button
-                        onClick={() => openOrderDetail(o.orderId)}
+                        onClick={() => goToOrderDetailPage(o.orderId)}
                         className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors"
                       >
                         View
@@ -177,87 +157,7 @@ export const StoreMyOrders: React.FC<StoreMyOrdersProps> = ({ setView, setCatego
         </div>
       </div>
 
-      {selectedOrderId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={closeModal} />
-          <div className="relative bg-surface-dark border border-white/10 rounded-lg shadow-2xl w-full max-w-3xl overflow-hidden">
-            <div className="p-6 border-b border-white/10 flex justify-between items-start">
-              <div>
-                <h3 className="text-xl font-bold text-white">Order Detail</h3>
-                <p className="text-sm text-white/40 mt-1">Order ID: {selectedOrderId}</p>
-              </div>
-              <button onClick={closeModal} className="text-white/50 hover:text-white transition-colors">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <div className="p-6 max-h-[70vh] overflow-y-auto">
-              {isDetailLoading ? (
-                <div className="text-sm text-white/50">Loading detail...</div>
-              ) : selectedOrderDetail ? (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div className="p-4 bg-black/20 border border-white/10 rounded">
-                      <div className="text-[10px] uppercase tracking-widest text-white/40">Order</div>
-                      <div className="mt-2 text-sm">
-                        <div className="font-mono text-white">#{selectedOrderDetail.orderNumber}</div>
-                        <div className="text-white/70 mt-1">Status: <span className="text-white">{selectedOrderDetail.status}</span></div>
-                        <div className="text-white/70 mt-1">Payment: <span className="text-white">{selectedOrderDetail.paymentStatus}</span></div>
-                        <div className="text-white/70 mt-1">Total: <span className="text-white font-semibold">{selectedOrderDetail.totalAmount}</span></div>
-                      </div>
-                    </div>
-
-                    <div className="p-4 bg-black/20 border border-white/10 rounded">
-                      <div className="text-[10px] uppercase tracking-widest text-white/40">Shipping</div>
-                      <div className="mt-2 text-sm text-white/70">
-                        <div className="text-white font-semibold">{selectedOrderDetail.shippingAddress?.recipientName}</div>
-                        <div className="mt-1">{selectedOrderDetail.shippingAddress?.phone}</div>
-                        <div className="mt-1">
-                          {selectedOrderDetail.shippingAddress?.addressDetail}
-                        </div>
-                        <div className="mt-1">
-                          {selectedOrderDetail.shippingAddress?.district ? `${selectedOrderDetail.shippingAddress.district}, ` : ''}
-                          {selectedOrderDetail.shippingAddress?.city}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-white/10 pt-6">
-                    <div className="text-[10px] uppercase tracking-widest text-white/40 mb-3">Items</div>
-                    <div className="space-y-3">
-                      {selectedOrderDetail.items.map((it) => (
-                        <div key={it.orderItemId} className="p-4 bg-black/20 border border-white/10 rounded flex justify-between gap-4">
-                          <div>
-                            <div className="text-white font-medium">{it.productName}</div>
-                            <div className="text-xs text-white/40 font-mono mt-1">SKU: {it.sku}</div>
-                            <div className="text-xs text-white/50 mt-1">{it.variantName}</div>
-                          </div>
-                          <div className="text-right text-sm">
-                            <div className="text-white/70">{it.quantity} x {it.unitPrice}</div>
-                            <div className="text-white font-semibold mt-1">{it.lineTotal}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="text-sm text-white/50">No detail available.</div>
-              )}
-            </div>
-
-            <div className="p-6 border-t border-white/10 flex justify-end">
-              <button
-                onClick={closeModal}
-                className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal chi tiết đơn cũ đã được thay bằng trang /orders/:id */}
     </div>
   );
 };
