@@ -1,6 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Heart,
+  Share2,
+  ShoppingBag,
+  ArrowLeft,
+  ArrowRight,
+  Minus,
+  Plus,
+  ChevronDown,
+  Diamond,
+  CheckCircle2,
+  HelpCircle,
+  Zap,
+  Star,
+  Info
+} from 'lucide-react';
 import { ViewState, CartItem, CategoryType } from '../types';
-import { StoreHeader } from '../components/StoreHeader';
 import { ProductImageGallery } from '../components/ProductImageGallery';
 import { fetchProductById, fetchProducts, Product as ApiProductType } from '../services/product.service';
 import { getCloudinaryProductCard } from '../utils/cloudinary';
@@ -211,7 +227,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
 
         {/* Right Content */}
         <div className="w-full lg:w-1/2 flex flex-col bg-bg-dark">
-          <header className="sticky top-0 z-20 flex items-center justify-between px-6 py-5 lg:px-12 lg:py-6 bg-bg-dark/95 backdrop-blur-sm border-b border-border-dark/50">
+          <header className="sticky top-0 z-20 flex items-center justify-between px-6 py-2 lg:px-12 lg:py-2 bg-bg-dark/95 backdrop-blur-sm border-b border-border-dark/50">
             <button onClick={() => setView('STORE_HOME')} className="text-primary hover:scale-110 transition-transform"><span className="material-symbols-outlined text-3xl">diamond</span></button>
 
             <nav className="hidden md:flex items-center gap-10">
@@ -266,12 +282,12 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
               </div>
             )}
 
-            <div className="px-6 py-8 lg:px-16 lg:py-16 flex flex-col gap-12">
+            <div className="px-5 py-6 lg:px-10 lg:py-8 flex flex-col gap-6">
               <div className="flex flex-col gap-6">
                 <div className="flex justify-between items-start">
-                  <div className="flex flex-col gap-2">
-                    <p className="text-primary text-[10px] font-bold tracking-[0.3em] uppercase">{productDetails?.category?.name || 'Exclusive Collection'}</p>
-                    <p className="text-gray-500 text-[10px] font-medium tracking-widest uppercase">Ref. {basicInfo.ref}</p>
+                  <div className="flex flex-col gap-1">
+                    <p className="text-primary text-[8px] font-bold tracking-[0.3em] uppercase">{productDetails?.category?.name || 'Exclusive Collection'}</p>
+                    <p className="text-gray-500 text-[8px] font-medium tracking-widest uppercase">Ref. {basicInfo.ref}</p>
                   </div>
                   <div className="flex gap-4">
                     <button className="w-10 h-10 flex items-center justify-center rounded-full border border-border-dark hover:border-white hover:text-white text-gray-400 transition-all"><span className="material-symbols-outlined text-xl">favorite</span></button>
@@ -279,49 +295,49 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                   </div>
                 </div>
 
-                <h1 className="text-5xl lg:text-7xl font-black leading-[1] tracking-tighter uppercase text-white animate-fade-in-up">
+                <h1 className="text-xl lg:text-3xl font-black leading-[1.1] tracking-tight uppercase text-white animate-fade-in-up">
                   {productDetails?.name || basicInfo.name}
                 </h1>
 
                 <div className="flex items-center gap-6 pt-2">
-                  <span className="text-3xl font-bold text-white tracking-tight">
+                  <span className="text-lg font-bold text-white tracking-tight">
                     {new Intl.NumberFormat('vi-VN').format(productDetails?.basePrice || basicInfo.price)}đ
                   </span>
                   {stockLevel < 10 && (
-                    <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold tracking-wider uppercase border border-red-500/20">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
-                      Only {stockLevel} left in stock
+                    <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 text-red-500 text-[8px] font-bold tracking-wider uppercase border border-red-500/20">
+                      <span className="w-1 h-1 rounded-full bg-red-500 animate-pulse"></span>
+                      Only {stockLevel} left
                     </span>
                   )}
                   {stockLevel >= 10 && (
-                    <span className="text-green-500 text-[10px] font-bold tracking-wider uppercase flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                    <span className="text-green-500 text-[8px] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                      <span className="w-1 h-1 rounded-full bg-green-500"></span>
                       In Stock
                     </span>
                   )}
                 </div>
 
-                <p className="text-gray-400 leading-relaxed text-lg max-w-xl">
-                  {productDetails?.description || "Crafted from premium materials, this piece defines modern luxury. Features a tailored silhouette, refined hardware, and Aisthea's signature structural design. Perfect for elevating any wardrobe with a touch of contemporary elegance."}
+                <p className="text-gray-400 leading-relaxed text-xs max-w-lg">
+                  {productDetails?.description || "Crafted from premium materials, this piece defines modern luxury. Features a tailored silhouette, refined hardware, and Aisthea's signature structural design."}
                 </p>
               </div>
 
               <div className="flex flex-col gap-10 border-t border-border-dark/50 pt-10">
                 {/* Color Selection */}
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-5 block">
+                  <span className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-500 mb-3 block">
                     Select Color — <span className="text-white">{getColorName(selectedColor)}</span>
                   </span>
-                  <div className="flex gap-4">
+                  <div className="flex gap-3">
                     {availableColors.map(color => (
                       <button
                         key={color}
                         onClick={() => setSelectedColor(color)}
-                        className={`w-12 h-12 rounded-full border-2 transition-all duration-300 ${selectedColor === color ? 'border-white scale-110 shadow-xl shadow-white/10 ring-4 ring-white/5' : 'border-transparent hover:scale-105'}`}
+                        className={`w-8 h-8 rounded-full border-2 transition-all duration-300 ${selectedColor === color ? 'border-white scale-110 shadow-xl shadow-white/10 ring-4 ring-white/5' : 'border-transparent hover:scale-105'}`}
                         style={{ backgroundColor: color.startsWith('#') ? color : '#333' }}
                         title={color}
                       >
-                        {!color.startsWith('#') && <span className="text-[8px] font-bold">{color}</span>}
+                        {!color.startsWith('#') && <span className="text-[7px] font-bold">{color}</span>}
                       </button>
                     ))}
                   </div>
@@ -329,18 +345,18 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
 
                 {/* Size Selection */}
                 <div>
-                  <div className="flex justify-between items-center mb-5">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-500">
                       Select Size — <span className="text-white">{selectedSize || 'None'}</span>
                     </span>
-                    <button className="text-[10px] font-bold uppercase tracking-widest text-primary hover:underline underline-offset-4">Size Guide</button>
+                    <button className="text-[8px] font-bold uppercase tracking-widest text-primary hover:underline underline-offset-4">Size Guide</button>
                   </div>
-                  <div className="grid grid-cols-5 gap-3">
+                  <div className="grid grid-cols-5 gap-2">
                     {availableSizes.map(size => (
                       <button
                         key={size}
                         onClick={() => setSelectedSize(size)}
-                        className={`h-14 border transition-all duration-300 rounded-sm text-xs font-black tracking-widest ${selectedSize === size ? 'border-white bg-white text-black scale-[1.02]' : 'border-border-dark text-gray-500 hover:border-white/50 hover:text-white'}`}
+                        className={`h-10 border transition-all duration-300 rounded-sm text-[10px] font-black tracking-widest ${selectedSize === size ? 'border-white bg-white text-black' : 'border-border-dark text-gray-500 hover:border-white/50 hover:text-white'}`}
                       >
                         {size}
                       </button>
@@ -351,19 +367,19 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
 
               <div className="flex flex-col sm:flex-row gap-5">
                 {/* Quantity Selector */}
-                <div className="h-16 w-full sm:w-40 border border-border-dark flex items-center justify-between px-4 bg-surface-dark/50 rounded-sm">
+                <div className="h-12 w-full sm:w-32 border border-border-dark flex items-center justify-between px-3 bg-surface-dark/50 rounded-sm">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-full flex items-center justify-center text-gray-500 hover:text-white transition-colors"
+                    className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-white transition-colors"
                   >
-                    <span className="material-symbols-outlined">remove</span>
+                    <span className="material-symbols-outlined text-sm">remove</span>
                   </button>
-                  <span className="text-white font-black text-lg">{quantity}</span>
+                  <span className="text-white font-black text-sm">{quantity}</span>
                   <button
                     onClick={() => setQuantity(quantity + 1)}
-                    className="w-10 h-full flex items-center justify-center text-gray-500 hover:text-white transition-colors"
+                    className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-white transition-colors"
                   >
-                    <span className="material-symbols-outlined">add</span>
+                    <span className="material-symbols-outlined text-sm">add</span>
                   </button>
                 </div>
 
@@ -371,7 +387,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                 <button
                   onClick={handleAddToCart}
                   disabled={!selectedSize}
-                  className={`flex-1 h-16 bg-primary hover:bg-red-600 text-white font-black text-sm tracking-[0.2em] uppercase rounded-sm flex items-center justify-center gap-4 transition-all active:scale-[0.98] shadow-lg shadow-primary/20 ${!selectedSize ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                  className={`flex-1 h-14 bg-primary hover:bg-red-600 text-white font-black text-sm tracking-[0.2em] uppercase rounded-sm flex items-center justify-center gap-4 transition-all active:scale-[0.98] shadow-lg shadow-primary/20 ${!selectedSize ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                 >
                   {selectedSize ? (
                     <>Add to Bag <span className="w-px h-6 bg-white/20"></span> {new Intl.NumberFormat('vi-VN').format((productDetails?.basePrice || basicInfo.price) * quantity)}đ</>
@@ -382,17 +398,17 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
               </div>
 
               {/* Stylist CTA */}
-              <div className="bg-surface-dark/30 border border-border-dark/50 p-8 rounded-sm flex flex-col md:flex-row items-center justify-between gap-6 group hover:border-primary/30 transition-colors">
-                <div className="flex items-center gap-5">
-                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/20 group-hover:border-primary/50 transition-colors">
+              <div className="bg-surface-dark/30 border border-border-dark/50 p-4 rounded-sm flex flex-col md:flex-row items-center justify-between gap-3 group hover:border-primary/30 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20 group-hover:border-primary/50 transition-colors">
                     <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&h=200&fit=crop" alt="Stylist" className="w-full h-full object-cover" />
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-white font-bold text-sm tracking-tight">Need help with styling?</p>
-                    <p className="text-gray-500 text-xs">Our master stylists are available for expert advice.</p>
+                  <div className="flex flex-col gap-0.5">
+                    <p className="text-white font-bold text-xs tracking-tight">Need help with styling?</p>
+                    <p className="text-gray-500 text-[10px]">Our master stylists are available for expert advice.</p>
                   </div>
                 </div>
-                <button className="px-8 py-3 border border-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white hover:text-black transition-all whitespace-nowrap">
+                <button className="px-6 py-2 border border-white text-[8px] font-black uppercase tracking-[0.2em] hover:bg-white hover:text-black transition-all whitespace-nowrap">
                   Chat With Stylist
                 </button>
               </div>
@@ -416,11 +432,11 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
 
       {/* You May Also Like - Carousel */}
       {relatedProducts.length > 0 && (
-        <section className="px-6 py-24 lg:px-24 bg-bg-dark border-t border-border-dark/30">
+        <section className="px-6 py-12 lg:px-24 bg-bg-dark border-t border-border-dark/30">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6 relative">
             <div className="flex flex-col gap-4">
               <span className="text-primary text-[10px] font-black tracking-[0.4em] uppercase">Recommended for You</span>
-              <h2 className="text-4xl lg:text-6xl font-black uppercase tracking-tighter text-white">You May Also Like</h2>
+              <h2 className="text-2xl lg:text-4xl font-black uppercase tracking-tighter text-white">You May Also Like</h2>
             </div>
 
             <div className="flex items-center gap-4">
