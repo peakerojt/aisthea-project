@@ -257,12 +257,25 @@ model Order {
   items                 OrderItem[]
   user                  User?       @relation(fields: [userId], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Orders_Users")
   payments              Payment[]
+  statusHistory         OrderStatusHistory[]
+  note                  String?     @map("Note") @db.NVarChar(500)
 
   @@index([createdAt], map: "IX_Orders_CreatedAt")
   @@index([orderNumber], map: "IX_Orders_OrderNumber")
   @@index([status], map: "IX_Orders_Status")
   @@index([userId], map: "IX_Orders_UserId")
   @@map("Orders")
+}
+
+model OrderStatusHistory {
+  orderStatusHistoryId Int      @id @default(autoincrement()) @map("OrderStatusHistoryId")
+  orderId              Int      @map("OrderId")
+  status               String   @map("Status") @db.NVarChar(20)
+  changedAt            DateTime @default(now()) @map("ChangedAt")
+  order                Order    @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderStatusHistory_Orders")
+
+  @@index([orderId], map: "IX_OrderStatusHistory_OrderId")
+  @@map("OrderStatusHistory")
 }
 
 model OrderItem {
