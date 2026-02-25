@@ -13,6 +13,7 @@ import { StoreMyOrders } from '../pages/StoreMyOrders';
 import { AdminDashboard } from '../pages/AdminDashboard';
 import { AdminProducts } from '../pages/AdminProducts';
 import { AdminCreateProduct } from '../pages/AdminCreateProduct';
+import { AdminEditProduct } from '../pages/AdminEditProduct';
 import { AdminOrders } from '../pages/AdminOrders';
 import { AdminTracking } from '../pages/AdminTracking';
 import { AdminCustomers } from '../pages/AdminCustomers';
@@ -31,6 +32,15 @@ const App: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<CategoryType>('Men');
   const [activeCollection, setActiveCollection] = useState<string>('Outerwear');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [editProductId, setEditProductId] = useState<number | null>(null);
+
+  // Wrapper to also capture productId when navigating to edit page
+  const handleSetView = (v: ViewState, productId?: number) => {
+    if (v === 'ADMIN_EDIT_PRODUCT' && productId !== undefined) {
+      setEditProductId(productId);
+    }
+    setView(v);
+  };
 
   // Handle URL routing on page load
   useEffect(() => {
@@ -127,8 +137,11 @@ const App: React.FC = () => {
         <AdminSidebar currentView={view} setView={setView} />
         <main className="flex-1 h-full overflow-y-auto bg-bg-dark relative">
           {view === 'ADMIN_DASHBOARD' && <AdminDashboard setView={setView} />}
-          {view === 'ADMIN_PRODUCTS' && <AdminProducts setView={setView} />}
+          {view === 'ADMIN_PRODUCTS' && <AdminProducts setView={(v, id?: number) => handleSetView(v as ViewState, id)} />}
           {view === 'ADMIN_CREATE_PRODUCT' && <AdminCreateProduct setView={setView} />}
+          {view === 'ADMIN_EDIT_PRODUCT' && editProductId !== null && (
+            <AdminEditProduct setView={setView} productId={editProductId} />
+          )}
           {view === 'ADMIN_RESTOCK' && <AdminRestock />}
           {view === 'ADMIN_ORDERS' && <AdminOrders />}
           {view === 'ADMIN_CUSTOMERS' && <AdminCustomers />}
