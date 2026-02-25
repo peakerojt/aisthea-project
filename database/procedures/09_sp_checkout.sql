@@ -17,7 +17,13 @@ GO
 CREATE PROCEDURE sp_Checkout
     @UserId INT,
     @PaymentMethod NVARCHAR(50), -- 'COD', 'CreditCard', 'Paypal'
-    @ShippingAddress NVARCHAR(500) = NULL
+    @CustomerName NVARCHAR(100) = N'Khách hàng',
+    @CustomerPhone NVARCHAR(20) = N'0000000000',
+    @ShippingCity NVARCHAR(50) = N'Hà Nội',
+    @ShippingDistrict NVARCHAR(50) = N'Không xác định',
+    @ShippingWard NVARCHAR(50) = NULL,
+    @ShippingAddressDetail NVARCHAR(200) = N'Không xác định',
+    @ShippingAddress NVARCHAR(500) = NULL  -- Legacy param kept for backwards compatibility
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -82,16 +88,41 @@ BEGIN
         WHERE ci.CartId = @CartId;
 
         -- 4. Create Order
-        INSERT INTO Orders (UserId, OrderNumber, TotalAmount, Status, CreatedAt)
-        VALUES (@UserId, 'ORD-' + CONVERT(NVARCHAR(20), GETDATE(), 112) + '-' + CAST(NEWID() AS NVARCHAR(8)), @TotalAmount, 'Pending', GETDATE());
+        INSERT INTO Orders (
+            UserId, OrderNumber, CustomerName, CustomerPhone,
+            ShippingCity, ShippingDistrict, ShippingWard, ShippingAddressDetail,
+            TotalAmount, Status, PaymentMethod, CreatedAt
+        )
+        VALUES (
+            @UserId,
+            'ORD-' + CONVERT(NVARCHAR(20), GETDATE(), 112) + '-' + SUBSTRING(CAST(NEWID() AS NVARCHAR(36)), 1, 8),
+            @CustomerName,
+            @CustomerPhone,
+            @ShippingCity,
+            @ShippingDistrict,
+            @ShippingWard,
+            @ShippingAddressDetail,
+            @TotalAmount,
+            'Pending',
+            @PaymentMethod,
+            GETDATE()
+        );
         
         SET @OrderId = SCOPE_IDENTITY();
 
-        -- 5. Create OrderItems
-        INSERT INTO OrderItems (OrderId, VariantId, Quantity, UnitPrice)
-        SELECT @OrderId, ci.VariantId, ci.Quantity, pv.Price
+        -- 5. Create OrderItems (include ProductName, SKU, VariantName from joined tables)
+        INSERT INTO OrderItems (OrderId, VariantId, ProductName, SKU, VariantName, Quantity, UnitPrice)
+        SELECT 
+            @OrderId, 
+            ci.VariantId, 
+            p.Name,
+            pv.SKU,
+            pv.SKU,  -- VariantName defaults to SKU; can be enhanced later
+            ci.Quantity, 
+            pv.Price
         FROM CartItems ci
         JOIN ProductVariants pv ON ci.VariantId = pv.VariantId
+        JOIN Products p ON pv.ProductId = p.ProductId
         WHERE ci.CartId = @CartId;
 
         -- 6. Create Payment Record

@@ -1,5 +1,45 @@
 import { api } from '../utils/api';
 
+// ─── Create Product Types ─────────────────────────────────────────────────────
+
+export interface CreateVariantPayload {
+    sku: string;
+    price: number;
+    stockQuantity: number;
+    isDefault?: boolean;
+    attributeValues: { attributeName: string; value: string }[];
+}
+
+export interface CreateImagePayload {
+    imageUrl: string;
+    thumbnailUrl?: string;
+    isPrimary?: boolean;
+}
+
+export interface CreateProductPayload {
+    name: string;
+    slug: string;
+    description?: string;
+    basePrice: number;
+    categoryId: number;
+    brandId?: number;
+    status?: string;
+    variants: CreateVariantPayload[];
+    images: CreateImagePayload[];
+}
+
+export interface CategoryOption {
+    categoryId: number;
+    name: string;
+    slug: string;
+    parentId?: number | null;
+}
+
+export interface BrandOption {
+    brandId: number;
+    name: string;
+}
+
 // Product interfaces based on database schema
 export interface ProductImage {
     imageId: number;
@@ -126,8 +166,150 @@ export const getVariantImages = (variant: ProductVariant): string[] => {
 /**
  * Calculate stock status based on inventory
  */
+/**
+ * Create a new product with variants and images
+ */
+export const createProduct = async (payload: CreateProductPayload): Promise<{ productId: number; slug: string; variantCount: number }> => {
+    try {
+        const result = await api.post<{ success: boolean; data: { productId: number; slug: string; variantCount: number } }>('/api/products', payload);
+        return result.data;
+    } catch (error) {
+        console.error('Failed to create product:', error);
+        throw error;
+    }
+};
+
+/**
+ * Fetch all categories for the create product form
+ */
+export const fetchCategories = async (): Promise<CategoryOption[]> => {
+    try {
+        return await api.get<CategoryOption[]>('/api/products/meta/categories');
+    } catch (error) {
+        console.error('Failed to fetch categories:', error);
+        throw error;
+    }
+};
+
+/**
+ * Fetch all brands for the create product form
+ */
+export const fetchBrands = async (): Promise<BrandOption[]> => {
+    try {
+        return await api.get<BrandOption[]>('/api/products/meta/brands');
+    } catch (error) {
+        console.error('Failed to fetch brands:', error);
+        throw error;
+    }
+};
+
 export const getStockStatus = (stockQuantity: number): 'In Stock' | 'Low Stock' | 'Out of Stock' => {
     if (stockQuantity === 0) return 'Out of Stock';
     if (stockQuantity < 10) return 'Low Stock';
     return 'In Stock';
 };
+
+// ─── Full product data for edit form ──────────────────────────────────────────
+
+export interface ExistingVariant {
+    variantId: number;
+    sku: string;
+    price: number;
+    stockQuantity: number;
+    isDefault: boolean;
+    variantAttributes: {
+        value: {
+            valueId: number;
+            value: string;
+            attribute: { attributeId: number; name: string };
+        };
+    }[];
+}
+
+export interface ProductForEdit {
+    productId: number;
+    name: string;
+    slug: string;
+    description?: string;
+    basePrice: number;
+    status: string;
+    categoryId: number;
+    brandId?: number;
+    category?: { categoryId: number; name: string; slug: string };
+    brand?: { brandId: number; name: string };
+    images: {
+        imageId: number;
+        variantId?: number | null;
+        imageUrl: string;
+        thumbnailUrl?: string;
+        isPrimary: boolean;
+    }[];
+    variants: ExistingVariant[];
+}
+
+export const fetchProductForEdit = async (id: number): Promise<ProductForEdit> => {
+    try {
+        return await api.get<ProductForEdit>(`/api/products/${id}/edit`);
+    } catch (error) {
+        console.error(`Failed to fetch product ${id} for edit:`, error);
+        throw error;
+    }
+};
+
+export interface UpdateVariantPayload {
+    variantId?: number;
+    sku: string;
+    price: number;
+    stockQuantity: number;
+    isDefault?: boolean;
+    attributeValues: { attributeName: string; value: string }[];
+}
+
+export interface UpdateProductPayload {
+    name: string;
+    slug: string;
+    description?: string;
+    basePrice: number;
+    categoryId: number;
+    brandId?: number;
+    status?: string;
+    deletedImageIds: number[];
+    newImages: { imageUrl: string; thumbnailUrl?: string; isPrimary?: boolean }[];
+    primaryImageId?: number;
+    variants: UpdateVariantPayload[];
+    keptVariantIds: number[];
+}
+
+export const updateProduct = async (
+    id: number,
+    payload: UpdateProductPayload
+): Promise<{ productId: number; variantCount: number }> => {
+    try {
+        const result = await api.put<{ success: boolean; data: { productId: number; variantCount: number } }>(
+            `/api/products/${id}`,
+            payload
+        );
+        return result.data;
+    } catch (error) {
+        console.error(`Failed to update product ${id}:`, error);
+        throw error;
+    }
+};
+
+// ─── Smart Delete ──────────────────────────────────────────────────────────────
+
+export interface SmartDeleteResponse {
+    success: boolean;
+    mode: 'archived' | 'deleted';
+    message: string;
+}
+
+export const deleteProductById = async (id: number): Promise<SmartDeleteResponse> => {
+    try {
+        return await api.delete<SmartDeleteResponse>(`/api/products/${id}`);
+    } catch (error) {
+        console.error(`Failed to delete product ${id}:`, error);
+        throw error;
+    }
+};
+

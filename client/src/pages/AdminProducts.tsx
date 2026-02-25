@@ -1,12 +1,19 @@
 
-import React, { useState } from 'react';
-import { ViewState, ProductItem } from '../types';
+import React, { useState, useEffect } from 'react';
+import { ViewState } from '../types';
 import { useProducts } from '../contexts/ProductContext';
-import { Trash2, Edit2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { deleteProductById } from '../services/product.service';
+import { Trash2, Edit2, AlertCircle, CheckCircle2, Archive, Loader2 } from 'lucide-react';
 
-export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ setView }) => {
+export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: number) => void }> = ({ setView }) => {
   // Read Data and Actions from Context
-  const { products, updateProduct, deleteProduct, loading, error } = useProducts();
+  const { products, updateProduct, deleteProduct, loading, error, refreshProducts } = useProducts();
+
+  // Refresh products whenever the admin products tab is visited
+  useEffect(() => {
+    refreshProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -18,7 +25,11 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ s
   const [editValue, setEditValue] = useState<string | number>('');
 
   // Toast State
-  const [toast, setToast] = useState<{ message: string, visible: boolean } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'archive' | 'error'; visible: boolean } | null>(null);
+
+  // Delete Confirmation Modal State
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const filteredProducts = products.filter(product => {
     const statusMatch = statusFilter === 'All' || product.status === statusFilter;
@@ -26,9 +37,9 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ s
     return statusMatch && categoryMatch;
   });
 
-  const showToast = (message: string) => {
-    setToast({ message, visible: true });
-    setTimeout(() => setToast(null), 3000);
+  const showToast = (message: string, type: 'success' | 'archive' | 'error' = 'success') => {
+    setToast({ message, type, visible: true });
+    setTimeout(() => setToast(null), 4000);
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,11 +56,25 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ s
     );
   };
 
-  // Delete Action with Confirmation
+  // Open delete confirmation modal
   const handleDeleteRow = (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
-      deleteProduct(id);
-      showToast('Product deleted successfully');
+    setDeleteModal({ open: true, id, name });
+  };
+
+  // Execute smart delete via API
+  const confirmDelete = async () => {
+    if (!deleteModal) return;
+    setDeleting(true);
+    try {
+      const result = await deleteProductById(Number(deleteModal.id));
+      setDeleteModal(null);
+      await refreshProducts();
+      showToast(result.message, result.mode === 'archived' ? 'archive' : 'success');
+    } catch (err: any) {
+      setDeleteModal(null);
+      showToast(err.message || 'Có lỗi xảy ra khi xóa sản phẩm', 'error');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -89,7 +114,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ s
     const numValue = Number(editValue);
 
     if (!isNaN(numValue) && numValue >= 0) {
-      const updates: Partial<ProductItem> = { [field]: numValue };
+      const updates: Partial<Record<string, number>> = { [field]: numValue };
       // Call Context Update
       updateProduct(id, updates);
       showToast(`${field === 'price' ? 'Price' : 'Stock'} updated`);
@@ -118,17 +143,81 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ s
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col relative">
-      {/* Toast Notification */}
-      {toast && toast.visible && (
+      {/* ── Smart Delete Confirmation Modal ───────────────────────────────── */}
+      {deleteModal?.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => !deleting && setDeleteModal(null)}
+          />
+          {/* Dialog */}
+          <div className="relative bg-surface-dark border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-5"
+            style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+
+            {/* Icon */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
+                <Trash2 size={18} className="text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Xác nhận xóa sản phẩm?</h3>
+                <p className="text-[11px] text-white/40 mt-0.5 font-mono truncate max-w-[280px]">
+                  {deleteModal.name}
+                </p>
+              </div>
+            </div>
+
+            {/* Body */}
+            <p className="text-sm text-white/60 bg-white/[0.03] border border-white/5 rounded-lg px-4 py-3 leading-relaxed">
+              Hành động này <span className="text-white font-semibold">không thể hoàn tác</span>. Nếu sản phẩm đã có đơn hàng, hệ thống sẽ chỉ <span className="text-yellow-400 font-semibold">ẩn sản phẩm</span> để bảo toàn lịch sử đơn hàng.
+            </p>
+
+            {/* Buttons */}
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setDeleteModal(null)}
+                disabled={deleting}
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center gap-2 shadow-lg shadow-red-900/30"
+              >
+                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                {deleting ? 'Đang xóa...' : 'Xóa'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Toast Notification ─────────────────────────────────────────────── */}
+      {toast?.visible && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-fade-in-up">
-          <div className="bg-surface-dark border border-white/10 shadow-2xl rounded-full px-6 py-3 flex items-center gap-3">
-            <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center border border-emerald-500/20">
-              <CheckCircle2 size={12} strokeWidth={4} />
-            </span>
+          <div className={`bg-surface-dark border shadow-2xl rounded-full px-5 py-3 flex items-center gap-3 ${toast.type === 'error'
+              ? 'border-red-500/30'
+              : toast.type === 'archive'
+                ? 'border-yellow-500/30'
+                : 'border-emerald-500/20'
+            }`}>
+            {toast.type === 'error' ? (
+              <AlertCircle size={14} className="text-red-400 shrink-0" />
+            ) : toast.type === 'archive' ? (
+              <Archive size={14} className="text-yellow-400 shrink-0" />
+            ) : (
+              <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+            )}
             <span className="text-sm font-medium text-white">{toast.message}</span>
           </div>
         </div>
       )}
+
 
       <header className="h-20 flex items-center justify-between mb-8">
         <div>
@@ -379,13 +468,22 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState) => void }> = ({ s
                       </td>
 
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => handleDeleteRow(p.id, p.name)}
-                          className="text-white/40 hover:text-red-500 transition-colors p-2 rounded hover:bg-white/10"
-                          title="Delete Product"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setView('ADMIN_EDIT_PRODUCT', Number(p.id))}
+                            className="text-white/40 hover:text-primary transition-colors p-2 rounded hover:bg-white/10"
+                            title="Chỉnh sửa"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRow(p.id, p.name)}
+                            className="text-white/40 hover:text-red-500 transition-colors p-2 rounded hover:bg-white/10"
+                            title="Delete Product"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

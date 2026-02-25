@@ -537,7 +537,9 @@ export const StoreProfile: React.FC<StoreProfileProps> = ({ setView, setCategory
                           <p className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleDateString()}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-lg">${order.totalAmount.toFixed(2)}</p>
+                          <p className="font-bold text-lg">
+                            ${Number(order.totalAmount ?? 0).toFixed(2)}
+                          </p>
                           <span className={`inline-block px-3 py-1 rounded text-xs font-bold uppercase ${order.status === 'Delivered' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>{order.status}</span>
                         </div>
                       </div>
