@@ -1,6 +1,15 @@
 
 import { Router } from 'express';
-import { getAllProducts, getProduct } from '../controllers/product.controller';
+import {
+    getAllProducts,
+    getProduct,
+    createProduct,
+    getAllCategories,
+    getAllBrands,
+    getProductEdit,
+    updateProduct,
+    deleteProduct,
+} from '../controllers/product.controller';
 import {
     uploadSingleProductImage,
     uploadMultipleProductImages,
@@ -11,24 +20,30 @@ import { upload } from '../middleware/upload.middleware';
 
 const router = Router();
 
-// GET /api/products
+// ─── Meta (BEFORE /:id) ───────────────────────────────────────────────────────
+router.get('/meta/categories', getAllCategories);
+router.get('/meta/brands', getAllBrands);
+
+// ─── Product CRUD ─────────────────────────────────────────────────────────────
 router.get('/', getAllProducts);
+router.post('/', createProduct);
+
+// GET /api/products/:id/edit  (BEFORE /:id to avoid conflict)
+router.get('/:id/edit', getProductEdit);
 
 // GET /api/products/:id
 router.get('/:id', getProduct);
 
-// ============ PRODUCT IMAGES ============
+// PUT /api/products/:id — update
+router.put('/:id', updateProduct);
 
-// GET /api/products/:productId/images - Get all images for a product
+// DELETE /api/products/:id — smart delete
+router.delete('/:id', deleteProduct);
+
+// ─── Product Images ───────────────────────────────────────────────────────────
 router.get('/:productId/images', getProductImages);
-
-// POST /api/products/:productId/image - Upload single image
 router.post('/:productId/image', upload.single('file'), uploadSingleProductImage);
-
-// POST /api/products/:productId/images - Batch upload images
 router.post('/:productId/images', upload.array('files', 20), uploadMultipleProductImages);
-
-// DELETE /api/products/images/:imageId - Delete image
 router.delete('/images/:imageId', deleteProductImage);
 
 export default router;

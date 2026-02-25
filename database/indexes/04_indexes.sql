@@ -248,12 +248,15 @@ BEGIN
     PRINT 'Created IX_Orders_Status_CreatedAt';
 END
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Payments_Status_Date' AND object_id = OBJECT_ID('Payments'))
+IF EXISTS (SELECT * FROM sys.tables WHERE name = 'Payments')
 BEGIN
-    CREATE INDEX IX_Payments_Status_Date 
-        ON Payments(Status, PaymentDate DESC)
-        INCLUDE (OrderId, Amount, PaymentMethod);
-    PRINT 'Created IX_Payments_Status_Date';
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Payments_Status_Date' AND object_id = OBJECT_ID('Payments'))
+    BEGIN
+        CREATE INDEX IX_Payments_Status_Date 
+            ON Payments(Status, PaymentDate DESC)
+            INCLUDE (OrderId, Amount, PaymentMethod);
+        PRINT 'Created IX_Payments_Status_Date';
+    END
 END
 
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Users_Status_CreatedAt' AND object_id = OBJECT_ID('Users'))

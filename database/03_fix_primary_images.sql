@@ -6,7 +6,13 @@ SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
 
--- Set the first image of each product as primary
+-- Step 1: Reset all IsPrimary flags to 0 first to avoid UX_ProductImages_Primary violation
+-- (the unique filtered index only allows one IsPrimary=1 per ProductId)
+UPDATE ProductImages SET IsPrimary = 0;
+
+PRINT 'Reset all IsPrimary flags to 0';
+
+-- Step 2: Set the first image (lowest ImageId) of each product as primary
 UPDATE pi
 SET IsPrimary = 1
 FROM ProductImages pi
