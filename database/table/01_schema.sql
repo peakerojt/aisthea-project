@@ -605,3 +605,56 @@ PRINT '========================================';
 PRINT '✓ Category Image Support Ready!';
 PRINT '========================================';
 GO
+
+/* =============================================================
+   SCHEMA UPDATES - ORDER MANAGEMENT SYSTEM
+   Description: Add Note to Orders, add OrderStatusHistory table
+   Date: 2026-02-26
+   ============================================================= */
+
+PRINT '';
+PRINT 'Applying Order Management System updates...';
+GO
+
+-- Add Note column to Orders if it doesn't exist
+IF NOT EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'Orders'
+    AND COLUMN_NAME = 'Note'
+)
+BEGIN
+    ALTER TABLE Orders ADD Note NVARCHAR(500) NULL;
+    PRINT '✓ Added Note column to Orders table';
+END
+ELSE
+BEGIN
+    PRINT '⚠ Note column already exists in Orders';
+END
+GO
+
+-- Create OrderStatusHistory table if it doesn't exist
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'OrderStatusHistory')
+BEGIN
+    CREATE TABLE OrderStatusHistory (
+        OrderStatusHistoryId INT IDENTITY(1,1) PRIMARY KEY,
+        OrderId              INT NOT NULL,
+        Status               NVARCHAR(20) NOT NULL,
+        ChangedAt            DATETIME2 NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_OrderStatusHistory_Orders
+            FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) ON DELETE CASCADE
+    );
+    CREATE INDEX IX_OrderStatusHistory_OrderId ON OrderStatusHistory(OrderId);
+    PRINT '✓ Created table: OrderStatusHistory';
+END
+ELSE
+BEGIN
+    PRINT '⚠ OrderStatusHistory table already exists';
+END
+GO
+
+PRINT '';
+PRINT '========================================';
+PRINT '✓ Order Management System Schema Ready!';
+PRINT '========================================';
+GO

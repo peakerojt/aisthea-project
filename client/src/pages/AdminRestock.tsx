@@ -1,297 +1,514 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+   Search,
+   PackagePlus,
+   Save,
+   RefreshCw,
+   AlertTriangle,
+   CheckCircle2,
+   Package,
+   X,
+   TrendingDown,
+   ChevronRight,
+} from 'lucide-react';
+import {
+   fetchInventory,
+   bulkUpdateStock,
+   type InventoryVariant,
+} from '../services/inventory.service';
 
-import React, { useState } from 'react';
-import { useProducts } from '../contexts/ProductContext';
-import { RestockItem, PurchaseOrder } from '../types';
-import { Plus, Search, Trash2, PackageCheck } from 'lucide-react';
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-export const AdminRestock: React.FC = () => {
-  const { products, purchaseOrders, receiveStock, createPurchaseOrder } = useProducts();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  // New PO State
-  const [supplier, setSupplier] = useState('');
-  const [poItems, setPoItems] = useState<RestockItem[]>([]);
+interface ProductGroup {
+   productId: number;
+   productName: string;
+   primaryImageUrl: string | null;
+   variants: InventoryVariant[];
+}
 
-  const handleAddItem = (productId: string) => {
-      const product = products.find(p => p.id === productId);
-      if (!product) return;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-      const existingItem = poItems.find(i => i.productId === productId);
-      if (existingItem) {
-          // Increment quantity if already added
-          setPoItems(prev => prev.map(i => i.productId === productId ? { ...i, quantity: i.quantity + 10 } : i));
-      } else {
-          setPoItems(prev => [
-              ...prev,
-              { productId: product.id, productName: product.name, sku: product.sku, quantity: 10, unitCost: 0 }
-          ]);
+const getStockStatus = (qty: number): { label: string; className: string } => {
+   if (qty === 0) return { label: 'Hết hàng', className: 'bg-red-500/15 text-red-400 border-red-500/25' };
+   if (qty < 10) return { label: 'Sắp hết', className: 'bg-amber-500/15 text-amber-400 border-amber-500/25' };
+   return { label: 'Còn hàng', className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' };
+};
+
+/** Group a flat variant list into ProductGroup[] */
+function groupVariants(variants: InventoryVariant[]): ProductGroup[] {
+   const map = new Map<number, ProductGroup>();
+   for (const v of variants) {
+      if (!map.has(v.productId)) {
+         map.set(v.productId, {
+            productId: v.productId,
+            productName: v.product.name,
+            primaryImageUrl: v.product.primaryImageUrl,
+            variants: [],
+         });
       }
-      setSearchTerm(''); // Clear search to show table
-  };
+      map.get(v.productId)!.variants.push(v);
+   }
+   return Array.from(map.values());
+}
 
-  const handleUpdateItem = (productId: string, field: keyof RestockItem, value: number) => {
-      setPoItems(prev => prev.map(i => i.productId === productId ? { ...i, [field]: value } : i));
-  };
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
-  const handleRemoveItem = (productId: string) => {
-      setPoItems(prev => prev.filter(i => i.productId !== productId));
-  };
+const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () => void }> = ({ message, type, onClose }) => (
+   <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl border text-sm font-medium animate-fade-in-up ${type === 'success' ? 'bg-emerald-950 border-emerald-500/30 text-emerald-300' : 'bg-red-950 border-red-500/30 text-red-300'
+      }`}>
+      {type === 'success' ? <CheckCircle2 size={18} className="text-emerald-400 shrink-0" /> : <AlertTriangle size={18} className="text-red-400 shrink-0" />}
+      <span>{message}</span>
+      <button onClick={onClose} className="ml-2 opacity-60 hover:opacity-100 transition-opacity"><X size={16} /></button>
+   </div>
+);
 
-  const calculateTotal = () => {
-      return poItems.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
-  };
+const SkeletonGroup: React.FC = () => (
+   <>
+      {/* group header skeleton */}
+      <tr className="bg-white/[0.025] border-b border-white/[0.06]">
+         <td colSpan={6} className="px-5 py-3">
+            <div className="h-4 w-48 rounded bg-white/[0.07] animate-pulse" />
+         </td>
+      </tr>
+      {/* variant rows skeleton */}
+      {[1, 2, 3].map((i) => (
+         <tr key={i} className="border-b border-white/[0.04]">
+            {[1, 2, 3, 4, 5, 6].map((j) => (
+               <td key={j} className="px-5 py-4 pl-14">
+                  <div className="h-3.5 rounded bg-white/[0.05] animate-pulse" style={{ width: `${55 + j * 7}%` }} />
+               </td>
+            ))}
+         </tr>
+      ))}
+   </>
+);
 
-  const handleSubmitPO = () => {
-      if (!supplier || poItems.length === 0) return;
+// ─── Product Group Row ────────────────────────────────────────────────────────
 
-      const newPO: PurchaseOrder = {
-          id: `#PO-${Math.floor(1000 + Math.random() * 9000)}`,
-          supplier,
-          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          items: poItems,
-          totalCost: calculateTotal(),
-          status: 'Pending'
-      };
+interface ProductGroupRowProps {
+   group: ProductGroup;
+   dirtyMap: Record<number, number>;
+   onQuantityChange: (variantId: number, value: string) => void;
+   defaultOpen: boolean;
+}
 
-      createPurchaseOrder(newPO);
-      setIsModalOpen(false);
-      // Reset form
-      setSupplier('');
-      setPoItems([]);
-  };
+const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQuantityChange, defaultOpen }) => {
+   const [open, setOpen] = useState(defaultOpen);
 
-  const handleReceiveStock = (po: PurchaseOrder) => {
-      if (window.confirm(`Confirm receipt of ${po.items.length} SKUs from ${po.supplier}? This will update live inventory.`)) {
-          receiveStock(po);
-      }
-  };
+   // Aggregate stats for the header
+   const totalStock = group.variants.reduce((s, v) => s + v.stockQuantity, 0);
+   const pendingTotalStock = group.variants.reduce((s, v) => s + (v.variantId in dirtyMap ? dirtyMap[v.variantId] : v.stockQuantity), 0);
+   const hasLow = group.variants.some((v) => v.stockQuantity < 10);
+   const hasOut = group.variants.some((v) => v.stockQuantity === 0);
+   const hasDirty = group.variants.some((v) => v.variantId in dirtyMap);
 
-  const filteredSearchProducts = searchTerm 
-      ? products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.includes(searchTerm))
-      : [];
+   return (
+      <>
+         {/* ── Product Group Header ── */}
+         <tr
+            className={`cursor-pointer select-none border-b transition-colors ${open ? 'border-white/[0.06] bg-white/[0.03]' : 'border-white/[0.04] hover:bg-white/[0.02]'
+               } ${hasDirty ? 'border-l-2 border-l-amber-400/50' : ''}`}
+            onClick={() => setOpen((p) => !p)}
+         >
+            <td className="px-5 py-3" colSpan={6}>
+               <div className="flex items-center gap-3">
+                  {/* Chevron */}
+                  <ChevronRight
+                     size={15}
+                     className={`text-white/30 transition-transform shrink-0 ${open ? 'rotate-90' : ''}`}
+                  />
 
-  return (
-    <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col relative">
-      <header className="h-20 flex items-center justify-between mb-8">
-        <div>
-           <h2 className="text-2xl font-bold text-white">Stock Intake</h2>
-           <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Manage inbound shipments & Purchase Orders</p>
-        </div>
-        <button 
-           onClick={() => setIsModalOpen(true)}
-           className="bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-[0.1em] px-6 py-3 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-2"
-        >
-           <Plus size={18} /> Create Restock
-        </button>
-      </header>
-
-      {/* History Table */}
-      <div className="bg-surface-dark border border-white/5 rounded-xl shadow-2xl flex-1 overflow-hidden flex flex-col">
-         <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-               <thead className="bg-white/[0.02]">
-                  <tr className="text-[10px] uppercase tracking-widest text-white/50 border-b border-white/5">
-                     <th className="px-6 py-4 font-semibold">PO ID</th>
-                     <th className="px-6 py-4 font-semibold">Supplier</th>
-                     <th className="px-6 py-4 font-semibold">Date</th>
-                     <th className="px-6 py-4 font-semibold text-center">Items</th>
-                     <th className="px-6 py-4 font-semibold text-right">Total Cost</th>
-                     <th className="px-6 py-4 font-semibold">Status</th>
-                     <th className="px-6 py-4 font-semibold text-right">Actions</th>
-                  </tr>
-               </thead>
-               <tbody className="divide-y divide-white/5">
-                  {purchaseOrders.map((po) => (
-                     <tr key={po.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="px-6 py-4 font-mono text-sm text-white">{po.id}</td>
-                        <td className="px-6 py-4 text-sm text-gray-300 font-medium">{po.supplier}</td>
-                        <td className="px-6 py-4 text-sm text-gray-500">{po.date}</td>
-                        <td className="px-6 py-4 text-sm text-center text-white">{po.items.reduce((acc, i) => acc + i.quantity, 0)}</td>
-                        <td className="px-6 py-4 text-sm text-right text-emerald-400 font-bold">${po.totalCost.toLocaleString()}</td>
-                        <td className="px-6 py-4">
-                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                              po.status === 'Pending' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                           }`}>
-                              {po.status === 'Pending' ? 'Pending' : 'Received'}
-                           </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                           {po.status === 'Pending' && (
-                              <button 
-                                 onClick={() => handleReceiveStock(po)}
-                                 className="text-[10px] font-bold uppercase tracking-wider text-primary hover:text-white border border-primary/30 hover:border-white/50 px-3 py-1.5 rounded transition-all flex items-center gap-1 ml-auto"
-                              >
-                                 <PackageCheck size={14} /> Receive Stock
-                              </button>
-                           )}
-                           {po.status === 'Received' && (
-                              <span className="text-[10px] text-gray-600 uppercase font-bold tracking-wider">Completed</span>
-                           )}
-                        </td>
-                     </tr>
-                  ))}
-               </tbody>
-            </table>
-         </div>
-      </div>
-
-      {/* CREATE MODAL */}
-      {isModalOpen && (
-         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-            <div className="relative bg-[#0F0F0F] border border-white/10 rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] animate-fade-in-up">
-               
-               {/* Modal Header */}
-               <div className="p-6 border-b border-white/5 flex justify-between items-center bg-surface-dark">
-                  <h3 className="text-xl font-bold text-white uppercase tracking-tight">Create Purchase Order</h3>
-                  <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-white transition-colors"><Plus size={24} className="rotate-45" /></button>
-               </div>
-
-               {/* Modal Content */}
-               <div className="flex-1 overflow-y-auto p-6 space-y-8">
-                  
-                  {/* Step 1: Supplier */}
-                  <div className="space-y-4">
-                     <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Step 1: Supplier Info</label>
-                     <div className="grid grid-cols-2 gap-4">
-                        <select 
-                           value={supplier} 
-                           onChange={(e) => setSupplier(e.target.value)}
-                           className="bg-black/20 border border-white/10 rounded px-4 py-3 text-white text-sm focus:border-primary focus:ring-0"
-                        >
-                           <option value="">Select Supplier...</option>
-                           <option value="Milan Silk Factory">Milan Silk Factory</option>
-                           <option value="Tokyo Denim Co.">Tokyo Denim Co.</option>
-                           <option value="Paris Leather Atelier">Paris Leather Atelier</option>
-                           <option value="Local Warehouse">Local Warehouse</option>
-                        </select>
-                        <input type="text" placeholder="Reference No. (Optional)" className="bg-black/20 border border-white/10 rounded px-4 py-3 text-white text-sm focus:border-primary focus:ring-0" />
-                     </div>
-                  </div>
-
-                  {/* Step 2: Items */}
-                  <div className="space-y-4">
-                     <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Step 2: Add Products</label>
-                     
-                     {/* Product Search */}
-                     <div className="relative z-20">
-                        <div className="relative">
-                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                           <input 
-                              type="text" 
-                              placeholder="Search products by name or SKU..." 
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                              className="w-full bg-black/20 border border-white/10 rounded-lg pl-10 pr-4 py-3 text-white text-sm focus:border-primary focus:ring-0"
-                           />
-                        </div>
-                        {/* Autocomplete Dropdown */}
-                        {filteredSearchProducts.length > 0 && (
-                           <div className="absolute top-full left-0 right-0 mt-2 bg-[#1A1A1A] border border-white/10 rounded-lg shadow-xl max-h-60 overflow-y-auto z-30">
-                              {filteredSearchProducts.map(p => (
-                                 <button 
-                                    key={p.id}
-                                    onClick={() => handleAddItem(p.id)}
-                                    className="w-full text-left px-4 py-3 hover:bg-white/5 flex items-center justify-between border-b border-white/5 last:border-0"
-                                 >
-                                    <div className="flex items-center gap-3">
-                                       <img src={p.image} className="w-8 h-10 object-cover bg-white/5 rounded-sm" alt="" />
-                                       <div>
-                                          <p className="text-sm font-bold text-white">{p.name}</p>
-                                          <p className="text-xs text-gray-500 font-mono">SKU: {p.sku}</p>
-                                       </div>
-                                    </div>
-                                    <span className="text-xs text-primary font-bold uppercase tracking-wider">Add +</span>
-                                 </button>
-                              ))}
-                           </div>
-                        )}
-                     </div>
-
-                     {/* Selected Items Table */}
-                     {poItems.length > 0 ? (
-                        <div className="border border-white/10 rounded-lg overflow-hidden">
-                           <table className="w-full text-left">
-                              <thead className="bg-white/5 text-[10px] uppercase font-bold text-gray-500">
-                                 <tr>
-                                    <th className="px-4 py-2">Product</th>
-                                    <th className="px-4 py-2 w-32">Quantity</th>
-                                    <th className="px-4 py-2 w-32">Unit Cost</th>
-                                    <th className="px-4 py-2 w-32 text-right">Subtotal</th>
-                                    <th className="px-4 py-2 w-12"></th>
-                                 </tr>
-                              </thead>
-                              <tbody className="divide-y divide-white/5">
-                                 {poItems.map((item) => (
-                                    <tr key={item.productId} className="group">
-                                       <td className="px-4 py-3">
-                                          <p className="text-sm font-bold text-white">{item.productName}</p>
-                                          <p className="text-xs text-gray-500 font-mono">{item.sku}</p>
-                                       </td>
-                                       <td className="px-4 py-3">
-                                          <input 
-                                             type="number" 
-                                             value={item.quantity} 
-                                             min="1"
-                                             onChange={(e) => handleUpdateItem(item.productId, 'quantity', parseInt(e.target.value) || 0)}
-                                             className="w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-sm text-white focus:border-primary focus:ring-0 text-center"
-                                          />
-                                       </td>
-                                       <td className="px-4 py-3">
-                                          <div className="relative">
-                                             <span className="absolute left-2 top-1.5 text-gray-500 text-xs">$</span>
-                                             <input 
-                                                type="number" 
-                                                value={item.unitCost} 
-                                                min="0"
-                                                onChange={(e) => handleUpdateItem(item.productId, 'unitCost', parseFloat(e.target.value) || 0)}
-                                                className="w-full bg-black/40 border border-white/10 rounded pl-5 pr-2 py-1 text-sm text-white focus:border-primary focus:ring-0 text-right"
-                                             />
-                                          </div>
-                                       </td>
-                                       <td className="px-4 py-3 text-right text-sm text-white font-mono">
-                                          ${(item.quantity * item.unitCost).toLocaleString()}
-                                       </td>
-                                       <td className="px-4 py-3 text-right">
-                                          <button onClick={() => handleRemoveItem(item.productId)} className="text-gray-600 hover:text-red-500 transition-colors">
-                                             <Trash2 size={16} />
-                                          </button>
-                                       </td>
-                                    </tr>
-                                 ))}
-                              </tbody>
-                           </table>
-                        </div>
+                  {/* Product image */}
+                  <div className="w-8 h-10 rounded overflow-hidden bg-white/5 border border-white/5 shrink-0">
+                     {group.primaryImageUrl ? (
+                        <img src={group.primaryImageUrl} alt={group.productName} className="w-full h-full object-cover" />
                      ) : (
-                        <div className="text-center py-8 border border-dashed border-white/10 rounded-lg">
-                           <p className="text-gray-500 text-sm">No items added to this order yet.</p>
+                        <div className="w-full h-full flex items-center justify-center">
+                           <Package size={12} className="text-white/20" />
                         </div>
                      )}
                   </div>
-               </div>
 
-               {/* Footer / Summary */}
-               <div className="p-6 border-t border-white/5 bg-surface-dark flex justify-between items-center">
-                  <div>
-                     <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Total Estimated Cost</p>
-                     <p className="text-3xl font-black text-white tracking-tight">${calculateTotal().toLocaleString()}</p>
+                  {/* Product name + variant count */}
+                  <div className="flex-1 min-w-0">
+                     <span className="text-sm font-bold text-white tracking-tight">{group.productName}</span>
+                     <span className="ml-2 text-[10px] text-white/30 font-medium">
+                        {group.variants.length} biến thể
+                     </span>
                   </div>
-                  <div className="flex gap-4">
-                     <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white transition-colors">Cancel</button>
-                     <button 
-                        onClick={handleSubmitPO}
-                        disabled={!supplier || poItems.length === 0}
-                        className="bg-primary hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold uppercase tracking-[0.1em] px-8 py-3 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-2"
-                     >
-                        Confirm Order
-                     </button>
+
+                  {/* Aggregate stats */}
+                  <div className="flex items-center gap-4 shrink-0">
+                     {hasDirty && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                           Đang chỉnh sửa
+                        </span>
+                     )}
+                     {hasOut && !hasDirty && (
+                        <span className="text-[10px] font-bold text-red-400">● Có biến thể hết hàng</span>
+                     )}
+                     {hasLow && !hasOut && !hasDirty && (
+                        <span className="text-[10px] font-bold text-amber-400">● Có biến thể sắp hết</span>
+                     )}
+                     <span className="text-xs text-white/40">
+                        Tổng tồn:{' '}
+                        <span className={`font-bold ${pendingTotalStock !== totalStock ? 'text-amber-300' : 'text-white'}`}>
+                           {pendingTotalStock !== totalStock ? pendingTotalStock : totalStock}
+                        </span>
+                     </span>
                   </div>
                </div>
+            </td>
+         </tr>
 
+         {/* ── Variant Rows ── */}
+         {open &&
+            group.variants.map((v, idx) => {
+               const isDirty = v.variantId in dirtyMap;
+               const displayQty = isDirty ? dirtyMap[v.variantId] : v.stockQuantity;
+               const status = getStockStatus(isDirty ? dirtyMap[v.variantId] : v.stockQuantity);
+               const isLast = idx === group.variants.length - 1;
+
+               return (
+                  <tr
+                     key={v.variantId}
+                     className={`transition-colors ${isDirty
+                           ? 'bg-amber-500/[0.035]'
+                           : v.stockQuantity === 0
+                              ? 'bg-red-900/[0.08] hover:bg-red-900/[0.12]'
+                              : 'hover:bg-white/[0.015]'
+                        } ${isLast ? 'border-b border-white/[0.07]' : 'border-b border-white/[0.03]'}`}
+                  >
+                     {/* Sản phẩm (variant label only, indented) */}
+                     <td className="pl-14 pr-5 py-3">
+                        <div className="flex items-center gap-1.5">
+                           {isDirty && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                           )}
+                           <span className="text-sm text-white/80 font-medium">
+                              {v.variantLabel || <span className="text-white/30 italic text-xs">Mặc định</span>}
+                           </span>
+                        </div>
+                     </td>
+
+                     {/* SKU */}
+                     <td className="px-5 py-3">
+                        <code className="text-[11px] font-mono font-semibold text-white/60 bg-white/5 px-2 py-0.5 rounded border border-white/5">
+                           {v.sku}
+                        </code>
+                     </td>
+
+                     {/* Giá bán */}
+                     <td className="px-5 py-3 text-right">
+                        <span className="text-sm font-semibold text-white/70 tabular-nums">
+                           {v.price.toLocaleString('vi-VN')}₫
+                        </span>
+                     </td>
+
+                     {/* Tồn kho hiện tại */}
+                     <td className="px-5 py-3 text-center">
+                        <span className={`text-base font-black tabular-nums ${v.stockQuantity === 0 ? 'text-red-400' : v.stockQuantity < 10 ? 'text-amber-400' : 'text-white'
+                           }`}>
+                           {v.stockQuantity}
+                        </span>
+                     </td>
+
+                     {/* Cập nhật (input) */}
+                     <td className="px-5 py-3">
+                        <div className="flex justify-center">
+                           <input
+                              type="number"
+                              min={0}
+                              value={displayQty}
+                              onChange={(e) => onQuantityChange(v.variantId, e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              className={`w-24 text-center rounded-lg px-3 py-1.5 text-sm font-semibold border transition-all focus:outline-none focus:ring-1 ${isDirty
+                                    ? 'bg-amber-500/10 border-amber-400/40 text-amber-300 focus:ring-amber-400/30'
+                                    : 'bg-white/[0.04] border-white/[0.08] text-white focus:ring-primary/40 focus:border-primary/50'
+                                 }`}
+                           />
+                        </div>
+                     </td>
+
+                     {/* Trạng thái */}
+                     <td className="px-5 py-3 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${status.className}`}>
+                           {status.label}
+                        </span>
+                     </td>
+                  </tr>
+               );
+            })}
+      </>
+   );
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export const AdminRestock: React.FC = () => {
+   const [variants, setVariants] = useState<InventoryVariant[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState<string | null>(null);
+   const [search, setSearch] = useState('');
+   const [onlyLowStock, setOnlyLowStock] = useState(false);
+   const [dirtyMap, setDirtyMap] = useState<Record<number, number>>({});
+   const [saving, setSaving] = useState(false);
+   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   const [debouncedSearch, setDebouncedSearch] = useState('');
+
+   useEffect(() => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => setDebouncedSearch(search), 300);
+      return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+   }, [search]);
+
+   const loadInventory = useCallback(async () => {
+      setLoading(true);
+      setError(null);
+      try {
+         const data = await fetchInventory({ lowStock: onlyLowStock, search: debouncedSearch });
+         setVariants(data);
+         setDirtyMap({});
+      } catch (e: any) {
+         setError(e.message || 'Không thể tải dữ liệu tồn kho.');
+      } finally {
+         setLoading(false);
+      }
+   }, [onlyLowStock, debouncedSearch]);
+
+   useEffect(() => { loadInventory(); }, [loadInventory]);
+
+   const groups = groupVariants(variants);
+
+   const totalVariants = variants.length;
+   const lowStockCount = variants.filter((v) => v.stockQuantity > 0 && v.stockQuantity < 10).length;
+   const outOfStockCount = variants.filter((v) => v.stockQuantity === 0).length;
+   const dirtyCount = Object.keys(dirtyMap).length;
+
+   const handleQuantityChange = (variantId: number, value: string) => {
+      const parsed = parseInt(value, 10);
+      if (isNaN(parsed)) return;
+      setDirtyMap((prev) => ({ ...prev, [variantId]: Math.max(0, parsed) }));
+   };
+
+   const handleSave = async () => {
+      if (dirtyCount === 0) return;
+      setSaving(true);
+      try {
+         const changes = Object.entries(dirtyMap).map(([id, qty]) => ({ variantId: Number(id), quantity: qty }));
+         const res = await bulkUpdateStock(changes);
+         setToast({ message: res.message, type: 'success' });
+         await loadInventory();
+      } catch (e: any) {
+         setToast({ message: e.message || 'Lưu thất bại. Vui lòng thử lại.', type: 'error' });
+      } finally {
+         setSaving(false);
+      }
+   };
+
+   useEffect(() => {
+      if (!toast) return;
+      const t = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(t);
+   }, [toast]);
+
+   return (
+      <div className="min-h-full p-8 max-w-[1600px] mx-auto flex flex-col gap-6" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+         <style>{`@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');`}</style>
+
+         {/* ── Header ── */}
+         <header className="flex items-start justify-between gap-4">
+            <div>
+               <div className="flex items-center gap-3 mb-1">
+                  <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+                     <PackagePlus size={20} className="text-primary" />
+                  </div>
+                  <h1 className="text-2xl font-bold text-white tracking-tight">Nhập Kho Nhanh</h1>
+               </div>
+               <p className="text-xs text-white/40 uppercase tracking-[0.15em] ml-[3.5rem]">
+                  Cập nhật số lượng tồn kho · Nhóm theo sản phẩm
+               </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+               {dirtyCount > 0 && (
+                  <button
+                     onClick={() => setDirtyMap({})}
+                     className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-white/50 hover:text-white border border-white/10 hover:border-white/30 rounded-lg transition-all"
+                  >
+                     Huỷ ({dirtyCount})
+                  </button>
+               )}
+               <button
+                  onClick={handleSave}
+                  disabled={dirtyCount === 0 || saving}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-lg ${dirtyCount > 0 && !saving
+                        ? 'bg-primary hover:bg-red-700 text-white shadow-primary/20 cursor-pointer'
+                        : 'bg-white/5 text-white/30 cursor-not-allowed border border-white/5'
+                     }`}
+               >
+                  {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
+                  {saving ? 'Đang lưu…' : `Lưu thay đổi${dirtyCount > 0 ? ` (${dirtyCount})` : ''}`}
+               </button>
+            </div>
+         </header>
+
+         {/* ── Stats Bar ── */}
+         <div className="grid grid-cols-3 gap-4">
+            <div className="bg-[#111] border border-white/[0.06] rounded-xl px-5 py-4 flex items-center gap-4">
+               <div className="p-2.5 rounded-lg bg-white/5"><Package size={18} className="text-white/60" /></div>
+               <div>
+                  <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">Tổng biến thể</p>
+                  <p className="text-2xl font-black text-white">{loading ? '–' : totalVariants}</p>
+               </div>
+               {!loading && (
+                  <div className="ml-auto text-right">
+                     <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold">Nhóm SP</p>
+                     <p className="text-lg font-bold text-white/60">{groups.length}</p>
+                  </div>
+               )}
+            </div>
+            <div className="bg-[#111] border border-amber-500/10 rounded-xl px-5 py-4 flex items-center gap-4">
+               <div className="p-2.5 rounded-lg bg-amber-500/10"><TrendingDown size={18} className="text-amber-400" /></div>
+               <div>
+                  <p className="text-[10px] uppercase tracking-widest text-amber-400/60 font-semibold">Sắp hết hàng</p>
+                  <p className="text-2xl font-black text-amber-400">{loading ? '–' : lowStockCount}</p>
+               </div>
+            </div>
+            <div className="bg-[#111] border border-red-500/10 rounded-xl px-5 py-4 flex items-center gap-4">
+               <div className="p-2.5 rounded-lg bg-red-500/10"><AlertTriangle size={18} className="text-red-400" /></div>
+               <div>
+                  <p className="text-[10px] uppercase tracking-widest text-red-400/60 font-semibold">Hết hàng</p>
+                  <p className="text-2xl font-black text-red-400">{loading ? '–' : outOfStockCount}</p>
+               </div>
             </div>
          </div>
-      )}
-    </div>
-  );
+
+         {/* ── Filter Bar ── */}
+         <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[220px]">
+               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" size={15} />
+               <input
+                  type="text"
+                  placeholder="Tìm theo tên sản phẩm hoặc SKU…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full bg-[#111] border border-white/[0.08] rounded-lg pl-9 pr-8 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary/60 transition-colors"
+               />
+               {search && (
+                  <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors">
+                     <X size={14} />
+                  </button>
+               )}
+            </div>
+            <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+               <div
+                  onClick={() => setOnlyLowStock((p) => !p)}
+                  className={`relative w-10 h-5 rounded-full transition-colors border ${onlyLowStock ? 'bg-amber-500 border-amber-500' : 'bg-white/5 border-white/10 group-hover:border-white/20'
+                     }`}
+               >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${onlyLowStock ? 'translate-x-5' : ''}`} />
+               </div>
+               <span className="text-xs font-medium text-white/60 group-hover:text-white transition-colors">Chỉ hiện sắp hết hàng</span>
+            </label>
+            <button
+               onClick={loadInventory}
+               disabled={loading}
+               className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold text-white/50 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg transition-all"
+            >
+               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+               Làm mới
+            </button>
+            {!loading && (
+               <span className="text-xs text-white/30 ml-auto">
+                  {groups.length} sản phẩm · {totalVariants} biến thể
+               </span>
+            )}
+         </div>
+
+         {/* ── Grouped Table ── */}
+         <div className="bg-[#0e0e0e] border border-white/[0.06] rounded-2xl shadow-2xl overflow-hidden flex-1">
+            {error ? (
+               <div className="flex flex-col items-center justify-center py-24 text-center">
+                  <AlertTriangle size={40} className="text-red-400 mb-4" />
+                  <p className="text-white/60 font-medium mb-2">Lỗi tải dữ liệu</p>
+                  <p className="text-white/30 text-sm mb-6">{error}</p>
+                  <button onClick={loadInventory} className="text-xs font-bold uppercase tracking-wider text-primary border border-primary/30 px-4 py-2 rounded-lg hover:bg-primary/10 transition-all">
+                     Thử lại
+                  </button>
+               </div>
+            ) : (
+               <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                     <thead>
+                        <tr className="bg-white/[0.025] border-b border-white/[0.06]">
+                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">Sản phẩm / Biến thể</th>
+                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 w-36">Mã SKU</th>
+                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-right w-32">Giá bán</th>
+                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-36">Tồn kho HT</th>
+                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-40">Cập nhật</th>
+                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-32">Trạng thái</th>
+                        </tr>
+                     </thead>
+                     <tbody>
+                        {loading ? (
+                           Array.from({ length: 4 }).map((_, i) => <SkeletonGroup key={i} />)
+                        ) : groups.length === 0 ? (
+                           <tr>
+                              <td colSpan={6}>
+                                 <div className="flex flex-col items-center justify-center py-20 text-center">
+                                    <Package size={48} className="text-white/10 mb-4" />
+                                    <p className="text-white/40 text-sm font-medium">
+                                       {onlyLowStock || search ? 'Không tìm thấy sản phẩm phù hợp' : 'Chưa có dữ liệu tồn kho'}
+                                    </p>
+                                    {(onlyLowStock || search) && (
+                                       <button onClick={() => { setSearch(''); setOnlyLowStock(false); }} className="mt-3 text-xs text-primary hover:underline">
+                                          Xoá bộ lọc
+                                       </button>
+                                    )}
+                                 </div>
+                              </td>
+                           </tr>
+                        ) : (
+                           groups.map((group) => (
+                              <ProductGroupRow
+                                 key={group.productId}
+                                 group={group}
+                                 dirtyMap={dirtyMap}
+                                 onQuantityChange={handleQuantityChange}
+                                 defaultOpen={onlyLowStock || !!search}
+                              />
+                           ))
+                        )}
+                     </tbody>
+                  </table>
+               </div>
+            )}
+         </div>
+
+         {/* ── Sticky bottom save bar ── */}
+         {dirtyCount > 0 && !saving && (
+            <div className="sticky bottom-6 mx-auto bg-[#181818] border border-white/10 rounded-2xl px-6 py-3.5 flex items-center gap-6 shadow-2xl shadow-black/60 animate-fade-in-up z-10">
+               <div className="flex items-center gap-2 text-amber-400">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                  <span className="text-sm font-semibold">{dirtyCount} biến thể đã thay đổi chưa được lưu</span>
+               </div>
+               <div className="ml-auto flex gap-3">
+                  <button onClick={() => setDirtyMap({})} className="text-xs font-bold uppercase tracking-wider text-white/40 hover:text-white transition-colors px-3">
+                     Huỷ bỏ
+                  </button>
+                  <button
+                     onClick={handleSave}
+                     className="flex items-center gap-2 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl shadow-lg shadow-primary/20 transition-all"
+                  >
+                     <Save size={14} />
+                     Lưu thay đổi
+                  </button>
+               </div>
+            </div>
+         )}
+
+         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      </div>
+   );
 };

@@ -11,6 +11,7 @@ import orderRoutes from './routes/order.routes';
 import userRoutes from './routes/user.routes';
 import orderModuleRoutes from './modules/order/order.route';
 import categoryRoutes from './routes/category.routes';
+import inventoryRoutes from './routes/inventory.routes';
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ export function createApp() {
   app.use('/api/auth', authRoutes);
   app.use('/api/products', productRoutes);
   app.use('/api/categories', categoryRoutes);
+  app.use('/api/inventory', inventoryRoutes);
 
   // Keep existing routes for backward compatibility
   app.use('/api/orders', orderRoutes);

@@ -42,7 +42,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, setView
       icon: ShoppingBag,
       label: 'Orders',
       view: 'ADMIN_ORDERS' as ViewState,
-      subRoutes: ['ADMIN_TRACKING']
+      subRoutes: ['ADMIN_TRACKING', 'ADMIN_ORDER_DETAIL']
     },
     {
       icon: Users,
@@ -91,8 +91,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, setView
               key={item.label}
               onClick={() => setView(item.view)}
               className={`w-full flex items-center gap-4 px-6 py-3 transition-all group relative ${active
-                  ? 'bg-white/5 text-primary border-l-2 border-primary'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-2 border-transparent'
+                ? 'bg-white/5 text-primary border-l-2 border-primary'
+                : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-2 border-transparent'
                 }`}
             >
               <Icon

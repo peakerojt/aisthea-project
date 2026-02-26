@@ -15,6 +15,7 @@ import { AdminProducts } from '../pages/AdminProducts';
 import { AdminCreateProduct } from '../pages/AdminCreateProduct';
 import { AdminEditProduct } from '../pages/AdminEditProduct';
 import { AdminOrders } from '../pages/AdminOrders';
+import { AdminOrderDetail } from '../pages/AdminOrderDetail';
 import { AdminTracking } from '../pages/AdminTracking';
 import { AdminCustomers } from '../pages/AdminCustomers';
 import { AdminAnalytics } from '../pages/AdminAnalytics';
@@ -34,11 +35,15 @@ const App: React.FC = () => {
   const [activeCollection, setActiveCollection] = useState<string>('Outerwear');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [editProductId, setEditProductId] = useState<number | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 
-  // Wrapper to also capture productId when navigating to edit page
-  const handleSetView = (v: ViewState, productId?: number) => {
-    if (v === 'ADMIN_EDIT_PRODUCT' && productId !== undefined) {
-      setEditProductId(productId);
+  // Wrapper to also capture productId/orderId when navigating to those pages
+  const handleSetView = (v: ViewState, id?: number) => {
+    if (v === 'ADMIN_EDIT_PRODUCT' && id !== undefined) {
+      setEditProductId(id);
+    }
+    if (v === 'ADMIN_ORDER_DETAIL' && id !== undefined) {
+      setSelectedOrderId(id);
     }
     setView(v);
   };
@@ -145,7 +150,8 @@ const App: React.FC = () => {
           )}
           {view === 'ADMIN_CATEGORIES' && <AdminCategories setView={setView} />}
           {view === 'ADMIN_RESTOCK' && <AdminRestock />}
-          {view === 'ADMIN_ORDERS' && <AdminOrders />}
+          {view === 'ADMIN_ORDERS' && <AdminOrders setView={(v, id?: number) => handleSetView(v as ViewState, id)} />}
+          {view === 'ADMIN_ORDER_DETAIL' && <AdminOrderDetail orderId={selectedOrderId} setView={setView} />}
           {view === 'ADMIN_CUSTOMERS' && <AdminCustomers />}
           {view === 'ADMIN_ANALYTICS' && <AdminAnalytics />}
         </main>
