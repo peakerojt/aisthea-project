@@ -19,6 +19,7 @@ import { AdminTracking } from '../pages/AdminTracking';
 import { AdminCustomers } from '../pages/AdminCustomers';
 import { AdminAnalytics } from '../pages/AdminAnalytics';
 import { AdminRestock } from '../pages/AdminRestock';
+import { AdminCategories } from '../pages/AdminCategories';
 import { Login } from '../pages/Login';
 import { Signup } from '../pages/Signup';
 import { OAuthCallback } from '../pages/OAuthCallback';
@@ -142,6 +143,7 @@ const App: React.FC = () => {
           {view === 'ADMIN_EDIT_PRODUCT' && editProductId !== null && (
             <AdminEditProduct setView={setView} productId={editProductId} />
           )}
+          {view === 'ADMIN_CATEGORIES' && <AdminCategories setView={setView} />}
           {view === 'ADMIN_RESTOCK' && <AdminRestock />}
           {view === 'ADMIN_ORDERS' && <AdminOrders />}
           {view === 'ADMIN_CUSTOMERS' && <AdminCustomers />}

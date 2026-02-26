@@ -294,6 +294,7 @@ BEGIN
         Name NVARCHAR(100) NOT NULL,
         Slug NVARCHAR(100) NOT NULL UNIQUE,
         Description NVARCHAR(255),
+        ImageUrl NVARCHAR(1000) NULL,
         CONSTRAINT FK_Categories_Parent FOREIGN KEY (ParentId) REFERENCES Categories(CategoryId)
     );
     PRINT '✓ Created table: Categories';
@@ -570,4 +571,37 @@ GO
 ALTER TABLE Users DROP CONSTRAINT CHK_User_Status;
 ALTER TABLE Users ADD CONSTRAINT CHK_User_Status CHECK (Status IN ('Active', 'Banned', 'Pending'));
 
+GO
+
+/* =============================================================
+   SCHEMA UPDATES - CATEGORY IMAGE SUPPORT
+   Description: Add ImageUrl column to Categories table for
+                Cloudinary image support in category management.
+   Date: 2026-02-26
+   ============================================================= */
+
+PRINT '';
+PRINT 'Adding ImageUrl column to Categories table...';
+GO
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'Categories'
+    AND COLUMN_NAME = 'ImageUrl'
+)
+BEGIN
+    ALTER TABLE Categories ADD ImageUrl NVARCHAR(1000) NULL;
+    PRINT '✓ Added ImageUrl column to Categories table';
+END
+ELSE
+BEGIN
+    PRINT '⚠ ImageUrl column already exists in Categories';
+END
+GO
+
+PRINT '';
+PRINT '========================================';
+PRINT '✓ Category Image Support Ready!';
+PRINT '========================================';
 GO
