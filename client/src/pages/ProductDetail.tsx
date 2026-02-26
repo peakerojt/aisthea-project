@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Heart,
@@ -20,6 +20,8 @@ import { ViewState, CartItem, CategoryType } from '../types';
 import { ProductImageGallery } from '../components/ProductImageGallery';
 import { fetchProductById, fetchProducts, Product as ApiProductType } from '../services/product.service';
 import { getCloudinaryProductCard } from '../utils/cloudinary';
+import { useProducts } from '../contexts/ProductContext';
+import { ProductCard } from '../components/ProductCard/ProductCard';
 
 interface ProductDetailProps {
   setView: (v: ViewState) => void;
@@ -36,6 +38,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
   const [recentProducts, setRecentProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const carouselRef = React.useRef<HTMLDivElement>(null);
+  const { products } = useProducts();
 
   // Selection states
   const [selectedSize, setSelectedSize] = useState<string>('');
@@ -54,33 +57,42 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     id: initialProduct.id || initialProduct.productId || `temp-${Date.now()}`
   };
 
+  const currentActiveId = useMemo(() => {
+    return (productDetails?.productId || basicInfo.id).toString();
+  }, [productDetails, basicInfo]);
+
   // Recently Viewed Tracking and Loading
   useEffect(() => {
     const trackAndLoadRecent = async () => {
       try {
-        const id = basicInfo.id.toString();
+        // Always work with string IDs to avoid logic errors
+        const id = currentActiveId.toString();
         const storageKey = 'aisthea_recent_views';
         const stored = localStorage.getItem(storageKey);
-        let recentIds: string[] = stored ? JSON.parse(stored) : [];
 
-        // Add current ID to front, limit to 10
+        // Parse and ensure all items are strings
+        let recentIds: string[] = stored ? JSON.parse(stored).map((rid: any) => rid.toString()) : [];
+
+        // Add current ID to front (most recent), limit to 10
         recentIds = [id, ...recentIds.filter(rid => rid !== id)].slice(0, 10);
         localStorage.setItem(storageKey, JSON.stringify(recentIds));
 
-        // Load details for other recent products (excluding current)
-        const otherIds = recentIds.filter(rid => rid !== id).slice(0, 6);
-        if (otherIds.length > 0) {
+        // Load details for the top most recent items (excluding the current one for chronological history)
+        const historyIds = recentIds.filter(rid => rid !== id).slice(0, 8);
+        if (historyIds.length > 0) {
           const details = await Promise.all(
-            otherIds.map(rid => fetchProductById(parseInt(rid)).catch(() => null))
+            historyIds.map(rid => fetchProductById(parseInt(rid)).catch(() => null))
           );
           setRecentProducts(details.filter(d => d !== null));
+        } else {
+          setRecentProducts([]);
         }
       } catch (err) {
         console.error('Recent tracking error:', err);
       }
     };
     trackAndLoadRecent();
-  }, [basicInfo.id]);
+  }, [currentActiveId]);
 
   // Fetch full product details and related products
   useEffect(() => {
@@ -153,6 +165,43 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     return colors.size > 0 ? Array.from(colors) : ['#111', '#4a0404', '#2a2a2a'];
   }, [productDetails]);
 
+  const suggestedProducts = useMemo(() => {
+    if (!products || products.length === 0) return [];
+
+    const currentCategory = (productDetails?.category?.name || basicInfo.category || '').toString().toLowerCase().trim();
+    const currentId = currentActiveId;
+
+    // Filter out current product
+    const otherProducts = products.filter(p => p.id.toString() !== currentId);
+
+    // Pool A: Same category (Related)
+    const poolA = otherProducts.filter(p =>
+      (p.category || '').toString().toLowerCase().trim() === currentCategory
+    ).sort(() => 0.5 - Math.random());
+
+    // Pool B: Different categories (Cross-sell/Discover)
+    const poolB = otherProducts.filter(p =>
+      (p.category || '').toString().toLowerCase().trim() !== currentCategory
+    ).sort(() => 0.5 - Math.random());
+
+    // Selection logic: Mix 4 from same category + 4 from others
+    // If not enough in same category, take more from others
+    const selectedA = poolA.slice(0, 4);
+    const selectedB = poolB.slice(0, 8 - selectedA.length);
+
+    // Combine and final shuffle for presentation
+    const combined = [...selectedA, ...selectedB];
+
+    // Final check if we still have less than 8 (though unlikely given total products)
+    if (combined.length < 8 && otherProducts.length > combined.length) {
+      const combinedIds = new Set(combined.map(p => p.id));
+      const remaining = otherProducts.filter(p => !combinedIds.has(p.id)).sort(() => 0.5 - Math.random());
+      combined.push(...remaining.slice(0, 8 - combined.length));
+    }
+
+    return combined.sort(() => 0.5 - Math.random());
+  }, [products, productDetails, basicInfo, currentActiveId]);
+
   const handleAddToCart = () => {
     addToCart({
       id: basicInfo.id,
@@ -207,21 +256,21 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     <div className="flex flex-col min-h-screen w-full bg-bg-dark text-white">
       <div className="flex flex-col lg:flex-row w-full">
         {/* Left Gallery */}
-        <div className="w-full lg:w-1/2 lg:h-screen lg:sticky lg:top-0 bg-surface-dark relative">
+        <div className="w-full lg:w-1/2 lg:h-screen lg:sticky lg:top-0 bg-black relative z-40">
           {isLoading ? (
-            <div className="w-full h-[60vh] lg:h-full bg-surface-dark animate-pulse" />
+            <div className="w-full h-[60vh] lg:h-full bg-black animate-pulse" />
           ) : (
             <ProductImageGallery
               images={productDetails?.images || []}
               productName={productDetails?.name || basicInfo.name}
-              className="w-full h-[60vh] lg:h-full"
+              className="w-full min-h-[60vh] lg:h-full pb-10 lg:pb-0"
               enableZoom={true}
               showThumbnails={true}
               viewLabels={['FRONT VIEW', 'SIDE VIEW', 'BACK VIEW']}
             />
           )}
-          <button onClick={() => setView('STORE_COLLECTION')} className="absolute top-6 left-6 p-2 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-black/70 transition-all cursor-pointer z-10 flex items-center justify-center">
-            <span className="material-symbols-outlined">arrow_back</span>
+          <button onClick={() => setView('STORE_COLLECTION')} className="absolute top-6 left-6 w-10 h-10 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-black/70 transition-all cursor-pointer z-10 flex items-center justify-center">
+            <span className="material-symbols-outlined text-xl">arrow_back</span>
           </button>
         </div>
 
@@ -255,34 +304,9 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
           </header>
 
           <div className="flex-1 flex flex-col">
-            {/* Recently Viewed Strip */}
-            {recentProducts.length > 0 && (
-              <div className="px-6 py-4 lg:px-12 bg-surface-dark/20 border-b border-border-dark/30">
-                <div className="flex items-center gap-4 mb-3">
-                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-500">Recently Viewed</span>
-                  <div className="h-px flex-1 bg-border-dark/50"></div>
-                </div>
-                <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
-                  {recentProducts.map((rp) => (
-                    <button
-                      key={rp.productId}
-                      onClick={() => detailsTrigger(rp)}
-                      className="flex-shrink-0 flex items-center gap-3 p-2 bg-bg-dark/40 border border-border-dark/30 hover:border-primary/50 transition-all rounded-sm group"
-                    >
-                      <div className="w-10 h-10 overflow-hidden bg-surface-dark">
-                        <img src={getCloudinaryProductCard(rp.images?.[0]?.imageUrl || '')} alt={rp.name} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
-                      </div>
-                      <div className="flex flex-col items-start pr-2">
-                        <span className="text-[9px] font-bold text-white uppercase tracking-tight group-hover:text-primary transition-colors truncate max-w-[80px]">{rp.name}</span>
-                        <span className="text-[8px] text-gray-500">{new Intl.NumberFormat('vi-VN').format(rp.basePrice)}đ</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            <div className="px-5 py-6 lg:px-10 lg:py-8 flex flex-col gap-6">
+
+            <div className="px-5 py-4 lg:px-10 lg:py-4 flex flex-col gap-4">
               <div className="flex flex-col gap-6">
                 <div className="flex justify-between items-start">
                   <div className="flex flex-col gap-1">
@@ -322,7 +346,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                 </p>
               </div>
 
-              <div className="flex flex-col gap-10 border-t border-border-dark/50 pt-10">
+              <div className="flex flex-col gap-6 border-t border-border-dark/50 pt-6">
                 {/* Color Selection */}
                 <div>
                   <span className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-500 mb-3 block">
@@ -365,7 +389,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-5">
+              <div className="flex flex-col sm:flex-row gap-4">
                 {/* Quantity Selector */}
                 <div className="h-12 w-full sm:w-32 border border-border-dark flex items-center justify-between px-3 bg-surface-dark/50 rounded-sm">
                   <button
@@ -398,7 +422,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
               </div>
 
               {/* Stylist CTA */}
-              <div className="bg-surface-dark/30 border border-border-dark/50 p-4 rounded-sm flex flex-col md:flex-row items-center justify-between gap-3 group hover:border-primary/30 transition-colors">
+              <div className="bg-surface-dark/30 border border-border-dark/50 p-3 rounded-sm flex flex-col md:flex-row items-center justify-between gap-2 group hover:border-primary/30 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20 group-hover:border-primary/50 transition-colors">
                     <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&h=200&fit=crop" alt="Stylist" className="w-full h-full object-cover" />
@@ -413,9 +437,9 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                 </button>
               </div>
 
-              <div className="flex flex-col divide-y divide-border-dark border-y border-border-dark">
+              <div className="flex flex-col divide-y divide-border-dark border-y border-border-dark mt-4 mb-4">
                 {['Product Features', 'Material & Care', 'Shipping & Returns'].map(item => (
-                  <details key={item} className="group py-6 cursor-pointer">
+                  <details key={item} className="group py-4 cursor-pointer">
                     <summary className="flex items-center justify-between font-black text-[10px] uppercase tracking-[0.2em] list-none select-none text-white/80 group-hover:text-white transition-colors">
                       {item} <span className="material-symbols-outlined text-gray-500 transition-transform group-open:rotate-180">expand_more</span>
                     </summary>
@@ -425,6 +449,69 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                   </details>
                 ))}
               </div>
+
+              {/* Recently Viewed Strip - Repositioned below accordions */}
+              {recentProducts.length > 0 && (
+                <div className="py-4 border-t border-border-dark/30">
+                  <div className="flex items-center gap-4 mb-3">
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500">Recently Viewed</span>
+                    <div className="h-px flex-1 bg-border-dark/30"></div>
+                  </div>
+                  <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+                    {recentProducts.map((rp) => (
+                      <button
+                        key={rp.productId}
+                        onClick={() => detailsTrigger(rp)}
+                        className="flex-shrink-0 flex items-center gap-4 p-3 bg-surface-dark/10 border border-border-dark/20 hover:border-primary/50 transition-all rounded-sm group min-w-[200px]"
+                      >
+                        <div className="w-12 h-12 overflow-hidden bg-surface-dark ring-1 ring-white/5">
+                          <img
+                            src={getCloudinaryProductCard(rp.images?.[0]?.imageUrl || '')}
+                            alt={rp.name}
+                            className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
+                          />
+                        </div>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="text-[10px] font-bold text-white uppercase tracking-wider group-hover:text-primary transition-colors truncate max-w-[120px]">{rp.name}</span>
+                          <span className="text-[9px] text-gray-500 font-medium">{new Intl.NumberFormat('vi-VN').format(rp.basePrice)}đ</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Related Products Grid - Prominent placement at bottom of info panel */}
+              {suggestedProducts.length > 0 && (
+                <div className="mt-2 pt-2 pb-20">
+                  <div className="flex flex-col gap-2 mb-6">
+                    <span className="text-primary text-[10px] font-black tracking-[0.4em] uppercase">Recommended for You</span>
+                    <h2 className="text-3xl font-black uppercase tracking-tight text-white mb-2">You May Also Like</h2>
+                    <div className="h-1 w-12 bg-primary"></div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
+                    {suggestedProducts.map((item) => (
+                      <ProductCard
+                        key={item.id}
+                        id={item.id}
+                        name={item.name}
+                        price={item.price}
+                        image={item.image}
+                        images={item.images}
+                        category={item.category}
+                        status={item.status}
+                        onClick={() => {
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                          detailsTrigger({ productId: parseInt(item.id) });
+                        }}
+                        showHoverGallery={true}
+                        className="scale-[0.8] origin-top-left transition-transform hover:scale-[0.85]"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -444,13 +531,13 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                 onClick={() => scrollCarousel('left')}
                 className="w-12 h-12 flex items-center justify-center rounded-full border border-border-dark hover:border-white hover:text-white text-gray-400 transition-all active:scale-95"
               >
-                <span className="material-symbols-outlined">west</span>
+                <span className="material-symbols-outlined">arrow_back</span>
               </button>
               <button
                 onClick={() => scrollCarousel('right')}
                 className="w-12 h-12 flex items-center justify-center rounded-full border border-border-dark hover:border-white hover:text-white text-gray-400 transition-all active:scale-95"
               >
-                <span className="material-symbols-outlined">east</span>
+                <span className="material-symbols-outlined">arrow_forward</span>
               </button>
             </div>
           </div>

@@ -120,7 +120,7 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 
     if (validImages.length === 0) {
         return (
-            <div className={`flex items-center justify-center bg-surface-dark ${className}`}>
+            <div className={`flex items-center justify-center bg-black ${className}`}>
                 <div className="text-center p-12">
                     <span className="material-symbols-outlined text-6xl text-gray-600 mb-4">
                         image_not_supported
@@ -134,10 +134,10 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
     return (
         <div className={`relative ${className}`}>
             {/* Main Image Display */}
-            <div className="relative aspect-square bg-surface-dark rounded-lg overflow-hidden group">
+            <div className="relative aspect-square bg-black rounded-lg overflow-hidden group">
                 {/* Loading Skeleton */}
                 {isLoading && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-surface-dark via-gray-800 to-surface-dark animate-pulse" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black via-gray-900 to-black animate-pulse" />
                 )}
 
                 {/* Main Image */}
@@ -170,18 +170,18 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                     <>
                         <button
                             onClick={handlePrevious}
-                            className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 cursor-pointer"
+                            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 cursor-pointer"
                             aria-label="Previous image"
                         >
-                            <span className="material-symbols-outlined">chevron_left</span>
+                            <span className="material-symbols-outlined">arrow_back</span>
                         </button>
 
                         <button
                             onClick={handleNext}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 cursor-pointer"
+                            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 cursor-pointer"
                             aria-label="Next image"
                         >
-                            <span className="material-symbols-outlined">chevron_right</span>
+                            <span className="material-symbols-outlined">arrow_forward</span>
                         </button>
                     </>
                 )}
@@ -206,12 +206,12 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 
             {/* Thumbnail Strip - Optimized for 3-View System */}
             {showThumbnails && validImages.length > 1 && (
-                <div className="mt-6 flex justify-center gap-6">
+                <div className="mt-4 md:mt-6 flex justify-center gap-3 md:gap-6 flex-wrap">
                     {validImages.slice(0, 3).map((image, index) => (
                         <div key={image.imageId} className="flex flex-col items-center gap-3 flex-shrink-0">
                             <button
                                 onClick={() => setCurrentIndex(index)}
-                                className={`w-28 h-32 rounded-lg overflow-hidden border-2 transition-all duration-200 cursor-pointer ${index === currentIndex
+                                className={`w-20 h-24 sm:w-24 sm:h-28 lg:w-28 lg:h-32 rounded-lg overflow-hidden border-2 transition-all duration-200 cursor-pointer ${index === currentIndex
                                     ? 'border-primary scale-105 shadow-xl shadow-primary/40'
                                     : 'border-border-dark hover:border-white/40'
                                     }`}
@@ -219,12 +219,12 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                                 <img
                                     src={image.thumbnailUrl || image.imageUrl}
                                     alt={`${productName} thumbnail ${index + 1}`}
-                                    className="w-full h-full object-contain bg-surface-dark"
+                                    className="w-full h-full object-contain bg-black"
                                     loading="lazy"
                                 />
                             </button>
                             {viewLabels && viewLabels[index] && (
-                                <span className={`text-sm font-bold uppercase tracking-wide transition-colors ${index === currentIndex ? 'text-primary' : 'text-gray-400'
+                                <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-wide transition-colors ${index === currentIndex ? 'text-primary' : 'text-gray-400'
                                     }`}>
                                     {viewLabels[index]}
                                 </span>
@@ -237,13 +237,13 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
             {/* Lightbox/Zoom Modal */}
             {isZoomed && (
                 <div
-                    className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+                    className="fixed inset-0 z-[100] bg-black flex items-center justify-center p-4 animate-fade-in"
                     onClick={() => setIsZoomed(false)}
                 >
                     {/* Close Button */}
                     <button
                         onClick={() => setIsZoomed(false)}
-                        className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-colors cursor-pointer z-10"
+                        className="absolute top-6 right-6 w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer z-10"
                         aria-label="Close zoom view"
                     >
                         <span className="material-symbols-outlined">close</span>
@@ -253,7 +253,7 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                     <img
                         src={currentImage.imageUrl}
                         alt={`${productName} - Zoomed view`}
-                        className="max-w-full max-h-full object-contain"
+                        className="max-w-full max-h-full object-contain animate-zoom-in"
                         onClick={(e) => e.stopPropagation()}
                     />
 
@@ -265,10 +265,10 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                                     e.stopPropagation();
                                     handlePrevious();
                                 }}
-                                className="absolute left-4 bg-white/10 hover:bg-white/20 text-white p-4 rounded-full transition-colors cursor-pointer"
+                                className="absolute left-6 w-14 h-14 flex items-center justify-center bg-white/5 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
                                 aria-label="Previous image"
                             >
-                                <span className="material-symbols-outlined text-2xl">chevron_left</span>
+                                <span className="material-symbols-outlined text-3xl">arrow_back</span>
                             </button>
 
                             <button
@@ -276,18 +276,13 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                                     e.stopPropagation();
                                     handleNext();
                                 }}
-                                className="absolute right-4 bg-white/10 hover:bg-white/20 text-white p-4 rounded-full transition-colors cursor-pointer"
+                                className="absolute right-6 w-14 h-14 flex items-center justify-center bg-white/5 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
                                 aria-label="Next image"
                             >
-                                <span className="material-symbols-outlined text-2xl">chevron_right</span>
+                                <span className="material-symbols-outlined text-3xl">arrow_forward</span>
                             </button>
                         </>
                     )}
-
-                    {/* Image Counter in Lightbox */}
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-md text-white text-sm font-medium px-4 py-2 rounded-full">
-                        {currentIndex + 1} / {validImages.length}
-                    </div>
                 </div>
             )}
         </div>
