@@ -182,7 +182,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                     {name}
                 </h3>
                 <div className="flex items-baseline gap-2 mt-2">
-                    <p className="text-base font-bold text-white">${price.toFixed(2)}</p>
+                    <p className="text-base font-bold text-white">{new Intl.NumberFormat('vi-VN').format(price)}đ</p>
                     {category && (
                         <>
                             <span className="text-gray-500">•</span>
