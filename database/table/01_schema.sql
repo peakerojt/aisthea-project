@@ -294,6 +294,7 @@ BEGIN
         Name NVARCHAR(100) NOT NULL,
         Slug NVARCHAR(100) NOT NULL UNIQUE,
         Description NVARCHAR(255),
+        ImageUrl NVARCHAR(1000) NULL,
         CONSTRAINT FK_Categories_Parent FOREIGN KEY (ParentId) REFERENCES Categories(CategoryId)
     );
     PRINT '✓ Created table: Categories';
@@ -570,4 +571,90 @@ GO
 ALTER TABLE Users DROP CONSTRAINT CHK_User_Status;
 ALTER TABLE Users ADD CONSTRAINT CHK_User_Status CHECK (Status IN ('Active', 'Banned', 'Pending'));
 
+GO
+
+/* =============================================================
+   SCHEMA UPDATES - CATEGORY IMAGE SUPPORT
+   Description: Add ImageUrl column to Categories table for
+                Cloudinary image support in category management.
+   Date: 2026-02-26
+   ============================================================= */
+
+PRINT '';
+PRINT 'Adding ImageUrl column to Categories table...';
+GO
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'Categories'
+    AND COLUMN_NAME = 'ImageUrl'
+)
+BEGIN
+    ALTER TABLE Categories ADD ImageUrl NVARCHAR(1000) NULL;
+    PRINT '✓ Added ImageUrl column to Categories table';
+END
+ELSE
+BEGIN
+    PRINT '⚠ ImageUrl column already exists in Categories';
+END
+GO
+
+PRINT '';
+PRINT '========================================';
+PRINT '✓ Category Image Support Ready!';
+PRINT '========================================';
+GO
+
+/* =============================================================
+   SCHEMA UPDATES - ORDER MANAGEMENT SYSTEM
+   Description: Add Note to Orders, add OrderStatusHistory table
+   Date: 2026-02-26
+   ============================================================= */
+
+PRINT '';
+PRINT 'Applying Order Management System updates...';
+GO
+
+-- Add Note column to Orders if it doesn't exist
+IF NOT EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'Orders'
+    AND COLUMN_NAME = 'Note'
+)
+BEGIN
+    ALTER TABLE Orders ADD Note NVARCHAR(500) NULL;
+    PRINT '✓ Added Note column to Orders table';
+END
+ELSE
+BEGIN
+    PRINT '⚠ Note column already exists in Orders';
+END
+GO
+
+-- Create OrderStatusHistory table if it doesn't exist
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'OrderStatusHistory')
+BEGIN
+    CREATE TABLE OrderStatusHistory (
+        OrderStatusHistoryId INT IDENTITY(1,1) PRIMARY KEY,
+        OrderId              INT NOT NULL,
+        Status               NVARCHAR(20) NOT NULL,
+        ChangedAt            DATETIME2 NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_OrderStatusHistory_Orders
+            FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) ON DELETE CASCADE
+    );
+    CREATE INDEX IX_OrderStatusHistory_OrderId ON OrderStatusHistory(OrderId);
+    PRINT '✓ Created table: OrderStatusHistory';
+END
+ELSE
+BEGIN
+    PRINT '⚠ OrderStatusHistory table already exists';
+END
+GO
+
+PRINT '';
+PRINT '========================================';
+PRINT '✓ Order Management System Schema Ready!';
+PRINT '========================================';
 GO

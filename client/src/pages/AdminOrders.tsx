@@ -1,328 +1,422 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Search, Package, ChevronLeft, ChevronRight, Eye,
+  Loader2, AlertCircle, FilterX, Calendar,
+} from 'lucide-react';
+import { ViewState } from '../types';
+import { adminOrderService, AdminOrder } from '../services/order.service';
 
-// Enhanced Mock Data with Items
-const INITIAL_ORDERS = [
-  { 
-      id: '#ORD-7829', 
-      customer: 'Eleanor Pena', 
-      email: 'eleanor.p@example.com',
-      date: 'Oct 24, 2024', 
-      total: 1200.00, 
-      status: 'Pending',
-      address: '123 Fashion Ave, New York, NY 10001',
-      items: [
-          { name: 'Obsidian Structure Coat', sku: '9921-BLK', size: 'M', quantity: 1, price: 850, image: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?q=80&w=200&auto=format&fit=crop' },
-          { name: 'Ankle Chelsea Boot', sku: '4421-LTH', size: '42', quantity: 1, price: 350, image: 'https://images.unsplash.com/photo-1614252369475-531eba835eb1?q=80&w=200&auto=format&fit=crop' }
-      ]
-  },
-  { 
-      id: '#ORD-7830', 
-      customer: 'Guy Hawkins', 
-      email: 'guy.h@example.com',
-      date: 'Oct 24, 2024', 
-      total: 450.00, 
-      status: 'Pending',
-      address: '456 Trend St, Los Angeles, CA 90012',
-      items: [
-          { name: 'Minimalist Gold Cuff', sku: '1004-GLD', size: 'One Size', quantity: 1, price: 450, image: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?q=80&w=200&auto=format&fit=crop' }
-      ]
-  },
-  { 
-      id: '#ORD-7831', 
-      customer: 'Courtney Henry', 
-      email: 'c.henry@example.com',
-      date: 'Oct 23, 2024', 
-      total: 2850.00, 
-      status: 'Shipping',
-      address: '789 Couture Blvd, Paris, TX 75460',
-      items: [
-          { name: 'Velvet Noir Blazer', sku: '4022-VLT', size: 'L', quantity: 1, price: 950, image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?q=80&w=200&auto=format&fit=crop' },
-          { name: 'Silk Asymmetric Dress', sku: '4099-SLK', size: 'M', quantity: 1, price: 1450, image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?q=80&w=200&auto=format&fit=crop' },
-          { name: 'Mini Leather Tote', sku: 'BAG-001', size: 'OS', quantity: 1, price: 450, image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=200&auto=format&fit=crop' }
-      ]
-  },
-  { 
-      id: '#ORD-7832', 
-      customer: 'Jerome Bell', 
-      email: 'jerome.b@example.com',
-      date: 'Oct 23, 2024', 
-      total: 890.00, 
-      status: 'Delivered',
-      address: '321 Runway Rd, Miami, FL 33101',
-      items: [
-           { name: 'Midnight Rider Denim', sku: 'DEN-002', size: '32', quantity: 2, price: 445, image: 'https://images.unsplash.com/photo-1542272454315-4c01d7abdf4a?q=80&w=200&auto=format&fit=crop' }
-      ]
-  },
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STATUS_TABS = [
+  { key: 'ALL', label: 'Tất cả' },
+  { key: 'PENDING', label: 'Chờ xác nhận' },
+  { key: 'PROCESSING', label: 'Đang chuẩn bị' },
+  { key: 'SHIPPING', label: 'Đang giao' },
+  { key: 'COMPLETED', label: 'Giao thành công' },
+  { key: 'CANCELLED', label: 'Đã hủy' },
 ];
 
-export const AdminOrders: React.FC = () => {
-  const [orders, setOrders] = useState(INITIAL_ORDERS);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [viewOrder, setViewOrder] = useState<typeof INITIAL_ORDERS[0] | null>(null);
-  const [invoiceOrder, setInvoiceOrder] = useState<typeof INITIAL_ORDERS[0] | null>(null);
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: VND formatter
+// ─────────────────────────────────────────────────────────────────────────────
 
-  // Handle Printing
+export const formatVND = (amount: string | number): string => {
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (isNaN(num)) return '0 ₫';
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: Status badge colors
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const getOrderStatusColor = (status: string | null | undefined) => {
+  switch (status) {
+    case 'PENDING':
+      return {
+        badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        dot: 'bg-amber-400 animate-pulse',
+      };
+    case 'PROCESSING':
+      return {
+        badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+        dot: 'bg-sky-400',
+      };
+    case 'SHIPPING':
+      return {
+        badge: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
+        dot: 'bg-violet-400',
+      };
+    case 'COMPLETED':
+      return {
+        badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        dot: 'bg-emerald-400',
+      };
+    case 'CANCELLED':
+      return {
+        badge: 'bg-red-500/10 text-red-400 border-red-500/20',
+        dot: 'bg-red-400',
+      };
+    default:
+      return {
+        badge: 'bg-white/5 text-white/40 border-white/10',
+        dot: 'bg-white/40',
+      };
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// StatusBadge Component
+// ─────────────────────────────────────────────────────────────────────────────
+
+const StatusBadge: React.FC<{ status: string; label: string }> = ({ status, label }) => {
+  const { badge, dot } = getOrderStatusColor(status);
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${badge}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+      {label}
+    </span>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Props
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface AdminOrdersProps {
+  setView: (view: ViewState, orderId?: number) => void;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Page
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Filters
+  const [activeTab, setActiveTab] = useState('ALL');
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const PAGE_SIZE = 15;
+
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Load data ─────────────────────────────────────────────────────────────
+
+  const loadOrders = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await adminOrderService.getAll({
+        status: activeTab === 'ALL' ? undefined : activeTab,
+        page,
+        pageSize: PAGE_SIZE,
+        search: search || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      });
+      setOrders(res.orders);
+      setTotalPages(res.pagination.totalPages);
+      setTotal(res.pagination.total);
+    } catch (e: any) {
+      setError(e.message || 'Không thể tải danh sách đơn hàng.');
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, page, search, startDate, endDate]);
+
   useEffect(() => {
-    if (invoiceOrder) {
-        // Small timeout to ensure DOM is ready before print
-        const timer = setTimeout(() => {
-            window.print();
-        }, 100);
-        return () => clearTimeout(timer);
-    }
-  }, [invoiceOrder]);
+    loadOrders();
+  }, [loadOrders]);
 
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
-      setSelectedIds(orders.map(o => o.id));
-    } else {
-      setSelectedIds([]);
-    }
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setPage(1);
   };
 
-  const handleSelectRow = (id: string) => {
-    setSelectedIds(prev => 
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchInput(e.target.value);
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => {
+      setSearch(e.target.value);
+      setPage(1);
+    }, 400);
   };
 
-  const handleBulkShip = () => {
-      setOrders(prev => prev.map(o => selectedIds.includes(o.id) ? { ...o, status: 'Shipping' } : o));
-      setSelectedIds([]);
+  const handleClearFilters = () => {
+    setSearch('');
+    setSearchInput('');
+    setStartDate('');
+    setEndDate('');
+    setActiveTab('ALL');
+    setPage(1);
   };
 
-  const handleUpdateStatus = (id: string, newStatus: string) => {
-      setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
+  const hasFilters = !!search || !!startDate || !!endDate;
+
+  // ── Date formatter ────────────────────────────────────────────────────────
+
+  const formatDate = (iso?: string) => {
+    if (!iso) return '—';
+    return new Intl.DateTimeFormat('vi-VN', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    }).format(new Date(iso));
   };
 
-  const isAllSelected = orders.length > 0 && orders.every(o => selectedIds.includes(o.id));
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <>
-    <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col print:hidden">
-       <header className="h-20 flex items-center justify-between mb-8">
-         <div>
-           <h2 className="text-2xl font-bold text-white">Order Management</h2>
-           <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Manage and track all customer orders</p>
-         </div>
-         <div className="relative group hidden md:block">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-white/40">search</span>
-            <input type="text" placeholder="Search orders..." className="bg-surface-dark border border-white/10 rounded-full py-2.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 w-64 transition-all" />
-         </div>
-       </header>
-
-       <div className="bg-surface-dark border border-white/5 rounded-xl overflow-hidden shadow-2xl flex flex-col flex-1">
-          {/* Toolbar */}
-          <div className={`flex items-center gap-8 border-b border-white/10 px-8 py-4 overflow-x-auto min-h-[64px] transition-colors ${selectedIds.length > 0 ? 'bg-primary/5' : ''}`}>
-             {selectedIds.length > 0 ? (
-                <div className="w-full flex items-center justify-between animate-fade-in">
-                    <span className="text-sm font-bold text-white">{selectedIds.length} Selected</span>
-                    <button 
-                        onClick={handleBulkShip}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-red-700 text-white rounded text-xs uppercase tracking-wider font-bold transition-all shadow-lg"
-                    >
-                        <span className="material-symbols-outlined text-[18px]">local_shipping</span> Mark as Shipped
-                    </button>
-                </div>
-             ) : (
-                <>
-                    <button className="text-sm font-medium text-primary border-b-2 border-primary pb-1 transition-colors relative whitespace-nowrap">All Orders</button>
-                    <button className="text-sm font-medium text-white/40 hover:text-white pb-1 transition-colors relative whitespace-nowrap">Pending</button>
-                    <button className="text-sm font-medium text-white/40 hover:text-white pb-1 transition-colors relative whitespace-nowrap">Shipping</button>
-                    <button className="text-sm font-medium text-white/40 hover:text-white pb-1 transition-colors relative whitespace-nowrap">Delivered</button>
-                </>
-             )}
+    <div
+      className="p-8 max-w-[1600px] mx-auto h-full flex flex-col"
+      style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}
+    >
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <header className="flex items-center justify-between mb-6">
+        <div>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <Package size={18} className="text-primary" />
+            </div>
+            <h2 className="text-2xl font-bold text-white">Quản lý đơn hàng</h2>
           </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[1000px]">
+          <p className="text-[11px] text-white/40 uppercase tracking-widest mt-1 pl-12">
+            {total} đơn hàng
+          </p>
+        </div>
+
+        {/* Search */}
+        <div className="relative hidden md:block">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={handleSearchChange}
+            placeholder="Tìm tên, SĐT, mã đơn..."
+            className="bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 w-72 transition-all"
+          />
+        </div>
+      </header>
+
+      {/* ── Filter Bar ─────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        {/* Date pickers */}
+        <div className="flex items-center gap-2">
+          <Calendar size={14} className="text-white/30" />
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+            className="bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-xs text-white/70 focus:outline-none focus:border-primary/40 transition-colors"
+          />
+          <span className="text-white/30 text-xs">—</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+            className="bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-xs text-white/70 focus:outline-none focus:border-primary/40 transition-colors"
+          />
+        </div>
+
+        {hasFilters && (
+          <button
+            onClick={handleClearFilters}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-white/50 hover:text-white border border-white/10 hover:border-white/20 transition-colors"
+          >
+            <FilterX size={13} /> Xóa bộ lọc
+          </button>
+        )}
+      </div>
+
+      {/* ── Main Card ──────────────────────────────────────────────────── */}
+      <div className="bg-white/[0.02] border border-white/5 rounded-2xl shadow-2xl flex flex-col flex-1 overflow-hidden">
+
+        {/* Status Tabs */}
+        <div className="flex border-b border-white/[0.06] overflow-x-auto">
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => handleTabChange(tab.key)}
+              className={`
+                relative px-5 py-4 text-sm font-medium whitespace-nowrap transition-all
+                ${activeTab === tab.key
+                  ? 'text-primary'
+                  : 'text-white/40 hover:text-white/70'}
+              `}
+            >
+              {tab.label}
+              {activeTab === tab.key && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-10 h-10 border-4 border-white/10 border-t-primary rounded-full animate-spin" />
+              <p className="text-sm text-white/40">Đang tải đơn hàng...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4 max-w-sm text-center">
+              <AlertCircle size={40} className="text-red-400" />
+              <div>
+                <h3 className="text-base font-bold text-white mb-1">Không thể tải dữ liệu</h3>
+                <p className="text-sm text-white/50">{error}</p>
+              </div>
+              <button onClick={loadOrders} className="text-xs text-primary font-bold uppercase tracking-wider hover:underline">
+                Thử lại
+              </button>
+            </div>
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 py-20">
+            <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center">
+              <Package size={28} className="text-white/20" />
+            </div>
+            <div className="text-center">
+              <p className="text-base font-semibold text-white/60">Chưa có đơn hàng nào trong trạng thái này.</p>
+              <p className="text-sm text-white/30 mt-1">Hãy thử thay đổi bộ lọc hoặc chọn tab khác.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto flex-1">
+            <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
-                <tr className="border-b border-white/5 bg-white/[0.02]">
-                  <th className="py-4 px-6 w-12">
-                     <input 
-                        type="checkbox" 
-                        checked={isAllSelected}
-                        onChange={handleSelectAll}
-                        className="rounded border-white/20 bg-transparent text-primary focus:ring-0 cursor-pointer" 
-                     />
-                  </th>
-                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-semibold text-white/40">Order ID</th>
-                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-semibold text-white/40">Customer</th>
-                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-semibold text-white/40">Date</th>
-                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-semibold text-white/40">Total</th>
-                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-semibold text-white/40">Status</th>
-                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-semibold text-white/40 text-right">Actions</th>
+                <tr className="border-b border-white/[0.06] bg-white/[0.015]">
+                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">Mã đơn</th>
+                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">Khách hàng</th>
+                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">Ngày đặt</th>
+                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">Tổng tiền</th>
+                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">Trạng thái</th>
+                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-white/[0.04]">
                 {orders.map((order) => (
-                  <tr key={order.id} className={`group hover:bg-white/[0.02] transition-colors ${selectedIds.includes(order.id) ? 'bg-primary/5' : ''}`}>
-                    <td className="py-5 px-6">
-                        <input 
-                           type="checkbox" 
-                           checked={selectedIds.includes(order.id)}
-                           onChange={() => handleSelectRow(order.id)}
-                           className="rounded border-white/20 bg-transparent text-primary focus:ring-0 cursor-pointer" 
-                        />
+                  <tr
+                    key={order.orderId}
+                    className="group hover:bg-white/[0.025] transition-colors"
+                  >
+                    {/* Mã đơn */}
+                    <td className="py-4 px-6">
+                      <span className="text-sm font-bold text-white font-mono">
+                        {order.orderNumber}
+                      </span>
+                      <p className="text-[10px] text-white/30 mt-0.5">{order.itemCount} sản phẩm</p>
                     </td>
-                    <td className="py-5 px-6 font-medium text-sm text-white font-mono">{order.id}</td>
-                    <td className="py-5 px-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs text-white/70">{order.customer.charAt(0)}</div>
-                        <div className="flex flex-col">
-                          <span className="text-sm text-white/80">{order.customer}</span>
-                          <span className="text-[10px] text-white/40">{order.email}</span>
+
+                    {/* Khách hàng */}
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-xs font-bold text-white/60 uppercase shrink-0">
+                          {order.customerName?.charAt(0) ?? '?'}
+                        </div>
+                        <div>
+                          <p className="text-sm text-white/90 font-medium leading-none">
+                            {order.customerName}
+                          </p>
+                          <p className="text-[11px] text-white/40 mt-0.5">{order.customerPhone}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="py-5 px-6 text-sm text-white/60">{order.date}</td>
-                    <td className="py-5 px-6 text-sm text-white font-medium">${order.total.toFixed(2)}</td>
-                    <td className="py-5 px-6">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
-                          order.status === 'Pending' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 
-                          order.status === 'Shipping' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
-                          'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                             order.status === 'Pending' ? 'bg-amber-500 animate-pulse' : 
-                             order.status === 'Shipping' ? 'bg-blue-500' :
-                             'bg-emerald-500'
-                        }`}></span> {order.status}
+
+                    {/* Ngày đặt */}
+                    <td className="py-4 px-6 text-sm text-white/50">
+                      {formatDate(order.createdAt)}
+                    </td>
+
+                    {/* Tổng tiền */}
+                    <td className="py-4 px-6">
+                      <span className="text-sm font-bold text-white">
+                        {formatVND(order.totalAmount)}
                       </span>
                     </td>
-                    <td className="py-5 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                          <button 
-                            onClick={() => setViewOrder(order)}
-                            className="w-8 h-8 flex items-center justify-center rounded border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors" 
-                            title="Preview Order"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">visibility</span>
-                          </button>
-                          <button 
-                             onClick={() => setInvoiceOrder(order)}
-                             className="w-8 h-8 flex items-center justify-center rounded border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors" 
-                             title="Print Invoice"
-                          >
-                             <span className="material-symbols-outlined text-[18px]">print</span>
-                          </button>
-                      </div>
+
+                    {/* Trạng thái */}
+                    <td className="py-4 px-6">
+                      <StatusBadge
+                        status={order.status ?? ''}
+                        label={order.statusLabel ?? order.status ?? ''}
+                      />
+                    </td>
+
+                    {/* Thao tác */}
+                    <td className="py-4 px-6 text-right">
+                      <button
+                        onClick={() => setView('ADMIN_ORDER_DETAIL', order.orderId)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white/60 bg-white/[0.04] border border-white/10 hover:text-white hover:bg-white/10 transition-all group-hover:border-white/20"
+                      >
+                        <Eye size={13} />
+                        Xem chi tiết
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-       </div>
+        )}
 
-       {/* PREVIEW MODAL */}
-       {viewOrder && (
-           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-               <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setViewOrder(null)}></div>
-               <div className="relative bg-surface-dark border border-white/10 rounded-lg shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up">
-                   <div className="p-6 border-b border-white/5 flex justify-between items-start">
-                       <div>
-                           <h3 className="text-xl font-bold text-white">Order {viewOrder.id}</h3>
-                           <p className="text-sm text-gray-400 mt-1">{viewOrder.customer} • {viewOrder.items.length} Items</p>
-                       </div>
-                       <button onClick={() => setViewOrder(null)} className="text-gray-500 hover:text-white"><span className="material-symbols-outlined">close</span></button>
-                   </div>
-                   
-                   <div className="p-6 max-h-[60vh] overflow-y-auto">
-                       <div className="space-y-4">
-                           {viewOrder.items.map((item, idx) => (
-                               <div key={idx} className="flex gap-4 p-4 bg-white/5 rounded border border-white/5">
-                                   <div className="w-16 h-20 bg-black rounded overflow-hidden shrink-0">
-                                       <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                                   </div>
-                                   <div className="flex-1">
-                                       <h4 className="text-white font-medium">{item.name}</h4>
-                                       <p className="text-xs text-gray-500 font-mono mt-1">SKU: {item.sku}</p>
-                                       <div className="flex gap-4 mt-2 text-sm">
-                                           <span className="text-gray-400">Size: <span className="text-white">{item.size}</span></span>
-                                           <span className="text-gray-400">Qty: <span className="text-white">{item.quantity}</span></span>
-                                       </div>
-                                   </div>
-                                   <div className="text-right">
-                                       <span className="text-white font-bold">${item.price}</span>
-                                   </div>
-                               </div>
-                           ))}
-                       </div>
-                       
-                       <div className="mt-8 flex justify-between items-start border-t border-white/10 pt-6">
-                           <div className="text-sm text-gray-400 max-w-[200px]">
-                               <p className="uppercase font-bold text-xs mb-2">Shipping Address</p>
-                               <p>{viewOrder.address}</p>
-                           </div>
-                           <div className="text-right">
-                               <p className="text-sm text-gray-400 uppercase font-bold mb-1">Total</p>
-                               <p className="text-2xl font-black text-white">${viewOrder.total.toFixed(2)}</p>
-                           </div>
-                       </div>
-                   </div>
-
-                   <div className="p-6 bg-white/5 border-t border-white/5 flex justify-end gap-3">
-                       <button onClick={() => { handleUpdateStatus(viewOrder.id, 'Shipping'); setViewOrder(null); }} className="px-4 py-2 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest rounded transition-all">
-                           Mark Shipped & Close
-                       </button>
-                   </div>
-               </div>
-           </div>
-       )}
-    </div>
-
-    {/* HIDDEN INVOICE COMPONENT (Visible only on print) */}
-    {invoiceOrder && (
-        <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-8 text-black">
-            <div className="max-w-[80mm] mx-auto border-2 border-black p-4 font-mono text-sm">
-                <div className="text-center border-b-2 border-black pb-4 mb-4">
-                    <h1 className="text-2xl font-black uppercase tracking-wider mb-2">Aisthea</h1>
-                    <p className="text-xs">Luxury Admin Invoice</p>
-                    <p className="text-xs">{new Date().toLocaleDateString()}</p>
-                </div>
-
-                <div className="mb-6">
-                    <p className="font-bold text-lg mb-1">{invoiceOrder.id}</p>
-                    <p className="font-bold">{invoiceOrder.customer}</p>
-                    <p className="text-xs mt-1 mb-4">{invoiceOrder.address}</p>
-                    <p className="text-xs">Email: {invoiceOrder.email}</p>
-                </div>
-
-                <div className="border-t-2 border-b-2 border-black py-2 mb-4">
-                    <div className="flex justify-between font-bold text-xs uppercase mb-2">
-                        <span>Item</span>
-                        <span>Qty</span>
-                        <span>Price</span>
-                    </div>
-                    {invoiceOrder.items.map((item, i) => (
-                        <div key={i} className="flex justify-between text-xs mb-1">
-                            <span className="truncate w-32">{item.name} ({item.size})</span>
-                            <span>{item.quantity}</span>
-                            <span>${item.price}</span>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="flex justify-between items-center mb-8">
-                    <span className="font-bold uppercase">Total</span>
-                    <span className="font-black text-xl">${invoiceOrder.total.toFixed(2)}</span>
-                </div>
-
-                <div className="text-center text-[10px] uppercase">
-                    <p>Thank you for your business.</p>
-                    <p>www.aisthea.com</p>
-                </div>
-                
-                {/* Barcode Mock */}
-                <div className="mt-6 flex justify-center">
-                    <div className="h-12 w-full bg-black/10 flex items-center justify-center font-libre-barcode text-3xl">
-                        ||| || ||| | |||| ||
-                    </div>
-                </div>
+        {/* Pagination */}
+        {!loading && !error && totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-white/[0.06]">
+            <p className="text-xs text-white/40">
+              Trang {page} / {totalPages} · {total} đơn hàng
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white hover:border-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft size={15} />
+              </button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const p = Math.max(1, Math.min(page - 2, totalPages - 4)) + i;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${p === page
+                        ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                        : 'border border-white/10 text-white/50 hover:text-white hover:border-white/20'
+                      }`}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white hover:border-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight size={15} />
+              </button>
             </div>
-        </div>
-    )}
-    </>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };

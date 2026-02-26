@@ -19,7 +19,7 @@ export interface Order {
   };
   date: string;
   total: number;
-  status: 'Pending' | 'Shipping' | 'Delivered';
+  status: 'PENDING' | 'PROCESSING' | 'SHIPPING' | 'COMPLETED' | 'CANCELLED';
 }
 
 export interface CartItem {
@@ -53,10 +53,12 @@ export type ViewState =
   | 'ADMIN_CREATE_PRODUCT'
   | 'ADMIN_EDIT_PRODUCT'
   | 'ADMIN_ORDERS'
+  | 'ADMIN_ORDER_DETAIL'
   | 'ADMIN_TRACKING'
   | 'ADMIN_CUSTOMERS'
   | 'ADMIN_ANALYTICS'
-  | 'ADMIN_RESTOCK';
+  | 'ADMIN_RESTOCK'
+  | 'ADMIN_CATEGORIES';
 
 export type CategoryType = 'Men' | 'Women' | 'Accessories';
 

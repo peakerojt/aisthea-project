@@ -49,7 +49,15 @@ class ApiClient {
                 const errorData = await response.json().catch(() => ({
                     error: `HTTP ${response.status}: ${response.statusText}`,
                 }));
-                throw new Error(errorData.error || `Request failed with status ${response.status}`);
+
+                // If account is banned, dispatch a global event so AuthContext can auto-logout
+                if (response.status === 403 && errorData?.code === 'ACCOUNT_BANNED') {
+                    window.dispatchEvent(new CustomEvent('auth:banned', {
+                        detail: { message: errorData.message },
+                    }));
+                }
+
+                throw new Error(errorData.error || errorData.message || `Request failed with status ${response.status}`);
             }
 
             // Parse JSON response
@@ -85,6 +93,17 @@ class ApiClient {
         return this.request<T>(endpoint, {
             ...options,
             method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    }
+
+    /**
+     * PATCH request
+     */
+    async patch<T>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> {
+        return this.request<T>(endpoint, {
+            ...options,
+            method: 'PATCH',
             body: JSON.stringify(data),
         });
     }

@@ -1,327 +1,576 @@
-import React, { useState } from 'react';
-import { Search, Download, MoreHorizontal, X, Star, AlertTriangle, User, Mail, Phone, Calendar, ShoppingBag, CreditCard } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+    Search, Users, AlertCircle, CheckCircle2, Loader2, Shield,
+    X, ShieldCheck, ChevronDown,
+} from 'lucide-react';
+import {
+    AdminUser,
+    fetchAdminUsers,
+    patchUserStatus,
+    patchUserRole,
+    getRoleLabel,
+    STATUS_LABELS,
+    ROLE_LABELS,
+} from '../services/user-admin.service';
+import { UserActionMenu } from '../components/features/UserActionMenu';
 
-// Mock Data
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  avatar?: string;
-  totalOrders: number;
-  totalSpent: number;
-  status: 'VIP' | 'New' | 'High Return Rate' | 'Active';
-  lastActive: string;
-  joinDate: string;
-  notes: string;
-  recentOrders: { id: string; date: string; amount: number; items: number }[];
+// ─── Toast ─────────────────────────────────────────────────────────────────────
+
+interface ToastState {
+    message: string;
+    type: 'success' | 'error';
 }
 
-const CUSTOMERS_DATA: Customer[] = [
-  {
-    id: 'CUST-001',
-    name: 'Isabella Vancier',
-    email: 'isabella.v@example.com',
-    phone: '+1 (555) 012-3456',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop',
-    totalOrders: 42,
-    totalSpent: 12450.00,
-    status: 'VIP',
-    lastActive: '2 hours ago',
-    joinDate: 'Oct 2022',
-    notes: 'Prefers discreet packaging. Always buys the Spring collection immediately.',
-    recentOrders: [
-        { id: '#ORD-9921', date: 'Oct 24, 2024', amount: 850.00, items: 2 },
-        { id: '#ORD-8812', date: 'Sep 12, 2024', amount: 1200.00, items: 3 },
-    ]
-  },
-  {
-    id: 'CUST-002',
-    name: 'Marcus Thorne',
-    email: 'm.thorne@design.co',
-    phone: '+1 (555) 987-6543',
-    totalOrders: 1,
-    totalSpent: 450.00,
-    status: 'New',
-    lastActive: '1 day ago',
-    joinDate: 'Oct 2024',
-    notes: '',
-    recentOrders: [
-        { id: '#ORD-7721', date: 'Oct 23, 2024', amount: 450.00, items: 1 },
-    ]
-  },
-  {
-    id: 'CUST-003',
-    name: 'Sarah Jenkins',
-    email: 'sarah.j@example.com',
-    phone: '+1 (555) 456-7890',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=200&auto=format&fit=crop',
-    totalOrders: 12,
-    totalSpent: 3200.00,
-    status: 'High Return Rate',
-    lastActive: '5 days ago',
-    joinDate: 'Jan 2023',
-    notes: 'High return rate (approx 40%). Often orders multiple sizes and returns all but one.',
-    recentOrders: [
-        { id: '#ORD-6612', date: 'Oct 15, 2024', amount: 900.00, items: 4 },
-        { id: '#ORD-5521', date: 'Aug 01, 2024', amount: 250.00, items: 1 },
-    ]
-  },
-  {
-    id: 'CUST-004',
-    name: 'Alexander Grey',
-    email: 'alex.grey@corp.com',
-    phone: '+44 20 7123 4567',
-    totalOrders: 8,
-    totalSpent: 1850.00,
-    status: 'Active',
-    lastActive: '1 week ago',
-    joinDate: 'Mar 2023',
-    notes: 'Interested in bespoke suits. Contact when new wool fabrics arrive.',
-    recentOrders: [
-        { id: '#ORD-4421', date: 'Oct 10, 2024', amount: 450.00, items: 1 },
-        { id: '#ORD-3312', date: 'Jun 15, 2024', amount: 1400.00, items: 3 },
-    ]
-  },
+// ─── Avatar Helpers ────────────────────────────────────────────────────────────
+
+function getInitials(name: string): string {
+    return name
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0].toUpperCase())
+        .join('');
+}
+
+const AVATAR_COLORS = [
+    'bg-violet-600',
+    'bg-blue-600',
+    'bg-emerald-600',
+    'bg-amber-600',
+    'bg-rose-600',
+    'bg-indigo-600',
+    'bg-teal-600',
 ];
 
+function getAvatarColor(userId: number): string {
+    return AVATAR_COLORS[userId % AVATAR_COLORS.length];
+}
+
+// ─── Badge helpers ─────────────────────────────────────────────────────────────
+
+function RoleBadge({ roleName }: { roleName: string }) {
+    const styles: Record<string, string> = {
+        Admin: 'bg-purple-500/15 text-purple-300 border-purple-500/25',
+        Customer: 'bg-blue-500/15 text-blue-300 border-blue-500/25',
+        Staff: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
+    };
+    const cls = styles[roleName] ?? 'bg-white/5 text-white/40 border-white/10';
+    return (
+        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[11px] font-bold uppercase tracking-wide ${cls}`}>
+            {getRoleLabel(roleName)}
+        </span>
+    );
+}
+
+function StatusBadge({ status }: { status: string }) {
+    if (status === 'Banned') {
+        return (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-red-500/30 bg-red-500/10 text-red-400 text-[11px] font-bold uppercase tracking-wide">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
+                Đã khóa
+            </span>
+        );
+    }
+    if (status === 'Active') {
+        return (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[11px] font-bold uppercase tracking-wide">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                Hoạt động
+            </span>
+        );
+    }
+    return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-white/10 bg-white/5 text-white/40 text-[11px] font-bold uppercase tracking-wide">
+            <span className="w-1.5 h-1.5 rounded-full bg-white/30 inline-block" />
+            {STATUS_LABELS[status] ?? status}
+        </span>
+    );
+}
+
+// ─── Main Page ─────────────────────────────────────────────────────────────────
+
 export const AdminCustomers: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [activeNote, setActiveNote] = useState('');
+    const [users, setUsers] = useState<AdminUser[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-  const filteredCustomers = CUSTOMERS_DATA.filter(c => 
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.phone.includes(searchQuery)
-  );
+    // Filters
+    const [searchInput, setSearchInput] = useState('');
+    const [search, setSearch] = useState('');
+    const [roleFilter, setRoleFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
 
-  const handleRowClick = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setActiveNote(customer.notes);
-  };
+    // Toast
+    const [toast, setToast] = useState<ToastState | null>(null);
 
-  const handleCloseDrawer = () => {
-    setSelectedCustomer(null);
-  };
+    // Modals
+    const [banTarget, setBanTarget] = useState<AdminUser | null>(null);
+    const [banLoading, setBanLoading] = useState(false);
 
-  const handleExport = () => {
-    alert('Exporting CSV...');
-  };
+    const [roleTarget, setRoleTarget] = useState<AdminUser | null>(null);
+    const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
+    const [roleLoading, setRoleLoading] = useState(false);
 
-  const handleSaveNote = () => {
-      // In a real app, this would be an API call
-      alert('Note saved!');
-  };
+    // Debounce search
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const handleSearchChange = (v: string) => {
+        setSearchInput(v);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => setSearch(v), 500);
+    };
 
-  const getStatusBadge = (status: string) => {
-      switch(status) {
-          case 'VIP': 
-            return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-yellow-500/30 bg-yellow-500/10 text-yellow-500 text-[10px] font-bold uppercase tracking-wide shadow-[0_0_10px_rgba(234,179,8,0.1)]"><Star size={10} fill="currentColor" /> VIP</span>;
-          case 'High Return Rate': 
-            return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-red-500/30 bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-wide"><AlertTriangle size={10} /> Risk</span>;
-          case 'New':
-            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-500 text-[10px] font-bold uppercase tracking-wide">New</span>;
-          default:
-            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full border border-white/10 bg-white/5 text-gray-400 text-[10px] font-bold uppercase tracking-wide">Active</span>;
-      }
-  };
+    // ─── Data loading ─────────────────────────────────────────────────────────
+    const loadUsers = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await fetchAdminUsers({
+                search: search || undefined,
+                role: roleFilter !== 'all' ? roleFilter : undefined,
+                status: statusFilter !== 'all' ? statusFilter : undefined,
+            });
+            setUsers(data);
+        } catch (e: any) {
+            setError(e.message || 'Không thể tải danh sách người dùng.');
+        } finally {
+            setLoading(false);
+        }
+    }, [search, roleFilter, statusFilter]);
 
-  return (
-    <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col relative overflow-hidden">
-        {/* HEADER */}
-       <header className="h-20 flex items-center justify-between mb-8">
-         <div>
-           <h2 className="text-2xl font-bold text-white">Customer Base</h2>
-           <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Manage relationships & insights</p>
-         </div>
-         <div className="flex gap-4">
-            <div className="relative group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-white transition-colors" size={18} />
-                <input 
-                    type="text" 
-                    placeholder="Search by name, email, or phone..." 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-surface-dark border border-white/10 rounded-full py-2.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 w-[320px] transition-all" 
-                />
-            </div>
-            <button 
-                onClick={handleExport}
-                className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded transition-all"
-            >
-                <Download size={16} /> Export CSV
-            </button>
-         </div>
-       </header>
+    useEffect(() => {
+        loadUsers();
+    }, [loadUsers]);
 
-       {/* TABLE */}
-       <div className="bg-surface-dark border border-white/5 rounded-xl shadow-2xl flex flex-col flex-1 overflow-hidden">
-          <div className="overflow-x-auto">
-             <table className="w-full text-left border-collapse">
-                <thead>
-                    <tr className="border-b border-white/5 bg-white/[0.02]">
-                        <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-semibold text-white/40">Customer</th>
-                        <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-semibold text-white/40">Phone</th>
-                        <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-semibold text-white/40 text-center">Orders</th>
-                        <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-semibold text-white/40">Total Spent (LTV)</th>
-                        <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-semibold text-white/40">Status</th>
-                        <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-semibold text-white/40">Last Active</th>
-                        <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-semibold text-white/40 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                    {filteredCustomers.map(customer => (
-                        <tr 
-                            key={customer.id} 
-                            onClick={() => handleRowClick(customer)}
-                            className="group hover:bg-white/[0.02] transition-colors cursor-pointer"
-                        >
-                            <td className="py-4 px-6">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-white/10 border border-white/5 overflow-hidden flex items-center justify-center shrink-0">
-                                        {customer.avatar ? (
-                                            <img src={customer.avatar} alt={customer.name} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <span className="text-sm font-bold text-white">{customer.name.charAt(0)}</span>
-                                        )}
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-sm font-bold text-white group-hover:text-primary transition-colors">{customer.name}</span>
-                                        <span className="text-xs text-gray-500">{customer.email}</span>
-                                    </div>
+    // ─── Toast ────────────────────────────────────────────────────────────────
+    const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 4000);
+    };
+
+    // ─── Ban / Unban ──────────────────────────────────────────────────────────
+    const handleBanToggle = (user: AdminUser) => {
+        setBanTarget(user);
+    };
+
+    const handleConfirmBan = async () => {
+        if (!banTarget) return;
+        setBanLoading(true);
+        try {
+            const res = await patchUserStatus(banTarget.userId);
+            showToast(res.message || 'Cập nhật trạng thái thành công!', 'success');
+            setBanTarget(null);
+            await loadUsers();
+        } catch (e: any) {
+            showToast(e.message || 'Cập nhật thất bại.', 'error');
+            setBanTarget(null);
+        } finally {
+            setBanLoading(false);
+        }
+    };
+
+    // ─── Role Change ──────────────────────────────────────────────────────────
+    const handleChangeRole = (user: AdminUser) => {
+        setRoleTarget(user);
+        setSelectedRoleId(user.roles[0]?.roleId ?? null);
+    };
+
+    const handleConfirmRole = async () => {
+        if (!roleTarget || selectedRoleId === null) return;
+        setRoleLoading(true);
+        try {
+            const res = await patchUserRole(roleTarget.userId, selectedRoleId);
+            showToast(res.message || 'Cập nhật vai trò thành công!', 'success');
+            setRoleTarget(null);
+            await loadUsers();
+        } catch (e: any) {
+            showToast(e.message || 'Cập nhật vai trò thất bại.', 'error');
+            setRoleTarget(null);
+        } finally {
+            setRoleLoading(false);
+        }
+    };
+
+    // ─── Format date ──────────────────────────────────────────────────────────
+    const formatDate = (iso: string | null) => {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+    };
+
+    // Known roles for the role modal (matching DB)
+    const KNOWN_ROLES = [
+        { roleId: 1, roleName: 'Admin' },
+        { roleId: 2, roleName: 'Customer' },
+        { roleId: 3, roleName: 'Staff' },
+    ];
+
+    return (
+        <div
+            className="p-8 max-w-[1600px] mx-auto h-full flex flex-col relative"
+            style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}
+        >
+            {/* ── Toast ────────────────────────────────────────────────────── */}
+            {toast && (
+                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[60] animate-fade-in-up pointer-events-none">
+                    <div
+                        className={`bg-[#111113] border shadow-2xl rounded-full px-5 py-3 flex items-center gap-3 ${toast.type === 'error' ? 'border-red-500/30' : 'border-emerald-500/20'
+                            }`}
+                    >
+                        {toast.type === 'error' ? (
+                            <AlertCircle size={14} className="text-red-400 shrink-0" />
+                        ) : (
+                            <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                        )}
+                        <span className="text-sm font-medium text-white">{toast.message}</span>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Ban Confirmation Dialog ───────────────────────────────────── */}
+            {banTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                        onClick={() => !banLoading && setBanTarget(null)}
+                    />
+                    <div className="relative bg-[#111113] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-5">
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
+                                    <Shield size={18} className="text-red-400" />
                                 </div>
-                            </td>
-                            <td className="py-4 px-6 text-sm text-gray-400 font-mono">{customer.phone}</td>
-                            <td className="py-4 px-6 text-sm text-white font-bold text-center">{customer.totalOrders}</td>
-                            <td className="py-4 px-6">
-                                <span className={`text-sm font-bold font-mono ${customer.totalSpent > 1000 ? 'text-emerald-400' : 'text-white'}`}>
-                                    ${customer.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                </span>
-                            </td>
-                            <td className="py-4 px-6">{getStatusBadge(customer.status)}</td>
-                            <td className="py-4 px-6 text-sm text-gray-500">{customer.lastActive}</td>
-                            <td className="py-4 px-6 text-right">
-                                <button className="p-2 text-gray-500 hover:text-white rounded hover:bg-white/5 transition-colors">
-                                    <MoreHorizontal size={20} />
-                                </button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-             </table>
-          </div>
-       </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-white">
+                                        {banTarget.status === 'Banned' ? 'Mở khóa tài khoản?' : 'Khóa tài khoản?'}
+                                    </h3>
+                                    <p className="text-xs text-white/40 mt-0.5 truncate max-w-[260px]">
+                                        {banTarget.fullName}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setBanTarget(null)}
+                                disabled={banLoading}
+                                className="text-white/30 hover:text-white transition-colors cursor-pointer"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
 
-       {/* SIDE DRAWER (QUICK VIEW) */}
-       {selectedCustomer && (
-         <div className="fixed inset-0 z-50 flex justify-end">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={handleCloseDrawer}></div>
-            <div className="relative w-full max-w-md bg-[#0A0A0A] h-full shadow-2xl border-l border-white/10 flex flex-col animate-fade-in overflow-hidden">
-                
-                {/* Drawer Header */}
-                <div className="p-6 border-b border-white/5 flex items-start justify-between bg-surface-dark">
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-full bg-white/10 border border-white/10 overflow-hidden flex items-center justify-center shrink-0">
-                            {selectedCustomer.avatar ? (
-                                <img src={selectedCustomer.avatar} alt={selectedCustomer.name} className="w-full h-full object-cover" />
-                            ) : (
-                                <span className="text-2xl font-bold text-white">{selectedCustomer.name.charAt(0)}</span>
+                        {/* Warning box */}
+                        <div className="bg-red-500/[0.05] border border-red-500/20 rounded-lg px-4 py-3 space-y-1">
+                            <p className="text-sm font-semibold text-white">
+                                Bạn có chắc chắn muốn{' '}
+                                {banTarget.status === 'Banned' ? 'mở khóa' : 'khóa'} tài khoản{' '}
+                                <span className="text-primary">{banTarget.fullName}</span>?
+                            </p>
+                            {banTarget.status !== 'Banned' && (
+                                <p className="text-xs text-red-300/70">
+                                    Người dùng này sẽ không thể đăng nhập được nữa.
+                                </p>
                             )}
                         </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-white">{selectedCustomer.name}</h2>
-                            <p className="text-xs text-gray-500 mt-1">Customer since {selectedCustomer.joinDate}</p>
-                            <div className="mt-2">{getStatusBadge(selectedCustomer.status)}</div>
+
+                        {/* Actions */}
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setBanTarget(null)}
+                                disabled={banLoading}
+                                className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-50 cursor-pointer"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleConfirmBan}
+                                disabled={banLoading}
+                                className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center gap-2 shadow-lg shadow-red-900/30 cursor-pointer"
+                            >
+                                {banLoading ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
+                                {banLoading ? 'Đang xử lý...' : banTarget.status === 'Banned' ? 'Mở khóa' : 'Khóa tài khoản'}
+                            </button>
                         </div>
                     </div>
-                    <button onClick={handleCloseDrawer} className="text-gray-500 hover:text-white transition-colors"><X size={24} /></button>
+                </div>
+            )}
+
+            {/* ── Role Management Modal ─────────────────────────────────────── */}
+            {roleTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                        onClick={() => !roleLoading && setRoleTarget(null)}
+                    />
+                    <div className="relative bg-[#111113] border border-white/10 rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+                                    <ShieldCheck size={16} className="text-purple-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-white">Phân quyền</h3>
+                                    <p className="text-[11px] text-white/40 truncate max-w-[180px]">{roleTarget.fullName}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setRoleTarget(null)}
+                                disabled={roleLoading}
+                                className="text-white/30 hover:text-white transition-colors cursor-pointer"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Role list */}
+                        <div className="space-y-2">
+                            {KNOWN_ROLES.map((r) => (
+                                <button
+                                    key={r.roleId}
+                                    onClick={() => setSelectedRoleId(r.roleId)}
+                                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all cursor-pointer ${selectedRoleId === r.roleId
+                                            ? 'border-primary/50 bg-primary/10 text-white'
+                                            : 'border-white/10 bg-white/[0.02] text-white/60 hover:border-white/20 hover:text-white/80'
+                                        }`}
+                                >
+                                    <span>{getRoleLabel(r.roleName)}</span>
+                                    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${r.roleName === 'Admin' ? 'bg-purple-500/20 text-purple-300' :
+                                            r.roleName === 'Customer' ? 'bg-blue-500/20 text-blue-300' :
+                                                'bg-amber-500/20 text-amber-300'
+                                        }`}>
+                                        {r.roleName}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setRoleTarget(null)}
+                                disabled={roleLoading}
+                                className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleConfirmRole}
+                                disabled={roleLoading || selectedRoleId === null}
+                                className="flex-1 py-2.5 rounded-lg text-sm font-bold text-white bg-primary hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-primary/20 cursor-pointer"
+                            >
+                                {roleLoading ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+                                {roleLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Header ────────────────────────────────────────────────────── */}
+            <header className="flex items-center justify-between mb-6">
+                <div>
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                            <Users size={16} className="text-primary" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white">Quản lý người dùng</h2>
+                    </div>
+                    <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1 pl-11">
+                        {loading ? 'Đang tải...' : `${users.length} người dùng`}
+                    </p>
+                </div>
+            </header>
+
+            {/* ── Toolbar ───────────────────────────────────────────────────── */}
+            <div className="flex flex-wrap items-center gap-3 mb-5">
+                {/* Search */}
+                <div className="relative group flex-1 min-w-[240px] max-w-sm">
+                    <Search
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-white/60 transition-colors"
+                        size={16}
+                    />
+                    <input
+                        type="text"
+                        placeholder="Tìm theo tên, email, số điện thoại..."
+                        value={searchInput}
+                        onChange={(e) => handleSearchChange(e.target.value)}
+                        className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
+                    />
                 </div>
 
-                {/* Drawer Content */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
-                    
-                    {/* Contact Info */}
-                    <div className="space-y-3">
-                        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Contact Details</h3>
-                        <div className="flex items-center gap-3 text-sm text-gray-300">
-                            <Mail size={16} className="text-white/40" />
-                            {selectedCustomer.email}
-                        </div>
-                        <div className="flex items-center gap-3 text-sm text-gray-300">
-                            <Phone size={16} className="text-white/40" />
-                            {selectedCustomer.phone}
-                        </div>
-                    </div>
+                {/* Role Filter */}
+                <div className="relative">
+                    <select
+                        value={roleFilter}
+                        onChange={(e) => setRoleFilter(e.target.value)}
+                        className="appearance-none bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-4 pr-9 text-sm text-white/80 focus:outline-none focus:border-primary/50 transition-all cursor-pointer"
+                    >
+                        <option value="all">Tất cả vai trò</option>
+                        {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                            <option key={key} value={key}>{label}</option>
+                        ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
+                </div>
 
-                    {/* Stats Grid */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-surface-dark p-4 rounded border border-white/5">
-                            <div className="flex items-center gap-2 text-white/40 mb-2">
-                                <ShoppingBag size={14} />
-                                <span className="text-[10px] uppercase font-bold tracking-wider">Orders</span>
-                            </div>
-                            <span className="text-2xl font-bold text-white">{selectedCustomer.totalOrders}</span>
-                        </div>
-                        <div className="bg-surface-dark p-4 rounded border border-white/5">
-                            <div className="flex items-center gap-2 text-white/40 mb-2">
-                                <CreditCard size={14} />
-                                <span className="text-[10px] uppercase font-bold tracking-wider">LTV</span>
-                            </div>
-                            <span className={`text-2xl font-bold ${selectedCustomer.totalSpent > 1000 ? 'text-emerald-400' : 'text-white'}`}>
-                                ${selectedCustomer.totalSpent.toLocaleString()}
-                            </span>
-                        </div>
-                    </div>
+                {/* Status Filter */}
+                <div className="relative">
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="appearance-none bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-4 pr-9 text-sm text-white/80 focus:outline-none focus:border-primary/50 transition-all cursor-pointer"
+                    >
+                        <option value="all">Tất cả trạng thái</option>
+                        <option value="Active">Hoạt động</option>
+                        <option value="Banned">Đã khóa</option>
+                        <option value="Pending">Chờ xác nhận</option>
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
+                </div>
+            </div>
 
-                    {/* Notes Section */}
-                    <div>
-                        <div className="flex justify-between items-center mb-3">
-                            <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Private Notes</h3>
-                            <button onClick={handleSaveNote} className="text-[10px] font-bold uppercase tracking-wider text-primary hover:text-white">Save</button>
-                        </div>
-                        <textarea 
-                            value={activeNote}
-                            onChange={(e) => setActiveNote(e.target.value)}
-                            className="w-full h-32 bg-white/5 border border-white/10 rounded p-3 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"
-                            placeholder="Add internal notes about this customer..."
-                        />
+            {/* ── Loading ───────────────────────────────────────────────────── */}
+            {loading && (
+                <div className="bg-white/[0.02] border border-white/5 rounded-xl flex-1 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="w-10 h-10 border-4 border-white/10 border-t-primary rounded-full animate-spin" />
+                        <p className="text-sm text-white/40">Đang tải danh sách người dùng...</p>
                     </div>
+                </div>
+            )}
 
-                    {/* Purchase History */}
-                    <div>
-                        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Last 5 Orders</h3>
-                        <div className="space-y-3">
-                            {selectedCustomer.recentOrders.length > 0 ? (
-                                selectedCustomer.recentOrders.map(order => (
-                                    <div key={order.id} className="flex items-center justify-between p-3 bg-white/[0.02] border border-white/5 rounded hover:bg-white/5 transition-colors cursor-pointer">
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-bold text-white">{order.id}</span>
-                                            <span className="text-xs text-gray-500">{order.date}</span>
-                                        </div>
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-sm font-medium text-white">${order.amount.toFixed(2)}</span>
-                                            <span className="text-xs text-gray-500">{order.items} {order.items === 1 ? 'item' : 'items'}</span>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-sm text-gray-500 italic">No recent orders found.</p>
-                            )}
+            {/* ── Error ─────────────────────────────────────────────────────── */}
+            {error && !loading && (
+                <div className="bg-white/[0.02] border border-white/5 rounded-xl flex-1 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-4 max-w-sm text-center">
+                        <AlertCircle size={40} className="text-red-400" />
+                        <div>
+                            <h3 className="text-base font-bold text-white mb-1">Không thể tải dữ liệu</h3>
+                            <p className="text-sm text-white/50">{error}</p>
                         </div>
-                    </div>
-
-                    {/* Dangerous Actions */}
-                    <div className="pt-6 border-t border-white/5">
-                        <button className="w-full py-3 border border-white/10 hover:bg-red-900/20 hover:border-red-500/30 hover:text-red-500 text-gray-400 text-xs font-bold uppercase tracking-widest rounded transition-all">
-                            Ban Customer
+                        <button
+                            onClick={loadUsers}
+                            className="text-xs text-primary font-bold uppercase tracking-wider hover:underline cursor-pointer"
+                        >
+                            Thử lại
                         </button>
                     </div>
-
                 </div>
-            </div>
-         </div>
-       )}
-    </div>
-  );
+            )}
+
+            {/* ── Table ─────────────────────────────────────────────────────── */}
+            {!loading && !error && (
+                <div className="bg-white/[0.02] border border-white/5 rounded-xl shadow-2xl flex flex-col flex-1 overflow-hidden">
+                    {users.length === 0 ? (
+                        <div className="flex-1 flex flex-col items-center justify-center py-20 gap-4">
+                            <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center">
+                                <Users size={24} className="text-white/20" />
+                            </div>
+                            <div className="text-center">
+                                <p className="text-base font-semibold text-white/60">Không tìm thấy người dùng</p>
+                                <p className="text-sm text-white/30 mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-white/[0.02] border-b border-white/[0.06]">
+                                    <tr className="text-[10px] uppercase tracking-widest text-white/40 font-bold">
+                                        <th className="py-4 px-6">Khách hàng</th>
+                                        <th className="py-4 px-4">Liên hệ</th>
+                                        <th className="py-4 px-4">Vai trò</th>
+                                        <th className="py-4 px-4">Trạng thái</th>
+                                        <th className="py-4 px-4">Đơn hàng</th>
+                                        <th className="py-4 px-4">Ngày tham gia</th>
+                                        <th className="py-4 px-4 text-right">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/[0.04]">
+                                    {users.map((user) => (
+                                        <tr
+                                            key={user.userId}
+                                            className="group hover:bg-white/[0.02] transition-colors"
+                                        >
+                                            {/* Khách hàng */}
+                                            <td className="py-4 px-6">
+                                                <div className="flex items-center gap-3">
+                                                    {/* Avatar */}
+                                                    <div
+                                                        className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center shrink-0 ${user.avatarUrl ? '' : getAvatarColor(user.userId)
+                                                            }`}
+                                                    >
+                                                        {user.avatarUrl ? (
+                                                            <img
+                                                                src={user.avatarUrl}
+                                                                alt={user.fullName}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            <span className="text-xs font-bold text-white select-none">
+                                                                {getInitials(user.fullName)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Name + Email */}
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-sm font-semibold text-white truncate group-hover:text-primary transition-colors">
+                                                            {user.fullName}
+                                                        </span>
+                                                        <span className="text-xs text-white/40 truncate">{user.email}</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            {/* Liên hệ */}
+                                            <td className="py-4 px-4 text-sm text-white/50 font-mono">
+                                                {user.phone || '—'}
+                                            </td>
+
+                                            {/* Vai trò */}
+                                            <td className="py-4 px-4">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {user.roles.length > 0 ? (
+                                                        user.roles.map((r) => (
+                                                            <RoleBadge key={r.roleId} roleName={r.roleName} />
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-xs text-white/30">Chưa phân quyền</span>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            {/* Trạng thái */}
+                                            <td className="py-4 px-4">
+                                                <StatusBadge status={user.status} />
+                                            </td>
+
+                                            {/* Đơn hàng */}
+                                            <td className="py-4 px-4 text-sm font-bold text-white">
+                                                {user.totalOrders}
+                                            </td>
+
+                                            {/* Ngày tham gia */}
+                                            <td className="py-4 px-4 text-sm text-white/40">
+                                                {formatDate(user.createdAt)}
+                                            </td>
+
+                                            {/* Thao tác */}
+                                            <td className="py-4 px-4 text-right">
+                                                <UserActionMenu
+                                                    user={user}
+                                                    onBanToggle={handleBanToggle}
+                                                    onChangeRole={handleChangeRole}
+                                                />
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
 };

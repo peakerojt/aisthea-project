@@ -22,6 +22,10 @@ export const Login: React.FC<LoginProps> = ({ setView }) => {
   const [showPassword, setShowPassword] = useState(false);
   const { login, isLoading } = useAuth();
 
+  // Check for banned reason in URL
+  const queryParams = new URLSearchParams(window.location.search);
+  const isBanned = queryParams.get('reason') === 'banned';
+
   const {
     register,
     handleSubmit,
@@ -55,7 +59,15 @@ export const Login: React.FC<LoginProps> = ({ setView }) => {
       <div className="mb-12">
         <p className="text-primary text-xs font-bold uppercase tracking-[0.2em] mb-4">Account</p>
         <h1 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mb-2">Welcome Back</h1>
-        <p className="text-gray-400">Please enter your details to access your curated feed.</p>
+
+        {isBanned ? (
+          <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-md">
+            <p className="text-sm font-bold text-red-500 uppercase tracking-wide">Tài khoản bị khóa</p>
+            <p className="text-xs text-red-400 mt-1">Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên để biết thêm chi tiết.</p>
+          </div>
+        ) : (
+          <p className="text-gray-400">Please enter your details to access your curated feed.</p>
+        )}
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">

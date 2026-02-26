@@ -1,0 +1,719 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+    ArrowLeft, Package, MapPin, CreditCard, User, Clock,
+    CheckCircle2, XCircle, Truck, ShoppingBag, Loader2, AlertCircle,
+    AlertTriangle, ChevronRight, Copy, Check, MoreHorizontal,
+} from 'lucide-react';
+import { ViewState } from '../types';
+import { adminOrderService, AdminOrderDetail as OrderDetailType } from '../services/order.service';
+import { formatVND, getOrderStatusColor } from './AdminOrders';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Design System (ui-ux-pro-max: luxury dark ecommerce admin)
+// Palette: #0A0A0C bg · #111114 surface · #1A1A1F card · primary=#E31837
+// Font: Be Vietnam Pro
+// Effects: subtle glass borders, red glow accents, smooth transitions
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STATUS_STEPS = ['PENDING', 'PROCESSING', 'SHIPPING', 'COMPLETED'] as const;
+
+const STATUS_ICONS: Record<string, React.ElementType> = {
+    PENDING: ShoppingBag,
+    PROCESSING: Package,
+    SHIPPING: Truck,
+    COMPLETED: CheckCircle2,
+    CANCELLED: XCircle,
+};
+
+const STATUS_CONFIG: Record<string, {
+    label: string;
+    badge: string;
+    glow: string;
+    text: string;
+    bg: string;
+    dot: string;
+}> = {
+    PENDING: { label: 'Chờ xác nhận', badge: 'border-amber-500/30 bg-amber-500/10', glow: 'shadow-amber-500/10', text: 'text-amber-400', bg: 'bg-amber-400', dot: 'bg-amber-400 animate-pulse' },
+    PROCESSING: { label: 'Đang chuẩn bị', badge: 'border-sky-500/30 bg-sky-500/10', glow: 'shadow-sky-500/10', text: 'text-sky-400', bg: 'bg-sky-400', dot: 'bg-sky-400' },
+    SHIPPING: { label: 'Đang giao hàng', badge: 'border-violet-500/30 bg-violet-500/10', glow: 'shadow-violet-500/10', text: 'text-violet-400', bg: 'bg-violet-400', dot: 'bg-violet-400' },
+    COMPLETED: { label: 'Giao thành công', badge: 'border-emerald-500/30 bg-emerald-500/10', glow: 'shadow-emerald-500/10', text: 'text-emerald-400', bg: 'bg-emerald-400', dot: 'bg-emerald-400' },
+    CANCELLED: { label: 'Đã hủy', badge: 'border-red-500/30 bg-red-500/10', glow: 'shadow-red-500/10', text: 'text-red-400', bg: 'bg-red-400', dot: 'bg-red-400' },
+};
+
+const cfg = (s?: string | null) => STATUS_CONFIG[s ?? ''] ?? STATUS_CONFIG['PENDING'];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────────────────────────────────────
+
+const StatusPill: React.FC<{ status: string; size?: 'sm' | 'md' }> = ({ status, size = 'md' }) => {
+    const c = cfg(status);
+    return (
+        <span className={`inline-flex items-center gap-1.5 border rounded-full font-semibold ${c.badge} ${size === 'sm' ? 'px-2 py-0.5 text-[11px]' : 'px-3 py-1.5 text-xs'
+            } ${c.text}`}>
+            <span className={`rounded-full ${c.dot} ${size === 'sm' ? 'w-1.5 h-1.5' : 'w-2 h-2'}`} />
+            {c.label}
+        </span>
+    );
+};
+
+/* Glassmorphic card wrapper */
+const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
+    <div className={`bg-white/[0.025] border border-white/[0.07] rounded-2xl backdrop-blur-sm ${className}`}>
+        {children}
+    </div>
+);
+
+/* Section heading inside a card */
+const SectionTitle: React.FC<{ icon: React.ElementType; title: string }> = ({ icon: Icon, title }) => (
+    <div className="flex items-center gap-2.5 px-5 py-4 border-b border-white/[0.06]">
+        <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+            <Icon size={13} className="text-primary" />
+        </div>
+        <span className="text-[11px] font-bold text-white/50 uppercase tracking-[0.12em]">{title}</span>
+    </div>
+);
+
+/* Copy button for order number */
+const CopyButton: React.FC<{ text: string }> = ({ text }) => {
+    const [copied, setCopied] = useState(false);
+    const handleCopy = () => {
+        navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    };
+    return (
+        <button
+            onClick={handleCopy}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg border border-white/10 text-white/30 hover:text-white/70 hover:border-white/20 transition-all text-[10px]"
+        >
+            {copied ? <Check size={11} /> : <Copy size={11} />}
+            {copied ? 'Đã copy' : 'Copy'}
+        </button>
+    );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Status Timeline (vertical stepper — pro-max style)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface HistoryEntry { status: string; statusLabel: string; changedAt: string }
+
+const StatusTimeline: React.FC<{ history: HistoryEntry[]; currentStatus: string }> = ({ history, currentStatus }) => {
+    const isCancelled = currentStatus === 'CANCELLED';
+    const steps = isCancelled
+        ? [...STATUS_STEPS.filter(s => history.some(h => h.status === s)), 'CANCELLED' as const]
+        : STATUS_STEPS;
+
+    const historyMap = new Map<string, string>();
+    history.forEach(h => historyMap.set(h.status, h.changedAt));
+
+    const fmt = (iso: string) => new Intl.DateTimeFormat('vi-VN', {
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    }).format(new Date(iso));
+
+    const stepIndex = steps.indexOf(currentStatus as any);
+
+    return (
+        <div className="px-5 pb-5 pt-2 space-y-0">
+            {steps.map((step, idx) => {
+                const isLast = idx === steps.length - 1;
+                const isDone = idx <= stepIndex;
+                const isCurrent = step === currentStatus;
+                const time = historyMap.get(step);
+                const Icon = STATUS_ICONS[step] ?? CheckCircle2;
+                const c = cfg(step);
+
+                return (
+                    <div key={step} className="flex gap-3 relative">
+                        {/* Vertical connector */}
+                        {!isLast && (
+                            <div className={`absolute left-[13px] top-8 w-0.5 h-8 rounded-full ${isDone ? 'bg-white/15' : 'bg-white/[0.05]'}`} />
+                        )}
+
+                        {/* Icon circle */}
+                        <div className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all ${isCurrent
+                                ? `${c.badge} ${c.text} shadow-lg ${c.glow}`
+                                : isDone
+                                    ? 'border-white/15 bg-white/[0.04]'
+                                    : 'border-white/[0.06] bg-transparent'
+                            }`}>
+                            <Icon size={13} className={isCurrent ? '' : isDone ? 'text-white/40' : 'text-white/15'} />
+                        </div>
+
+                        {/* Label & time */}
+                        <div className="pb-8 flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <p className={`text-sm font-semibold leading-none ${isCurrent ? 'text-white' : isDone ? 'text-white/60' : 'text-white/25'}`}>
+                                    {c.label}
+                                </p>
+                                {isCurrent && (
+                                    <StatusPill status={step} size="sm" />
+                                )}
+                            </div>
+                            {time && (
+                                <p className="text-[11px] text-white/35 mt-1.5 font-mono">{fmt(time)}</p>
+                            )}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cancel Modal — pro-max glassmorphic sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CancelModalProps {
+    isOpen: boolean; loading: boolean;
+    onClose: () => void; onConfirm: (reason: string) => void;
+}
+
+const CancelModal: React.FC<CancelModalProps> = ({ isOpen, loading, onClose, onConfirm }) => {
+    const [reason, setReason] = useState('');
+    const PRESETS = ['Khách hàng yêu cầu hủy', 'Hàng hết tồn kho', 'Địa chỉ không hợp lệ', 'Nghi ngờ gian lận'];
+
+    useEffect(() => { if (!isOpen) setReason(''); }, [isOpen]);
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
+
+            {/* Sheet */}
+            <div className="relative w-full max-w-md bg-[#111114] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+                {/* Red accent top bar */}
+                <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-red-500 to-transparent" />
+
+                <div className="p-6 space-y-5">
+                    {/* Header */}
+                    <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
+                            <AlertTriangle size={18} className="text-red-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold text-white">Hủy đơn hàng</h3>
+                            <p className="text-xs text-white/40 mt-0.5 leading-relaxed">
+                                Tồn kho sẽ được hoàn trả tự động sau khi xác nhận.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Reason textarea */}
+                    <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-widest text-white/40 mb-2">
+                            Lý do hủy <span className="text-red-400 normal-case">*</span>
+                        </label>
+                        <textarea
+                            rows={3}
+                            value={reason}
+                            onChange={e => setReason(e.target.value)}
+                            placeholder="Mô tả lý do hủy đơn hàng..."
+                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20 resize-none transition-all"
+                        />
+                    </div>
+
+                    {/* Quick reason chips */}
+                    <div className="flex flex-wrap gap-2">
+                        {PRESETS.map(p => (
+                            <button
+                                key={p}
+                                onClick={() => setReason(p)}
+                                className={`px-3 py-1.5 rounded-full text-[11px] font-medium border transition-all cursor-pointer ${reason === p
+                                        ? 'border-red-500/40 bg-red-500/10 text-red-400'
+                                        : 'border-white/10 bg-white/[0.03] text-white/50 hover:text-white/80 hover:border-white/20'
+                                    }`}
+                            >
+                                {p}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-1">
+                        <button
+                            onClick={onClose}
+                            disabled={loading}
+                            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white/60 bg-white/[0.04] border border-white/10 hover:bg-white/[0.07] transition-all cursor-pointer disabled:opacity-50"
+                        >
+                            Giữ lại
+                        </button>
+                        <button
+                            onClick={() => onConfirm(reason)}
+                            disabled={loading || !reason.trim()}
+                            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-500 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-red-900/30"
+                        >
+                            {loading ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+                            {loading ? 'Đang hủy...' : 'Xác nhận hủy'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Toast notification
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ToastState { message: string; type: 'success' | 'error' }
+
+const Toast: React.FC<{ toast: ToastState | null }> = ({ toast }) => {
+    if (!toast) return null;
+    const isError = toast.type === 'error';
+    return (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+            <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border shadow-2xl backdrop-blur-xl ${isError
+                    ? 'bg-red-950/90 border-red-500/30 shadow-red-900/20'
+                    : 'bg-[#0d1f18]/90 border-emerald-500/25 shadow-emerald-900/10'
+                }`}>
+                {isError
+                    ? <AlertCircle size={15} className="text-red-400 shrink-0" />
+                    : <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />}
+                <span className="text-sm font-medium text-white">{toast.message}</span>
+            </div>
+        </div>
+    );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Action Bar (sticky CTA panel)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ActionBarProps {
+    status: string;
+    loading: boolean;
+    onAction: (nextStatus: string) => void;
+    onCancel: () => void;
+}
+
+const ActionBar: React.FC<ActionBarProps> = ({ status, loading, onAction, onCancel }) => {
+    const Spinner = () => <Loader2 size={14} className="animate-spin" />;
+
+    if (status === 'PENDING') return (
+        <div className="flex items-center gap-2">
+            <button
+                onClick={onCancel} disabled={loading}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-all cursor-pointer disabled:opacity-50"
+            >
+                <XCircle size={13} /> Hủy đơn
+            </button>
+            <button
+                onClick={() => onAction('PROCESSING')} disabled={loading}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 shadow-lg shadow-sky-900/30 transition-all cursor-pointer disabled:opacity-50"
+            >
+                {loading ? <Spinner /> : <Package size={13} />}
+                Xác nhận đơn hàng
+            </button>
+        </div>
+    );
+
+    if (status === 'PROCESSING') return (
+        <div className="flex items-center gap-2">
+            <button
+                onClick={onCancel} disabled={loading}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-all cursor-pointer disabled:opacity-50"
+            >
+                <XCircle size={13} /> Hủy đơn
+            </button>
+            <button
+                onClick={() => onAction('SHIPPING')} disabled={loading}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-violet-600 hover:bg-violet-500 shadow-lg shadow-violet-900/30 transition-all cursor-pointer disabled:opacity-50"
+            >
+                {loading ? <Spinner /> : <Truck size={13} />}
+                Bắt đầu giao hàng
+            </button>
+        </div>
+    );
+
+    if (status === 'SHIPPING') return (
+        <button
+            onClick={() => onAction('COMPLETED')} disabled={loading}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-900/30 transition-all cursor-pointer disabled:opacity-50"
+        >
+            {loading ? <Spinner /> : <CheckCircle2 size={13} />}
+            Đã giao thành công
+        </button>
+    );
+
+    if (status === 'COMPLETED') return (
+        <span className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-emerald-400 border border-emerald-500/25 bg-emerald-500/5">
+            <CheckCircle2 size={13} /> Đã hoàn thành
+        </span>
+    );
+
+    if (status === 'CANCELLED') return (
+        <span className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-red-400 border border-red-500/25 bg-red-500/5">
+            <XCircle size={13} /> Đã hủy
+        </span>
+    );
+
+    return null;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Page
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface AdminOrderDetailProps {
+    orderId: number | null;
+    setView: (view: ViewState) => void;
+}
+
+export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, setView }) => {
+    const [order, setOrder] = useState<OrderDetailType | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [cancelOpen, setCancelOpen] = useState(false);
+    const [toast, setToast] = useState<ToastState | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+    };
+
+    const loadOrder = useCallback(async () => {
+        if (!orderId) { setError('Không tìm thấy mã đơn.'); setLoading(false); return; }
+        setLoading(true); setError(null);
+        try {
+            setOrder(await adminOrderService.getDetail(orderId));
+        } catch (e: any) { setError(e.message || 'Không thể tải chi tiết đơn hàng.'); }
+        finally { setLoading(false); }
+    }, [orderId]);
+
+    useEffect(() => { loadOrder(); }, [loadOrder]);
+
+    const handleAction = async (nextStatus: string) => {
+        if (!order) return;
+        setActionLoading(true);
+        try {
+            await adminOrderService.updateStatus(order.orderId, { status: nextStatus });
+            showToast('Cập nhật trạng thái thành công');
+            await loadOrder();
+        } catch (e: any) {
+            showToast(e.message || 'Có lỗi xảy ra', 'error');
+        } finally { setActionLoading(false); }
+    };
+
+    const handleCancel = async (reason: string) => {
+        if (!order) return;
+        setActionLoading(true);
+        try {
+            await adminOrderService.updateStatus(order.orderId, { status: 'CANCELLED', note: reason });
+            showToast('Đã hủy đơn hàng và hoàn trả tồn kho');
+            setCancelOpen(false);
+            await loadOrder();
+        } catch (e: any) {
+            showToast(e.message || 'Có lỗi xảy ra', 'error');
+        } finally { setActionLoading(false); }
+    };
+
+    const fmt = (iso?: string) => iso
+        ? new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
+        : '—';
+
+    // ── Loading ─────────────────────────────────────────────────────────────
+
+    if (loading) return (
+        <div className="h-full flex items-center justify-center" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+            <div className="flex flex-col items-center gap-5">
+                <div className="relative w-14 h-14">
+                    <div className="absolute inset-0 rounded-full border-4 border-white/[0.05]" />
+                    <div className="absolute inset-0 rounded-full border-4 border-t-primary border-l-transparent border-r-transparent border-b-transparent animate-spin" />
+                </div>
+                <p className="text-sm text-white/40 font-medium">Đang tải chi tiết đơn hàng...</p>
+            </div>
+        </div>
+    );
+
+    if (error || !order) return (
+        <div className="h-full flex items-center justify-center" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+            <div className="text-center flex flex-col items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                    <AlertCircle size={24} className="text-red-400" />
+                </div>
+                <div>
+                    <p className="text-base font-bold text-white mb-1">Không tìm thấy đơn hàng</p>
+                    <p className="text-sm text-white/50">{error}</p>
+                </div>
+                <button onClick={() => setView('ADMIN_ORDERS')} className="text-xs text-primary font-bold uppercase tracking-widest hover:underline cursor-pointer">
+                    Quay lại danh sách
+                </button>
+            </div>
+        </div>
+    );
+
+    const status = order.status ?? 'PENDING';
+    const c = cfg(status);
+    const statusHistory = (order as any).statusHistory ?? [];
+
+    return (
+        <div className="min-h-full" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+            <Toast toast={toast} />
+            <CancelModal
+                isOpen={cancelOpen}
+                loading={actionLoading}
+                onClose={() => setCancelOpen(false)}
+                onConfirm={handleCancel}
+            />
+
+            {/* ── Sticky Navigation Bar ──────────────────────────────────────── */}
+            <div className="sticky top-0 z-20 border-b border-white/[0.05] bg-[#0A0A0C]/90 backdrop-blur-xl">
+                <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between">
+
+                    {/* Breadcrumb */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setView('ADMIN_ORDERS')}
+                            className="flex items-center gap-1.5 text-sm text-white/40 hover:text-white transition-colors cursor-pointer group"
+                        >
+                            <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
+                            Đơn hàng
+                        </button>
+                        <ChevronRight size={13} className="text-white/20" />
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-white font-mono tracking-wide">
+                                {order.orderNumber}
+                            </span>
+                            <CopyButton text={order.orderNumber} />
+                        </div>
+                    </div>
+
+                    {/* Status + Actions */}
+                    <div className="flex items-center gap-3">
+                        <StatusPill status={status} />
+                        <div className="w-px h-5 bg-white/10" />
+                        <ActionBar
+                            status={status}
+                            loading={actionLoading}
+                            onAction={handleAction}
+                            onCancel={() => setCancelOpen(true)}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Page Body ─────────────────────────────────────────────────── */}
+            <div className="max-w-[1400px] mx-auto px-6 py-7">
+                {/* Order metadata row */}
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mb-6 text-[11px] text-white/35 font-mono">
+                    <span>Đặt lúc {fmt(order.createdAt)}</span>
+                    {order.trackingNumber && (
+                        <>
+                            <span className="text-white/15">·</span>
+                            <span>{order.carrier ?? 'Vận chuyển'}: <span className="text-white/60">{order.trackingNumber}</span></span>
+                        </>
+                    )}
+                    <span className="text-white/15">·</span>
+                    <span className={c.text}>{c.label}</span>
+                </div>
+
+                {/* Two-column Grid */}
+                <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-5">
+
+                    {/* ══ LEFT COLUMN ═══════════════════════════════════════════════ */}
+                    <div className="space-y-5">
+
+                        {/* ── Product Items Card ─────────────────────────────────── */}
+                        <Card>
+                            <SectionTitle icon={ShoppingBag} title={`Sản phẩm · ${order.items.length} mặt hàng`} />
+
+                            <div className="divide-y divide-white/[0.04]">
+                                {order.items.map((item) => (
+                                    <div key={item.orderItemId} className="flex gap-4 p-5 hover:bg-white/[0.018] transition-colors cursor-default">
+
+                                        {/* Product image */}
+                                        <div className="w-[72px] h-[90px] rounded-xl overflow-hidden shrink-0 bg-white/[0.04] border border-white/[0.07] relative">
+                                            {item.image ? (
+                                                <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <Package size={22} className="text-white/15" />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Info */}
+                                        <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                                            <div>
+                                                <p className="text-[13px] font-bold text-white/90 leading-snug line-clamp-2 mb-1.5">
+                                                    {item.productName}
+                                                </p>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    <span className="inline-block text-[10px] bg-white/[0.06] border border-white/[0.08] rounded-md px-2 py-0.5 text-white/50 font-mono">
+                                                        {item.sku}
+                                                    </span>
+                                                    <span className="inline-block text-[10px] bg-white/[0.06] border border-white/[0.08] rounded-md px-2 py-0.5 text-white/60">
+                                                        {item.variantName}
+                                                    </span>
+                                                    <span className="inline-block text-[10px] bg-primary/8 border border-primary/15 rounded-md px-2 py-0.5 text-primary/80">
+                                                        × {item.quantity}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <p className="text-[11px] text-white/35 mt-1">
+                                                Đơn giá: {formatVND(item.unitPrice)}
+                                            </p>
+                                        </div>
+
+                                        {/* Line total */}
+                                        <div className="text-right shrink-0 flex flex-col justify-between py-0.5">
+                                            <p className="text-sm font-bold text-white">{formatVND(item.lineTotal)}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Order total */}
+                            <div className="px-5 py-4 border-t border-white/[0.06] bg-white/[0.015] rounded-b-2xl">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-white/40 font-medium uppercase tracking-wider">Tổng đơn hàng</span>
+                                    <div className="text-right">
+                                        <p className="text-2xl font-black text-white tracking-tight">{formatVND(order.totalAmount)}</p>
+                                        <p className={`text-[11px] font-semibold mt-0.5 ${order.paymentStatus === 'Paid' ? 'text-emerald-400' : 'text-amber-400'
+                                            }`}>
+                                            {order.paymentStatus === 'Paid' ? '✓ Đã thanh toán' : '⏳ Chưa thanh toán'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* ── Note card ─────────────────────────────────────────── */}
+                        {order.note && (
+                            <Card>
+                                <div className="px-5 py-4 flex items-start gap-3">
+                                    <div className="w-1 h-full min-h-[40px] rounded-full bg-amber-500/50 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-[11px] font-bold text-amber-400/80 uppercase tracking-widest mb-1.5">Ghi chú đơn hàng</p>
+                                        <p className="text-sm text-white/70 leading-relaxed">{order.note}</p>
+                                    </div>
+                                </div>
+                            </Card>
+                        )}
+
+                        {/* ── Payment details ────────────────────────────────────── */}
+                        {order.payments && order.payments.length > 0 && (
+                            <Card>
+                                <SectionTitle icon={CreditCard} title="Chi tiết thanh toán" />
+                                <div className="p-5 space-y-3">
+                                    {order.payments.map((p) => (
+                                        <div key={p.paymentId} className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-none">
+                                            <div>
+                                                <p className="text-sm text-white/80 font-medium">{p.method}</p>
+                                                {p.paidAt && <p className="text-[11px] text-white/35 font-mono mt-0.5">{fmt(p.paidAt)}</p>}
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm font-bold text-white">{formatVND(p.amount)}</p>
+                                                <span className={`text-[10px] font-bold uppercase tracking-wide ${p.status === 'Completed' ? 'text-emerald-400' : 'text-amber-400'
+                                                    }`}>{p.status === 'Completed' ? 'Thành công' : p.status}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Card>
+                        )}
+                    </div>
+
+                    {/* ══ RIGHT COLUMN ═══════════════════════════════════════════════ */}
+                    <div className="space-y-4">
+
+                        {/* ── Customer card ─────────────────────────────────────── */}
+                        <Card>
+                            <SectionTitle icon={User} title="Khách hàng" />
+                            <div className="p-5">
+                                {order.user ? (
+                                    <div className="flex items-center gap-3">
+                                        {/* Avatar */}
+                                        {order.user.avatarUrl ? (
+                                            <img src={order.user.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-white/10 shrink-0" />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-sm font-black text-primary shrink-0">
+                                                {order.user.fullName?.charAt(0) ?? '?'}
+                                            </div>
+                                        )}
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-white">{order.user.fullName}</p>
+                                            <p className="text-[11px] text-white/40 truncate">{order.user.email}</p>
+                                            {order.user.phone && <p className="text-[11px] text-white/40">{order.user.phone}</p>}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <p className="text-sm font-bold text-white">{order.shippingAddress.recipientName}</p>
+                                        <p className="text-[11px] text-white/40 mt-0.5">{order.shippingAddress.phone}</p>
+                                        <p className="text-[11px] text-white/35 mt-0.5">Khách lẻ (không có tài khoản)</p>
+                                    </div>
+                                )}
+                            </div>
+                        </Card>
+
+                        {/* ── Shipping address card ─────────────────────────────── */}
+                        <Card>
+                            <SectionTitle icon={MapPin} title="Địa chỉ giao hàng" />
+                            <div className="p-5 space-y-3">
+                                <div>
+                                    <p className="text-sm font-bold text-white">{order.shippingAddress.recipientName}</p>
+                                    <p className="text-[11px] text-white/50 mt-0.5">{order.shippingAddress.phone}</p>
+                                </div>
+                                <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+                                    <p className="text-[12px] text-white/65 leading-relaxed">
+                                        {order.shippingAddress.addressDetail}
+                                        {order.shippingAddress.district && `, ${order.shippingAddress.district}`}
+                                        {`, ${order.shippingAddress.city}`}
+                                    </p>
+                                </div>
+                                {order.trackingNumber && (
+                                    <div className="flex items-center gap-2 pt-1">
+                                        <Truck size={12} className="text-violet-400 shrink-0" />
+                                        <div>
+                                            <p className="text-[10px] text-white/35 uppercase tracking-wider">{order.carrier ?? 'Tracking'}</p>
+                                            <p className="text-[12px] text-violet-400 font-mono font-semibold">{order.trackingNumber}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </Card>
+
+                        {/* ── Payment summary card ──────────────────────────────── */}
+                        <Card>
+                            <SectionTitle icon={CreditCard} title="Thanh toán" />
+                            <div className="p-5 space-y-3">
+                                {[
+                                    { label: 'Phương thức', value: order.paymentMethod ?? 'COD' },
+                                ].map(({ label, value }) => (
+                                    <div key={label} className="flex items-center justify-between">
+                                        <span className="text-[12px] text-white/40">{label}</span>
+                                        <span className="text-[12px] font-semibold text-white">{value}</span>
+                                    </div>
+                                ))}
+
+                                <div className="flex items-center justify-between pt-1 border-t border-white/[0.05]">
+                                    <span className="text-[12px] text-white/40">Trạng thái</span>
+                                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${order.paymentStatus === 'Paid'
+                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                            : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                        }`}>
+                                        {order.paymentStatus === 'Paid' ? '✓ Đã thanh toán' : '⏳ Chưa thanh toán'}
+                                    </span>
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* ── Status Timeline ───────────────────────────────────── */}
+                        <Card>
+                            <SectionTitle icon={Clock} title="Lịch sử trạng thái" />
+                            <StatusTimeline history={statusHistory} currentStatus={status} />
+                        </Card>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};

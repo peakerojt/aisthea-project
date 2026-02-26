@@ -110,6 +110,7 @@ model Category {
   name        String     @map("Name") @db.NVarChar(100)
   slug        String     @unique(map: "UQ__Categori__BC7B5FB636C79C65") @map("Slug") @db.NVarChar(100)
   description String?    @map("Description") @db.NVarChar(255)
+  imageUrl    String?    @map("ImageUrl") @db.NVarChar(1000)
   parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [categoryId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Categories_Parent")
   children    Category[] @relation("CategoryHierarchy")
   products    Product[]

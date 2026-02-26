@@ -1,5 +1,10 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
+import { PrismaClient } from '../generated/client';
 import { userService } from '../services/user.service';
+
+const adminPrisma = new PrismaClient();
+
 
 /**
  * Get current user's profile
@@ -312,5 +317,208 @@ export const getRecentOrders = async (req: Request, res: Response) => {
             success: false,
             message: error.message || 'Failed to get recent orders',
         });
+    }
+};
+
+// ────────────────────────────────────────────────────────────────────────────
+// ADMIN — User Management
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * [ADMIN] Get all users with search, role, and status filters
+ * GET /api/users?search=&role=&status=
+ */
+export const getAllUsers = async (req: Request, res: Response) => {
+    try {
+        const { search, role, status } = req.query as Record<string, string>;
+
+        // Build where clause dynamically
+        const where: any = {};
+
+        // Search by name, email, or phone
+        if (search && search.trim()) {
+            const s = search.trim();
+            where.OR = [
+                { fullName: { contains: s } },
+                { email: { contains: s } },
+                { phone: { contains: s } },
+            ];
+        }
+
+        // Filter by status
+        if (status && status !== 'all') {
+            where.status = status;
+        }
+
+        // Filter by role name
+        if (role && role !== 'all') {
+            where.userRoles = {
+                some: {
+                    role: { roleName: role },
+                },
+            };
+        }
+
+        const users = await adminPrisma.user.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            select: {
+                userId: true,
+                email: true,
+                fullName: true,
+                phone: true,
+                avatarUrl: true,
+                status: true,
+                createdAt: true,
+                userRoles: {
+                    include: {
+                        role: true,
+                    },
+                },
+                _count: {
+                    select: { orders: true },
+                },
+            },
+        });
+
+        // Map to a cleaner shape
+        const result = users.map((u) => ({
+            userId: u.userId,
+            email: u.email,
+            fullName: u.fullName,
+            phone: u.phone,
+            avatarUrl: u.avatarUrl,
+            status: u.status,
+            createdAt: u.createdAt,
+            roles: u.userRoles.map((ur) => ({
+                roleId: ur.roleId,
+                roleName: ur.role.roleName,
+            })),
+            totalOrders: u._count.orders,
+        }));
+
+        res.status(200).json({ success: true, data: result });
+    } catch (error: any) {
+        console.error('[Admin] Get all users error:', error);
+        res.status(500).json({ success: false, message: error.message || 'Không thể lấy danh sách người dùng.' });
+    }
+};
+
+/**
+ * [ADMIN] Toggle user status between Active and Banned
+ * PATCH /api/users/:id/status
+ * Security: Cannot ban yourself or ban another Admin (if not Super Admin)
+ */
+export const updateUserStatus = async (req: Request, res: Response) => {
+    try {
+        const requesterId = (req as any).user.userId as number;
+        const targetId = parseInt(String(req.params.id));
+
+        if (isNaN(targetId)) {
+            return res.status(400).json({ success: false, message: 'ID người dùng không hợp lệ.' });
+        }
+
+        // Guard: Cannot ban yourself
+        if (requesterId === targetId) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không thể khóa tài khoản của chính bạn!',
+            });
+        }
+
+        // Fetch target user
+        const targetUser = await adminPrisma.user.findUnique({
+            where: { userId: targetId },
+            include: { userRoles: { include: { role: true } } },
+        });
+
+        if (!targetUser) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng.' });
+        }
+
+        // Guard: Cannot ban another Admin (Super Admin protection)
+        const targetRoles = targetUser.userRoles.map((ur) => ur.role.roleName.toLowerCase());
+        if (targetRoles.includes('admin')) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không thể khóa tài khoản của Quản trị viên.',
+            });
+        }
+
+        // Toggle status
+        const newStatus = targetUser.status === 'Active' ? 'Banned' : 'Active';
+
+        const updated = await adminPrisma.user.update({
+            where: { userId: targetId },
+            data: { status: newStatus, updatedAt: new Date() },
+            select: { userId: true, fullName: true, status: true },
+        });
+
+        res.status(200).json({
+            success: true,
+            message: `Cập nhật trạng thái thành công!`,
+            data: updated,
+        });
+    } catch (error: any) {
+        console.error('[Admin] Update user status error:', error);
+        res.status(500).json({ success: false, message: error.message || 'Không thể cập nhật trạng thái người dùng.' });
+    }
+};
+
+// Zod schema for role update
+const UpdateRoleSchema = z.object({
+    roleId: z.number().int().positive(),
+});
+
+/**
+ * [ADMIN] Update user's role
+ * PATCH /api/users/:id/role
+ * Body: { roleId: number }
+ */
+export const updateUserRole = async (req: Request, res: Response) => {
+    try {
+        const targetId = parseInt(String(req.params.id));
+
+        if (isNaN(targetId)) {
+            return res.status(400).json({ success: false, message: 'ID người dùng không hợp lệ.' });
+        }
+
+        // Validate request body
+        const parsed = UpdateRoleSchema.safeParse(req.body);
+        if (!parsed.success) {
+            return res.status(400).json({
+                success: false,
+                message: parsed.error.issues[0]?.message || 'Dữ liệu không hợp lệ.',
+            });
+        }
+
+        const { roleId } = parsed.data;
+
+        // Verify role exists
+        const role = await adminPrisma.role.findUnique({ where: { roleId } });
+        if (!role) {
+            return res.status(404).json({ success: false, message: 'Vai trò không tồn tại.' });
+        }
+
+        // Verify user exists
+        const user = await adminPrisma.user.findUnique({ where: { userId: targetId } });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng.' });
+        }
+
+        // Replace all roles: delete existing, insert new
+        await adminPrisma.$transaction([
+            adminPrisma.userRole.deleteMany({ where: { userId: targetId } }),
+            adminPrisma.userRole.create({ data: { userId: targetId, roleId } }),
+        ]);
+
+        res.status(200).json({
+            success: true,
+            message: 'Cập nhật vai trò thành công!',
+            data: { userId: targetId, role: { roleId: role.roleId, roleName: role.roleName } },
+        });
+    } catch (error: any) {
+        console.error('[Admin] Update user role error:', error);
+        res.status(500).json({ success: false, message: error.message || 'Không thể cập nhật vai trò người dùng.' });
     }
 };

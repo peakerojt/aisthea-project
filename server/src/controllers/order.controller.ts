@@ -1,6 +1,11 @@
 import { Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { AuthRequest } from '../middlewares/auth.middleware';
+import { VALID_TRANSITIONS, ORDER_STATUS, STATUS_LABELS } from '../utils/orderConstants';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 const firstQueryValue = (value: unknown): string | undefined => {
   if (typeof value === 'string') return value;
@@ -10,6 +15,352 @@ const firstQueryValue = (value: unknown): string | undefined => {
   }
   return undefined;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN: Get All Orders
+// GET /api/orders/admin
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const getAllOrders = async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      status,
+      page = '1',
+      pageSize = '15',
+      search,
+      startDate,
+      endDate,
+    } = req.query;
+
+    const pageNum = parseInt(firstQueryValue(page) || '1', 10) || 1;
+    const size = Math.min(parseInt(firstQueryValue(pageSize) || '15', 10) || 15, 100);
+    const skip = (pageNum - 1) * size;
+
+    const where: any = {};
+
+    const statusStr = firstQueryValue(status);
+    if (statusStr && statusStr !== 'ALL') {
+      where.status = statusStr;
+    }
+
+    const searchStr = firstQueryValue(search);
+    if (searchStr) {
+      where.OR = [
+        { customerName: { contains: searchStr } },
+        { customerPhone: { contains: searchStr } },
+        { orderNumber: { contains: searchStr } },
+      ];
+    }
+
+    const startDateStr = firstQueryValue(startDate);
+    const endDateStr = firstQueryValue(endDate);
+    if (startDateStr || endDateStr) {
+      where.createdAt = {};
+      if (startDateStr) where.createdAt.gte = new Date(startDateStr);
+      if (endDateStr) {
+        const end = new Date(endDateStr);
+        end.setHours(23, 59, 59, 999);
+        where.createdAt.lte = end;
+      }
+    }
+
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: size,
+        include: {
+          user: {
+            select: {
+              userId: true,
+              email: true,
+              fullName: true,
+              avatarUrl: true,
+            },
+          },
+          _count: {
+            select: { items: true },
+          },
+        },
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    const formatted = orders.map((order) => ({
+      orderId: order.orderId,
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      status: order.status,
+      statusLabel: STATUS_LABELS[order.status ?? ''] ?? order.status,
+      paymentStatus: order.paymentStatus,
+      paymentMethod: order.paymentMethod,
+      totalAmount: order.totalAmount?.toString() ?? '0',
+      createdAt: order.createdAt?.toISOString(),
+      itemCount: order._count.items,
+      user: order.user
+        ? {
+          userId: order.user.userId,
+          email: order.user.email,
+          fullName: order.user.fullName,
+          avatarUrl: order.user.avatarUrl,
+        }
+        : null,
+    }));
+
+    res.json({
+      orders: formatted,
+      pagination: {
+        page: pageNum,
+        pageSize: size,
+        total,
+        totalPages: Math.ceil(total / size),
+      },
+    });
+  } catch (error: any) {
+    console.error('[getAllOrders] Error:', error?.message ?? error);
+    if (error?.code) console.error('[getAllOrders] Prisma code:', error.code, error.meta);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN: Get Order Detail
+// GET /api/orders/admin/:id
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
+  try {
+    const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const orderId = parseInt(idParam, 10);
+    if (isNaN(orderId)) {
+      return res.status(400).json({ error: 'Invalid order ID' });
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { orderId },
+      include: {
+        user: {
+          select: {
+            userId: true,
+            email: true,
+            fullName: true,
+            avatarUrl: true,
+            phone: true,
+          },
+        },
+        // OrderItem → variant (ProductVariant, includes images + product)
+        items: {
+          include: {
+            variant: {
+              include: {
+                images: {
+                  where: { isPrimary: true },
+                  select: { imageUrl: true, thumbnailUrl: true },
+                  take: 1,
+                },
+                product: {
+                  select: { productId: true, name: true },
+                },
+              },
+            },
+          },
+        },
+        payments: true,
+        statusHistory: {
+          orderBy: { changedAt: 'asc' },
+        },
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const formatted = {
+      orderId: order.orderId,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      statusLabel: STATUS_LABELS[order.status ?? ''] ?? order.status,
+      paymentStatus: order.paymentStatus,
+      paymentMethod: order.paymentMethod,
+      totalAmount: order.totalAmount?.toString() ?? '0',
+      note: order.note,
+      createdAt: order.createdAt?.toISOString(),
+      trackingNumber: order.trackingNumber,
+      carrier: order.carrier,
+      shippingAddress: {
+        recipientName: order.customerName,
+        phone: order.customerPhone,
+        city: order.shippingCity,
+        district: order.shippingDistrict,
+        addressDetail: order.shippingAddressDetail,
+      },
+      user: order.user
+        ? {
+          userId: order.user.userId,
+          email: order.user.email,
+          fullName: order.user.fullName,
+          avatarUrl: order.user.avatarUrl,
+          phone: order.user.phone,
+        }
+        : null,
+      items: order.items.map((item) => {
+        const variantImage =
+          item.variant?.images?.[0]?.thumbnailUrl ??
+          item.variant?.images?.[0]?.imageUrl ??
+          null;
+        return {
+          orderItemId: item.orderItemId,
+          productId: item.variant?.product?.productId ?? null,
+          productName: item.productName,
+          sku: item.sku,
+          variantName: item.variantName,
+          unitPrice: item.unitPrice?.toString() ?? '0',
+          quantity: item.quantity,
+          lineTotal: (
+            parseFloat(item.unitPrice?.toString() ?? '0') * item.quantity
+          ).toString(),
+          image: variantImage,
+        };
+      }),
+      payments: order.payments.map((p) => ({
+        paymentId: p.paymentId,
+        method: p.paymentMethod,
+        amount: p.amount?.toString() ?? '0',
+        status: p.status,
+        paidAt: p.paymentDate?.toISOString(),
+      })),
+      statusHistory: order.statusHistory.map((h) => ({
+        status: h.status,
+        statusLabel: STATUS_LABELS[h.status] ?? h.status,
+        changedAt: h.changedAt.toISOString(),
+      })),
+    };
+
+    res.json(formatted);
+  } catch (error: any) {
+    console.error('Error fetching admin order detail:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN: Update Order Status (Critical — state machine + stock restoration)
+// PATCH /api/orders/:id/status
+// Body: { status: string, note?: string }
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
+  try {
+    const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const orderId = parseInt(idParam, 10);
+    if (isNaN(orderId)) {
+      return res.status(400).json({ error: 'Invalid order ID' });
+    }
+
+    const { status: newStatus, note } = req.body as {
+      status: string;
+      note?: string;
+    };
+
+    if (!newStatus) {
+      return res.status(400).json({ error: 'status is required' });
+    }
+
+    // 1. Fetch current order with items for stock restoration
+    const order = await prisma.order.findUnique({
+      where: { orderId },
+      include: {
+        items: {
+          select: {
+            orderItemId: true,
+            variantId: true,
+            quantity: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const currentStatus = order.status ?? 'PENDING';
+
+    // 2. Validate transition via state machine
+    const allowedNext = VALID_TRANSITIONS[currentStatus] ?? [];
+    if (!allowedNext.includes(newStatus)) {
+      return res.status(400).json({
+        error: `Không thể chuyển đơn hàng từ "${STATUS_LABELS[currentStatus] ?? currentStatus}" sang "${STATUS_LABELS[newStatus] ?? newStatus}". Hành động này không được phép.`,
+        currentStatus,
+        requestedStatus: newStatus,
+        allowedTransitions: allowedNext,
+      });
+    }
+
+    // 3. Execute update — Prisma transaction if cancelling (restore stock)
+    if (newStatus === ORDER_STATUS.CANCELLED) {
+      await prisma.$transaction(async (tx) => {
+        // Restore stock for every variant
+        for (const item of order.items) {
+          if (item.variantId) {
+            await tx.productVariant.update({
+              where: { variantId: item.variantId },
+              data: { stockQuantity: { increment: item.quantity } },
+            });
+          }
+        }
+
+        // Update order status + optional note
+        await tx.order.update({
+          where: { orderId },
+          data: {
+            status: newStatus,
+            ...(note !== undefined ? { note } : {}),
+          },
+        });
+
+        // Record history
+        await tx.orderStatusHistory.create({
+          data: { orderId, status: newStatus },
+        });
+      });
+    } else {
+      await prisma.$transaction(async (tx) => {
+        await tx.order.update({
+          where: { orderId },
+          data: {
+            status: newStatus,
+            ...(note !== undefined ? { note } : {}),
+          },
+        });
+        await tx.orderStatusHistory.create({
+          data: { orderId, status: newStatus },
+        });
+      });
+    }
+
+    res.json({
+      success: true,
+      orderId,
+      previousStatus: currentStatus,
+      newStatus,
+      statusLabel: STATUS_LABELS[newStatus] ?? newStatus,
+      stockRestored: newStatus === ORDER_STATUS.CANCELLED,
+      message: `Cập nhật trạng thái thành công: ${STATUS_LABELS[newStatus] ?? newStatus}`,
+    });
+  } catch (error: any) {
+    console.error('Error updating order status:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER: Get My Orders
+// GET /api/orders/my
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const getMyOrders = async (req: AuthRequest, res: Response) => {
   try {
@@ -31,7 +382,6 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
     }
 
     const sortStr = firstQueryValue(sort) || 'createdAt_desc';
-
     const orderBy: any = {};
     const [sortField, sortDir] = sortStr.split('_');
     orderBy[sortField || 'createdAt'] = sortDir === 'asc' ? 'asc' : 'desc';
@@ -51,12 +401,10 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
           createdAt: true,
           trackingNumber: true,
           carrier: true,
-          _count: {
-            select: { items: true }
-          }
-        }
+          _count: { select: { items: true } },
+        },
       }),
-      prisma.order.count({ where })
+      prisma.order.count({ where }),
     ]);
 
     const formattedOrders = orders.map((order) => ({
@@ -68,7 +416,7 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
       createdAt: order.createdAt?.toISOString(),
       trackingNumber: order.trackingNumber,
       carrier: order.carrier,
-      itemCount: order._count.items
+      itemCount: order._count.items,
     }));
 
     res.json({
@@ -77,14 +425,19 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
         page: pageNum,
         pageSize: size,
         total,
-        totalPages: Math.ceil(total / size)
-      }
+        totalPages: Math.ceil(total / size),
+      },
     });
   } catch (error: any) {
     console.error('Error fetching my orders:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER: Get My Order Detail
+// GET /api/orders/my/:orderId
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
   try {
@@ -100,14 +453,11 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
     }
 
     const order = await prisma.order.findFirst({
-      where: {
-        orderId,
-        userId
-      },
+      where: { orderId, userId },
       include: {
         items: true,
-        payments: true
-      }
+        payments: true,
+      },
     });
 
     if (!order) {
@@ -129,7 +479,7 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
         phone: order.customerPhone,
         city: order.shippingCity,
         district: order.shippingDistrict,
-        addressDetail: order.shippingAddressDetail
+        addressDetail: order.shippingAddressDetail,
       },
       items: order.items.map((item) => ({
         orderItemId: item.orderItemId,
@@ -138,8 +488,8 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
         variantName: item.variantName,
         unitPrice: item.unitPrice.toString(),
         quantity: item.quantity,
-        lineTotal: (parseFloat(item.unitPrice.toString()) * item.quantity).toString()
-      }))
+        lineTotal: (parseFloat(item.unitPrice.toString()) * item.quantity).toString(),
+      })),
     };
 
     res.json(formattedOrder);
@@ -149,6 +499,11 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// USER: Create Order (Checkout via Stored Procedure)
+// POST /api/orders
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const createOrder = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
@@ -156,14 +511,12 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { paymentMethod, shippingAddress } = req.body;
+    const { paymentMethod } = req.body;
 
     if (!paymentMethod) {
       return res.status(400).json({ error: 'Payment method is required' });
     }
 
-    // Call Stored Procedure for Checkout
-    // sp_Checkout returns a single row with OrderId and Status
     const result: any[] = await prisma.$queryRaw`EXEC sp_Checkout @UserId = ${userId}, @PaymentMethod = ${paymentMethod}`;
 
     if (!result || result.length === 0) {
@@ -173,18 +526,9 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     const row = result[0];
     const orderId = row.OrderId || row.orderId;
 
-    res.json({
-      success: true,
-      orderId,
-      message: 'Order created successfully'
-    });
-
+    res.json({ success: true, orderId, message: 'Order created successfully' });
   } catch (error: any) {
     console.error('Checkout Error:', error);
-    // Parse SQL error message if possible
-    res.status(500).json({
-      error: 'Checkout failed',
-      details: error.message
-    });
+    res.status(500).json({ error: 'Checkout failed', details: error.message });
   }
 };
