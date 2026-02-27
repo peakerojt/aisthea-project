@@ -22,16 +22,18 @@ import { fetchProductById, fetchProducts, Product as ApiProductType } from '../s
 import { getCloudinaryProductCard } from '../utils/cloudinary';
 import { useProducts } from '../contexts/ProductContext';
 import { ProductCard } from '../components/ProductCard/ProductCard';
+import { StoreHeader } from '../components/StoreHeader';
 
 interface ProductDetailProps {
-  setView: (v: ViewState) => void;
+  setView: (v: ViewState, id?: number) => void;
   setCategory: (c: CategoryType) => void;
   addToCart: (item: CartItem) => void;
   cartCount: number;
   product?: any;
+  setSearchTerm: (term: string) => void;
 }
 
-export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCategory, addToCart, cartCount, product: initialProduct }) => {
+export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCategory, addToCart, cartCount, product: initialProduct, setSearchTerm }) => {
   const [quantity, setQuantity] = useState(1);
   const [productDetails, setProductDetails] = useState<ApiProductType | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
@@ -297,10 +299,19 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
               ))}
             </nav>
 
-            <button onClick={() => setView('STORE_CART')} className="relative group p-2">
-              <span className="material-symbols-outlined text-white group-hover:text-primary transition-colors text-2xl">shopping_bag</span>
-              {cartCount > 0 && <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-black text-white ring-2 ring-bg-dark">{cartCount}</span>}
-            </button>
+            <div className="flex items-center gap-4">
+              <StoreHeader
+                setView={setView}
+                setCategory={setCategory}
+                transparent={false}
+                setSearchTerm={setSearchTerm}
+                onProductClick={detailsTrigger}
+              />
+              <button onClick={() => setView('STORE_CART')} className="relative group p-2">
+                <span className="material-symbols-outlined text-white group-hover:text-primary transition-colors text-2xl">shopping_bag</span>
+                {cartCount > 0 && <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-black text-white ring-2 ring-bg-dark">{cartCount}</span>}
+              </button>
+            </div>
           </header>
 
           <div className="flex-1 flex flex-col">

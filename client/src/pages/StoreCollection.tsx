@@ -24,11 +24,13 @@ interface ApiProduct {
 }
 
 interface StoreCollectionProps {
-  setView: (v: ViewState) => void;
+  setView: (v: ViewState, id?: number) => void;
   category?: CategoryType;
   setCategory: (c: CategoryType) => void;
   collection?: string;
   onProductClick: (product: any) => void;
+  searchTerm?: string;
+  setSearchTerm: (term: string) => void;
 }
 
 const HERO_IMAGES = {
@@ -117,7 +119,7 @@ const ProductGridCard: React.FC<{ product: Product; onProductClick: (p: any) => 
 
 const ITEMS_PER_PAGE = 8;
 
-export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, category = 'Men', setCategory, collection = 'Outerwear', onProductClick }) => {
+export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, category = 'Men', setCategory, collection = 'Outerwear', onProductClick, searchTerm = '', setSearchTerm }) => {
 
   const heroImage = HERO_IMAGES[collection as keyof typeof HERO_IMAGES] || HERO_IMAGES.Default;
 
@@ -131,7 +133,7 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
   const [activeCategoryFilter, setActiveCategoryFilter] = useState('All');
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [sortOption, setSortOption] = useState('Featured');
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000000]);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
 
   // Fetch products from API
@@ -140,13 +142,15 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
       try {
         setLoading(true);
         setError(null);
-        const data = await api.get<ApiProduct[]>('/api/products');
+        const data = await api.get<ApiProduct[]>('/api/products', {
+          params: { search: searchTerm }
+        });
 
         // Transform API response to match component interface
         const transformedProducts: Product[] = data.map((product: ApiProduct) => ({
           id: product.productId.toString(),
           name: product.name,
-          price: typeof product.basePrice === 'string' ? parseFloat(product.basePrice) : product.basePrice,
+          price: (typeof product.basePrice === 'string' ? parseFloat(product.basePrice) : product.basePrice) || 0,
           image: product.images?.[0]?.thumbnailUrl || product.images?.[0]?.imageUrl || '',
           type: product.category?.name || 'Uncategorized',
           tag: product.status === 'Active' ? undefined : product.status
@@ -179,11 +183,17 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
     };
 
     fetchProducts();
-  }, []);
+  }, [searchTerm, category, collection]);
 
   // 1. Filter products based on Route (Category + Collection)
   const categoryProducts = React.useMemo(() => {
     if (loading || products.length === 0) return [];
+
+    // If we have a active search term, bypass category/collection filtering 
+    // to show all global matches.
+    if (searchTerm && searchTerm.trim() !== '') {
+      return products;
+    }
 
     // Safety check for category/collection
     const mapCategory = category;
@@ -193,13 +203,11 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
     const validSqlCategories = CATEGORY_MAPPING[mapCategory]?.[mapCollection];
 
     if (!validSqlCategories) {
-      // If no specific mapping (e.g. "All"), maybe return everything for that gender?
-      // For now, return everything if no mapping found to avoid empty page, or specific logic
       return products;
     }
 
     return products.filter(p => validSqlCategories.includes(p.type));
-  }, [products, category, collection, loading]);
+  }, [products, category, collection, loading, searchTerm]);
 
   // 2. Get unique categories for the Horizontal Filter Bar from the *filtered* list
   // This ensures we only show "Nam - Áo" when in Men's Tops, etc.
@@ -248,7 +256,7 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
 
   return (
     <div className="min-h-screen bg-bg-dark flex flex-col text-white relative">
-      <StoreHeader setView={setView} setCategory={setCategory} transparent={true} />
+      <StoreHeader setView={setView} setCategory={setCategory} transparent={true} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onProductClick={onProductClick} />
 
       {/* Filter Drawer Overlay */}
       {isFilterDrawerOpen && (
@@ -289,7 +297,7 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
                 <input
                   type="range"
                   min="0"
-                  max="5000000"
+                  max="10000000"
                   step="100000"
                   value={priceRange[1]}
                   onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
@@ -342,9 +350,11 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
         <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${heroImage})` }}></div>
         <div className="absolute inset-0 bg-gradient-to-t from-bg-dark via-bg-dark/20 to-transparent"></div>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 pt-20 animate-fade-in-up">
-          <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-4">{collection} Collection</h1>
+          <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-4">
+            {searchTerm ? 'Kết quả tìm kiếm' : `${collection} Collection`}
+          </h1>
           <p className="max-w-2xl text-gray-300 text-lg leading-relaxed">
-            Curated essentials for modern wardrobes. Discover timeless silhouettes redefined with premium materials.
+            {searchTerm ? `Tìm thấy ${filteredProducts.length} sản phẩm phù hợp với "${searchTerm}"` : 'Bộ sưu tập thiết yếu cho tủ đồ hiện đại. Khám phá những thiết kế vượt thời gian với chất liệu cao cấp.'}
           </p>
         </div>
       </div>
@@ -367,13 +377,13 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
                 ))}
               </div>
               <div className="flex items-center gap-4 ml-auto">
-                <span className="text-xs font-bold uppercase tracking-widest text-gray-500">{filteredProducts.length} Products {totalPages > 1 && `(Page ${currentPage}/${totalPages})`}</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-500">{filteredProducts.length} Sản phẩm {totalPages > 1 && `(Trang ${currentPage}/${totalPages})`}</span>
                 <div className="h-4 w-px bg-white/20"></div>
                 <button
                   onClick={() => setIsFilterDrawerOpen(true)}
                   className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white hover:text-primary transition-colors"
                 >
-                  Filters <span className="material-symbols-outlined text-base">tune</span>
+                  Bộ lọc <span className="material-symbols-outlined text-base">tune</span>
                 </button>
               </div>
             </div>
@@ -416,20 +426,21 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-20">
-              <span className="material-symbols-outlined text-6xl text-white/20 mb-4">checkroom</span>
-              <h3 className="text-xl font-bold uppercase tracking-wide text-white mb-2">No Products Found</h3>
-              <p className="text-gray-500 mb-6">Try adjusting your filters or search criteria.</p>
+            <div className="flex flex-col items-center justify-center py-20 min-h-[40vh] text-center">
+              <span className="material-symbols-outlined text-6xl text-white/10 mb-6">search_off</span>
+              <h3 className="text-xl font-bold uppercase tracking-[0.2em] text-white mb-3">Không tìm thấy kết quả</h3>
+              <p className="text-gray-500 mb-8 max-w-md mx-auto">Chúng tôi không tìm thấy sản phẩm nào khớp với "{searchTerm}". Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc.</p>
               <button
                 onClick={() => {
+                  setSearchTerm('');
                   setSortOption('Featured');
-                  setPriceRange([0, 2000]);
+                  setPriceRange([0, 10000000]);
                   setSelectedSizes([]);
                   setActiveCategoryFilter('All');
                 }}
-                className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black text-xs font-bold uppercase tracking-widest transition-all"
+                className="px-10 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-red-700 transition-all shadow-lg shadow-primary/20"
               >
-                Clear Filters
+                Xóa tất cả tìm kiếm & bộ lọc
               </button>
             </div>
           )}
