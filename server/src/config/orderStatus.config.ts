@@ -1,0 +1,83 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Order Status Finite State Machine — Single Source of Truth (Server)
+// Used by: controllers/order.controller.ts, utils/orderConstants.ts (deprecated)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Canonical status values stored in the database (PascalCase).
+ * All backend logic MUST use these values directly.
+ */
+export const ORDER_STATUS = {
+    PENDING: 'Pending',
+    PROCESSING: 'Processing',
+    SHIPPING: 'Shipping',
+    DELIVERED: 'Delivered',
+    CANCELLED: 'Cancelled',
+    RETURNED: 'Returned',
+} as const;
+
+export type OrderStatusValue = (typeof ORDER_STATUS)[keyof typeof ORDER_STATUS];
+
+/**
+ * FSM: Valid state transitions.
+ * Any transition not listed is FORBIDDEN — throw 400.
+ *
+ * Pending    → Processing | Cancelled
+ * Processing → Shipping   | Cancelled
+ * Shipping   → Delivered  | Returned
+ * Delivered  → (terminal)
+ * Cancelled  → (terminal)
+ * Returned   → (terminal)
+ */
+export const FSM_TRANSITIONS: Record<OrderStatusValue, OrderStatusValue[]> = {
+    [ORDER_STATUS.PENDING]: [ORDER_STATUS.PROCESSING, ORDER_STATUS.CANCELLED],
+    [ORDER_STATUS.PROCESSING]: [ORDER_STATUS.SHIPPING, ORDER_STATUS.CANCELLED],
+    [ORDER_STATUS.SHIPPING]: [ORDER_STATUS.DELIVERED, ORDER_STATUS.RETURNED],
+    [ORDER_STATUS.DELIVERED]: [],
+    [ORDER_STATUS.CANCELLED]: [],
+    [ORDER_STATUS.RETURNED]: [],
+};
+
+/**
+ * Vietnamese UI labels for each status.
+ */
+export const STATUS_LABELS: Record<string, string> = {
+    [ORDER_STATUS.PENDING]: 'Chờ xác nhận',
+    [ORDER_STATUS.PROCESSING]: 'Đang chuẩn bị hàng',
+    [ORDER_STATUS.SHIPPING]: 'Đang giao hàng',
+    [ORDER_STATUS.DELIVERED]: 'Giao thành công',
+    [ORDER_STATUS.CANCELLED]: 'Đã hủy',
+    [ORDER_STATUS.RETURNED]: 'Hoàn trả',
+};
+
+/**
+ * Helper: returns the valid next statuses from a current status.
+ */
+export function getValidNextStatuses(currentStatus: string): OrderStatusValue[] {
+    return FSM_TRANSITIONS[currentStatus as OrderStatusValue] ?? [];
+}
+
+/**
+ * Helper: checks whether a transition is valid.
+ */
+export function isValidTransition(from: string, to: string): boolean {
+    const allowed = FSM_TRANSITIONS[from as OrderStatusValue];
+    return Array.isArray(allowed) && allowed.includes(to as OrderStatusValue);
+}
+
+/**
+ * Terminal states — no further transitions allowed.
+ */
+export const TERMINAL_STATUSES: OrderStatusValue[] = [
+    ORDER_STATUS.DELIVERED,
+    ORDER_STATUS.CANCELLED,
+    ORDER_STATUS.RETURNED,
+];
+
+/**
+ * Statuses that should trigger inventory restoration.
+ */
+export const INVENTORY_RESTORE_STATUSES: OrderStatusValue[] = [
+    ORDER_STATUS.CANCELLED,
+    ORDER_STATUS.RETURNED,
+];

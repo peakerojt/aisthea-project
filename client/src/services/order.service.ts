@@ -123,8 +123,11 @@ export interface AdminOrderDetail {
   }[];
   statusHistory: {
     status: string;
+    oldStatus: string | null;
     statusLabel: string;
     changedAt: string;
+    changedBy: number | null;
+    note: string | null;
   }[];
 }
 
