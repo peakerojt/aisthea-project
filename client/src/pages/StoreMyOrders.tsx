@@ -80,11 +80,10 @@ export const StoreMyOrders: React.FC<StoreMyOrdersProps> = ({ setView, setCatego
               <button
                 key={t.label}
                 onClick={() => setStatusFilter(t.value)}
-                className={`text-xs font-bold uppercase tracking-widest px-3 py-2 rounded border transition-colors whitespace-nowrap ${
-                  statusFilter === t.value
-                    ? 'bg-primary/15 text-primary border-primary/30'
-                    : 'bg-transparent text-white/50 border-white/10 hover:text-white hover:bg-white/5'
-                }`}
+                className={`text-xs font-bold uppercase tracking-widest px-3 py-2 rounded border transition-colors whitespace-nowrap ${statusFilter === t.value
+                  ? 'bg-primary/15 text-primary border-primary/30'
+                  : 'bg-transparent text-white/50 border-white/10 hover:text-white hover:bg-white/5'
+                  }`}
               >
                 {t.label}
               </button>

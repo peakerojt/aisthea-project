@@ -211,7 +211,6 @@ async function main() {
         changedAt: new Date(now.getTime() - 1000 * 60 * 110),
       },
     ],
-    skipDuplicates: true,
   });
 }
 
