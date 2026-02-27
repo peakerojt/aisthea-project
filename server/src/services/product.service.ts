@@ -51,8 +51,8 @@ export const getProducts = async (filters?: {
     }
 
     if (filters?.search) {
-        conditions.push('(name LIKE @P' + (params.length + 1) + ' OR description LIKE @P' + (params.length + 1) + ')');
-        params.push(`%${filters.search}%`);
+        conditions.push(`(NameNormalized LIKE '%' + dbo.fn_RemoveDiacritics(@P${params.length + 1}) + '%' OR DescriptionNormalized LIKE '%' + dbo.fn_RemoveDiacritics(@P${params.length + 1}) + '%')`);
+        params.push(filters.search);
     }
 
     if (filters?.minPrice) {
@@ -66,9 +66,6 @@ export const getProducts = async (filters?: {
     }
 
     const whereClause = conditions.join(' AND ');
-
-    // Use unsafe raw query since Prisma.sql doesn't support dynamic WHERE well
-    // Alternatively use queryRaw with proper parametrization
     const query = `SELECT * FROM vw_ProductCatalog WHERE ${whereClause} ORDER BY createdAt DESC`;
 
     const products: any[] = await prisma.$queryRawUnsafe(query, ...params);

@@ -5,13 +5,14 @@ import { useProducts } from '../contexts/ProductContext';
 import { ProductCard } from '../components/ProductCard';
 
 interface StoreHomeProps {
-   setView: (v: ViewState) => void;
+   setView: (v: ViewState, id?: number) => void;
    setCategory: (c: CategoryType) => void;
    setCollection: (c: string) => void;
    onProductClick: (product: any) => void;
+   setSearchTerm: (term: string) => void;
 }
 
-export const StoreHome: React.FC<StoreHomeProps> = ({ setView, setCategory, setCollection, onProductClick }) => {
+export const StoreHome: React.FC<StoreHomeProps> = ({ setView, setCategory, setCollection, onProductClick, setSearchTerm }) => {
    const { products, loading } = useProducts();
 
    const handleNavigate = (category: CategoryType) => {
@@ -25,7 +26,7 @@ export const StoreHome: React.FC<StoreHomeProps> = ({ setView, setCategory, setC
 
    return (
       <div className="flex flex-col w-full bg-bg-dark font-sans overflow-x-hidden">
-         <StoreHeader setView={setView} setCategory={setCategory} transparent={true} />
+         <StoreHeader setView={setView} setCategory={setCategory} transparent={true} setSearchTerm={setSearchTerm} onProductClick={onProductClick} />
 
          {/* SECTION 1: HERO - B&W Female Model */}
          <section className="relative h-screen w-full flex items-center">

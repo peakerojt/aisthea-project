@@ -3,11 +3,12 @@ import { StoreHeader } from '../components/StoreHeader';
 import { ViewState, CategoryType } from '../types';
 
 interface StoreCategoryProps {
-  setView: (v: ViewState) => void;
+  setView: (v: ViewState, id?: number) => void;
   category: CategoryType;
   setCategory: (c: CategoryType) => void;
   setCollection: (c: string) => void;
   onProductClick: (product: any) => void;
+  setSearchTerm: (term: string) => void;
 }
 
 const CATEGORY_IMAGES = {
@@ -37,14 +38,14 @@ const TRENDING_DATA = {
   Accessories: []
 };
 
-export const StoreCategory: React.FC<StoreCategoryProps> = ({ setView, category, setCategory, setCollection, onProductClick }) => {
+export const StoreCategory: React.FC<StoreCategoryProps> = ({ setView, category, setCategory, setCollection, onProductClick, setSearchTerm }) => {
   const images = CATEGORY_IMAGES[category] || CATEGORY_IMAGES['Men'];
   const sections = Object.keys(images);
   const trendingItems = TRENDING_DATA[category] || TRENDING_DATA['Men'];
 
   return (
     <div className="w-full bg-bg-dark font-sans text-white overflow-x-hidden min-h-screen flex flex-col">
-      <StoreHeader setView={setView} setCategory={setCategory} transparent={true} />
+      <StoreHeader setView={setView} setCategory={setCategory} transparent={true} setSearchTerm={setSearchTerm} onProductClick={onProductClick} />
 
       {/* Hero Section - 4 Columns Visual Sub-Categories */}
       <div className="flex flex-col md:flex-row h-screen w-full">

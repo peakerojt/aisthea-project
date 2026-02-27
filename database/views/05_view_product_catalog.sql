@@ -26,6 +26,8 @@ SELECT
     p.BasePrice AS basePrice,
     p.Status AS status,
     p.CreatedAt AS createdAt,
+    p.NameNormalized,
+    p.DescriptionNormalized,
     
     -- Category
     c.Name AS categoryName,
