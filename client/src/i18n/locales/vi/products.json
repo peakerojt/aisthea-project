@@ -1,0 +1,83 @@
+{
+    "page": {
+        "title": "Kho sản phẩm",
+        "subtitle": "Quản lý danh mục sản phẩm",
+        "create": "Thêm sản phẩm mới",
+        "edit": "Chỉnh sửa sản phẩm",
+        "detail": "Chi tiết sản phẩm"
+    },
+    "fields": {
+        "name": "Tên sản phẩm",
+        "sku": "Mã SKU",
+        "price": "Giá bán",
+        "stock": "Tồn kho",
+        "category": "Phân loại",
+        "description": "Mô tả",
+        "images": "Hình ảnh",
+        "variants": "Biến thể",
+        "color": "Màu sắc",
+        "size": "Kích thước",
+        "weight": "Trọng lượng"
+    },
+    "status": {
+        "inStock": "Còn hàng",
+        "lowStock": "Sắp hết hàng",
+        "outOfStock": "Hết hàng",
+        "allStatuses": "Tất cả trạng thái",
+        "allCategories": "Tất cả phân loại"
+    },
+    "table": {
+        "product": "Thông tin sản phẩm",
+        "sku": "SKU",
+        "category": "Phân loại",
+        "price": "Giá bán",
+        "inventory": "Tồn kho",
+        "status": "Trạng thái",
+        "actions": "Thao tác",
+        "inStockUnit": "{{count}} trong kho"
+    },
+    "tabs": {
+        "all": "Tất cả sản phẩm",
+        "published": "Đang bán",
+        "drafts": "Nháp"
+    },
+    "toolbar": {
+        "filter": "Lọc",
+        "export": "Xuất",
+        "selected": "{{count}} đã chọn",
+        "cancel": "Hủy chọn",
+        "markInStock": "Đánh dấu còn hàng",
+        "deleteSelected": "Xóa đã chọn",
+        "resetFilters": "Đặt lại bộ lọc",
+        "searchPlaceholder": "Tìm theo tên, SKU…"
+    },
+    "modal": {
+        "deleteTitle": "Xác nhận xóa sản phẩm?",
+        "deleteBody": "Hành động này <b>không thể hoàn tác</b>. Nếu sản phẩm đã có đơn hàng, hệ thống sẽ chỉ <b>ẩn sản phẩm</b> để bảo toàn lịch sử đơn hàng.",
+        "deleting": "Đang xóa...",
+        "delete": "Xóa"
+    },
+    "empty": {
+        "noMatch": "Không có sản phẩm nào khớp với bộ lọc",
+        "clearFilters": "Xóa bộ lọc"
+    },
+    "loading": "Đang tải sản phẩm...",
+    "errorTitle": "Không thể tải sản phẩm",
+    "feedback": {
+        "createSuccess": "Tạo sản phẩm thành công",
+        "updateSuccess": "Cập nhật sản phẩm thành công",
+        "deleteSuccess": "Xóa sản phẩm thành công",
+        "deleteConfirm": "Bạn có chắc muốn xóa sản phẩm «{{name}}» không?",
+        "deleteSelectedConfirm": "Bạn có chắc muốn xóa {{count}} mục đã chọn không?",
+        "deleteSelectedSuccess": "Đã xóa {{count}} sản phẩm thành công",
+        "markInStockSuccess": "Đã đánh dấu còn hàng thành công",
+        "priceUpdated": "Cập nhật giá thành công",
+        "stockUpdated": "Cập nhật tồn kho thành công",
+        "statusUpdated": "Cập nhật trạng thái thành công"
+    },
+    "lowStock": {
+        "alertTitle": "Cảnh báo tồn kho thấp",
+        "alertDescription": "{{count}} sản phẩm đang ở mức tồn kho thấp",
+        "restock": "Nhập thêm hàng"
+    }
+}
