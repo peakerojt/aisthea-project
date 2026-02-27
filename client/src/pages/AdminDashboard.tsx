@@ -1,126 +1,129 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ViewState } from '../types';
 import { NotificationBell } from '../components/NotificationBell';
-import { LowStockWidget } from '../components/Dashboard/LowStockWidget';
+import { DashboardCards } from '../components/Dashboard/DashboardCards';
+import { RevenueChart } from '../components/Dashboard/RevenueChart';
+import { TopProducts } from '../components/Dashboard/TopProducts';
+import { RecentOrders } from '../components/Dashboard/RecentOrders';
+import {
+   fetchDashboardSummary,
+   DashboardRange,
+   DashboardSummary,
+} from '../services/dashboard.service';
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface AdminDashboardProps {
    setView?: (view: ViewState) => void;
 }
 
+const RANGE_OPTIONS: { value: DashboardRange; label: string }[] = [
+   { value: 'today', label: 'Hôm nay' },
+   { value: 'week', label: 'Tuần này' },
+   { value: 'month', label: 'Tháng này' },
+   { value: 'year', label: 'Năm nay' },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setView }) => {
+   const [range, setRange] = useState<DashboardRange>('month');
+   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+   const [isLoading, setIsLoading] = useState(true);
+   const [error, setError] = useState<string | null>(null);
+
+   const load = useCallback(async (r: DashboardRange) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+         const data = await fetchDashboardSummary(r);
+         setSummary(data);
+      } catch (e: any) {
+         setError(e?.message ?? 'Không thể tải dữ liệu.');
+      } finally {
+         setIsLoading(false);
+      }
+   }, []);
+
+   useEffect(() => {
+      load(range);
+   }, [range, load]);
+
    return (
-      <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-fade-in">
-         <header className="flex justify-between items-end pb-4 border-b border-white/5">
+      <div className="p-6 xl:p-8 max-w-[1600px] mx-auto space-y-6 animate-fade-in">
+
+         {/* ── Header ─────────────────────────────────────────────────────────── */}
+         <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-white/5">
             <div>
-               <p className="text-xs font-bold text-primary tracking-[0.2em] uppercase mb-2">Admin Portal • v2.4</p>
-               <h2 className="text-4xl font-black text-white tracking-tighter uppercase">Overview</h2>
+               <p className="text-xs font-bold text-primary tracking-[0.2em] uppercase mb-1.5">
+                  Admin Portal • v2.4
+               </p>
+               <h2 className="text-3xl xl:text-4xl font-black text-white tracking-tighter uppercase">
+                  Tổng quan kinh doanh
+               </h2>
             </div>
-            <div className="flex gap-4">
-               <div className="relative">
-                  <input type="text" placeholder="Search..." className="bg-surface-dark border-none rounded-lg py-2.5 pl-4 pr-10 text-sm text-white focus:ring-1 focus:ring-primary w-64" />
-                  <span className="material-symbols-outlined absolute right-3 top-2.5 text-gray-500 text-lg">search</span>
+
+            <div className="flex items-center gap-3">
+               {/* Date range selector */}
+               <div className="flex bg-white/[0.04] border border-white/10 rounded-lg p-1 gap-1">
+                  {RANGE_OPTIONS.map((opt) => (
+                     <button
+                        key={opt.value}
+                        onClick={() => setRange(opt.value)}
+                        className={`
+                  px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 cursor-pointer
+                  ${range === opt.value
+                              ? 'bg-primary text-white shadow-sm'
+                              : 'text-white/40 hover:text-white/70'}
+                `}
+                     >
+                        {opt.label}
+                     </button>
+                  ))}
                </div>
+
+               {/* Notification bell */}
                <NotificationBell setView={setView || (() => { })} />
             </div>
          </header>
 
-         {/* Stats */}
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-               { label: 'Total Revenue', value: '$124.5k', change: '+12% from last month', icon: 'payments', color: 'text-green-500' },
-               { label: 'Pending Orders', value: '24', change: 'Action required', icon: 'pending_actions', color: 'text-primary' },
-               { label: 'Low Stock', value: '12', change: 'Items below threshold', icon: 'inventory_2', color: 'text-yellow-500' },
-               { label: 'Total Customers', value: '1.2k', change: '+58 this week', icon: 'group', color: 'text-green-500' }
-            ].map((stat, i) => (
-               <div key={i} className="bg-surface-dark border border-white/5 p-6 rounded hover:border-white/20 transition-all group relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                     <span className="material-symbols-outlined text-6xl">{stat.icon}</span>
-                  </div>
-                  <div className="relative z-10">
-                     <p className="text-white/50 text-xs font-bold uppercase tracking-widest mb-4">{stat.label}</p>
-                     <h3 className="text-3xl font-bold text-white mb-2">{stat.value}</h3>
-                     <div className={`flex items-center gap-1 text-xs font-medium ${stat.color}`}>
-                        <span className="material-symbols-outlined text-sm">{stat.color.includes('green') ? 'trending_up' : 'info'}</span>
-                        <span>{stat.change}</span>
-                     </div>
-                  </div>
-               </div>
-            ))}
-         </div>
+         {/* ── Error banner ───────────────────────────────────────────────────── */}
+         {error && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
+               ⚠ {error}
+            </div>
+         )}
 
-         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Merchant To-Do List Widget (Replaces Size Chart) */}
-            <div className="lg:col-span-8 bg-surface-dark p-8 rounded border border-white/5 shadow-lg flex flex-col">
-               <div className="flex justify-between items-center mb-8">
-                  <h3 className="text-lg font-bold uppercase tracking-wide text-white flex items-center gap-2">
-                     <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-                     Attention Needed
-                  </h3>
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">3 Alerts</span>
-               </div>
+         {/* ── Row 1: KPI Cards ───────────────────────────────────────────────── */}
+         <DashboardCards kpis={summary?.kpis ?? null} isLoading={isLoading} />
 
-               <div className="flex flex-col gap-4 flex-1">
-                  {/* Pending Orders */}
-                  <div
-                     onClick={() => setView && setView('ADMIN_ORDERS')}
-                     className="group flex items-center gap-5 p-4 bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all rounded cursor-pointer"
-                  >
-                     <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20 text-amber-500 group-hover:scale-110 transition-transform shadow-lg shadow-amber-500/10">
-                        <span className="material-symbols-outlined text-xl">package_2</span>
-                     </div>
-                     <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                           <h4 className="text-sm font-bold text-white group-hover:text-amber-500 transition-colors uppercase tracking-wide">Pending Orders</h4>
-                           <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">High Priority</span>
-                        </div>
-                        <p className="text-sm text-gray-400 mt-1">📦 3 New Orders need to be packed.</p>
-                     </div>
-                     <span className="material-symbols-outlined text-gray-600 group-hover:text-white transition-colors">chevron_right</span>
-                  </div>
-
-                  {/* Low Stock */}
-                  <div
-                     onClick={() => setView && setView('ADMIN_PRODUCTS')}
-                     className="group flex items-center gap-5 p-4 bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all rounded cursor-pointer"
-                  >
-                     <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20 text-red-500 group-hover:scale-110 transition-transform shadow-lg shadow-red-500/10">
-                        <span className="material-symbols-outlined text-xl">warning</span>
-                     </div>
-                     <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                           <h4 className="text-sm font-bold text-white group-hover:text-red-500 transition-colors uppercase tracking-wide">Inventory Alert</h4>
-                           <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">Critical</span>
-                        </div>
-                        <p className="text-sm text-gray-400 mt-1">⚠️ Velvet Noir Blazer is down to 0 items.</p>
-                     </div>
-                     <span className="material-symbols-outlined text-gray-600 group-hover:text-white transition-colors">chevron_right</span>
-                  </div>
-
-                  {/* Returns */}
-                  <div
-                     onClick={() => setView && setView('ADMIN_ORDERS')}
-                     className="group flex items-center gap-5 p-4 bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all rounded cursor-pointer"
-                  >
-                     <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20 text-blue-500 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/10">
-                        <span className="material-symbols-outlined text-xl">assignment_return</span>
-                     </div>
-                     <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                           <h4 className="text-sm font-bold text-white group-hover:text-blue-500 transition-colors uppercase tracking-wide">Returns</h4>
-                           <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">Review</span>
-                        </div>
-                        <p className="text-sm text-gray-400 mt-1">1 Return Request pending approval.</p>
-                     </div>
-                     <span className="material-symbols-outlined text-gray-600 group-hover:text-white transition-colors">chevron_right</span>
-                  </div>
-               </div>
+         {/* ── Row 2: Revenue Chart + Top Products ────────────────────────────── */}
+         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            {/* Revenue chart — 2/3 width */}
+            <div className="lg:col-span-8 min-h-[360px] flex flex-col">
+               <RevenueChart
+                  data={summary?.revenueChart ?? []}
+                  isLoading={isLoading}
+                  range={range}
+               />
             </div>
 
-            {/* Low Stock Alert Widget */}
-            <div className="lg:col-span-4">
-               <LowStockWidget setView={setView || (() => { })} />
+            {/* Top selling products — 1/3 width */}
+            <div className="lg:col-span-4 flex flex-col">
+               <TopProducts
+                  products={summary?.topProducts ?? []}
+                  isLoading={isLoading}
+               />
             </div>
          </div>
+
+         {/* ── Row 3: Recent Orders ───────────────────────────────────────────── */}
+         <RecentOrders
+            orders={summary?.recentOrders ?? []}
+            isLoading={isLoading}
+            setView={setView}
+         />
+
       </div>
    );
 };
