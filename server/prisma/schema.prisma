@@ -271,7 +271,10 @@ model Order {
 model OrderStatusHistory {
   orderStatusHistoryId Int      @id @default(autoincrement()) @map("OrderStatusHistoryId")
   orderId              Int      @map("OrderId")
+  oldStatus            String?  @map("OldStatus") @db.NVarChar(20)
   status               String   @map("Status") @db.NVarChar(20)
+  changedBy            Int?     @map("ChangedBy")
+  note                 String?  @map("Note") @db.NVarChar(500)
   changedAt            DateTime @default(now()) @map("ChangedAt")
   order                Order    @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderStatusHistory_Orders")
 

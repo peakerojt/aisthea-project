@@ -1,7 +1,13 @@
 import { Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { AuthRequest } from '../middlewares/auth.middleware';
-import { VALID_TRANSITIONS, ORDER_STATUS, STATUS_LABELS } from '../utils/orderConstants';
+import {
+  ORDER_STATUS,
+  STATUS_LABELS,
+  isValidTransition,
+  INVENTORY_RESTORE_STATUSES,
+  getValidNextStatuses,
+} from '../config/orderStatus.config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -234,8 +240,11 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
       })),
       statusHistory: order.statusHistory.map((h) => ({
         status: h.status,
+        oldStatus: (h as any).oldStatus ?? null,
         statusLabel: STATUS_LABELS[h.status] ?? h.status,
         changedAt: h.changedAt.toISOString(),
+        changedBy: (h as any).changedBy ?? null,
+        note: (h as any).note ?? null,
       })),
     };
 
@@ -260,50 +269,46 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Invalid order ID' });
     }
 
-    const { status: newStatus, note } = req.body as {
-      status: string;
-      note?: string;
-    };
-
+    const { status: newStatus, note } = req.body as { status: string; note?: string };
     if (!newStatus) {
-      return res.status(400).json({ error: 'status is required' });
+      return res.status(400).json({ error: 'status là bắt buộc.' });
     }
+
+    const changedBy = req.user?.userId ?? null;
 
     // 1. Fetch current order with items for stock restoration
     const order = await prisma.order.findUnique({
       where: { orderId },
       include: {
         items: {
-          select: {
-            orderItemId: true,
-            variantId: true,
-            quantity: true,
-          },
+          select: { orderItemId: true, variantId: true, quantity: true },
         },
       },
     });
-
     if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
+      return res.status(404).json({ error: 'Không tìm thấy đơn hàng.' });
     }
 
-    const currentStatus = order.status ?? 'PENDING';
+    const currentStatus = order.status ?? ORDER_STATUS.PENDING;
 
-    // 2. Validate transition via state machine
-    const allowedNext = VALID_TRANSITIONS[currentStatus] ?? [];
-    if (!allowedNext.includes(newStatus)) {
+    // 2. FSM validation — throw 400 on invalid transition
+    if (!isValidTransition(currentStatus, newStatus)) {
       return res.status(400).json({
-        error: `Không thể chuyển đơn hàng từ "${STATUS_LABELS[currentStatus] ?? currentStatus}" sang "${STATUS_LABELS[newStatus] ?? newStatus}". Hành động này không được phép.`,
+        error: 'Chuyển đổi trạng thái không hợp lệ.',
+        message: `Không thể chuyển từ "${STATUS_LABELS[currentStatus] ?? currentStatus}" sang "${STATUS_LABELS[newStatus] ?? newStatus}".`,
         currentStatus,
         requestedStatus: newStatus,
-        allowedTransitions: allowedNext,
+        allowedTransitions: getValidNextStatuses(currentStatus),
       });
     }
 
-    // 3. Execute update — Prisma transaction if cancelling (restore stock)
-    if (newStatus === ORDER_STATUS.CANCELLED) {
-      await prisma.$transaction(async (tx) => {
-        // Restore stock for every variant
+    // 3. Determine if inventory should be restored
+    const shouldRestoreInventory = INVENTORY_RESTORE_STATUSES.includes(newStatus as any);
+
+    // 4. Execute in a single Prisma transaction
+    await prisma.$transaction(async (tx) => {
+      // Optionally restore stock
+      if (shouldRestoreInventory) {
         for (const item of order.items) {
           if (item.variantId) {
             await tx.productVariant.update({
@@ -312,35 +317,28 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
             });
           }
         }
+      }
 
-        // Update order status + optional note
-        await tx.order.update({
-          where: { orderId },
-          data: {
-            status: newStatus,
-            ...(note !== undefined ? { note } : {}),
-          },
-        });
+      // Update Order.status (and optionally Order.note for cancellation reason)
+      await tx.order.update({
+        where: { orderId },
+        data: {
+          status: newStatus,
+          ...(note !== undefined ? { note } : {}),
+        },
+      });
 
-        // Record history
-        await tx.orderStatusHistory.create({
-          data: { orderId, status: newStatus },
-        });
+      // Insert audit record with full context
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId,
+          oldStatus: currentStatus,
+          status: newStatus,
+          changedBy,
+          note: note ?? null,
+        },
       });
-    } else {
-      await prisma.$transaction(async (tx) => {
-        await tx.order.update({
-          where: { orderId },
-          data: {
-            status: newStatus,
-            ...(note !== undefined ? { note } : {}),
-          },
-        });
-        await tx.orderStatusHistory.create({
-          data: { orderId, status: newStatus },
-        });
-      });
-    }
+    });
 
     res.json({
       success: true,
@@ -348,11 +346,11 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       previousStatus: currentStatus,
       newStatus,
       statusLabel: STATUS_LABELS[newStatus] ?? newStatus,
-      stockRestored: newStatus === ORDER_STATUS.CANCELLED,
+      stockRestored: shouldRestoreInventory,
       message: `Cập nhật trạng thái thành công: ${STATUS_LABELS[newStatus] ?? newStatus}`,
     });
   } catch (error: any) {
-    console.error('Error updating order status:', error);
+    console.error('[updateOrderStatus] Error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 };
