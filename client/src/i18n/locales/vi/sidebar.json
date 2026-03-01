@@ -1,0 +1,18 @@
+{
+    "sections": {
+        "mainMenu": "Menu chính"
+    },
+    "nav": {
+        "dashboard": "Tổng quan",
+        "products": "Sản phẩm",
+        "restock": "Nhập hàng",
+        "categories": "Danh mục",
+        "orders": "Đơn hàng",
+        "customers": "Khách hàng",
+        "analytics": "Thống kê"
+    },
+    "user": {
+        "signOut": "Đăng xuất",
+        "hq": "Aisthea HQ"
+    }
+}

@@ -1,0 +1,61 @@
+{
+    "page": {
+        "title": "Quản lý Đơn hàng",
+        "detail": "Chi tiết đơn hàng"
+    },
+    "fields": {
+        "orderId": "Mã đơn hàng",
+        "customer": "Khách hàng",
+        "date": "Ngày đặt hàng",
+        "total": "Tổng tiền",
+        "status": "Trạng thái",
+        "items": "Sản phẩm",
+        "quantity": "Số lượng",
+        "unitPrice": "Đơn giá",
+        "subtotal": "Tạm tính",
+        "shipping": "Phí vận chuyển",
+        "discount": "Giảm giá",
+        "note": "Ghi chú",
+        "address": "Địa chỉ giao hàng",
+        "paymentMethod": "Phương thức thanh toán"
+    },
+    "status": {
+        "PENDING": "Chờ xác nhận",
+        "PROCESSING": "Đang xử lý",
+        "SHIPPING": "Đang giao hàng",
+        "COMPLETED": "Hoàn thành",
+        "CANCELLED": "Đã hủy"
+    },
+    "statusBadge": {
+        "PENDING": "Chờ",
+        "PROCESSING": "Xử lý",
+        "SHIPPING": "Giao hàng",
+        "COMPLETED": "Hoàn thành",
+        "CANCELLED": "Đã hủy"
+    },
+    "filters": {
+        "allStatus": "Tất cả trạng thái",
+        "searchPlaceholder": "Tìm theo mã đơn, khách hàng…",
+        "dateFrom": "Từ ngày",
+        "dateTo": "Đến ngày"
+    },
+    "table": {
+        "orderId": "Mã đơn",
+        "customer": "Khách hàng",
+        "date": "Ngày đặt",
+        "total": "Tổng tiền",
+        "status": "Trạng thái",
+        "actions": "Thao tác"
+    },
+    "actions": {
+        "updateStatus": "Cập nhật trạng thái",
+        "viewDetail": "Xem chi tiết",
+        "printInvoice": "In hóa đơn",
+        "confirmOrder": "Xác nhận đơn hàng",
+        "cancelOrder": "Hủy đơn hàng"
+    },
+    "feedback": {
+        "updateSuccess": "Cập nhật đơn hàng thành công",
+        "cancelConfirm": "Bạn có chắc muốn hủy đơn hàng #{{id}} không?"
+    }
+}

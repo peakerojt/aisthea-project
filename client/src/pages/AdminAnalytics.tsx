@@ -1,237 +1,510 @@
-import React from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    PieChart, Pie, Cell, Legend,
+    ComposedChart, Area, Line,
+} from 'recharts';
 import { motion } from 'framer-motion';
-import { ArrowUpRight, ArrowDownRight, DollarSign, TrendingUp, Users, ShoppingBag } from 'lucide-react';
+import {
+    Download, TrendingUp, TrendingDown,
+    DollarSign, ShoppingCart, Users, AlertTriangle, Calendar,
+} from 'lucide-react';
+import {
+    fetchAnalyticsSummary, exportToCSV, formatVND, formatVNDShort,
+    formatMonthLabel, firstOfMonthStr, todayStr,
+    AnalyticsSummary,
+} from '../services/analytics.service';
 
-// Mock Data
-const REVENUE_DATA = [
-  { name: 'Week 1', revenue: 4200 },
-  { name: 'Week 2', revenue: 3800 },
-  { name: 'Week 3', revenue: 6500 },
-  { name: 'Week 4', revenue: 5100 },
-  { name: 'Week 5', revenue: 7800 },
-  { name: 'Week 6', revenue: 9200 },
-  { name: 'Week 7', revenue: 8400 },
-];
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared tooltip
+// ─────────────────────────────────────────────────────────────────────────────
 
-const TRAFFIC_DATA = [
-  { name: 'Direct', value: 45, color: '#E2241D' }, // Primary Red
-  { name: 'Instagram', value: 30, color: '#FFFFFF' }, // White
-  { name: 'TikTok', value: 15, color: '#525252' }, // Dark Gray
-  { name: 'Facebook', value: 10, color: '#262626' }, // Darker Gray
-];
-
-const BEST_SELLERS = [
-    { id: 1, name: 'Obsidian Structure Coat', sold: 124, revenue: 105400, img: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?q=80&w=100&auto=format&fit=crop' },
-    { id: 2, name: 'Velvet Noir Blazer', sold: 89, revenue: 84550, img: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?q=80&w=100&auto=format&fit=crop' },
-    { id: 3, name: 'Midnight Silk Wrap', sold: 76, revenue: 34200, img: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=100&auto=format&fit=crop' },
-    { id: 4, name: 'Ankle Chelsea Boot', sold: 52, revenue: 18200, img: 'https://images.unsplash.com/photo-1614252369475-531eba835eb1?q=80&w=100&auto=format&fit=crop' },
-];
-
-const MetricCard: React.FC<{ title: string; value: string; change: string; isPositive: boolean; icon: React.ElementType }> = ({ title, value, change, isPositive, icon: Icon }) => (
-    <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-surface-dark border border-white/5 p-6 rounded-lg relative overflow-hidden group"
-    >
-        <div className="flex justify-between items-start mb-4">
-            <div className={`p-3 rounded-full bg-white/5 text-white/70 group-hover:bg-primary/10 group-hover:text-primary transition-colors`}>
-                <Icon size={20} />
-            </div>
-            <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${isPositive ? 'text-emerald-400 bg-emerald-400/10' : 'text-red-400 bg-red-400/10'}`}>
-                {isPositive ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                {change}
-            </div>
+const VNDTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+        <div className="bg-[#1a1a2e] border border-white/10 rounded-lg px-3 py-2 shadow-xl text-xs">
+            <p className="text-white/40 font-medium mb-1">{label}</p>
+            {payload.map((p: any) => (
+                <p key={p.name} className="font-bold" style={{ color: p.color ?? '#e11d48' }}>
+                    {p.name === 'revenue' || p.name === 'Doanh thu'
+                        ? formatVNDShort(p.value)
+                        : `${p.value.toLocaleString('vi-VN')} đơn`}
+                </p>
+            ))}
         </div>
-        <h3 className="text-white/40 text-xs font-bold uppercase tracking-widest mb-1">{title}</h3>
-        <p className="text-3xl font-black text-white">{value}</p>
+    );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Skeleton helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SkeletonChart: React.FC<{ height?: string }> = ({ height = 'h-64' }) => (
+    <div className={`w-full ${height} bg-white/5 rounded-lg animate-pulse flex items-end gap-1 px-4 pb-4`}>
+        {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex-1 rounded-sm bg-white/10"
+                style={{ height: `${25 + Math.random() * 55}%` }} />
+        ))}
+    </div>
+);
+
+const SkeletonRow: React.FC<{ cols?: number }> = ({ cols = 4 }) => (
+    <tr className="animate-pulse">
+        {Array.from({ length: cols }).map((_, i) => (
+            <td key={i} className="px-4 py-3">
+                <div className="h-3 bg-white/10 rounded" style={{ width: `${50 + Math.random() * 40}%` }} />
+            </td>
+        ))}
+    </tr>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KPI Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface KPICardProps {
+    label: string;
+    value: string;
+    sub?: string;
+    icon: React.FC<{ className?: string }>;
+    positive?: boolean | null;
+    accentColor: string;
+}
+
+const KPICard: React.FC<KPICardProps> = ({ label, value, sub, icon: Icon, positive, accentColor }) => (
+    <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-surface-dark border border-white/5 p-5 rounded-lg relative overflow-hidden group hover:border-white/10 transition-all"
+    >
+        <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-5 group-hover:opacity-10 transition-opacity ${accentColor.replace('text-', 'bg-')}`} />
+        <div className="relative z-10">
+            <div className="flex items-start justify-between mb-3">
+                <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{label}</p>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accentColor.replace('text-', 'bg-')}/10 border ${accentColor.replace('text-', 'border-')}/20`}>
+                    <Icon className={`w-4 h-4 ${accentColor}`} />
+                </div>
+            </div>
+            <p className="text-2xl font-black text-white tracking-tight mb-1.5">{value}</p>
+            {sub && (
+                <div className="flex items-center gap-1">
+                    {positive === true && <TrendingUp className="w-3 h-3 text-emerald-400" />}
+                    {positive === false && <TrendingDown className="w-3 h-3 text-red-400" />}
+                    <span className={`text-xs font-semibold ${positive === true ? 'text-emerald-400' : positive === false ? 'text-red-400' : 'text-white/30'}`}>
+                        {sub}
+                    </span>
+                </div>
+            )}
+        </div>
     </motion.div>
 );
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-surface-dark border border-white/10 p-3 rounded shadow-xl">
-          <p className="text-white text-xs font-bold uppercase tracking-wide mb-1">{label}</p>
-          <p className="text-primary text-sm font-bold">
-            ${payload[0].value.toLocaleString()}
-          </p>
-        </div>
-      );
-    }
-    return null;
-};
+// ─────────────────────────────────────────────────────────────────────────────
+// Main page
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const AdminAnalytics: React.FC = () => {
-  return (
-    <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col gap-8 overflow-y-auto custom-scrollbar">
-        {/* Header */}
-        <header className="flex items-center justify-between">
-            <div>
-                <h2 className="text-2xl font-bold text-white">Performance Analytics</h2>
-                <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Real-time business insights</p>
-            </div>
-            <div className="flex bg-surface-dark border border-white/10 rounded-lg p-1">
-                {['Today', 'Week', 'Month', 'Year'].map(range => (
-                    <button key={range} className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded transition-colors ${range === 'Month' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}>
-                        {range}
-                    </button>
-                ))}
-            </div>
-        </header>
+    const [startDate, setStartDate] = useState(firstOfMonthStr());
+    const [endDate, setEndDate] = useState(todayStr());
+    const [data, setData] = useState<AnalyticsSummary | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-        {/* Section 1: Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <MetricCard title="Total Revenue" value="$45,231.89" change="+12.5%" isPositive={true} icon={DollarSign} />
-            <MetricCard title="Net Profit" value="$21,402.50" change="+8.2%" isPositive={true} icon={TrendingUp} />
-            <MetricCard title="Conversion Rate" value="3.2%" change="-0.4%" isPositive={false} icon={Users} />
-            <MetricCard title="Avg. Order Value" value="$152.00" change="+2.1%" isPositive={true} icon={ShoppingBag} />
-        </div>
+    const load = useCallback(async (sd: string, ed: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const result = await fetchAnalyticsSummary(sd, ed);
+            setData(result);
+        } catch (e: any) {
+            setError(e?.message ?? 'Không thể tải dữ liệu.');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-        {/* Section 2: Main Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[400px]">
-            {/* Revenue Area Chart */}
-            <motion.div 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                className="lg:col-span-2 bg-surface-dark border border-white/5 rounded-lg p-6 flex flex-col"
-            >
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-bold text-white">Revenue Over Time</h3>
-                    <button className="text-xs text-primary font-bold uppercase tracking-wider hover:text-white transition-colors">View Report</button>
+    useEffect(() => { load(startDate, endDate); }, []);
+
+    const handleApply = () => load(startDate, endDate);
+
+    const handleExport = () => {
+        if (data) exportToCSV(data, startDate, endDate);
+    };
+
+    const mom = data?.summary.momGrowth ?? 0;
+    const momPositive = mom >= 0;
+
+    return (
+        <div className="p-6 xl:p-8 max-w-[1600px] mx-auto space-y-6 animate-fade-in">
+
+            {/* ── Header ──────────────────────────────────────────────────────── */}
+            <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-white/5">
+                <div>
+                    <p className="text-xs font-bold text-primary tracking-[0.2em] uppercase mb-1.5">
+                        Admin Portal • Analytics
+                    </p>
+                    <h2 className="text-3xl xl:text-4xl font-black text-white tracking-tighter uppercase">
+                        Phân tích &amp; Báo cáo
+                    </h2>
                 </div>
-                <div className="flex-1 w-full min-h-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={REVENUE_DATA}>
-                            <defs>
-                                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#E2241D" stopOpacity={0.3}/>
-                                    <stop offset="95%" stopColor="#E2241D" stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                            <XAxis 
-                                dataKey="name" 
-                                stroke="#666" 
-                                fontSize={10} 
-                                tickLine={false} 
-                                axisLine={false} 
-                                dy={10}
-                            />
-                            <YAxis 
-                                stroke="#666" 
-                                fontSize={10} 
-                                tickLine={false} 
-                                axisLine={false} 
-                                tickFormatter={(value) => `$${value}`} 
-                                dx={-10}
-                            />
-                            <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#E2241D', strokeWidth: 1, strokeDasharray: '4 4' }} />
-                            <Area 
-                                type="monotone" 
-                                dataKey="revenue" 
-                                stroke="#E2241D" 
-                                strokeWidth={3} 
-                                fillOpacity={1} 
-                                fill="url(#colorRevenue)" 
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </div>
-            </motion.div>
 
-            {/* Traffic Sources Donut Chart */}
-            <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-                className="lg:col-span-1 bg-surface-dark border border-white/5 rounded-lg p-6 flex flex-col"
-            >
-                <h3 className="text-lg font-bold text-white mb-6">Traffic Sources</h3>
-                <div className="flex-1 w-full min-h-0 relative">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={TRAFFIC_DATA}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={60}
-                                outerRadius={80}
-                                paddingAngle={5}
-                                dataKey="value"
-                            >
-                                {TRAFFIC_DATA.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-                                ))}
-                            </Pie>
-                            <Tooltip 
-                                contentStyle={{ backgroundColor: '#121212', borderColor: '#333', borderRadius: '4px' }}
-                                itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
-                            />
-                        </PieChart>
-                    </ResponsiveContainer>
-                    {/* Centered Label */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="text-center">
-                            <span className="block text-2xl font-black text-white">12.5k</span>
-                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Visitors</span>
-                        </div>
+                <div className="flex flex-wrap items-center gap-3">
+                    {/* Date range inputs */}
+                    <div className="flex items-center gap-2 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2">
+                        <Calendar className="w-4 h-4 text-white/30 shrink-0" />
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={e => setStartDate(e.target.value)}
+                            className="bg-transparent text-xs text-white/70 outline-none w-32 cursor-pointer"
+                        />
+                        <span className="text-white/20 text-xs">→</span>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={e => setEndDate(e.target.value)}
+                            className="bg-transparent text-xs text-white/70 outline-none w-32 cursor-pointer"
+                        />
+                        <button
+                            onClick={handleApply}
+                            className="ml-1 px-3 py-1 bg-primary text-white text-xs font-bold rounded-md hover:bg-primary/80 transition-colors cursor-pointer"
+                        >
+                            Áp dụng
+                        </button>
                     </div>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-y-2">
-                    {TRAFFIC_DATA.map((item) => (
-                        <div key={item.name} className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div>
-                            <span className="text-xs text-gray-400">{item.name}</span>
-                            <span className="text-xs font-bold text-white ml-auto">{item.value}%</span>
-                        </div>
-                    ))}
-                </div>
-            </motion.div>
-        </div>
 
-        {/* Section 3: Best Sellers */}
-        <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-surface-dark border border-white/5 rounded-lg p-8"
-        >
-            <h3 className="text-lg font-bold text-white mb-6 uppercase tracking-wide">Top Performing Products</h3>
-            <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="border-b border-white/10 text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                            <th className="py-3 px-4 w-16">Image</th>
-                            <th className="py-3 px-4">Product Name</th>
-                            <th className="py-3 px-4 text-center">Units Sold</th>
-                            <th className="py-3 px-4 text-right">Revenue</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                        {BEST_SELLERS.map((product) => (
-                            <tr key={product.id} className="group hover:bg-white/[0.02] transition-colors">
-                                <td className="py-4 px-4">
-                                    <div className="w-10 h-12 bg-black rounded overflow-hidden">
-                                        <img src={product.img} alt={product.name} className="w-full h-full object-cover" />
-                                    </div>
-                                </td>
-                                <td className="py-4 px-4">
-                                    <span className="text-sm font-bold text-white group-hover:text-primary transition-colors">{product.name}</span>
-                                </td>
-                                <td className="py-4 px-4 text-center">
-                                    <span className="text-sm font-mono text-gray-300">{product.sold}</span>
-                                </td>
-                                <td className="py-4 px-4 text-right">
-                                    <span className="text-sm font-mono font-bold text-emerald-400">${product.revenue.toLocaleString()}</span>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                    {/* Export CSV */}
+                    <button
+                        onClick={handleExport}
+                        disabled={!data}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 hover:border-white/20 rounded-lg text-xs font-bold text-white/70 hover:text-white transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                        <Download className="w-4 h-4" />
+                        Xuất báo cáo (CSV)
+                    </button>
+                </div>
+            </header>
+
+            {/* ── Error ────────────────────────────────────────────────────────── */}
+            {error && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
+                    ⚠ {error}
+                </div>
+            )}
+
+            {/* ── KPI Strip ────────────────────────────────────────────────────── */}
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                <KPICard
+                    label="Doanh thu kỳ này"
+                    value={formatVNDShort(data?.summary.currentRevenue ?? 0)}
+                    sub={`${momPositive ? '+' : ''}${mom.toFixed(1)}% so với kỳ trước`}
+                    positive={momPositive}
+                    icon={DollarSign}
+                    accentColor="text-emerald-400"
+                />
+                <KPICard
+                    label="Tổng đơn hàng"
+                    value={(data?.summary.totalOrders ?? 0).toLocaleString('vi-VN')}
+                    sub={`${data?.summary.completedOrders ?? 0} đơn hoàn thành`}
+                    positive={null}
+                    icon={ShoppingCart}
+                    accentColor="text-primary"
+                />
+                <KPICard
+                    label="Giá trị đơn TB"
+                    value={formatVNDShort(data?.summary.avgOrderValue ?? 0)}
+                    sub="Dựa trên đơn hoàn thành"
+                    positive={null}
+                    icon={TrendingUp}
+                    accentColor="text-blue-400"
+                />
+                <KPICard
+                    label="Khách hàng mua"
+                    value={(data?.topCustomers.length ?? 0).toLocaleString('vi-VN')}
+                    sub="Top 5 chi tiêu nhiều nhất"
+                    positive={null}
+                    icon={Users}
+                    accentColor="text-purple-400"
+                />
             </div>
-        </motion.div>
-    </div>
-  );
+
+            {/* ── Charts Row 1: Bar + Pie ──────────────────────────────────────── */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+                {/* Chart 1: Revenue by Category (BarChart) */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                    className="lg:col-span-7 bg-surface-dark border border-white/5 rounded-lg p-6 flex flex-col"
+                >
+                    <div className="mb-5">
+                        <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                            Doanh thu theo danh mục
+                        </h3>
+                        <p className="text-xs text-white/30 mt-1">Doanh thu từ đơn hoàn thành, phân theo danh mục sản phẩm</p>
+                    </div>
+                    {loading ? (
+                        <SkeletonChart height="h-72" />
+                    ) : !data?.revenueByCategory.length ? (
+                        <div className="h-72 flex items-center justify-center text-white/20 text-sm">Chưa có dữ liệu</div>
+                    ) : (
+                        <div className="h-72">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                    data={data.revenueByCategory}
+                                    layout="vertical"
+                                    margin={{ top: 4, right: 24, left: 8, bottom: 4 }}
+                                >
+                                    <defs>
+                                        <linearGradient id="barGrad" x1="0" y1="0" x2="1" y2="0">
+                                            <stop offset="0%" stopColor="#e11d48" stopOpacity={0.9} />
+                                            <stop offset="100%" stopColor="#be185d" stopOpacity={0.7} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                                    <XAxis
+                                        type="number"
+                                        tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }}
+                                        axisLine={false} tickLine={false}
+                                        tickFormatter={(v: number) => formatVNDShort(v).replace(' ₫', '')}
+                                    />
+                                    <YAxis
+                                        type="category" dataKey="category"
+                                        tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 11 }}
+                                        axisLine={false} tickLine={false} width={120}
+                                    />
+                                    <Tooltip content={<VNDTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                                    <Bar dataKey="revenue" name="Doanh thu" fill="url(#barGrad)" radius={[0, 4, 4, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </motion.div>
+
+                {/* Chart 2: Order Status Funnel (PieChart) */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                    className="lg:col-span-5 bg-surface-dark border border-white/5 rounded-lg p-6 flex flex-col"
+                >
+                    <div className="mb-5">
+                        <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                            Tỉ lệ trạng thái đơn hàng
+                        </h3>
+                        <p className="text-xs text-white/30 mt-1">Phân bổ đơn hàng theo trạng thái trong kỳ</p>
+                    </div>
+                    {loading ? (
+                        <div className="flex-1 flex items-center justify-center">
+                            <div className="w-40 h-40 rounded-full border-4 border-white/10 animate-pulse" />
+                        </div>
+                    ) : !data?.statusFunnel.length ? (
+                        <div className="flex-1 flex items-center justify-center text-white/20 text-sm">Chưa có dữ liệu</div>
+                    ) : (
+                        <div className="flex-1 flex flex-col gap-4">
+                            <div className="h-48">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={data.statusFunnel} cx="50%" cy="50%"
+                                            innerRadius={52} outerRadius={76}
+                                            paddingAngle={3} dataKey="value"
+                                        >
+                                            {data.statusFunnel.map((entry, i) => (
+                                                <Cell key={i} fill={entry.color} stroke="none" />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: '#1a1a2e', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '11px' }}
+                                            itemStyle={{ color: '#fff' }}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                            {/* Legend */}
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                {data.statusFunnel.map((item) => (
+                                    <div key={item.name} className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                                        <span className="text-[11px] text-white/50 truncate">{item.name}</span>
+                                        <span className="text-[11px] font-bold text-white ml-auto">{item.value}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </motion.div>
+            </div>
+
+            {/* ── Chart Row 2: Composed Chart (Revenue + Orders) ───────────────── */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                className="bg-surface-dark border border-white/5 rounded-lg p-6"
+            >
+                <div className="mb-5">
+                    <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                        Doanh thu &amp; Số lượng đơn hàng theo tháng
+                    </h3>
+                    <p className="text-xs text-white/30 mt-1">Tổng hợp xu hướng doanh thu (vùng) và số đơn (cột) trên cùng biểu đồ</p>
+                </div>
+                {loading ? (
+                    <SkeletonChart height="h-64" />
+                ) : !data?.monthlyTrend.length ? (
+                    <div className="h-64 flex items-center justify-center text-white/20 text-sm">Chưa có dữ liệu theo tháng</div>
+                ) : (
+                    <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart
+                                data={data.monthlyTrend.map(d => ({ ...d, label: formatMonthLabel(d.label) }))}
+                                margin={{ top: 4, right: 8, left: 8, bottom: 0 }}
+                            >
+                                <defs>
+                                    <linearGradient id="composedGrad" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#e11d48" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#e11d48" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                <XAxis
+                                    dataKey="label"
+                                    tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }}
+                                    axisLine={false} tickLine={false}
+                                />
+                                <YAxis
+                                    yAxisId="revenue" orientation="left"
+                                    tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }}
+                                    axisLine={false} tickLine={false}
+                                    tickFormatter={(v: number) => formatVNDShort(v).replace(' ₫', '')}
+                                />
+                                <YAxis
+                                    yAxisId="orders" orientation="right"
+                                    tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }}
+                                    axisLine={false} tickLine={false}
+                                />
+                                <Tooltip content={<VNDTooltip />} />
+                                <Area
+                                    yAxisId="revenue" type="monotone" dataKey="revenue" name="Doanh thu"
+                                    stroke="#e11d48" strokeWidth={2} fill="url(#composedGrad)"
+                                    dot={false} activeDot={{ r: 4, fill: '#e11d48', strokeWidth: 0 }}
+                                />
+                                <Bar
+                                    yAxisId="orders" dataKey="orders" name="Đơn hàng"
+                                    fill="rgba(99,102,241,0.6)" radius={[4, 4, 0, 0]} barSize={20}
+                                />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    </div>
+                )}
+            </motion.div>
+
+            {/* ── Data Tables Row ──────────────────────────────────────────────── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+                {/* Table 1: Top Customers */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+                    className="bg-surface-dark border border-white/5 rounded-lg overflow-hidden"
+                >
+                    <div className="px-6 py-4 border-b border-white/5">
+                        <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            Khách hàng chi tiêu nhiều nhất
+                        </h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                            <thead>
+                                <tr className="border-b border-white/5">
+                                    <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">#</th>
+                                    <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">Khách hàng</th>
+                                    <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">Chi tiêu</th>
+                                    <th className="px-4 py-3 text-center font-semibold text-white/30 uppercase tracking-widest">Đơn</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/[0.04]">
+                                {loading ? (
+                                    Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={4} />)
+                                ) : !data?.topCustomers.length ? (
+                                    <tr><td colSpan={4} className="px-4 py-10 text-center text-white/20">Chưa có dữ liệu</td></tr>
+                                ) : (
+                                    data.topCustomers.map((c, i) => (
+                                        <tr key={c.userId} className="hover:bg-white/[0.025] transition-colors group">
+                                            <td className="px-4 py-3 text-white/20 font-bold">{i + 1}</td>
+                                            <td className="px-4 py-3">
+                                                <p className="font-semibold text-white/80 group-hover:text-white transition-colors truncate max-w-[140px]">
+                                                    {c.fullName}
+                                                </p>
+                                                <p className="text-white/30 truncate max-w-[140px]">{c.email}</p>
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-bold text-emerald-400">
+                                                {formatVNDShort(c.totalSpent)}
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-400/10 border border-blue-400/20 text-blue-400 font-bold text-[10px]">
+                                                    {c.orderCount}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </motion.div>
+
+                {/* Table 2: Most Cancelled Products */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+                    className="bg-surface-dark border border-white/5 rounded-lg overflow-hidden"
+                >
+                    <div className="px-6 py-4 border-b border-white/5">
+                        <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                            Sản phẩm bị hủy nhiều nhất
+                        </h3>
+                        <p className="text-[10px] text-white/30 mt-0.5">Phân tích hủy đơn — quan trọng cho chiến lược kinh doanh</p>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                            <thead>
+                                <tr className="border-b border-white/5">
+                                    <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">#</th>
+                                    <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">Sản phẩm</th>
+                                    <th className="px-4 py-3 text-center font-semibold text-white/30 uppercase tracking-widest">Số lần hủy</th>
+                                    <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">DT mất</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/[0.04]">
+                                {loading ? (
+                                    Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={4} />)
+                                ) : !data?.mostCancelled.length ? (
+                                    <tr><td colSpan={4} className="px-4 py-10 text-center text-white/20">Không có sản phẩm bị hủy</td></tr>
+                                ) : (
+                                    data.mostCancelled.map((p, i) => (
+                                        <tr key={p.productId} className="hover:bg-white/[0.025] transition-colors group">
+                                            <td className="px-4 py-3 text-white/20 font-bold">{i + 1}</td>
+                                            <td className="px-4 py-3">
+                                                <p className="font-semibold text-white/80 group-hover:text-white transition-colors truncate max-w-[160px]">
+                                                    {p.productName}
+                                                </p>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-400 font-bold text-[10px]">
+                                                    {p.cancelCount} lần
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-bold text-red-400">
+                                                -{formatVNDShort(p.lostRevenue)}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </motion.div>
+            </div>
+
+        </div>
+    );
 };

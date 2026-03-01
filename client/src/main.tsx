@@ -7,6 +7,7 @@ import App from './app/App';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProductProvider } from './contexts/ProductContext';
 import './styles/index.css';
+import './i18n/config'; // ← initialise i18next before the React tree mounts
 import { OrderDetailPage } from './pages/OrderDetailPage';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);

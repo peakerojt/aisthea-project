@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Logo } from './Logo';
 import { ViewState } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,47 +13,50 @@ interface AdminSidebarProps {
 
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, setView }) => {
   const { logout, user } = useAuth();
+  // Use explicit namespace prefix: t('sidebar:nav.products') → "Sản phẩm"
+  // This pattern satisfies TypeScript strict mode while retaining full IDE autocomplete.
+  const { t } = useTranslation();
 
   const menuItems = [
     {
       icon: LayoutDashboard,
-      label: 'Dashboard',
+      label: t('sidebar:nav.dashboard'),
       view: 'ADMIN_DASHBOARD' as ViewState,
       subRoutes: []
     },
     {
       icon: Shirt,
-      label: 'Products',
+      label: t('sidebar:nav.products'),
       view: 'ADMIN_PRODUCTS' as ViewState,
       subRoutes: ['ADMIN_CREATE_PRODUCT']
     },
     {
       icon: PackagePlus,
-      label: 'Restock',
+      label: t('sidebar:nav.restock'),
       view: 'ADMIN_RESTOCK' as ViewState,
       subRoutes: []
     },
     {
       icon: Tag,
-      label: 'Danh mục',
+      label: t('sidebar:nav.categories'),
       view: 'ADMIN_CATEGORIES' as ViewState,
       subRoutes: []
     },
     {
       icon: ShoppingBag,
-      label: 'Orders',
+      label: t('sidebar:nav.orders'),
       view: 'ADMIN_ORDERS' as ViewState,
       subRoutes: ['ADMIN_TRACKING', 'ADMIN_ORDER_DETAIL']
     },
     {
       icon: Users,
-      label: 'Customers',
+      label: t('sidebar:nav.customers'),
       view: 'ADMIN_CUSTOMERS' as ViewState,
       subRoutes: []
     },
     {
       icon: BarChart2,
-      label: 'Analytics',
+      label: t('sidebar:nav.analytics'),
       view: 'ADMIN_ANALYTICS' as ViewState,
       subRoutes: []
     },
@@ -79,7 +83,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, setView
 
       <nav className="flex-1 py-8 px-0 space-y-2">
         <div className="px-6 mb-4">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-white/40 font-bold">Main Menu</p>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-white/40 font-bold">
+            {t('sidebar:sections.mainMenu')}
+          </p>
         </div>
 
         {menuItems.map((item) => {
@@ -114,9 +120,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, setView
           </div>
           <div className="overflow-hidden">
             <p className="text-sm font-semibold text-white truncate">{user?.name || 'Admin'}</p>
-            <p className="text-[10px] text-white/40 uppercase tracking-wider">Aisthea HQ</p>
+            <p className="text-[10px] text-white/40 uppercase tracking-wider">{t('sidebar:user.hq')}</p>
           </div>
-          <button onClick={handleLogout} className="ml-auto text-white/40 hover:text-white transition-colors" title="Sign Out">
+          <button
+            onClick={handleLogout}
+            className="ml-auto text-white/40 hover:text-white transition-colors"
+            title={t('sidebar:user.signOut')}
+          >
             <LogOut size={18} />
           </button>
         </div>
