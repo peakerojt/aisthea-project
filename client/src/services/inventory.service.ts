@@ -18,6 +18,7 @@ export interface InventoryVariant {
 export interface BulkUpdateChange {
     variantId: number;
     quantity: number;
+    reason?: string; // Optional — defaults to 'MANUAL_ADJUST' on the server
 }
 
 export interface BulkUpdateResponse {
@@ -29,6 +30,34 @@ export interface BulkUpdateResponse {
 export interface InventoryFilters {
     lowStock?: boolean;
     search?: string;
+}
+
+// ─── Inventory Log types ──────────────────────────────────────────────────────
+
+export type InventoryLogReason =
+    | 'CHECKOUT'
+    | 'RESTOCK'
+    | 'CANCELLED_RESTORE'
+    | 'MANUAL_ADJUST';
+
+export interface InventoryLogEntry {
+    logId: number;
+    changeQuantity: number;
+    previousStock: number;
+    newStock: number;
+    reason: InventoryLogReason | string;
+    note: string | null;
+    createdAt: string; // ISO date string
+    orderNumber: string | null;
+    changedBy: string | null;
+}
+
+export interface InventoryLogsResponse {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    items: InventoryLogEntry[];
 }
 
 // ─── API Calls ────────────────────────────────────────────────────────────────
@@ -46,6 +75,16 @@ export const bulkUpdateStock = async (
     changes: BulkUpdateChange[]
 ): Promise<BulkUpdateResponse> => {
     return api.patch<BulkUpdateResponse>('/api/inventory/update', changes);
+};
+
+export const fetchInventoryLogs = async (
+    variantId: number,
+    page = 1,
+    limit = 20
+): Promise<InventoryLogsResponse> => {
+    return api.get<InventoryLogsResponse>(`/api/inventory/${variantId}/logs`, {
+        params: { page: String(page), limit: String(limit) },
+    });
 };
 
 // ─── Low Stock Alerts ─────────────────────────────────────────────────────────
@@ -70,3 +109,4 @@ export interface LowStockAlertsResponse {
 export const fetchLowStockAlerts = async (): Promise<LowStockAlertsResponse> => {
     return api.get<LowStockAlertsResponse>('/api/inventory/alerts');
 };
+

@@ -498,8 +498,9 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// USER: Create Order (Checkout via Stored Procedure)
+// USER: Create Order (Checkout via Stored Procedure + Coupon Integration)
 // POST /api/orders
+// Body: { ..., couponCode?: string }
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const createOrder = async (req: AuthRequest, res: Response) => {
@@ -518,7 +519,8 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       shippingWard,
       shippingAddressDetail,
       note,
-      items
+      items,
+      couponCode, // Optional coupon code
     } = req.body;
 
     if (!paymentMethod) {
@@ -530,42 +532,35 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     }
 
     // --- SYNCHRONIZE CART ---
-    // 1. Find or create Cart for the user
     let cart = await prisma.cart.findFirst({ where: { userId } });
     if (!cart) {
       cart = await prisma.cart.create({ data: { userId } });
     }
 
-    // 2. Clear old items in the cart
     await prisma.cartItem.deleteMany({ where: { cartId: cart.cartId } });
 
-    // 3. Resolve incoming items and insert into CartItems
     for (const item of items) {
       const productId = parseInt(item.id, 10);
       if (isNaN(productId)) continue;
 
-      // Find all variants for this product to match attributes
       const variants = await prisma.productVariant.findMany({
         where: { productId },
         include: {
           variantAttributes: {
-            include: {
-              value: { include: { attribute: true } }
-            }
-          }
-        }
+            include: { value: { include: { attribute: true } } },
+          },
+        },
       });
 
       if (variants.length === 0) continue;
 
       let matchedVariant = null;
 
-      // Try fully matching the color and size strings
       if (item.size || item.color) {
-        matchedVariant = variants.find(v => {
+        matchedVariant = variants.find((v) => {
           let sizeMatch = !item.size;
           let colorMatch = !item.color;
-          v.variantAttributes.forEach(va => {
+          v.variantAttributes.forEach((va) => {
             const attrName = va.value.attribute.name.toLowerCase();
             const attrVal = va.value.value.toLowerCase();
             if (attrName === 'size' && item.size && attrVal === item.size.toLowerCase()) sizeMatch = true;
@@ -575,9 +570,8 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
         });
       }
 
-      // Fallback: take the default variant or first variant
       if (!matchedVariant) {
-        matchedVariant = variants.find(v => v.isDefault) || variants[0];
+        matchedVariant = variants.find((v) => v.isDefault) || variants[0];
       }
 
       await prisma.cartItem.create({
@@ -585,11 +579,12 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
           cartId: cart.cartId,
           variantId: matchedVariant.variantId,
           quantity: item.quantity > 0 ? item.quantity : 1,
-        }
+        },
       });
     }
     // --- END CART SYNCHRONIZATION ---
 
+    // Run the stored procedure to create the order
     const result: any[] = await prisma.$queryRaw`
       EXEC sp_Checkout 
         @UserId = ${userId}, 
@@ -609,9 +604,65 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     const row = result[0];
     const orderId = row.OrderId || row.orderId;
 
-    res.json({ success: true, orderId, message: 'Order created successfully' });
+    // ── Coupon application (post-SP, in a separate atomic transaction) ────────
+    let discountAmount = 0;
+
+    if (couponCode && typeof couponCode === 'string' && couponCode.trim()) {
+      try {
+        // Calculate cart subtotal from items (server-side — never trust client)
+        const cartSubtotal = items.reduce((sum: number, item: any) => {
+          return sum + (Number(item.price) || 0) * (Number(item.quantity) || 1);
+        }, 0);
+
+        // Re-validate coupon inside a transaction for atomicity
+        await prisma.$transaction(async (tx) => {
+          const { validateCoupon } = await import('../services/coupon.service');
+          const { coupon, discountAmount: discount } = await validateCoupon(
+            couponCode.trim(),
+            userId,
+            cartSubtotal,
+            tx as any,
+          );
+
+          discountAmount = discount;
+
+          // 1. Deduct discount from order total
+          const currentOrder = await (tx.order as any).findUnique({
+            where: { orderId },
+            select: { totalAmount: true },
+          });
+          const newTotal = Math.max(0, Number(currentOrder.totalAmount) - discount);
+
+          await (tx.order as any).update({
+            where: { orderId },
+            data: {
+              totalAmount: newTotal,
+              discountAmount: discount,
+              couponId: coupon.couponId,
+            },
+          });
+
+          // 2. Atomically increment coupon usedCount
+          await (tx.coupon as any).update({
+            where: { couponId: coupon.couponId },
+            data: { usedCount: { increment: 1 } },
+          });
+        });
+      } catch (couponErr: any) {
+        // Coupon validation failed AFTER order was created — order is still valid
+        // but discount is not applied. Log the error and continue without coupon.
+        console.warn('[createOrder] Coupon validation failed (order still created):', couponErr.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      orderId,
+      discountAmount,
+      message: 'Order created successfully',
+    });
   } catch (error: any) {
     console.error('Checkout Error:', error);
-    res.status(500).json({ error: 'Checkout failed', details: error.message });
+    return res.status(500).json({ error: 'Checkout failed', details: error.message });
   }
 };

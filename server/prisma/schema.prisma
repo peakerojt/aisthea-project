@@ -26,6 +26,7 @@ model User {
   userRoles    UserRole[]
   verificationTokens EmailVerificationToken[]
   passwordResetTokens PasswordResetToken[]
+  inventoryLogs InventoryLog[]
 
   @@index([email, status], map: "IX_Users_Email_Status")
   @@index([phone], map: "IX_Users_Phone")
@@ -167,6 +168,7 @@ model ProductVariant {
   images            ProductImage[]
   product           Product            @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ProductVariants_Products")
   variantAttributes VariantAttribute[]
+  inventoryLogs     InventoryLog[]
 
   @@index([productId], map: "IX_ProductVariants_ProductId")
   @@index([stockQuantity], map: "IX_ProductVariants_StockQuantity")
@@ -251,15 +253,19 @@ model Order {
   trackingNumber        String?     @map("TrackingNumber") @db.NVarChar(100)
   carrier               String?     @map("Carrier") @db.NVarChar(50)
   totalAmount           Decimal     @map("TotalAmount") @db.Decimal(18, 2)
+  discountAmount        Decimal?    @default(0) @map("DiscountAmount") @db.Decimal(18, 2)
+  couponId              Int?        @map("CouponId")
   status                String?     @default("Pending", map: "DF__Orders__Status__71D1E811") @map("Status") @db.NVarChar(20)
   paymentMethod         String?     @default("COD", map: "DF__Orders__PaymentM__72C60C4A") @map("PaymentMethod") @db.NVarChar(50)
   paymentStatus         String?     @default("Unpaid", map: "DF__Orders__PaymentS__73BA3083") @map("PaymentStatus") @db.NVarChar(20)
   createdAt             DateTime?   @default(now(), map: "DF__Orders__CreatedA__74AE54BC") @map("CreatedAt")
   items                 OrderItem[]
   user                  User?       @relation(fields: [userId], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Orders_Users")
+  coupon                Coupon?     @relation(fields: [couponId], references: [couponId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Orders_Coupons")
   payments              Payment[]
   statusHistory         OrderStatusHistory[]
   note                  String?     @map("Note") @db.NVarChar(500)
+  inventoryLogs         InventoryLog[]
 
   @@index([createdAt], map: "IX_Orders_CreatedAt")
   @@index([orderNumber], map: "IX_Orders_OrderNumber")
@@ -325,4 +331,53 @@ model Review {
 
   @@index([productId], map: "IX_Reviews_ProductId")
   @@map("Reviews")
+}
+
+// ─── Inventory Audit Log ──────────────────────────────────────────────────────
+// Reason values: CHECKOUT | RESTOCK | CANCELLED_RESTORE | MANUAL_ADJUST
+
+model InventoryLog {
+  logId          Int      @id @default(autoincrement()) @map("LogId")
+  variantId      Int      @map("VariantId")
+  orderId        Int?     @map("OrderId")
+  userId         Int?     @map("UserId")
+  changeQuantity Int      @map("ChangeQuantity") // negative for deductions, positive for restocks
+  previousStock  Int      @map("PreviousStock")
+  newStock       Int      @map("NewStock")
+  reason         String   @map("Reason") @db.NVarChar(30)
+  note           String?  @map("Note") @db.NVarChar(500)
+  createdAt      DateTime @default(now()) @map("CreatedAt")
+
+  variant ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_InventoryLogs_Variants")
+  order   Order?         @relation(fields: [orderId], references: [orderId], onDelete: SetNull, onUpdate: NoAction, map: "FK_InventoryLogs_Orders")
+  user    User?          @relation(fields: [userId], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_InventoryLogs_Users")
+
+  @@index([variantId], map: "IX_InventoryLogs_VariantId")
+  @@index([orderId],   map: "IX_InventoryLogs_OrderId")
+  @@map("InventoryLogs")
+}
+
+// ─── Coupon & Discount System ─────────────────────────────────────────────────
+// type values enforced at application layer: "FIXED_AMOUNT" | "PERCENTAGE"
+
+model Coupon {
+  couponId          Int      @id @default(autoincrement()) @map("CouponId")
+  code              String   @unique @map("Code") @db.NVarChar(50)
+  type              String   @map("Type") @db.NVarChar(20) // "FIXED_AMOUNT" | "PERCENTAGE"
+  value             Decimal  @map("Value") @db.Decimal(18, 2)
+  maxDiscountAmount Decimal? @map("MaxDiscountAmount") @db.Decimal(18, 2) // Cap for PERCENTAGE type
+  minOrderValue     Decimal  @default(0) @map("MinOrderValue") @db.Decimal(18, 2)
+  startDate         DateTime @map("StartDate")
+  endDate           DateTime @map("EndDate")
+  usageLimit        Int      @map("UsageLimit")
+  usedCount         Int      @default(0) @map("UsedCount")
+  usagePerUser      Int      @default(1) @map("UsagePerUser")
+  isActive          Boolean  @default(true) @map("IsActive")
+  createdAt         DateTime @default(now()) @map("CreatedAt")
+  updatedAt         DateTime @default(now()) @updatedAt @map("UpdatedAt")
+  orders            Order[]
+
+  @@index([code], map: "IX_Coupons_Code")
+  @@index([isActive], map: "IX_Coupons_IsActive")
+  @@map("Coupons")
 }

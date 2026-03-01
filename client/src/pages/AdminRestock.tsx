@@ -1,3 +1,12 @@
+/**
+ * AdminRestock.tsx — Quản lý Tồn kho & Nhập kho
+ * ──────────────────────────────────────────────────────────────────────
+ * Enhancements (v2):
+ *   • Mandatory "Lý do điều chỉnh" reason field before saving changes
+ *   • Save is blocked until a reason is provided
+ *   • Per-variant "Lịch sử tồn kho" history slide-over panel
+ */
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
    Search,
@@ -10,12 +19,26 @@ import {
    X,
    TrendingDown,
    ChevronRight,
+   History,
+   ChevronLeft,
+   ChevronRight as ChevronRightIcon,
+   FileText,
 } from 'lucide-react';
 import {
    fetchInventory,
    bulkUpdateStock,
+   fetchInventoryLogs,
    type InventoryVariant,
+   type InventoryLogEntry,
 } from '../services/inventory.service';
+
+// ─── Reason preset labels ──────────────────────────────────────────────────────
+const REASON_PRESETS = [
+   'Nhập hàng từ nhà cung cấp',
+   'Hàng bị lỗi / trả về',
+   'Kiểm kê định kỳ',
+   'Điều chỉnh thủ công',
+];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,7 +57,20 @@ const getStockStatus = (qty: number): { label: string; className: string } => {
    return { label: 'Còn hàng', className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' };
 };
 
-/** Group a flat variant list into ProductGroup[] */
+const REASON_LABELS: Record<string, { label: string; color: string }> = {
+   CHECKOUT: { label: 'Đơn hàng', color: 'text-blue-400' },
+   RESTOCK: { label: 'Nhập kho', color: 'text-emerald-400' },
+   CANCELLED_RESTORE: { label: 'Huỷ đơn - Hoàn', color: 'text-amber-400' },
+   MANUAL_ADJUST: { label: 'Điều chỉnh', color: 'text-purple-400' },
+};
+
+function fmtDate(iso: string): string {
+   return new Date(iso).toLocaleString('vi-VN', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+   });
+}
+
 function groupVariants(variants: InventoryVariant[]): ProductGroup[] {
    const map = new Map<number, ProductGroup>();
    for (const v of variants) {
@@ -64,16 +100,14 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () 
 
 const SkeletonGroup: React.FC = () => (
    <>
-      {/* group header skeleton */}
       <tr className="bg-white/[0.025] border-b border-white/[0.06]">
-         <td colSpan={6} className="px-5 py-3">
+         <td colSpan={7} className="px-5 py-3">
             <div className="h-4 w-48 rounded bg-white/[0.07] animate-pulse" />
          </td>
       </tr>
-      {/* variant rows skeleton */}
       {[1, 2, 3].map((i) => (
          <tr key={i} className="border-b border-white/[0.04]">
-            {[1, 2, 3, 4, 5, 6].map((j) => (
+            {[1, 2, 3, 4, 5, 6, 7].map((j) => (
                <td key={j} className="px-5 py-4 pl-14">
                   <div className="h-3.5 rounded bg-white/[0.05] animate-pulse" style={{ width: `${55 + j * 7}%` }} />
                </td>
@@ -83,19 +117,234 @@ const SkeletonGroup: React.FC = () => (
    </>
 );
 
+// ─── Inventory Log Slide-Over ─────────────────────────────────────────────────
+
+interface LogPanelProps {
+   variant: InventoryVariant;
+   onClose: () => void;
+}
+
+const LogPanel: React.FC<LogPanelProps> = ({ variant, onClose }) => {
+   const [logs, setLogs] = useState<InventoryLogEntry[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [page, setPage] = useState(1);
+   const [totalPages, setTotalPages] = useState(1);
+   const [total, setTotal] = useState(0);
+
+   useEffect(() => {
+      const load = async () => {
+         setLoading(true);
+         try {
+            const res = await fetchInventoryLogs(variant.variantId, page);
+            setLogs(res.items);
+            setTotalPages(res.totalPages);
+            setTotal(res.total);
+         } finally {
+            setLoading(false);
+         }
+      };
+      load();
+   }, [variant.variantId, page]);
+
+   return (
+      <>
+         {/* Backdrop */}
+         <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-fade-in"
+            onClick={onClose}
+         />
+         {/* Slide-over panel */}
+         <div className="fixed right-0 top-0 h-full w-full max-w-[520px] bg-[#0e0e0e] border-l border-white/[0.08] z-50 flex flex-col shadow-2xl animate-slide-in-right">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+               <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                     <History size={16} className="text-primary" />
+                     <h2 className="text-sm font-bold text-white">Lịch sử tồn kho</h2>
+                  </div>
+                  <p className="text-[11px] text-white/40 font-mono">
+                     {variant.variantLabel || 'Mặc định'} · {variant.sku}
+                  </p>
+               </div>
+               <button onClick={onClose} className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all">
+                  <X size={18} />
+               </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto">
+               {loading ? (
+                  <div className="flex items-center justify-center py-16">
+                     <RefreshCw size={20} className="text-white/20 animate-spin" />
+                  </div>
+               ) : logs.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-center">
+                     <FileText size={36} className="text-white/10 mb-3" />
+                     <p className="text-white/40 text-sm">Chưa có lịch sử thay đổi tồn kho</p>
+                  </div>
+               ) : (
+                  <div className="divide-y divide-white/[0.04]">
+                     {logs.map((log) => {
+                        const isPositive = log.changeQuantity > 0;
+                        const reasonMeta = REASON_LABELS[log.reason] ?? { label: log.reason, color: 'text-white/50' };
+                        return (
+                           <div key={log.logId} className="px-6 py-4 hover:bg-white/[0.015] transition-colors">
+                              <div className="flex items-start justify-between gap-3 mb-2">
+                                 <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 border border-white/[0.08] ${reasonMeta.color}`}>
+                                       {reasonMeta.label}
+                                    </span>
+                                    {log.orderNumber && (
+                                       <span className="text-[10px] font-mono text-white/30 bg-white/5 px-1.5 py-0.5 rounded">
+                                          #{log.orderNumber}
+                                       </span>
+                                    )}
+                                 </div>
+                                 <span className={`text-base font-black tabular-nums shrink-0 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                                    {isPositive ? '+' : ''}{log.changeQuantity}
+                                 </span>
+                              </div>
+                              <div className="flex items-center gap-4 text-xs text-white/50">
+                                 <span>{log.previousStock} → <span className="font-bold text-white/70">{log.newStock}</span></span>
+                                 {log.changedBy && <span className="truncate max-w-[150px]">{log.changedBy}</span>}
+                                 <span className="ml-auto shrink-0">{fmtDate(log.createdAt)}</span>
+                              </div>
+                              {log.note && (
+                                 <p className="mt-1 text-[11px] text-white/30 italic truncate">{log.note}</p>
+                              )}
+                           </div>
+                        );
+                     })}
+                  </div>
+               )}
+            </div>
+
+            {/* Footer pagination */}
+            {!loading && totalPages > 1 && (
+               <div className="border-t border-white/[0.06] px-6 py-3 flex items-center justify-between">
+                  <span className="text-[11px] text-white/30">{total} bản ghi · Trang {page}/{totalPages}</span>
+                  <div className="flex gap-1">
+                     <button
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="p-1.5 rounded text-white/40 hover:text-white hover:bg-white/5 disabled:opacity-20 transition-all"
+                     >
+                        <ChevronLeft size={16} />
+                     </button>
+                     <button
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                        className="p-1.5 rounded text-white/40 hover:text-white hover:bg-white/5 disabled:opacity-20 transition-all"
+                     >
+                        <ChevronRightIcon size={16} />
+                     </button>
+                  </div>
+               </div>
+            )}
+         </div>
+      </>
+   );
+};
+
+// ─── Reason Modal (confirm save) ──────────────────────────────────────────────
+
+interface ReasonModalProps {
+   dirtyCount: number;
+   onConfirm: (reason: string) => void;
+   onCancel: () => void;
+   saving: boolean;
+}
+
+const ReasonModal: React.FC<ReasonModalProps> = ({ dirtyCount, onConfirm, onCancel, saving }) => {
+   const [reason, setReason] = useState('');
+
+   return (
+      <>
+         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" onClick={onCancel} />
+         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-[#141414] border border-white/[0.10] rounded-2xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
+               {/* Header */}
+               <div className="flex items-center gap-3 mb-5">
+                  <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                     <FileText size={18} className="text-amber-400" />
+                  </div>
+                  <div>
+                     <h3 className="text-sm font-bold text-white">Xác nhận lưu thay đổi</h3>
+                     <p className="text-[11px] text-white/40">{dirtyCount} biến thể đã được chỉnh sửa</p>
+                  </div>
+               </div>
+
+               {/* Reason field */}
+               <label className="block mb-4">
+                  <span className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-2 block">
+                     Lý do điều chỉnh <span className="text-red-400">*</span>
+                  </span>
+                  <input
+                     autoFocus
+                     type="text"
+                     placeholder="VD: Nhập hàng từ nhà cung cấp..."
+                     value={reason}
+                     onChange={(e) => setReason(e.target.value)}
+                     onKeyDown={(e) => { if (e.key === 'Enter' && reason.trim()) onConfirm(reason.trim()); }}
+                     className="w-full bg-white/[0.04] border border-white/[0.10] rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/50 transition-all"
+                  />
+                  {/* Quick presets */}
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                     {REASON_PRESETS.map((p) => (
+                        <button
+                           key={p}
+                           type="button"
+                           onClick={() => setReason(p)}
+                           className={`text-[10px] px-2 py-1 rounded-full border transition-all ${reason === p
+                              ? 'bg-primary/15 border-primary/40 text-primary'
+                              : 'bg-white/[0.03] border-white/[0.08] text-white/40 hover:text-white/70 hover:border-white/20'
+                              }`}
+                        >
+                           {p}
+                        </button>
+                     ))}
+                  </div>
+               </label>
+
+               {/* Actions */}
+               <div className="flex justify-end gap-3 mt-2">
+                  <button
+                     onClick={onCancel}
+                     className="px-4 py-2 text-xs font-semibold text-white/40 hover:text-white border border-white/10 hover:border-white/25 rounded-lg transition-all"
+                  >
+                     Huỷ
+                  </button>
+                  <button
+                     onClick={() => { if (reason.trim()) onConfirm(reason.trim()); }}
+                     disabled={!reason.trim() || saving}
+                     className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${!reason.trim() || saving
+                        ? 'bg-white/5 text-white/25 cursor-not-allowed'
+                        : 'bg-primary hover:bg-red-700 text-white shadow-lg shadow-primary/20'
+                        }`}
+                  >
+                     {saving ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
+                     {saving ? 'Đang lưu…' : 'Xác nhận lưu'}
+                  </button>
+               </div>
+            </div>
+         </div>
+      </>
+   );
+};
+
 // ─── Product Group Row ────────────────────────────────────────────────────────
 
 interface ProductGroupRowProps {
    group: ProductGroup;
    dirtyMap: Record<number, number>;
    onQuantityChange: (variantId: number, value: string) => void;
+   onViewHistory: (variant: InventoryVariant) => void;
    defaultOpen: boolean;
 }
 
-const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQuantityChange, defaultOpen }) => {
+const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQuantityChange, onViewHistory, defaultOpen }) => {
    const [open, setOpen] = useState(defaultOpen);
 
-   // Aggregate stats for the header
    const totalStock = group.variants.reduce((s, v) => s + v.stockQuantity, 0);
    const pendingTotalStock = group.variants.reduce((s, v) => s + (v.variantId in dirtyMap ? dirtyMap[v.variantId] : v.stockQuantity), 0);
    const hasLow = group.variants.some((v) => v.stockQuantity < 10);
@@ -110,15 +359,12 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
                } ${hasDirty ? 'border-l-2 border-l-amber-400/50' : ''}`}
             onClick={() => setOpen((p) => !p)}
          >
-            <td className="px-5 py-3" colSpan={6}>
+            <td className="px-5 py-3" colSpan={7}>
                <div className="flex items-center gap-3">
-                  {/* Chevron */}
                   <ChevronRight
                      size={15}
                      className={`text-white/30 transition-transform shrink-0 ${open ? 'rotate-90' : ''}`}
                   />
-
-                  {/* Product image */}
                   <div className="w-8 h-10 rounded overflow-hidden bg-white/5 border border-white/5 shrink-0">
                      {group.primaryImageUrl ? (
                         <img src={group.primaryImageUrl} alt={group.productName} className="w-full h-full object-cover" />
@@ -128,16 +374,12 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
                         </div>
                      )}
                   </div>
-
-                  {/* Product name + variant count */}
                   <div className="flex-1 min-w-0">
                      <span className="text-sm font-bold text-white tracking-tight">{group.productName}</span>
                      <span className="ml-2 text-[10px] text-white/30 font-medium">
                         {group.variants.length} biến thể
                      </span>
                   </div>
-
-                  {/* Aggregate stats */}
                   <div className="flex items-center gap-4 shrink-0">
                      {hasDirty && (
                         <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
@@ -173,18 +415,16 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
                   <tr
                      key={v.variantId}
                      className={`transition-colors ${isDirty
-                           ? 'bg-amber-500/[0.035]'
-                           : v.stockQuantity === 0
-                              ? 'bg-red-900/[0.08] hover:bg-red-900/[0.12]'
-                              : 'hover:bg-white/[0.015]'
+                        ? 'bg-amber-500/[0.035]'
+                        : v.stockQuantity === 0
+                           ? 'bg-red-900/[0.08] hover:bg-red-900/[0.12]'
+                           : 'hover:bg-white/[0.015]'
                         } ${isLast ? 'border-b border-white/[0.07]' : 'border-b border-white/[0.03]'}`}
                   >
-                     {/* Sản phẩm (variant label only, indented) */}
+                     {/* Variant label */}
                      <td className="pl-14 pr-5 py-3">
                         <div className="flex items-center gap-1.5">
-                           {isDirty && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                           )}
+                           {isDirty && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
                            <span className="text-sm text-white/80 font-medium">
                               {v.variantLabel || <span className="text-white/30 italic text-xs">Mặc định</span>}
                            </span>
@@ -205,7 +445,7 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
                         </span>
                      </td>
 
-                     {/* Tồn kho hiện tại */}
+                     {/* Tồn kho HT */}
                      <td className="px-5 py-3 text-center">
                         <span className={`text-base font-black tabular-nums ${v.stockQuantity === 0 ? 'text-red-400' : v.stockQuantity < 10 ? 'text-amber-400' : 'text-white'
                            }`}>
@@ -213,7 +453,7 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
                         </span>
                      </td>
 
-                     {/* Cập nhật (input) */}
+                     {/* Cập nhật */}
                      <td className="px-5 py-3">
                         <div className="flex justify-center">
                            <input
@@ -223,8 +463,8 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
                               onChange={(e) => onQuantityChange(v.variantId, e.target.value)}
                               onClick={(e) => e.stopPropagation()}
                               className={`w-24 text-center rounded-lg px-3 py-1.5 text-sm font-semibold border transition-all focus:outline-none focus:ring-1 ${isDirty
-                                    ? 'bg-amber-500/10 border-amber-400/40 text-amber-300 focus:ring-amber-400/30'
-                                    : 'bg-white/[0.04] border-white/[0.08] text-white focus:ring-primary/40 focus:border-primary/50'
+                                 ? 'bg-amber-500/10 border-amber-400/40 text-amber-300 focus:ring-amber-400/30'
+                                 : 'bg-white/[0.04] border-white/[0.08] text-white focus:ring-primary/40 focus:border-primary/50'
                                  }`}
                            />
                         </div>
@@ -235,6 +475,17 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${status.className}`}>
                            {status.label}
                         </span>
+                     </td>
+
+                     {/* Lịch sử */}
+                     <td className="px-5 py-3 text-center">
+                        <button
+                           onClick={(e) => { e.stopPropagation(); onViewHistory(v); }}
+                           title="Xem lịch sử tồn kho"
+                           className="p-1.5 rounded-lg text-white/25 hover:text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all"
+                        >
+                           <History size={14} />
+                        </button>
                      </td>
                   </tr>
                );
@@ -253,7 +504,9 @@ export const AdminRestock: React.FC = () => {
    const [onlyLowStock, setOnlyLowStock] = useState(false);
    const [dirtyMap, setDirtyMap] = useState<Record<number, number>>({});
    const [saving, setSaving] = useState(false);
+   const [showReasonModal, setShowReasonModal] = useState(false);
    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+   const [logVariant, setLogVariant] = useState<InventoryVariant | null>(null);
    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
    const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -292,11 +545,15 @@ export const AdminRestock: React.FC = () => {
       setDirtyMap((prev) => ({ ...prev, [variantId]: Math.max(0, parsed) }));
    };
 
-   const handleSave = async () => {
-      if (dirtyCount === 0) return;
+   const handleSaveConfirmed = async (reason: string) => {
       setSaving(true);
+      setShowReasonModal(false);
       try {
-         const changes = Object.entries(dirtyMap).map(([id, qty]) => ({ variantId: Number(id), quantity: qty }));
+         const changes = Object.entries(dirtyMap).map(([id, qty]) => ({
+            variantId: Number(id),
+            quantity: qty,
+            reason,
+         }));
          const res = await bulkUpdateStock(changes);
          setToast({ message: res.message, type: 'success' });
          await loadInventory();
@@ -313,9 +570,31 @@ export const AdminRestock: React.FC = () => {
       return () => clearTimeout(t);
    }, [toast]);
 
+   // ─── Keyboard shortcut: Escape closes any modal ──────────────────────────
+   useEffect(() => {
+      const handler = (e: KeyboardEvent) => {
+         if (e.key === 'Escape') {
+            setShowReasonModal(false);
+            setLogVariant(null);
+         }
+      };
+      window.addEventListener('keydown', handler);
+      return () => window.removeEventListener('keydown', handler);
+   }, []);
+
    return (
       <div className="min-h-full p-8 max-w-[1600px] mx-auto flex flex-col gap-6" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-         <style>{`@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');`}</style>
+         <style>{`
+            @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');
+            @keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+            @keyframes slide-in-right { from { transform: translateX(100%) } to { transform: translateX(0) } }
+            @keyframes scale-in { from { opacity: 0; transform: scale(0.95) } to { opacity: 1; transform: scale(1) } }
+            @keyframes fade-in-up { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
+            .animate-fade-in { animation: fade-in 0.15s ease-out both; }
+            .animate-slide-in-right { animation: slide-in-right 0.25s ease-out both; }
+            .animate-scale-in { animation: scale-in 0.18s ease-out both; }
+            .animate-fade-in-up { animation: fade-in-up 0.2s ease-out both; }
+         `}</style>
 
          {/* ── Header ── */}
          <header className="flex items-start justify-between gap-4">
@@ -327,7 +606,7 @@ export const AdminRestock: React.FC = () => {
                   <h1 className="text-2xl font-bold text-white tracking-tight">Nhập Kho Nhanh</h1>
                </div>
                <p className="text-xs text-white/40 uppercase tracking-[0.15em] ml-[3.5rem]">
-                  Cập nhật số lượng tồn kho · Nhóm theo sản phẩm
+                  Cập nhật số lượng tồn kho · Mỗi lần lưu đều được ghi log
                </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
@@ -340,11 +619,11 @@ export const AdminRestock: React.FC = () => {
                   </button>
                )}
                <button
-                  onClick={handleSave}
+                  onClick={() => { if (dirtyCount > 0) setShowReasonModal(true); }}
                   disabled={dirtyCount === 0 || saving}
                   className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-lg ${dirtyCount > 0 && !saving
-                        ? 'bg-primary hover:bg-red-700 text-white shadow-primary/20 cursor-pointer'
-                        : 'bg-white/5 text-white/30 cursor-not-allowed border border-white/5'
+                     ? 'bg-primary hover:bg-red-700 text-white shadow-primary/20 cursor-pointer'
+                     : 'bg-white/5 text-white/30 cursor-not-allowed border border-white/5'
                      }`}
                >
                   {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
@@ -448,6 +727,7 @@ export const AdminRestock: React.FC = () => {
                            <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-36">Tồn kho HT</th>
                            <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-40">Cập nhật</th>
                            <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-32">Trạng thái</th>
+                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-16">Lịch sử</th>
                         </tr>
                      </thead>
                      <tbody>
@@ -455,7 +735,7 @@ export const AdminRestock: React.FC = () => {
                            Array.from({ length: 4 }).map((_, i) => <SkeletonGroup key={i} />)
                         ) : groups.length === 0 ? (
                            <tr>
-                              <td colSpan={6}>
+                              <td colSpan={7}>
                                  <div className="flex flex-col items-center justify-center py-20 text-center">
                                     <Package size={48} className="text-white/10 mb-4" />
                                     <p className="text-white/40 text-sm font-medium">
@@ -476,6 +756,7 @@ export const AdminRestock: React.FC = () => {
                                  group={group}
                                  dirtyMap={dirtyMap}
                                  onQuantityChange={handleQuantityChange}
+                                 onViewHistory={setLogVariant}
                                  defaultOpen={onlyLowStock || !!search}
                               />
                            ))
@@ -498,7 +779,7 @@ export const AdminRestock: React.FC = () => {
                      Huỷ bỏ
                   </button>
                   <button
-                     onClick={handleSave}
+                     onClick={() => setShowReasonModal(true)}
                      className="flex items-center gap-2 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl shadow-lg shadow-primary/20 transition-all"
                   >
                      <Save size={14} />
@@ -506,6 +787,23 @@ export const AdminRestock: React.FC = () => {
                   </button>
                </div>
             </div>
+         )}
+
+         {/* ── Modals & Panels ── */}
+         {showReasonModal && (
+            <ReasonModal
+               dirtyCount={dirtyCount}
+               onConfirm={handleSaveConfirmed}
+               onCancel={() => setShowReasonModal(false)}
+               saving={saving}
+            />
+         )}
+
+         {logVariant && (
+            <LogPanel
+               variant={logVariant}
+               onClose={() => setLogVariant(null)}
+            />
          )}
 
          {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}

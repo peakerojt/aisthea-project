@@ -1,4 +1,6 @@
-import { findOrderByIdWithRelations, updateOrderStatus, appendOrderStatusHistory, OrderWithRelations } from './order.repository';
+import { findOrderByIdWithRelations, OrderWithRelations } from './order.repository';
+import { prisma } from '../../utils/prisma';
+import { atomicCancelRestore } from '../../services/inventory.service';
 
 export type Role = 'Admin' | 'Customer' | string;
 
@@ -197,9 +199,54 @@ export async function cancelOrderForUser(orderIdRaw: string, currentUser: Curren
     );
   }
 
-  const updated = await updateOrderStatus(parsedId, 'Cancelled');
-  await appendOrderStatusHistory(parsedId, 'Cancelled');
+  // ─── Atomic cancel + stock restore transaction ────────────────────────────
+  // All three operations (status update, history append, stock restore + logs)
+  // run in a single DB transaction — any failure rolls everything back.
+  const updated = await prisma.$transaction(async (tx) => {
+    // 1. Update order status
+    const updatedOrder = await (tx.order.update as any)({
+      where: { orderId: parsedId },
+      data: { status: 'Cancelled' },
+      include: {
+        user: true,
+        items: {
+          include: {
+            variant: {
+              include: { images: true, product: true },
+            },
+          },
+        },
+        payments: true,
+        statusHistory: true,
+      },
+    });
 
-  return mapOrderToDto(updated);
+    // 2. Append status history
+    await (tx.orderStatusHistory.create as any)({
+      data: {
+        orderId: parsedId,
+        oldStatus: existing.status,
+        status: 'Cancelled',
+        changedBy: currentUser.userId,
+        changedAt: new Date(),
+      },
+    });
+
+    // 3. Restore stock and write InventoryLog for each item
+    await atomicCancelRestore(
+      parsedId,
+      currentUser.userId,
+      existing.items.map((item) => ({
+        variantId: item.variantId,
+        quantity: item.quantity,
+      })),
+      tx,
+    );
+
+    return updatedOrder;
+  });
+
+  return mapOrderToDto(updated as OrderWithRelations);
 }
+
 
