@@ -511,13 +511,98 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { paymentMethod } = req.body;
+    const {
+      paymentMethod,
+      customerName,
+      customerPhone,
+      shippingCity,
+      shippingDistrict,
+      shippingWard,
+      shippingAddressDetail,
+      note,
+      items
+    } = req.body;
 
     if (!paymentMethod) {
       return res.status(400).json({ error: 'Payment method is required' });
     }
 
-    const result: any[] = await prisma.$queryRaw`EXEC sp_Checkout @UserId = ${userId}, @PaymentMethod = ${paymentMethod}`;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Cart is empty. Vui lòng thêm sản phẩm vào giỏ hàng.' });
+    }
+
+    // --- SYNCHRONIZE CART ---
+    // 1. Find or create Cart for the user
+    let cart = await prisma.cart.findFirst({ where: { userId } });
+    if (!cart) {
+      cart = await prisma.cart.create({ data: { userId } });
+    }
+
+    // 2. Clear old items in the cart
+    await prisma.cartItem.deleteMany({ where: { cartId: cart.cartId } });
+
+    // 3. Resolve incoming items and insert into CartItems
+    for (const item of items) {
+      const productId = parseInt(item.id, 10);
+      if (isNaN(productId)) continue;
+
+      // Find all variants for this product to match attributes
+      const variants = await prisma.productVariant.findMany({
+        where: { productId },
+        include: {
+          variantAttributes: {
+            include: {
+              value: { include: { attribute: true } }
+            }
+          }
+        }
+      });
+
+      if (variants.length === 0) continue;
+
+      let matchedVariant = null;
+
+      // Try fully matching the color and size strings
+      if (item.size || item.color) {
+        matchedVariant = variants.find(v => {
+          let sizeMatch = !item.size;
+          let colorMatch = !item.color;
+          v.variantAttributes.forEach(va => {
+            const attrName = va.value.attribute.name.toLowerCase();
+            const attrVal = va.value.value.toLowerCase();
+            if (attrName === 'size' && item.size && attrVal === item.size.toLowerCase()) sizeMatch = true;
+            if (attrName === 'color' && item.color && attrVal === item.color.toLowerCase()) colorMatch = true;
+          });
+          return sizeMatch && colorMatch;
+        });
+      }
+
+      // Fallback: take the default variant or first variant
+      if (!matchedVariant) {
+        matchedVariant = variants.find(v => v.isDefault) || variants[0];
+      }
+
+      await prisma.cartItem.create({
+        data: {
+          cartId: cart.cartId,
+          variantId: matchedVariant.variantId,
+          quantity: item.quantity > 0 ? item.quantity : 1,
+        }
+      });
+    }
+    // --- END CART SYNCHRONIZATION ---
+
+    const result: any[] = await prisma.$queryRaw`
+      EXEC sp_Checkout 
+        @UserId = ${userId}, 
+        @PaymentMethod = ${paymentMethod},
+        @CustomerName = ${customerName || 'Khách hàng'},
+        @CustomerPhone = ${customerPhone || '0000000000'},
+        @ShippingCity = ${shippingCity || 'Hà Nội'},
+        @ShippingDistrict = ${shippingDistrict || 'Không xác định'},
+        @ShippingWard = ${shippingWard || null},
+        @ShippingAddressDetail = ${shippingAddressDetail || 'Không xác định'}
+    `;
 
     if (!result || result.length === 0) {
       throw new Error('Checkout execution returned no result.');

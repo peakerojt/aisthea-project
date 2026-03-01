@@ -108,7 +108,7 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, 
       setView('STORE_STYLIST');
     } else if (setCategory && (item === 'Men' || item === 'Women')) {
       setCategory(item as CategoryType);
-      setView('STORE_COLLECTION');
+      setView('STORE_CATEGORY');
     } else {
       setView('STORE_COLLECTION');
     }
