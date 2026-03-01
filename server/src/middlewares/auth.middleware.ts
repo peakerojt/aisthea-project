@@ -22,10 +22,10 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
         token = authHeader && authHeader.split(' ')[1];
     }
 
-    if (token == null) return res.sendStatus(401);
+    if (token == null) return res.status(401).json({ error: 'Unauthorized', message: 'Vui lòng đăng nhập để tiếp tục.' });
 
     jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', async (err: any, user: any) => {
-        if (err) return res.sendStatus(403);
+        if (err) return res.status(403).json({ error: 'Forbidden', message: 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ.' });
 
         // 3) Check user status in DB — reject if account is Banned
         try {

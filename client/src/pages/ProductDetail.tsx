@@ -21,6 +21,7 @@ import { ProductImageGallery } from '../components/ProductImageGallery';
 import { fetchProductById, fetchProducts, Product as ApiProductType } from '../services/product.service';
 import { getCloudinaryProductCard } from '../utils/cloudinary';
 import { useProducts } from '../contexts/ProductContext';
+import { useAuth } from '../contexts/AuthContext';
 import { ProductCard } from '../components/ProductCard/ProductCard';
 import { StoreHeader } from '../components/StoreHeader';
 
@@ -41,6 +42,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
   const [isLoading, setIsLoading] = useState(true);
   const carouselRef = React.useRef<HTMLDivElement>(null);
   const { products } = useProducts();
+  const { user } = useAuth();
 
   // Selection states
   const [selectedSize, setSelectedSize] = useState<string>('');
@@ -205,6 +207,12 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
   }, [products, productDetails, basicInfo, currentActiveId]);
 
   const handleAddToCart = () => {
+    if (!user) {
+      setView('AUTH_LOGIN');
+      window.scrollTo(0, 0);
+      return;
+    }
+
     addToCart({
       id: basicInfo.id,
       name: productDetails?.name || basicInfo.name,

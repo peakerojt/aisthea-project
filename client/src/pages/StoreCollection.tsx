@@ -428,8 +428,12 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
           ) : (
             <div className="flex flex-col items-center justify-center py-20 min-h-[40vh] text-center">
               <span className="material-symbols-outlined text-6xl text-white/10 mb-6">search_off</span>
-              <h3 className="text-xl font-bold uppercase tracking-[0.2em] text-white mb-3">Không tìm thấy kết quả</h3>
-              <p className="text-gray-500 mb-8 max-w-md mx-auto">Chúng tôi không tìm thấy sản phẩm nào khớp với "{searchTerm}". Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc.</p>
+              <h3 className="text-xl font-bold uppercase tracking-[0.2em] text-white mb-3">Không tìm thấy sản phẩm</h3>
+              <p className="text-gray-500 mb-8 max-w-md mx-auto">
+                {searchTerm
+                  ? `Chúng tôi không tìm thấy sản phẩm nào khớp với "${searchTerm}". Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc.`
+                  : "Chưa có sản phẩm nào trong bộ sưu tập này. Vui lòng quay lại sau."}
+              </p>
               <button
                 onClick={() => {
                   setSearchTerm('');

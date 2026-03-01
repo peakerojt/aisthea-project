@@ -95,7 +95,7 @@ export const ShoppingBag: React.FC<ShoppingBagProps> = ({ setView, setCategory, 
                                     </div>
                                 </div>
 
-                                <button onClick={() => setView('ADMIN_TRACKING')} className="w-full bg-primary hover:bg-red-700 text-white font-bold text-sm uppercase tracking-widest h-14 rounded-sm transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group">
+                                <button onClick={() => setView('STORE_CHECKOUT')} className="w-full bg-primary hover:bg-red-700 text-white font-bold text-sm uppercase tracking-widest h-14 rounded-sm transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group">
                                     Proceed to Checkout <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
                                 </button>
                             </div>
