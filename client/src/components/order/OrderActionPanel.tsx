@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Loader2, ShoppingBag, Package, Truck, CheckCircle2,
     XCircle, RotateCcw, AlertTriangle,
@@ -66,8 +67,8 @@ const NoteDialog: React.FC<NoteDialogProps> = ({ targetStatus, loading, onClose,
 
     useEffect(() => { setNote(''); }, [targetStatus]);
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4">
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
 
@@ -109,8 +110,8 @@ const NoteDialog: React.FC<NoteDialogProps> = ({ targetStatus, loading, onClose,
                                 key={p}
                                 onClick={() => setNote(p)}
                                 className={`px-3 py-1.5 rounded-full text-[11px] font-medium border transition-all cursor-pointer ${note === p
-                                        ? `${meta.badgeClass} ${meta.textClass}`
-                                        : 'border-white/10 bg-white/[0.03] text-white/50 hover:text-white/80 hover:border-white/20'
+                                    ? `${meta.badgeClass} ${meta.textClass}`
+                                    : 'border-white/10 bg-white/[0.03] text-white/50 hover:text-white/80 hover:border-white/20'
                                     }`}
                             >
                                 {p}
@@ -140,7 +141,8 @@ const NoteDialog: React.FC<NoteDialogProps> = ({ targetStatus, loading, onClose,
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
@@ -157,8 +159,8 @@ interface ConfirmDialogProps {
 
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ targetStatus, loading, onClose, onConfirm }) => {
     const meta = ORDER_STATUS_META[targetStatus];
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
             <div className="relative w-full max-w-sm bg-[#111114] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
                 <div className={`h-0.5 w-full bg-gradient-to-r from-transparent via-current to-transparent ${meta.textClass}`} />
@@ -193,7 +195,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ targetStatus, loading, on
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
