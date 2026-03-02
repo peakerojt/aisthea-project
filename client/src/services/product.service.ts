@@ -313,3 +313,66 @@ export const deleteProductById = async (id: number): Promise<SmartDeleteResponse
     }
 };
 
+// ─── Bulk Import / Export ──────────────────────────────────────────────────────
+
+export interface ImportError {
+    row: number;
+    handle: string;
+    reason: string;
+}
+
+export interface ImportReport {
+    total: number;
+    success: number;
+    failed: number;
+    errors: ImportError[];
+}
+
+/** Triggers browser download of an empty Excel template */
+export const downloadTemplate = async (): Promise<void> => {
+    const res = await fetch('/api/products/export/template', { credentials: 'include' });
+    if (!res.ok) throw new Error('Không thể tải template');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'template_san_pham.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+};
+
+/** Triggers browser download of all products as Excel */
+export const exportAllProducts = async (): Promise<void> => {
+    const res = await fetch('/api/products/export', { credentials: 'include' });
+    if (!res.ok) throw new Error('Không thể xuất sản phẩm');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `san_pham_${timestamp}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+};
+
+/** Upload an xlsx/csv file for import. Returns detailed report. */
+export const importProducts = async (file: File): Promise<ImportReport> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/products/import', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.error ?? 'Lỗi nhập khẩu sản phẩm');
+    }
+    return data as ImportReport;
+};
+
+

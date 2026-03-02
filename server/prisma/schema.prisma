@@ -57,9 +57,10 @@ model PasswordResetToken {
 }
 
 model Role {
-  roleId    Int        @id(map: "PK__Roles__8AFACE1ABB9CD182") @default(autoincrement()) @map("RoleId")
-  roleName  String     @unique(map: "UQ__Roles__8A2B6160E320F027") @map("RoleName") @db.NVarChar(50)
-  userRoles UserRole[]
+  roleId          Int              @id(map: "PK__Roles__8AFACE1ABB9CD182") @default(autoincrement()) @map("RoleId")
+  roleName        String           @unique(map: "UQ__Roles__8A2B6160E320F027") @map("RoleName") @db.NVarChar(50)
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
 
   @@map("Roles")
 }
@@ -72,6 +73,29 @@ model UserRole {
 
   @@id([userId, roleId], map: "PK__UserRole__AF2760ADFA37429D")
   @@map("UserRoles")
+}
+
+// ─── RBAC: Permissions & Role-Permission join ────────────────────────────────
+
+model Permission {
+  permissionId    Int              @id @default(autoincrement()) @map("PermissionId")
+  code            String           @unique @map("Code") @db.NVarChar(100)        // e.g. 'CREATE_PRODUCT'
+  module          String           @map("Module") @db.NVarChar(50)               // e.g. 'PRODUCT'
+  description     String           @map("Description") @db.NVarChar(255)
+  rolePermissions RolePermission[]
+
+  @@index([module], map: "IX_Permissions_Module")
+  @@map("Permissions")
+}
+
+model RolePermission {
+  roleId       Int        @map("RoleId")
+  permissionId Int        @map("PermissionId")
+  role         Role       @relation(fields: [roleId], references: [roleId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RolePermissions_Roles")
+  permission   Permission @relation(fields: [permissionId], references: [permissionId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RolePermissions_Permissions")
+
+  @@id([roleId, permissionId], map: "PK_RolePermissions")
+  @@map("RolePermissions")
 }
 
 model UserLogin {

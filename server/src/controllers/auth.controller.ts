@@ -270,10 +270,16 @@ export const getSession = async (req: Request, res: Response) => {
             include: {
                 userRoles: {
                     include: {
-                        role: true
-                    }
-                }
-            }
+                        role: {
+                            include: {
+                                rolePermissions: {
+                                    include: { permission: { select: { code: true } } },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         });
 
         if (!user) {
@@ -284,6 +290,13 @@ export const getSession = async (req: Request, res: Response) => {
         }
 
         const roles = user.userRoles.map(ur => ur.role.roleName);
+        const permissions = [
+            ...new Set(
+                user.userRoles.flatMap((ur) =>
+                    ur.role.rolePermissions.map((rp) => rp.permission.code)
+                )
+            ),
+        ];
 
         res.json({
             isAuthenticated: true,
@@ -292,7 +305,8 @@ export const getSession = async (req: Request, res: Response) => {
                 email: user.email,
                 fullName: user.fullName,
                 avatarUrl: user.avatarUrl,
-                roles
+                roles,
+                permissions,
             }
         });
     } catch (error: any) {
