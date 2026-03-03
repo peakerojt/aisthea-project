@@ -2,7 +2,7 @@ import React from 'react';
 import { ShoppingBag, Package, Truck, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
 import { TrackingTimelineItem } from '../../types/tracking';
 import { StatusBadge } from './StatusBadge';
-import { ORDER_STATUS_META } from '../../config/orderStatus.config';
+import { getStatusMeta, normalizeStatus } from '../../config/orderStatus.config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -70,12 +70,13 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({ history = [] }) =>
   return (
     <div className="px-5 pb-5 pt-2 space-y-4">
       {history.map((item, index) => {
-        const cfg = ORDER_STATUS_META[item.status] ?? ORDER_STATUS_META['pending'];
+        const normalizedStatus = normalizeStatus(item.status);
+        const cfg = getStatusMeta(normalizedStatus);
         return (
           <div key={`${item.status}-${index}`} className="flex gap-3">
             <div className="flex flex-col items-center">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${cfg.bgClass ?? 'bg-white/10'}`}>
-                <StatusDotIcon iconName={cfg.icon ?? 'Package'} className={cfg.textClass ?? 'text-white/60'} />
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${(cfg as any)?.bgClass ?? cfg?.badgeClass ?? 'bg-white/10'}`}>
+                <StatusDotIcon iconName={cfg?.icon ?? 'Package'} className={cfg?.textClass ?? 'text-white/60'} />
               </div>
               {index < history.length - 1 && <div className="w-px flex-1 bg-white/10 mt-1" />}
             </div>
