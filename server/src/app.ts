@@ -21,6 +21,9 @@ import couponRoutes from './routes/coupon.routes';
 import cartRoutes from './routes/cart.routes';
 import roleRoutes from './routes/role.routes';
 import permissionRoutes from './routes/permission.routes';
+import trackingRouter from './modules/tracking/tracking.route';
+import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
+
 
 dotenv.config();
 
@@ -38,13 +41,12 @@ export function createApp() {
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
+
   app.use(cookieParser());
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
   app.use('/api/auth', authRoutes);
-  // Import/Export routes MUST be registered before general product routes
-  // to prevent /api/products/:id wildcard from capturing /export and /import
   app.use('/api/products', importExportRoutes);
   app.use('/api/products', productRoutes);
   app.use('/api/categories', categoryRoutes);
@@ -58,18 +60,18 @@ export function createApp() {
   app.use('/api/permissions', permissionRoutes);
   app.use('/api/reviews', reviewRoutes);
 
-
-  // Keep existing routes for backward compatibility
   app.use('/api/orders', orderRoutes);
-  // New production-ready endpoints
   app.use('/api/orders', orderModuleRoutes);
+  app.use('/api', trackingRouter);
 
   app.use('/api/users', userRoutes);
 
-  app.get('/', (req: Request, res: Response) => {
+  app.get('/', (_req: Request, res: Response) => {
     res.send('<h1>Server SQL Server đã kết nối thành công! 🚀</h1>');
   });
 
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+
   return app;
 }
-
