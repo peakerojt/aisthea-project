@@ -15,6 +15,7 @@ import categoryRoutes from './routes/category.routes';
 import inventoryRoutes from './routes/inventory.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import vnpayRoutes from './routes/vnpay.routes';
 import couponRoutes from './routes/coupon.routes';
 import roleRoutes from './routes/role.routes';
 import permissionRoutes from './routes/permission.routes';
@@ -49,6 +50,7 @@ export function createApp() {
   app.use('/api/inventory', inventoryRoutes);
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/analytics', analyticsRoutes);
+  app.use('/api/vnpay', vnpayRoutes);
   app.use('/api/coupons', couponRoutes);
   app.use('/api/roles', roleRoutes);
   app.use('/api/permissions', permissionRoutes);

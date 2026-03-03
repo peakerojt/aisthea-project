@@ -9,6 +9,7 @@ import { ProductProvider } from './contexts/ProductContext';
 import './styles/index.css';
 import './i18n/config'; // ← initialise i18next before the React tree mounts
 import { OrderDetailPage } from './pages/OrderDetailPage';
+import { VNPayReturn } from './pages/VNPayReturn';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 const queryClient = new QueryClient();
@@ -21,6 +22,7 @@ root.render(
           <BrowserRouter>
             <Routes>
               <Route path="/orders/:id" element={<OrderDetailPage />} />
+              <Route path="/vnpay-return" element={<VNPayReturn />} />
               <Route path="*" element={<App />} />
             </Routes>
           </BrowserRouter>

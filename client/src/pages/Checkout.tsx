@@ -211,7 +211,21 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
 
             // Redirect based on payment method
             if (formData.paymentMethod === 'VNPAY') {
-                setView('STORE_PAYMENT_QR');
+                try {
+                    const vnpResponse = await httpClient.post('/api/vnpay/create_payment_url', {
+                        amount: Math.round(total),
+                        orderId: data.orderId,
+                        orderDescription: 'Thanh toan don hang ' + data.orderId,
+                        orderType: 'other'
+                    });
+                    if (vnpResponse.data && vnpResponse.data.vnpUrl) {
+                        window.location.href = vnpResponse.data.vnpUrl;
+                        return; // Prevent setting loading to false too quickly before redirect
+                    }
+                } catch (vnpErr) {
+                    console.error('Failed to get VNPAY URL:', vnpErr);
+                    setError('Không thể tạo link thanh toán VNPAY.');
+                }
             } else {
                 setView('STORE_ORDER_SUCCESS');
             }
