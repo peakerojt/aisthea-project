@@ -1,0 +1,60 @@
+{
+    "page": {
+        "title": "Quản lý hoàn trả",
+        "subtitle": "Xem xét và xử lý các yêu cầu trả hàng & hoàn tiền",
+        "pendingBadge": "{{count}} chờ duyệt"
+    },
+    "status": {
+        "PENDING_APPROVAL": "Chờ duyệt",
+        "APPROVED": "Đã chấp nhận",
+        "REJECTED": "Đã từ chối",
+        "COMPLETED": "Hoàn tiền xong"
+    },
+    "filters": {
+        "all": "Tất cả",
+        "pending": "Chờ duyệt",
+        "approved": "Đã chấp nhận",
+        "rejected": "Đã từ chối",
+        "completed": "Hoàn tiền xong"
+    },
+    "table": {
+        "rowNumber": "#",
+        "orderCustomer": "Mã đơn / Khách hàng",
+        "reason": "Lý do",
+        "requestDate": "Ngày yêu cầu",
+        "status": "Trạng thái",
+        "actions": "Thao tác",
+        "guest": "Khách vãng lai",
+        "proofImages": "{{count}} ảnh",
+        "viewDetail": "Xem chi tiết",
+        "empty": "Không có yêu cầu hoàn trả nào."
+    },
+    "modal": {
+        "title": "Xem xét yêu cầu hoàn trả",
+        "orderInfo": "Đơn hàng #{{orderNumber}} — {{customer}}",
+        "customer": "Khách hàng",
+        "requestDate": "Ngày yêu cầu",
+        "orderValue": "Giá trị đơn",
+        "returnReason": "Lý do trả hàng",
+        "proofImages": "Hình ảnh minh chứng ({{count}})",
+        "adminNote": "Ghi chú Admin",
+        "rejectReason": "Lý do từ chối",
+        "rejectPlaceholder": "Nhập lý do từ chối yêu cầu hoàn trả...",
+        "rejectRequired": "Vui lòng nhập lý do từ chối.",
+        "actionReject": "Từ chối yêu cầu",
+        "actionApprove": "Chấp nhận",
+        "actionRefund": "Chấp nhận & Hoàn tiền",
+        "actionConfirmReject": "Xác nhận từ chối",
+        "actionCancelReject": "Hủy",
+        "processing": "Đang xử lý..."
+    },
+    "pagination": {
+        "previous": "Trước",
+        "next": "Sau",
+        "page": "Trang {{page}} / {{total}}"
+    },
+    "feedback": {
+        "loadError": "Không thể tải danh sách hoàn trả.",
+        "processError": "Không thể xử lý yêu cầu."
+    }
+}

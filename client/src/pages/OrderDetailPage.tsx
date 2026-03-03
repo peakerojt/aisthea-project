@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cancelOrder, fetchOrderDetail, OrderDetail } from '../services/orderApi';
@@ -10,7 +10,6 @@ import { ShippingAddressCard } from '../components/order/ShippingAddressCard';
 import { OrderItemsTable } from '../components/order/OrderItemsTable';
 import { OrderPricingSummary } from '../components/order/OrderPricingSummary';
 import { OrderTimeline } from '../components/order/OrderTimeline';
-import { returnService, OrderReturn } from '../services/return.service';
 
 const canCancelStatus = (status: string | null | undefined) => {
   const s = (status || '').toLowerCase();
@@ -22,15 +21,6 @@ export const OrderDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { role } = useAuth();
-
-  // Return state
-  const [orderReturn, setOrderReturn] = useState<OrderReturn | null>(null);
-  const [showReturnDialog, setShowReturnDialog] = useState(false);
-  const [returnReason, setReturnReason] = useState('');
-  const [returnSubmitting, setReturnSubmitting] = useState(false);
-  const [returnToast, setReturnToast] = useState<string | null>(null);
-
-  useEffect(() => { if (returnToast) { const t = setTimeout(() => setReturnToast(null), 4000); return () => clearTimeout(t); } }, [returnToast]);
 
   const {
     data: order,
@@ -78,50 +68,6 @@ export const OrderDetailPage: React.FC = () => {
   });
 
   const structuredError = error as ApiError | null;
-
-  // Fetch return info when order loads
-  useEffect(() => {
-    if (!id) return;
-    returnService.getForOrder(Number(id))
-      .then(r => setOrderReturn(r))
-      .catch(() => setOrderReturn(null));
-  }, [id, order?.status]);
-
-  const RETURN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-  const canRequestReturn = useMemo(() => {
-    if (!order || orderReturn) return false;
-    const s = (order.status || '').toLowerCase();
-    if (s !== 'delivered') return false;
-    // Use last timeline entry as delivery date
-    const lastEntry = order.timeline?.[order.timeline.length - 1];
-    const deliveryDate = new Date(lastEntry?.at ?? order.createdAt ?? Date.now());
-    return Date.now() - deliveryDate.getTime() <= RETURN_WINDOW_MS;
-  }, [order, orderReturn]);
-
-  const returnStatusLabel = (s: string) => {
-    if (s === 'PENDING_APPROVAL') return 'Chờ duyệt';
-    if (s === 'APPROVED') return 'Đã chấp nhận';
-    if (s === 'REJECTED') return 'Đã từ chối — ' + (orderReturn?.adminNote || '');
-    if (s === 'COMPLETED') return 'Hoàn tiền xong';
-    return s;
-  };
-
-  const handleSubmitReturn = async () => {
-    if (!returnReason.trim()) return;
-    setReturnSubmitting(true);
-    try {
-      await returnService.request(Number(id), returnReason.trim(), []);
-      setReturnToast('Đã gửi yêu cầu trả hàng. Vui lòng chờ phản hồi từ shop.');
-      setShowReturnDialog(false);
-      setReturnReason('');
-      // Re-fetch return info
-      returnService.getForOrder(Number(id)).then(r => setOrderReturn(r)).catch(() => { });
-    } catch (e: any) {
-      setReturnToast('Lỗi: ' + (e?.message || 'Không thể gửi yêu cầu.'));
-    } finally {
-      setReturnSubmitting(false);
-    }
-  };
 
   const canCancel = useMemo(() => {
     if (!order) return false;
@@ -243,7 +189,7 @@ export const OrderDetailPage: React.FC = () => {
             </div>
             <div className="lg:col-span-4 space-y-6">
               <OrderPricingSummary order={order} />
-              <OrderTimeline history={(order.timeline || []).map(t => ({ status: t.status, changedAt: t.at }))} />
+              <OrderTimeline history={(order.timeline ?? []).map(t => ({ status: t.status, changedAt: t.at }))} />
               {order.note && (
                 <div className="bg-surface-dark border border-white/5 rounded-sm p-6">
                   <div className="text-[10px] uppercase tracking-widest text-white/40">Ghi chú</div>
@@ -252,92 +198,26 @@ export const OrderDetailPage: React.FC = () => {
               )}
               <div className="bg-surface-dark border border-white/5 rounded-sm p-6">
                 <div className="text-[10px] uppercase tracking-widest text-white/40">Hành động</div>
-
-                {/* Active return banner */}
-                {orderReturn && (
-                  <div className={`mt-4 p-3 rounded border text-xs ${orderReturn.status === 'REJECTED' ? 'border-red-500/30 bg-red-500/10 text-red-200' :
-                      orderReturn.status === 'COMPLETED' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' :
-                        'border-amber-500/30 bg-amber-500/10 text-amber-200'
-                    }`}>
-                    <span className="font-bold uppercase tracking-widest">Hoàn trả: </span>
-                    {returnStatusLabel(orderReturn.status)}
-                  </div>
-                )}
-
                 <button
-                  disabled={!canCancelStatus(order.status) || cancelMutation.isPending}
+                  disabled={!canCancel || cancelMutation.isPending}
                   onClick={() => cancelMutation.mutate()}
-                  className={`mt-4 w-full px-4 py-3 border text-xs font-bold uppercase tracking-widest transition-colors ${!canCancelStatus(order.status) || cancelMutation.isPending
+                  className={`mt-4 w-full px-4 py-3 border text-xs font-bold uppercase tracking-widest transition-colors ${!canCancel || cancelMutation.isPending
                       ? 'bg-white/5 border-white/10 text-white/30 cursor-not-allowed'
                       : 'bg-red-500/10 hover:bg-red-500/20 border-red-500/50 text-red-300'
                     }`}
                 >
                   {cancelMutation.isPending ? 'Đang hủy đơn...' : 'Hủy đơn hàng'}
                 </button>
-                {!canCancelStatus(order.status) && (
+                {!canCancel && (
                   <p className="mt-2 text-xs text-white/40">
                     Chỉ có thể hủy đơn khi trạng thái là <strong>Chờ xác nhận</strong>.
                   </p>
-                )}
-
-                {/* Return CTA */}
-                {canRequestReturn && (
-                  <button
-                    onClick={() => setShowReturnDialog(true)}
-                    className="mt-3 w-full px-4 py-3 border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 text-orange-300 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer"
-                  >
-                    Yêu cầu trả hàng / Hoàn tiền
-                  </button>
                 )}
               </div>
             </div>
           </div>
         )}
       </div>
-
-      {/* Return Request Dialog */}
-      {showReturnDialog && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => setShowReturnDialog(false)}>
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-          <div className="relative z-10 w-full max-w-lg bg-[#0f0f0f] border border-white/10 rounded-sm shadow-2xl p-6" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-black uppercase tracking-tighter text-white mb-1">Yêu cầu trả hàng</h2>
-            <p className="text-[10px] uppercase tracking-widest text-white/40 mb-6">Điền lý do để hoàn tất yêu cầu</p>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">Lý do trả hàng <span className="text-orange-400">*</span></label>
-            <textarea
-              value={returnReason}
-              onChange={e => setReturnReason(e.target.value)}
-              rows={4}
-              maxLength={500}
-              placeholder="Mô tả lý do bạn muốn trả hàng..."
-              className="w-full bg-white/5 border border-white/10 text-white text-sm px-4 py-3 rounded focus:outline-none focus:border-orange-500/50 transition-colors placeholder-white/20 resize-none"
-            />
-            <div className="text-xs text-white/30 text-right mt-1">{returnReason.length}/500</div>
-            {returnToast && <div className="mt-3 p-3 border border-red-500/20 bg-red-500/10 text-red-200 text-sm rounded">{returnToast}</div>}
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowReturnDialog(false)} className="flex-1 px-4 py-3 border border-white/10 text-white/60 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer">
-                Hủy
-              </button>
-              <button
-                onClick={handleSubmitReturn}
-                disabled={returnSubmitting || !returnReason.trim()}
-                className="flex-1 px-4 py-3 border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 text-orange-300 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {returnSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Toast */}
-      {returnToast && !showReturnDialog && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[500] w-full max-w-md px-4">
-          <div className="p-4 rounded-lg shadow-2xl border bg-emerald-500/90 border-emerald-400 text-white flex items-center gap-3">
-            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-            <p className="text-sm font-medium flex-1">{returnToast}</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

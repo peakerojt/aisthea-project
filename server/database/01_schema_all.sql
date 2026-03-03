@@ -2190,3 +2190,417 @@ PRINT 'Computed columns and indexes setup complete!';
 GO
 
 GO
+
+/* =============================================================
+   FILE: migrations/03_return_refund_migration.sql
+   ============================================================= */
+
+/* =============================================================
+   MIGRATION: Return & Refund Module
+   Adds: OrderReturns table + Orders.UpdatedAt column + Refunds table
+   Safe to re-run: uses IF NOT EXISTS guards
+   ============================================================= */
+
+-- ─── 1. Add UpdatedAt column to Orders (if it does not already exist) ─────────
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.columns
+    WHERE object_id = OBJECT_ID(N'dbo.Orders') AND name = N'UpdatedAt'
+)
+BEGIN
+    ALTER TABLE dbo.Orders
+        ADD UpdatedAt DATETIME2 NULL DEFAULT GETDATE();
+
+    PRINT '✔ Orders.UpdatedAt column added.';
+END
+ELSE
+BEGIN
+    PRINT '– Orders.UpdatedAt already exists, skipping.';
+END
+GO
+
+-- Set UpdatedAt = CreatedAt for existing rows (so 7-day window works correctly)
+UPDATE dbo.Orders
+SET UpdatedAt = CreatedAt
+WHERE UpdatedAt IS NULL AND CreatedAt IS NOT NULL;
+GO
+
+-- ─── 2. Create OrderReturns table (if it does not already exist) ──────────────
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.objects
+    WHERE object_id = OBJECT_ID(N'dbo.OrderReturns') AND type = N'U'
+)
+BEGIN
+    CREATE TABLE dbo.OrderReturns (
+        ReturnId    INT              NOT NULL IDENTITY(1,1),
+        OrderId     INT              NOT NULL,             -- FK → Orders (unique: 1 return per order)
+        UserId      INT              NULL,                 -- FK → Users (nullable: guest orders)
+        Reason      NVARCHAR(500)    NOT NULL,
+        ProofImages NVARCHAR(MAX)    NOT NULL DEFAULT N'[]', -- JSON array of Cloudinary URLs
+        [Status]    NVARCHAR(30)     NOT NULL DEFAULT N'PENDING_APPROVAL',
+        AdminNote   NVARCHAR(500)    NULL,
+        CreatedAt   DATETIME2        NOT NULL DEFAULT GETDATE(),
+        UpdatedAt   DATETIME2        NOT NULL DEFAULT GETDATE(),
+
+        CONSTRAINT PK_OrderReturns PRIMARY KEY (ReturnId),
+        CONSTRAINT UQ_OrderReturns_OrderId UNIQUE (OrderId),
+        CONSTRAINT FK_OrderReturns_Orders
+            FOREIGN KEY (OrderId) REFERENCES dbo.Orders (OrderId)
+            ON DELETE CASCADE,
+        CONSTRAINT FK_OrderReturns_Users
+            FOREIGN KEY (UserId) REFERENCES dbo.Users (UserId)
+            ON DELETE SET NULL
+    );
+
+    -- Indexes
+    CREATE INDEX IX_OrderReturns_OrderId ON dbo.OrderReturns (OrderId);
+    CREATE INDEX IX_OrderReturns_Status  ON dbo.OrderReturns ([Status]);
+    CREATE INDEX IX_OrderReturns_UserId  ON dbo.OrderReturns (UserId);
+
+    PRINT '✔ OrderReturns table created.';
+END
+ELSE
+BEGIN
+    PRINT '– OrderReturns table already exists, skipping.';
+END
+GO
+
+-- ─── 3. Create Refunds table — Financial Refund Ledger (if not already exists) ─
+-- type:   FULL | PARTIAL
+-- method: ORIGINAL_GATEWAY | BANK_TRANSFER | STORE_WALLET
+-- status: PENDING | PROCESSING | SUCCESS | FAILED
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.objects
+    WHERE object_id = OBJECT_ID(N'dbo.Refunds') AND type = N'U'
+)
+BEGIN
+    CREATE TABLE dbo.Refunds (
+        RefundId             INT              NOT NULL IDENTITY(1,1),
+        OrderId              INT              NOT NULL,           -- FK → Orders (CASCADE)
+        PaymentId            INT              NULL,               -- FK → Payments (NO ACTION)
+        Amount               DECIMAL(18,2)    NOT NULL,
+        [Type]               NVARCHAR(10)     NOT NULL,           -- FULL | PARTIAL
+        Method               NVARCHAR(25)     NOT NULL,           -- ORIGINAL_GATEWAY | BANK_TRANSFER | STORE_WALLET
+        [Status]             NVARCHAR(15)     NOT NULL DEFAULT N'PENDING',
+        GatewayTransactionId NVARCHAR(100)    NULL,
+        Reason               NVARCHAR(500)    NOT NULL,
+        GatewayError         NVARCHAR(500)    NULL,
+        CreatedBy            INT              NULL,
+        CreatedAt            DATETIME2        NOT NULL DEFAULT GETDATE(),
+        UpdatedAt            DATETIME2        NOT NULL DEFAULT GETDATE(),
+
+        CONSTRAINT PK_Refunds PRIMARY KEY (RefundId),
+        CONSTRAINT FK_Refunds_Orders
+            FOREIGN KEY (OrderId) REFERENCES dbo.Orders (OrderId)
+            ON DELETE CASCADE
+            ON UPDATE NO ACTION,
+        CONSTRAINT FK_Refunds_Payments
+            FOREIGN KEY (PaymentId) REFERENCES dbo.Payments (PaymentId)
+            ON DELETE NO ACTION
+            ON UPDATE NO ACTION
+    );
+
+    -- Indexes
+    CREATE INDEX IX_Refunds_OrderId  ON dbo.Refunds (OrderId);
+    CREATE INDEX IX_Refunds_Status   ON dbo.Refunds ([Status]);
+
+    PRINT '✔ Refunds table created.';
+END
+ELSE
+BEGIN
+    PRINT '– Refunds table already exists, skipping.';
+END
+GO
+
+PRINT '==============================================';
+PRINT '  Return & Refund migration complete!';
+PRINT '  (includes Refunds financial ledger table)';
+PRINT '==============================================';
+GO
+
+GO
+
+/* =============================================================
+   FILE: migrations/20260227_add_return_order_feature/migration.sql
+   ============================================================= */
+
+/* =============================================================
+   MIGRATION: Return Order Feature
+   Adds: ReturnRequests, ReturnRequestItems, ReturnRequestAttachments,
+         ReturnRequestStatusLogs, RefundTransactions tables
+   Safe to re-run: uses IF NOT EXISTS guards
+   ============================================================= */
+
+-- ─── 1. ReturnRequests ────────────────────────────────────────────────────────
+IF NOT EXISTS (
+    SELECT 1 FROM sys.objects
+    WHERE object_id = OBJECT_ID(N'[dbo].[ReturnRequests]') AND type = N'U'
+)
+BEGIN
+    CREATE TABLE [dbo].[ReturnRequests] (
+        [ReturnRequestId]   INT IDENTITY(1,1) NOT NULL,
+        [OrderId]           INT               NOT NULL,
+        [UserId]            INT               NOT NULL,
+        [Status]            NVARCHAR(20)      NOT NULL CONSTRAINT [DF_ReturnRequests_Status]      DEFAULT N'REQUESTED',
+        [Reason]            NVARCHAR(20)      NOT NULL,
+        [Note]              NVARCHAR(500)     NULL,
+        [TotalRefundAmount] DECIMAL(18,2)     NOT NULL,
+        [DeliveredAt]       DATETIME2         NOT NULL,
+        [RequestDate]       DATETIME2         NOT NULL CONSTRAINT [DF_ReturnRequests_RequestDate] DEFAULT GETDATE(),
+        [CreatedAt]         DATETIME2         NOT NULL CONSTRAINT [DF_ReturnRequests_CreatedAt]   DEFAULT GETDATE(),
+        [UpdatedAt]         DATETIME2         NOT NULL CONSTRAINT [DF_ReturnRequests_UpdatedAt]   DEFAULT GETDATE(),
+        CONSTRAINT [PK_ReturnRequests]        PRIMARY KEY ([ReturnRequestId]),
+        CONSTRAINT [FK_ReturnRequests_Orders] FOREIGN KEY ([OrderId]) REFERENCES [dbo].[Orders]([OrderId]) ON DELETE CASCADE,
+        CONSTRAINT [FK_ReturnRequests_Users]  FOREIGN KEY ([UserId])  REFERENCES [dbo].[Users]([UserId]),
+        CONSTRAINT [CK_ReturnRequests_Status] CHECK ([Status] IN (N'REQUESTED',N'APPROVED',N'REJECTED',N'RECEIVED',N'REFUNDED')),
+        CONSTRAINT [CK_ReturnRequests_Reason] CHECK ([Reason] IN (N'DEFECTIVE',N'WRONG_ITEM',N'SIZE_ISSUE',N'CHANGED_MIND',N'OTHER'))
+    );
+
+    CREATE INDEX [IX_ReturnRequests_Status_CreatedAt]  ON [dbo].[ReturnRequests]([Status],  [CreatedAt]);
+    CREATE INDEX [IX_ReturnRequests_UserId_CreatedAt]  ON [dbo].[ReturnRequests]([UserId],  [CreatedAt]);
+    CREATE INDEX [IX_ReturnRequests_OrderId_CreatedAt] ON [dbo].[ReturnRequests]([OrderId], [CreatedAt]);
+
+    PRINT '✔ ReturnRequests table created.';
+END
+ELSE
+BEGIN
+    PRINT '– ReturnRequests table already exists, skipping.';
+END
+GO
+
+-- ─── 2. ReturnRequestItems ────────────────────────────────────────────────────
+IF NOT EXISTS (
+    SELECT 1 FROM sys.objects
+    WHERE object_id = OBJECT_ID(N'[dbo].[ReturnRequestItems]') AND type = N'U'
+)
+BEGIN
+    CREATE TABLE [dbo].[ReturnRequestItems] (
+        [ReturnRequestItemId] INT IDENTITY(1,1) NOT NULL,
+        [ReturnRequestId]     INT               NOT NULL,
+        [OrderItemId]         INT               NOT NULL,
+        [Quantity]            INT               NOT NULL,
+        [UnitPrice]           DECIMAL(18,2)     NOT NULL,
+        [Reason]              NVARCHAR(20)      NULL,
+        [CreatedAt]           DATETIME2         NOT NULL CONSTRAINT [DF_ReturnRequestItems_CreatedAt] DEFAULT GETDATE(),
+        [UpdatedAt]           DATETIME2         NOT NULL CONSTRAINT [DF_ReturnRequestItems_UpdatedAt] DEFAULT GETDATE(),
+        CONSTRAINT [PK_ReturnRequestItems]                    PRIMARY KEY ([ReturnRequestItemId]),
+        CONSTRAINT [FK_ReturnRequestItems_ReturnRequests]     FOREIGN KEY ([ReturnRequestId]) REFERENCES [dbo].[ReturnRequests]([ReturnRequestId]) ON DELETE CASCADE,
+        CONSTRAINT [FK_ReturnRequestItems_OrderItems]         FOREIGN KEY ([OrderItemId])     REFERENCES [dbo].[OrderItems]([OrderItemId]),
+        CONSTRAINT [UQ_ReturnRequestItems_Request_OrderItem]  UNIQUE ([ReturnRequestId], [OrderItemId]),
+        CONSTRAINT [CK_ReturnRequestItems_Reason]             CHECK ([Reason] IS NULL OR [Reason] IN (N'DEFECTIVE',N'WRONG_ITEM',N'SIZE_ISSUE',N'CHANGED_MIND',N'OTHER'))
+    );
+
+    CREATE INDEX [IX_ReturnRequestItems_OrderItemId] ON [dbo].[ReturnRequestItems]([OrderItemId]);
+
+    PRINT '✔ ReturnRequestItems table created.';
+END
+ELSE
+BEGIN
+    PRINT '– ReturnRequestItems table already exists, skipping.';
+END
+GO
+
+-- ─── 3. ReturnRequestAttachments ──────────────────────────────────────────────
+IF NOT EXISTS (
+    SELECT 1 FROM sys.objects
+    WHERE object_id = OBJECT_ID(N'[dbo].[ReturnRequestAttachments]') AND type = N'U'
+)
+BEGIN
+    CREATE TABLE [dbo].[ReturnRequestAttachments] (
+        [AttachmentId]    INT IDENTITY(1,1) NOT NULL,
+        [ReturnRequestId] INT               NOT NULL,
+        [FileUrl]         NVARCHAR(1000)    NOT NULL,
+        [CreatedAt]       DATETIME2         NOT NULL CONSTRAINT [DF_ReturnRequestAttachments_CreatedAt] DEFAULT GETDATE(),
+        CONSTRAINT [PK_ReturnRequestAttachments]             PRIMARY KEY ([AttachmentId]),
+        CONSTRAINT [FK_ReturnRequestAttachments_ReturnRequests] FOREIGN KEY ([ReturnRequestId]) REFERENCES [dbo].[ReturnRequests]([ReturnRequestId]) ON DELETE CASCADE
+    );
+
+    CREATE INDEX [IX_ReturnRequestAttachments_ReturnRequestId] ON [dbo].[ReturnRequestAttachments]([ReturnRequestId]);
+
+    PRINT '✔ ReturnRequestAttachments table created.';
+END
+ELSE
+BEGIN
+    PRINT '– ReturnRequestAttachments table already exists, skipping.';
+END
+GO
+
+-- ─── 4. ReturnRequestStatusLogs ───────────────────────────────────────────────
+IF NOT EXISTS (
+    SELECT 1 FROM sys.objects
+    WHERE object_id = OBJECT_ID(N'[dbo].[ReturnRequestStatusLogs]') AND type = N'U'
+)
+BEGIN
+    CREATE TABLE [dbo].[ReturnRequestStatusLogs] (
+        [LogId]           INT IDENTITY(1,1) NOT NULL,
+        [ReturnRequestId] INT               NOT NULL,
+        [FromStatus]      NVARCHAR(20)      NULL,
+        [ToStatus]        NVARCHAR(20)      NOT NULL,
+        [ChangedBy]       INT               NOT NULL,
+        [Comment]         NVARCHAR(500)     NULL,
+        [CreatedAt]       DATETIME2         NOT NULL CONSTRAINT [DF_ReturnRequestStatusLogs_CreatedAt] DEFAULT GETDATE(),
+        CONSTRAINT [PK_ReturnRequestStatusLogs]               PRIMARY KEY ([LogId]),
+        CONSTRAINT [FK_ReturnRequestStatusLogs_ReturnRequests] FOREIGN KEY ([ReturnRequestId]) REFERENCES [dbo].[ReturnRequests]([ReturnRequestId]) ON DELETE CASCADE,
+        CONSTRAINT [FK_ReturnRequestStatusLogs_Users]          FOREIGN KEY ([ChangedBy])       REFERENCES [dbo].[Users]([UserId]),
+        CONSTRAINT [CK_ReturnRequestStatusLogs_FromStatus]     CHECK ([FromStatus] IS NULL OR [FromStatus] IN (N'REQUESTED',N'APPROVED',N'REJECTED',N'RECEIVED',N'REFUNDED')),
+        CONSTRAINT [CK_ReturnRequestStatusLogs_ToStatus]       CHECK ([ToStatus] IN (N'REQUESTED',N'APPROVED',N'REJECTED',N'RECEIVED',N'REFUNDED'))
+    );
+
+    CREATE INDEX [IX_ReturnRequestStatusLogs_RequestId_CreatedAt] ON [dbo].[ReturnRequestStatusLogs]([ReturnRequestId], [CreatedAt]);
+    CREATE INDEX [IX_ReturnRequestStatusLogs_ChangedBy]           ON [dbo].[ReturnRequestStatusLogs]([ChangedBy]);
+
+    PRINT '✔ ReturnRequestStatusLogs table created.';
+END
+ELSE
+BEGIN
+    PRINT '– ReturnRequestStatusLogs table already exists, skipping.';
+END
+GO
+
+-- ─── 5. RefundTransactions ────────────────────────────────────────────────────
+IF NOT EXISTS (
+    SELECT 1 FROM sys.objects
+    WHERE object_id = OBJECT_ID(N'[dbo].[RefundTransactions]') AND type = N'U'
+)
+BEGIN
+    CREATE TABLE [dbo].[RefundTransactions] (
+        [TransactionId]   INT IDENTITY(1,1) NOT NULL,
+        [ReturnRequestId] INT               NOT NULL,
+        [Amount]          DECIMAL(18,2)     NOT NULL,
+        [Method]          NVARCHAR(30)      NOT NULL,
+        [Status]          NVARCHAR(20)      NOT NULL CONSTRAINT [DF_RefundTransactions_Status] DEFAULT N'PENDING',
+        [IdempotencyKey]  NVARCHAR(100)     NOT NULL,
+        [TransactionRef]  NVARCHAR(100)     NULL,
+        [ProcessedBy]     INT               NULL,
+        [CreatedAt]       DATETIME2         NOT NULL CONSTRAINT [DF_RefundTransactions_CreatedAt] DEFAULT GETDATE(),
+        [UpdatedAt]       DATETIME2         NOT NULL CONSTRAINT [DF_RefundTransactions_UpdatedAt] DEFAULT GETDATE(),
+        CONSTRAINT [PK_RefundTransactions]                 PRIMARY KEY ([TransactionId]),
+        CONSTRAINT [FK_RefundTransactions_ReturnRequests]  FOREIGN KEY ([ReturnRequestId]) REFERENCES [dbo].[ReturnRequests]([ReturnRequestId]) ON DELETE CASCADE,
+        CONSTRAINT [UQ_RefundTransactions_IdempotencyKey]  UNIQUE ([IdempotencyKey]),
+        CONSTRAINT [CK_RefundTransactions_Method]          CHECK ([Method] IN (N'ORIGINAL_PAYMENT',N'WALLET_CREDIT')),
+        CONSTRAINT [CK_RefundTransactions_Status]          CHECK ([Status] IN (N'PENDING',N'COMPLETED',N'FAILED'))
+    );
+
+    CREATE INDEX [IX_RefundTransactions_RequestId_Status] ON [dbo].[RefundTransactions]([ReturnRequestId], [Status]);
+    CREATE INDEX [IX_RefundTransactions_CreatedAt]        ON [dbo].[RefundTransactions]([CreatedAt]);
+
+    PRINT '✔ RefundTransactions table created.';
+END
+ELSE
+BEGIN
+    PRINT '– RefundTransactions table already exists, skipping.';
+END
+GO
+
+PRINT '==============================================';
+PRINT '  Return Order Feature migration complete!';
+PRINT '==============================================';
+GO
+
+GO
+
+/* =============================================================
+   FILE: migrations/20260302_order_tracking_feature/migration.sql
+   ============================================================= */
+
+/* =============================================================
+   MIGRATION: Order Tracking Feature
+   Adds: Orders.OrderCode column, Orders.CustomerEmail column,
+         Shipments table
+   Safe to re-run: uses IF NOT EXISTS / column-existence guards
+   ============================================================= */
+
+-- ─── 1. Add OrderCode column to Orders ────────────────────────────────────────
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID(N'dbo.Orders') AND name = N'OrderCode'
+)
+BEGIN
+    ALTER TABLE dbo.Orders ADD OrderCode NVARCHAR(50) NULL;
+    PRINT '✔ Orders.OrderCode column added.';
+END
+ELSE
+BEGIN
+    PRINT '– Orders.OrderCode already exists, skipping.';
+END
+GO
+
+-- Backfill OrderCode from OrderNumber for existing rows
+UPDATE o
+SET o.OrderCode = o.OrderNumber
+FROM dbo.Orders o
+WHERE o.OrderCode IS NULL;
+GO
+
+-- ─── 2. Add CustomerEmail column to Orders ────────────────────────────────────
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID(N'dbo.Orders') AND name = N'CustomerEmail'
+)
+BEGIN
+    ALTER TABLE dbo.Orders ADD CustomerEmail NVARCHAR(100) NULL;
+    PRINT '✔ Orders.CustomerEmail column added.';
+END
+ELSE
+BEGIN
+    PRINT '– Orders.CustomerEmail already exists, skipping.';
+END
+GO
+
+-- ─── 3. Indexes on Orders.OrderCode ──────────────────────────────────────────
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UQ_Orders_OrderCode' AND object_id = OBJECT_ID('dbo.Orders'))
+BEGIN
+    CREATE UNIQUE INDEX UQ_Orders_OrderCode ON dbo.Orders(OrderCode) WHERE OrderCode IS NOT NULL;
+    PRINT '✔ UQ_Orders_OrderCode index created.';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Orders_OrderCode' AND object_id = OBJECT_ID('dbo.Orders'))
+BEGIN
+    CREATE INDEX IX_Orders_OrderCode ON dbo.Orders(OrderCode);
+    PRINT '✔ IX_Orders_OrderCode index created.';
+END
+GO
+
+-- ─── 4. Shipments table ───────────────────────────────────────────────────────
+IF NOT EXISTS (
+    SELECT 1 FROM sys.objects
+    WHERE object_id = OBJECT_ID(N'dbo.Shipments') AND type = N'U'
+)
+BEGIN
+    CREATE TABLE dbo.Shipments (
+        ShipmentId         INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        OrderId            INT               NOT NULL UNIQUE,
+        Carrier            NVARCHAR(100)     NULL,
+        TrackingNumber     NVARCHAR(100)     NULL,
+        Eta                DATETIME2         NULL,
+        LastKnownLocation  NVARCHAR(255)     NULL,
+        CreatedAt          DATETIME2         NOT NULL DEFAULT GETDATE(),
+        UpdatedAt          DATETIME2         NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_Shipments_Orders FOREIGN KEY (OrderId) REFERENCES dbo.Orders(OrderId) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IX_Shipments_TrackingNumber ON dbo.Shipments(TrackingNumber);
+
+    PRINT '✔ Shipments table created.';
+END
+ELSE
+BEGIN
+    PRINT '– Shipments table already exists, skipping.';
+END
+GO
+
+-- ─── 5. Index on OrderStatusHistory ──────────────────────────────────────────
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_OrderStatusHistory_OrderId_ChangedAt' AND object_id = OBJECT_ID('dbo.OrderStatusHistory'))
+BEGIN
+    CREATE INDEX IX_OrderStatusHistory_OrderId_ChangedAt ON dbo.OrderStatusHistory(OrderId, ChangedAt);
+    PRINT '✔ IX_OrderStatusHistory_OrderId_ChangedAt index created.';
+END
+GO
+
+PRINT '==============================================';
+PRINT '  Order Tracking Feature migration complete!';
+PRINT '==============================================';
+GO

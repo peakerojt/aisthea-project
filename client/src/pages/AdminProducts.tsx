@@ -74,10 +74,10 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
   };
 
   const deleteSelected = () => {
-    if (window.confirm(`Bạn có chắc muốn xóa ${selectedIds.length} mục đã chọn không?`)) {
+    if (window.confirm(t('products:feedback.deleteSelectedConfirm', { count: selectedIds.length }))) {
       selectedIds.forEach(id => deleteProduct(id));
       setSelectedIds([]);
-      showToast(`Đã xóa ${selectedIds.length} sản phẩm thành công`);
+      showToast(t('products:feedback.deleteSelectedSuccess', { count: selectedIds.length }));
     }
   };
 
@@ -270,7 +270,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
               <div className="w-full flex items-center justify-between animate-fade-in">
                 <div className="flex items-center gap-4">
                   <span className="text-sm font-bold text-white">
-                    {selectedIds.length} đã chọn
+                    {t('products:toolbar.selected', { count: selectedIds.length })}
                   </span>
                   <div className="h-4 w-px bg-white/10"></div>
                   <button
@@ -332,7 +332,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
             <div className="p-6 border-b border-white/5 bg-white/[0.02] flex flex-wrap gap-6 animate-fade-in">
               <div className="flex flex-col gap-2">
                 <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">
-                  Trạng thái
+                  {t('products:table.status')}
                 </label>
                 <select
                   value={statusFilter}
@@ -465,7 +465,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
                             className="flex flex-col cursor-pointer hover:bg-white/5 px-2 py-1 -ml-2 rounded group/edit w-fit"
                           >
                             <span className="text-white/90 flex items-center gap-1">
-                              {p.stock} trong kho
+                              {t('products:table.inStockUnit', { count: p.stock })}
                               <span className="opacity-0 group-hover/edit:opacity-50 ml-1"><Edit2 size={12} /></span>
                             </span>
                           </div>

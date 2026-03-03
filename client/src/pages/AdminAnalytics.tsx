@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend,
@@ -104,6 +105,8 @@ const KPICard: React.FC<KPICardProps> = ({ label, value, sub, icon: Icon, positi
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const AdminAnalytics: React.FC = () => {
+    const { t: _t } = useTranslation('analytics');
+    const t = _t as (key: string, options?: any) => string;
     const [startDate, setStartDate] = useState(firstOfMonthStr());
     const [endDate, setEndDate] = useState(todayStr());
     const [data, setData] = useState<AnalyticsSummary | null>(null);
@@ -117,7 +120,7 @@ export const AdminAnalytics: React.FC = () => {
             const result = await fetchAnalyticsSummary(sd, ed);
             setData(result);
         } catch (e: any) {
-            setError(e?.message ?? 'Không thể tải dữ liệu.');
+            setError(e?.message ?? t('feedback.loadError'));
         } finally {
             setLoading(false);
         }
@@ -141,10 +144,10 @@ export const AdminAnalytics: React.FC = () => {
             <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-white/5">
                 <div>
                     <p className="text-xs font-bold text-primary tracking-[0.2em] uppercase mb-1.5">
-                        Admin Portal • Analytics
+                        {t('page.subtitle')}
                     </p>
                     <h2 className="text-3xl xl:text-4xl font-black text-white tracking-tighter uppercase">
-                        Phân tích &amp; Báo cáo
+                        {t('page.title')}
                     </h2>
                 </div>
 
@@ -168,8 +171,7 @@ export const AdminAnalytics: React.FC = () => {
                         <button
                             onClick={handleApply}
                             className="ml-1 px-3 py-1 bg-primary text-white text-xs font-bold rounded-md hover:bg-primary/80 transition-colors cursor-pointer"
-                        >
-                            Áp dụng
+                        >{t('page.apply')}
                         </button>
                     </div>
 
@@ -180,7 +182,7 @@ export const AdminAnalytics: React.FC = () => {
                         className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 hover:border-white/20 rounded-lg text-xs font-bold text-white/70 hover:text-white transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                         <Download className="w-4 h-4" />
-                        Xuất báo cáo (CSV)
+                        {t('page.exportCSV')}
                     </button>
                 </div>
             </header>
@@ -197,31 +199,31 @@ export const AdminAnalytics: React.FC = () => {
                 <KPICard
                     label="Doanh thu kỳ này"
                     value={formatVNDShort(data?.summary.currentRevenue ?? 0)}
-                    sub={`${momPositive ? '+' : ''}${mom.toFixed(1)}% so với kỳ trước`}
+                    sub={`${momPositive ? '+' : ''}${mom.toFixed(1)}% ${t('kpi.revenueGrowth', { sign: '', value: '' }).replace('', '').trim()}`}
                     positive={momPositive}
                     icon={DollarSign}
                     accentColor="text-emerald-400"
                 />
                 <KPICard
-                    label="Tổng đơn hàng"
+                    label={t('kpi.totalOrders')}
                     value={(data?.summary.totalOrders ?? 0).toLocaleString('vi-VN')}
-                    sub={`${data?.summary.completedOrders ?? 0} đơn hoàn thành`}
+                    sub={`${data?.summary.completedOrders ?? 0} ${t('kpi.completedOrders', { count: '' }).split(' ')[1] ?? 'đơn hoàn thành'}`}
                     positive={null}
                     icon={ShoppingCart}
                     accentColor="text-primary"
                 />
                 <KPICard
-                    label="Giá trị đơn TB"
+                    label={t('kpi.avgOrderValue')}
                     value={formatVNDShort(data?.summary.avgOrderValue ?? 0)}
-                    sub="Dựa trên đơn hoàn thành"
+                    sub={t('kpi.avgOrderSub')}
                     positive={null}
                     icon={TrendingUp}
                     accentColor="text-blue-400"
                 />
                 <KPICard
-                    label="Khách hàng mua"
+                    label={t('kpi.topCustomers')}
                     value={(data?.topCustomers.length ?? 0).toLocaleString('vi-VN')}
-                    sub="Top 5 chi tiêu nhiều nhất"
+                    sub={t('kpi.topCustomersSub')}
                     positive={null}
                     icon={Users}
                     accentColor="text-purple-400"
@@ -239,14 +241,14 @@ export const AdminAnalytics: React.FC = () => {
                     <div className="mb-5">
                         <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                            Doanh thu theo danh mục
+                            {t('charts.revenueByCategory')}
                         </h3>
-                        <p className="text-xs text-white/30 mt-1">Doanh thu từ đơn hoàn thành, phân theo danh mục sản phẩm</p>
+                        <p className="text-xs text-white/30 mt-1">{t('charts.revenueByCategorySub')}</p>
                     </div>
                     {loading ? (
                         <SkeletonChart height="h-72" />
                     ) : !data?.revenueByCategory.length ? (
-                        <div className="h-72 flex items-center justify-center text-white/20 text-sm">Chưa có dữ liệu</div>
+                        <div className="h-72 flex items-center justify-center text-white/20 text-sm">{t('charts.noData')}</div>
                     ) : (
                         <div className="h-72">
                             <ResponsiveContainer width="100%" height="100%">
@@ -289,16 +291,16 @@ export const AdminAnalytics: React.FC = () => {
                     <div className="mb-5">
                         <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-                            Tỉ lệ trạng thái đơn hàng
+                            {t('charts.statusFunnel')}
                         </h3>
-                        <p className="text-xs text-white/30 mt-1">Phân bổ đơn hàng theo trạng thái trong kỳ</p>
+                        <p className="text-xs text-white/30 mt-1">{t('charts.statusFunnelSub')}</p>
                     </div>
                     {loading ? (
                         <div className="flex-1 flex items-center justify-center">
                             <div className="w-40 h-40 rounded-full border-4 border-white/10 animate-pulse" />
                         </div>
                     ) : !data?.statusFunnel.length ? (
-                        <div className="flex-1 flex items-center justify-center text-white/20 text-sm">Chưa có dữ liệu</div>
+                        <div className="flex-1 flex items-center justify-center text-white/20 text-sm">{t('charts.noData')}</div>
                     ) : (
                         <div className="flex-1 flex flex-col gap-4">
                             <div className="h-48">
@@ -343,14 +345,14 @@ export const AdminAnalytics: React.FC = () => {
                 <div className="mb-5">
                     <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                        Doanh thu &amp; Số lượng đơn hàng theo tháng
+                        {t('charts.monthlyTrend')}
                     </h3>
-                    <p className="text-xs text-white/30 mt-1">Tổng hợp xu hướng doanh thu (vùng) và số đơn (cột) trên cùng biểu đồ</p>
+                    <p className="text-xs text-white/30 mt-1">{t('charts.monthlyTrendSub')}</p>
                 </div>
                 {loading ? (
                     <SkeletonChart height="h-64" />
                 ) : !data?.monthlyTrend.length ? (
-                    <div className="h-64 flex items-center justify-center text-white/20 text-sm">Chưa có dữ liệu theo tháng</div>
+                    <div className="h-64 flex items-center justify-center text-white/20 text-sm">{t('charts.noMonthlyData')}</div>
                 ) : (
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
@@ -408,7 +410,7 @@ export const AdminAnalytics: React.FC = () => {
                     <div className="px-6 py-4 border-b border-white/5">
                         <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                            Khách hàng chi tiêu nhiều nhất
+                            {t('tables.topCustomersTitle')}
                         </h3>
                     </div>
                     <div className="overflow-x-auto">
@@ -416,16 +418,16 @@ export const AdminAnalytics: React.FC = () => {
                             <thead>
                                 <tr className="border-b border-white/5">
                                     <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">#</th>
-                                    <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">Khách hàng</th>
-                                    <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">Chi tiêu</th>
-                                    <th className="px-4 py-3 text-center font-semibold text-white/30 uppercase tracking-widest">Đơn</th>
+                                    <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">{t('tables.topCustomersName')}</th>
+                                    <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">{t('tables.topCustomersSpent')}</th>
+                                    <th className="px-4 py-3 text-center font-semibold text-white/30 uppercase tracking-widest">{t('tables.topCustomersOrders')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/[0.04]">
                                 {loading ? (
                                     Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={4} />)
                                 ) : !data?.topCustomers.length ? (
-                                    <tr><td colSpan={4} className="px-4 py-10 text-center text-white/20">Chưa có dữ liệu</td></tr>
+                                    <tr><td colSpan={4} className="px-4 py-10 text-center text-white/20">{t('tables.noData')}</td></tr>
                                 ) : (
                                     data.topCustomers.map((c, i) => (
                                         <tr key={c.userId} className="hover:bg-white/[0.025] transition-colors group">
@@ -460,25 +462,25 @@ export const AdminAnalytics: React.FC = () => {
                     <div className="px-6 py-4 border-b border-white/5">
                         <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                            Sản phẩm bị hủy nhiều nhất
+                            {t('tables.cancelledTitle')}
                         </h3>
-                        <p className="text-[10px] text-white/30 mt-0.5">Phân tích hủy đơn — quan trọng cho chiến lược kinh doanh</p>
+                        <p className="text-[10px] text-white/30 mt-0.5">{t('tables.cancelledSub')}</p>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-xs">
                             <thead>
                                 <tr className="border-b border-white/5">
                                     <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">#</th>
-                                    <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">Sản phẩm</th>
-                                    <th className="px-4 py-3 text-center font-semibold text-white/30 uppercase tracking-widest">Số lần hủy</th>
-                                    <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">DT mất</th>
+                                    <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">{t('tables.cancelledProduct')}</th>
+                                    <th className="px-4 py-3 text-center font-semibold text-white/30 uppercase tracking-widest">{t('tables.cancelledCount')}</th>
+                                    <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">{t('tables.cancelledLost')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/[0.04]">
                                 {loading ? (
                                     Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={4} />)
                                 ) : !data?.mostCancelled.length ? (
-                                    <tr><td colSpan={4} className="px-4 py-10 text-center text-white/20">Không có sản phẩm bị hủy</td></tr>
+                                    <tr><td colSpan={4} className="px-4 py-10 text-center text-white/20">{t('tables.noCancelled')}</td></tr>
                                 ) : (
                                     data.mostCancelled.map((p, i) => (
                                         <tr key={p.productId} className="hover:bg-white/[0.025] transition-colors group">
@@ -490,7 +492,7 @@ export const AdminAnalytics: React.FC = () => {
                                             </td>
                                             <td className="px-4 py-3 text-center">
                                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-400 font-bold text-[10px]">
-                                                    {p.cancelCount} lần
+                                                    {t('tables.cancelTimes', { count: p.cancelCount })}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-right font-bold text-red-400">

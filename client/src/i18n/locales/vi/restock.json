@@ -1,0 +1,87 @@
+{
+    "page": {
+        "title": "Nhập Kho Nhanh",
+        "subtitle": "Cập nhật số lượng tồn kho · Mỗi lần lưu đều được ghi log"
+    },
+    "stats": {
+        "totalVariants": "Tổng biến thể",
+        "productGroups": "Nhóm SP",
+        "lowStock": "Sắp hết hàng",
+        "outOfStock": "Hết hàng"
+    },
+    "filters": {
+        "searchPlaceholder": "Tìm theo tên sản phẩm hoặc SKU…",
+        "onlyLowStock": "Chỉ hiện sắp hết hàng",
+        "refresh": "Làm mới",
+        "summary": "{{groups}} sản phẩm · {{variants}} biến thể"
+    },
+    "table": {
+        "productVariant": "Sản phẩm / Biến thể",
+        "sku": "Mã SKU",
+        "price": "Giá bán",
+        "currentStock": "Tồn kho HT",
+        "update": "Cập nhật",
+        "status": "Trạng thái",
+        "history": "Lịch sử",
+        "default": "Mặc định",
+        "variantCount": "{{count}} biến thể",
+        "totalStock": "Tổng tồn:"
+    },
+    "stockStatus": {
+        "outOfStock": "Hết hàng",
+        "lowStock": "Sắp hết",
+        "inStock": "Còn hàng"
+    },
+    "groupRow": {
+        "editing": "Đang chỉnh sửa",
+        "hasOut": "● Có biến thể hết hàng",
+        "hasLow": "● Có biến thể sắp hết"
+    },
+    "actions": {
+        "cancel": "Huỷ ({{count}})",
+        "save": "Lưu thay đổi",
+        "saving": "Đang lưu…",
+        "saveWithCount": "Lưu thay đổi ({{count}})",
+        "cancelAll": "Huỷ bỏ"
+    },
+    "stickyBar": {
+        "unsaved": "{{count}} biến thể đã thay đổi chưa được lưu"
+    },
+    "reasonModal": {
+        "title": "Xác nhận lưu thay đổi",
+        "subtitle": "{{count}} biến thể đã được chỉnh sửa",
+        "reasonLabel": "Lý do điều chỉnh",
+        "reasonPlaceholder": "VD: Nhập hàng từ nhà cung cấp...",
+        "confirm": "Xác nhận lưu",
+        "cancel": "Huỷ"
+    },
+    "reasonPresets": [
+        "Nhập hàng từ nhà cung cấp",
+        "Hàng bị lỗi / trả về",
+        "Kiểm kê định kỳ",
+        "Điều chỉnh thủ công"
+    ],
+    "logPanel": {
+        "title": "Lịch sử tồn kho",
+        "empty": "Chưa có lịch sử thay đổi tồn kho",
+        "pagination": "{{total}} bản ghi · Trang {{page}}/{{totalPages}}"
+    },
+    "logReasons": {
+        "CHECKOUT": "Đơn hàng",
+        "RESTOCK": "Nhập kho",
+        "CANCELLED_RESTORE": "Huỷ đơn - Hoàn",
+        "MANUAL_ADJUST": "Điều chỉnh"
+    },
+    "empty": {
+        "noData": "Chưa có dữ liệu tồn kho",
+        "noMatch": "Không tìm thấy sản phẩm phù hợp",
+        "clearFilter": "Xoá bộ lọc"
+    },
+    "feedback": {
+        "saveError": "Lưu thất bại. Vui lòng thử lại.",
+        "loadError": "Không thể tải dữ liệu tồn kho.",
+        "dataError": "Lỗi tải dữ liệu",
+        "retry": "Thử lại",
+        "viewHistory": "Xem lịch sử tồn kho"
+    }
+}

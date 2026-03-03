@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { adminReturnService, OrderReturn } from '../services/return.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -18,11 +19,12 @@ const formatMoneyVND = (value: string | number | null | undefined) => {
     return new Intl.NumberFormat('vi-VN').format(n) + ' ₫';
 };
 
-const statusLabel = (s: string) => {
-    if (s === 'PENDING_APPROVAL') return 'Chờ duyệt';
-    if (s === 'APPROVED') return 'Đã chấp nhận';
-    if (s === 'REJECTED') return 'Đã từ chối';
-    if (s === 'COMPLETED') return 'Hoàn tiền xong';
+// getStatusLabel and statusTone defined below
+const getStatusLabel = (s: string, t: (key: string, options?: any) => string) => {
+    if (s === 'PENDING_APPROVAL') return t('status.PENDING_APPROVAL');
+    if (s === 'APPROVED') return t('status.APPROVED');
+    if (s === 'REJECTED') return t('status.REJECTED');
+    if (s === 'COMPLETED') return t('status.COMPLETED');
     return s;
 };
 
@@ -43,6 +45,8 @@ interface ReviewModalProps {
 }
 
 const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) => {
+    const { t: _t } = useTranslation('returns');
+    const t = _t as (key: string, options?: any) => string;
     const [rejectNote, setRejectNote] = useState('');
     const [showRejectForm, setShowRejectForm] = useState(false);
     const [processing, setProcessing] = useState(false);
@@ -51,7 +55,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
 
     const handleAction = async (action: 'APPROVE' | 'REJECT' | 'COMPLETE_REFUND') => {
         if (action === 'REJECT' && !rejectNote.trim()) {
-            setToast('Vui lòng nhập lý do từ chối.');
+            setToast(t('modal.rejectRequired'));
             return;
         }
         setProcessing(true);
@@ -76,10 +80,10 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
                     <div className="flex items-center justify-between px-6 py-5 border-b border-white/5 shrink-0">
                         <div>
                             <h2 className="text-lg font-black uppercase tracking-tighter text-white">
-                                Xem xét yêu cầu hoàn trả
+                                {t('modal.title')}
                             </h2>
                             <p className="text-[10px] uppercase tracking-widest text-white/40 mt-1">
-                                Đơn hàng #{item.order?.orderNumber} — {item.user?.fullName ?? 'Khách hàng'}
+                                {t('modal.orderInfo', { orderNumber: item.order?.orderNumber, customer: item.user?.fullName ?? t('table.guest') })}
                             </p>
                         </div>
                         <button onClick={onClose} className="text-white/40 hover:text-white transition-colors cursor-pointer">
@@ -95,29 +99,29 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
                         {/* Status + Info row */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-white/5 border border-white/5 rounded p-4">
-                                <div className="text-[10px] uppercase tracking-widest text-white/40 mb-1">Trạng thái</div>
+                                <div className="text-[10px] uppercase tracking-widest text-white/40 mb-1">{t('modal.requestDate')}</div>
                                 <span className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded border inline-block ${statusTone(item.status)}`}>
-                                    {statusLabel(item.status)}
+                                    {getStatusLabel(item.status, t)}
                                 </span>
                             </div>
                             <div className="bg-white/5 border border-white/5 rounded p-4">
-                                <div className="text-[10px] uppercase tracking-widest text-white/40 mb-1">Ngày yêu cầu</div>
+                                <div className="text-[10px] uppercase tracking-widest text-white/40 mb-1">{t('modal.requestDate')}</div>
                                 <div className="text-sm text-white">{formatDateTime(item.createdAt)}</div>
                             </div>
                             <div className="bg-white/5 border border-white/5 rounded p-4">
-                                <div className="text-[10px] uppercase tracking-widest text-white/40 mb-1">Khách hàng</div>
+                                <div className="text-[10px] uppercase tracking-widest text-white/40 mb-1">{t('modal.customer')}</div>
                                 <div className="text-sm text-white font-medium">{item.user?.fullName ?? '—'}</div>
                                 <div className="text-xs text-white/40 mt-0.5">{item.user?.email ?? '—'}</div>
                             </div>
                             <div className="bg-white/5 border border-white/5 rounded p-4">
-                                <div className="text-[10px] uppercase tracking-widest text-white/40 mb-1">Giá trị đơn</div>
+                                <div className="text-[10px] uppercase tracking-widest text-white/40 mb-1">{t('modal.orderValue')}</div>
                                 <div className="text-sm text-white font-semibold">{item.order?.totalAmount ? formatMoneyVND(item.order.totalAmount) : '—'}</div>
                             </div>
                         </div>
 
                         {/* Reason */}
                         <div>
-                            <div className="text-[10px] uppercase tracking-widest text-white/40 mb-2">Lý do trả hàng</div>
+                            <div className="text-[10px] uppercase tracking-widest text-white/40 mb-2">{t('modal.returnReason')}</div>
                             <div className="p-4 bg-white/5 border border-white/5 rounded text-sm text-white/80 leading-relaxed">
                                 {item.reason}
                             </div>
@@ -127,7 +131,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
                         {item.proofImages.length > 0 && (
                             <div>
                                 <div className="text-[10px] uppercase tracking-widest text-white/40 mb-2">
-                                    Hình ảnh minh chứng ({item.proofImages.length})
+                                    {t('modal.proofImages', { count: item.proofImages.length })}
                                 </div>
                                 <div className="grid grid-cols-3 gap-3">
                                     {item.proofImages.map((url, i) => (
@@ -151,7 +155,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
                         {/* Admin note (if already processed) */}
                         {item.adminNote && (
                             <div>
-                                <div className="text-[10px] uppercase tracking-widest text-white/40 mb-2">Ghi chú Admin</div>
+                                <div className="text-[10px] uppercase tracking-widest text-white/40 mb-2">{t('modal.adminNote')}</div>
                                 <div className="p-4 bg-white/5 border border-white/5 rounded text-sm text-white/70 italic">
                                     {item.adminNote}
                                 </div>
@@ -162,14 +166,14 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
                         {showRejectForm && !isTerminal && (
                             <div>
                                 <div className="text-[10px] uppercase tracking-widest text-white/40 mb-2">
-                                    Lý do từ chối <span className="text-primary">*</span>
+                                    {t('modal.rejectReason')} <span className="text-primary">*</span>
                                 </div>
                                 <textarea
                                     value={rejectNote}
                                     onChange={e => setRejectNote(e.target.value)}
                                     rows={3}
                                     maxLength={500}
-                                    placeholder="Nhập lý do từ chối yêu cầu hoàn trả..."
+                                    placeholder={t('modal.rejectPlaceholder')}
                                     className="w-full bg-white/5 border border-white/10 text-white text-sm px-4 py-3 rounded focus:outline-none focus:border-red-500/50 transition-colors placeholder-white/20 resize-none"
                                 />
                             </div>
@@ -189,24 +193,21 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
                                         onClick={() => setShowRejectForm(true)}
                                         disabled={processing}
                                         className="flex-1 px-4 py-3 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-300 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
-                                    >
-                                        Từ chối yêu cầu
+                                    >{t('modal.actionReject')}
                                     </button>
                                     {item.status !== 'APPROVED' && (
                                         <button
                                             onClick={() => handleAction('APPROVE')}
                                             disabled={processing}
                                             className="flex-1 px-4 py-3 border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
-                                        >
-                                            Chấp nhận
+                                        >{t('modal.actionApprove')}
                                         </button>
                                     )}
                                     <button
                                         onClick={() => handleAction('COMPLETE_REFUND')}
                                         disabled={processing}
                                         className="flex-1 px-4 py-3 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
-                                    >
-                                        {processing ? 'Đang xử lý...' : 'Chấp nhận & Hoàn tiền'}
+                                    >{processing ? t('modal.processing') : t('modal.actionRefund')}
                                     </button>
                                 </>
                             ) : (
@@ -214,15 +215,13 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
                                     <button
                                         onClick={() => setShowRejectForm(false)}
                                         className="px-4 py-3 border border-white/10 text-white/60 hover:text-white hover:bg-white/5 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer"
-                                    >
-                                        Hủy
+                                    >{t('modal.actionCancelReject')}
                                     </button>
                                     <button
                                         onClick={() => handleAction('REJECT')}
                                         disabled={processing || !rejectNote.trim()}
                                         className="flex-1 px-4 py-3 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-300 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                    >
-                                        {processing ? 'Đang từ chối...' : 'Xác nhận từ chối'}
+                                    >{processing ? t('modal.processing') : t('modal.actionConfirmReject')}
                                     </button>
                                 </>
                             )}
@@ -254,15 +253,18 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-const STATUS_FILTERS: { label: string; value: ReturnStatusFilter }[] = [
-    { label: 'Tất cả', value: 'ALL' },
-    { label: 'Chờ duyệt', value: 'PENDING_APPROVAL' },
-    { label: 'Đã chấp nhận', value: 'APPROVED' },
-    { label: 'Đã từ chối', value: 'REJECTED' },
-    { label: 'Hoàn tiền xong', value: 'COMPLETED' },
-];
+// STATUS_FILTERS now defined inside main component
 
 export const AdminReturns: React.FC = () => {
+    const { t: _t } = useTranslation('returns');
+    const t = _t as (key: string, options?: any) => string;
+    const STATUS_FILTERS: { label: string; value: ReturnStatusFilter }[] = [
+        { label: t('filters.all'), value: 'ALL' },
+        { label: t('filters.pending'), value: 'PENDING_APPROVAL' },
+        { label: t('filters.approved'), value: 'APPROVED' },
+        { label: t('filters.rejected'), value: 'REJECTED' },
+        { label: t('filters.completed'), value: 'COMPLETED' },
+    ];
     const [returns, setReturns] = useState<OrderReturn[]>([]);
     const [loading, setLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState<ReturnStatusFilter>('ALL');
@@ -285,7 +287,7 @@ export const AdminReturns: React.FC = () => {
             setReturns(data.returns);
             setTotalPages(data.pagination.totalPages);
         } catch (e: any) {
-            setToast({ type: 'error', message: e?.message || 'Không thể tải danh sách hoàn trả.' });
+            setToast({ type: 'error', message: e?.message || t('feedback.loadError') });
         } finally {
             setLoading(false);
         }
@@ -304,7 +306,7 @@ export const AdminReturns: React.FC = () => {
             setSelectedReturn(null);
             await load();
         } catch (e: any) {
-            setToast({ type: 'error', message: e?.message || 'Không thể xử lý yêu cầu.' });
+            setToast({ type: 'error', message: e?.message || t('feedback.processError') });
         }
     };
 
@@ -316,17 +318,17 @@ export const AdminReturns: React.FC = () => {
             <div className="mb-8 flex items-end justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-black uppercase tracking-tighter text-white">
-                        Quản lý hoàn trả
+                        {t('page.title')}
                     </h1>
                     <p className="text-white/40 text-xs uppercase tracking-widest mt-2">
-                        Xem xét và xử lý các yêu cầu trả hàng &amp; hoàn tiền
+                        {t('page.subtitle')}
                     </p>
                 </div>
                 {pendingCount > 0 && (
                     <div className="flex items-center gap-2 px-4 py-2 border border-amber-500/30 bg-amber-500/10 rounded">
                         <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                         <span className="text-amber-200 text-xs font-bold uppercase tracking-widest">
-                            {pendingCount} chờ duyệt
+                            {t('page.pendingBadge', { count: pendingCount })}
                         </span>
                     </div>
                 )}
@@ -339,8 +341,8 @@ export const AdminReturns: React.FC = () => {
                         key={f.value}
                         onClick={() => { setStatusFilter(f.value); setPage(1); }}
                         className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest border transition-colors cursor-pointer ${statusFilter === f.value
-                                ? 'border-primary/40 bg-primary/15 text-primary'
-                                : 'border-white/10 text-white/50 hover:text-white hover:bg-white/5'
+                            ? 'border-primary/40 bg-primary/15 text-primary'
+                            : 'border-white/10 text-white/50 hover:text-white hover:bg-white/5'
                             }`}
                     >
                         {f.label}
@@ -362,18 +364,18 @@ export const AdminReturns: React.FC = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
                                 d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
-                        <p className="text-sm">Không có yêu cầu hoàn trả nào.</p>
+                        <p className="text-sm">{t('table.empty')}</p>
                     </div>
                 ) : (
                     <>
                         {/* Table Header */}
                         <div className="grid grid-cols-[auto_1fr_1fr_auto_auto_auto] gap-4 px-6 py-3 border-b border-white/5 bg-white/[0.02]">
-                            <div className="text-[10px] uppercase tracking-widest text-white/30">#</div>
-                            <div className="text-[10px] uppercase tracking-widest text-white/30">Mã đơn / Khách hàng</div>
-                            <div className="text-[10px] uppercase tracking-widest text-white/30 hidden md:block">Lý do</div>
-                            <div className="text-[10px] uppercase tracking-widest text-white/30">Ngày yêu cầu</div>
-                            <div className="text-[10px] uppercase tracking-widest text-white/30">Trạng thái</div>
-                            <div className="text-[10px] uppercase tracking-widest text-white/30">Thao tác</div>
+                            <div className="text-[10px] uppercase tracking-widest text-white/30">{t('table.rowNumber')}</div>
+                            <div className="text-[10px] uppercase tracking-widest text-white/30">{t('table.orderCustomer')}</div>
+                            <div className="text-[10px] uppercase tracking-widest text-white/30 hidden md:block">{t('table.reason')}</div>
+                            <div className="text-[10px] uppercase tracking-widest text-white/30">{t('table.requestDate')}</div>
+                            <div className="text-[10px] uppercase tracking-widest text-white/30">{t('table.status')}</div>
+                            <div className="text-[10px] uppercase tracking-widest text-white/30">{t('table.actions')}</div>
                         </div>
 
                         {/* Table Rows */}
@@ -390,7 +392,7 @@ export const AdminReturns: React.FC = () => {
                                             #{ret.order?.orderNumber ?? `RET-${ret.returnId}`}
                                         </div>
                                         <div className="text-xs text-white/50 mt-1 truncate">
-                                            {ret.user?.fullName ?? 'Khách vãng lai'}
+                                            {ret.user?.fullName ?? t('table.guest')}
                                         </div>
                                         <div className="text-[10px] text-white/30 mt-0.5">
                                             {ret.user?.email ?? '—'}
@@ -414,7 +416,7 @@ export const AdminReturns: React.FC = () => {
 
                                     <div>
                                         <span className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded border whitespace-nowrap ${statusTone(ret.status)}`}>
-                                            {statusLabel(ret.status)}
+                                            {getStatusLabel(ret.status, t)}
                                         </span>
                                     </div>
 
@@ -423,7 +425,7 @@ export const AdminReturns: React.FC = () => {
                                             onClick={() => setSelectedReturn(ret)}
                                             className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-colors cursor-pointer whitespace-nowrap"
                                         >
-                                            Xem chi tiết
+                                            {t('table.viewDetail')}
                                         </button>
                                     </div>
                                 </div>
@@ -441,17 +443,17 @@ export const AdminReturns: React.FC = () => {
                         disabled={page <= 1}
                         className="px-4 py-2 border border-white/10 text-white/60 hover:text-white hover:bg-white/5 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                     >
-                        Trước
+                        {t('pagination.previous')}
                     </button>
                     <span className="text-xs text-white/40 px-3">
-                        Trang {page} / {totalPages}
+                        {t('pagination.page', { page, total: totalPages })}
                     </span>
                     <button
                         onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                         disabled={page >= totalPages}
                         className="px-4 py-2 border border-white/10 text-white/60 hover:text-white hover:bg-white/5 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                     >
-                        Sau
+                        {t('pagination.next')}
                     </button>
                 </div>
             )}
@@ -469,8 +471,8 @@ export const AdminReturns: React.FC = () => {
             {toast && (
                 <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[500] w-full max-w-md px-4">
                     <div className={`p-4 rounded-lg shadow-2xl border flex items-center gap-3 ${toast.type === 'success'
-                            ? 'bg-emerald-500/90 border-emerald-400 text-white'
-                            : 'bg-red-500/90 border-red-400 text-white'
+                        ? 'bg-emerald-500/90 border-emerald-400 text-white'
+                        : 'bg-red-500/90 border-red-400 text-white'
                         }`}>
                         <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             {toast.type === 'success' ? (

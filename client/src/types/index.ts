@@ -67,7 +67,8 @@ export type ViewState =
   | 'ADMIN_CATEGORIES'
   | 'ADMIN_COUPONS'
   | 'ADMIN_ROLES'
-  | 'ADMIN_RETURNS';
+  | 'ADMIN_RETURNS'
+  | 'ADMIN_RETURN_DETAIL';
 
 
 export type CategoryType = 'Men' | 'Women' | 'Accessories';

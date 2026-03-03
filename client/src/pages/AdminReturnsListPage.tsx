@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { returnService } from '../services/return.service';
+import { adminReturnService } from '../services/return.service';
 import { StatusBadge } from '../components/return/StatusBadge';
 import { ViewState } from '../types';
 
@@ -23,22 +23,18 @@ export const AdminReturnsListPage: React.FC<Props> = ({ setView, setReturnId }) 
   const query = useQuery({
     queryKey: ['admin-returns', status, orderId, customerId, fromDate, toDate, page],
     queryFn: async () => {
-      const res = await returnService.adminList({
+      const res = await adminReturnService.list({
         status: status || undefined,
-        orderId: orderId ? Number(orderId) : undefined,
-        customerId: customerId ? Number(customerId) : undefined,
-        fromDate: fromDate || undefined,
-        toDate: toDate || undefined,
         page,
-        limit,
+        pageSize: limit,
       });
-      return res.data?.data ?? res.data;
+      return res;
     },
   });
 
-  const rows = useMemo(() => query.data?.data ?? query.data ?? [], [query.data]);
-  const total: number = query.data?.total ?? 0;
-  const totalPages: number = query.data?.totalPages ?? Math.ceil(total / limit);
+  const rows = useMemo(() => query.data?.returns ?? [], [query.data]);
+  const total: number = query.data?.pagination.total ?? 0;
+  const totalPages: number = query.data?.pagination.totalPages ?? Math.ceil(total / limit);
 
   const handleFilter = () => setPage(1);
   const handleClear = () => {
@@ -181,15 +177,15 @@ export const AdminReturnsListPage: React.FC<Props> = ({ setView, setReturnId }) 
               <div className="divide-y divide-white/5">
                 {rows.map((r: any) => (
                   <button
-                    key={r.returnRequestId}
-                    id={`admin-return-row-${r.returnRequestId}`}
+                    key={r.returnId}
+                    id={`admin-return-row-${r.returnId}`}
                     onClick={() => {
-                      setReturnId(r.returnRequestId);
+                      setReturnId(r.returnId);
                       setView('ADMIN_RETURN_DETAIL');
                     }}
                     className="w-full grid grid-cols-[80px_1fr_180px_160px_140px] gap-0 px-4 py-3.5 text-left hover:bg-white/5 transition-colors"
                   >
-                    <div className="text-white font-mono font-medium">#{r.returnRequestId}</div>
+                    <div className="text-white font-mono font-medium">#{r.returnId}</div>
                     <div>
                       <div className="font-medium text-white text-sm truncate">
                         {r.user?.fullName ?? '—'}
@@ -203,7 +199,7 @@ export const AdminReturnsListPage: React.FC<Props> = ({ setView, setReturnId }) 
                       </div>
                     </div>
                     <div className="text-sm font-medium text-green-400">
-                      {Number(r.totalRefundAmount).toLocaleString('vi-VN')}đ
+                      {Number(r.order?.totalAmount ?? 0).toLocaleString('vi-VN')}đ
                     </div>
                     <div>
                       <StatusBadge status={r.status} />

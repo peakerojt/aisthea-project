@@ -1,25 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { roleService, RoleItem, PermissionItem } from '../services/role.service';
 import { ShieldCheck, Lock, Save, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Checkbox } from '../components/ui/checkbox';
 
-// ─── Vietnamese Module / Action Mapping ──────────────────────────────────────
-const MODULE_LABELS: Record<string, string> = {
-    PRODUCT: 'Quản lý Sản phẩm',
-    ORDER: 'Quản lý Đơn hàng',
-    INVENTORY: 'Quản lý Tồn kho',
-    CUSTOMER: 'Quản lý Khách hàng',
-    REVENUE: 'Báo cáo Doanh thu',
-    COUPON: 'Quản lý Mã giảm giá',
-};
-
-const ACTION_LABELS: Record<string, string> = {
-    VIEW: 'Xem',
-    CREATE: 'Thêm',
-    EDIT: 'Sửa',
-    DELETE: 'Xóa',
-    MANAGE: 'Quản lý',
-};
+// MODULE_LABELS and ACTION_LABELS are defined inside the component to use t()
 
 /** Derive the action prefix from a permission code e.g. 'VIEW_PRODUCT' → 'VIEW' */
 function getActionFromCode(code: string): string {
@@ -48,8 +33,8 @@ function Toast({ message, type, onClose }: { message: string; type: ToastType; o
 
     return (
         <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl border text-sm font-medium transition-all animate-in slide-in-from-bottom-4 ${type === 'success'
-                ? 'bg-gray-900 border-emerald-500/40 text-emerald-400'
-                : 'bg-gray-900 border-red-500/40 text-red-400'
+            ? 'bg-gray-900 border-emerald-500/40 text-emerald-400'
+            : 'bg-gray-900 border-red-500/40 text-red-400'
             }`}>
             {type === 'success'
                 ? <CheckCircle2 size={18} className="shrink-0 text-emerald-400" />
@@ -62,6 +47,22 @@ function Toast({ message, type, onClose }: { message: string; type: ToastType; o
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export const AdminRoles: React.FC = () => {
+    const { t } = useTranslation('roles');
+    const MODULE_LABELS: Record<string, string> = {
+        PRODUCT: t('modules.PRODUCT'),
+        ORDER: t('modules.ORDER'),
+        INVENTORY: t('modules.INVENTORY'),
+        CUSTOMER: t('modules.CUSTOMER'),
+        REVENUE: t('modules.REVENUE'),
+        COUPON: t('modules.COUPON'),
+    };
+    const ACTION_LABELS: Record<string, string> = {
+        VIEW: t('actions.VIEW'),
+        CREATE: t('actions.CREATE'),
+        EDIT: t('actions.EDIT'),
+        DELETE: t('actions.DELETE'),
+        MANAGE: t('actions.MANAGE'),
+    };
     const [roles, setRoles] = useState<RoleItem[]>([]);
     const [permissions, setPermissions] = useState<PermissionItem[]>([]);
     const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
@@ -92,7 +93,7 @@ export const AdminRoles: React.FC = () => {
                     setCheckedIds(new Set(first.permissionIds));
                 }
             } catch {
-                showToast('Truy cập bị từ chối. Vui lòng liên hệ Quản trị viên.', 'error');
+                showToast(t('feedback.accessDenied'), 'error');
             } finally {
                 setIsLoading(false);
             }
@@ -134,9 +135,9 @@ export const AdminRoles: React.FC = () => {
                         : r
                 )
             );
-            showToast('Cập nhật quyền hạn thành công!', 'success');
+            showToast(t('feedback.saveSuccess'), 'success');
         } catch (err: any) {
-            const msg = err?.response?.data?.message || 'Truy cập bị từ chối. Vui lòng liên hệ Quản trị viên.';
+            const msg = err?.response?.data?.message || t('feedback.accessDenied');
             showToast(msg, 'error');
         } finally {
             setIsSaving(false);
@@ -154,7 +155,7 @@ export const AdminRoles: React.FC = () => {
             <div className="flex items-center justify-center h-full min-h-[60vh]">
                 <div className="flex flex-col items-center gap-4">
                     <RefreshCw size={32} className="text-primary animate-spin" />
-                    <p className="text-white/50 text-sm">Đang tải dữ liệu phân quyền...</p>
+                    <p className="text-white/50 text-sm">{t('feedback.loading')}</p>
                 </div>
             </div>
         );
@@ -170,9 +171,9 @@ export const AdminRoles: React.FC = () => {
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-white tracking-tight" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-                            Phân quyền hệ thống
+                            {t('page.title')}
                         </h1>
-                        <p className="text-white/40 text-sm mt-0.5">Quản lý quyền hạn theo từng vai trò người dùng</p>
+                        <p className="text-white/40 text-sm mt-0.5">{t('page.subtitle')}</p>
                     </div>
                 </div>
                 <button
@@ -184,7 +185,7 @@ export const AdminRoles: React.FC = () => {
                         ? <RefreshCw size={16} className="animate-spin" />
                         : <Save size={16} />
                     }
-                    {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                    {isSaving ? t('actions_btn.saving') : t('actions_btn.save')}
                 </button>
             </div>
 
@@ -195,8 +196,8 @@ export const AdminRoles: React.FC = () => {
                         key={role.roleId}
                         onClick={() => handleRoleSelect(role.roleId)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${selectedRoleId === role.roleId
-                                ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                                : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white border border-white/10'
+                            ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                            : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white border border-white/10'
                             }`}
                     >
                         {role.isProtected && <Lock size={13} className="shrink-0" />}
@@ -214,9 +215,9 @@ export const AdminRoles: React.FC = () => {
                 <div className="flex items-center gap-3 px-5 py-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
                     <Lock size={18} className="text-amber-400 shrink-0" />
                     <div>
-                        <p className="text-amber-400 text-sm font-semibold">Vai trò được bảo vệ</p>
+                        <p className="text-amber-400 text-sm font-semibold">{t('protected.title')}</p>
                         <p className="text-amber-400/70 text-xs mt-0.5">
-                            Super Admin mặc định có toàn bộ quyền hạn và không thể bị chỉnh sửa.
+                            {t('protected.description')}
                         </p>
                     </div>
                 </div>
@@ -227,7 +228,7 @@ export const AdminRoles: React.FC = () => {
                 {/* Table Header */}
                 <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] border-b border-white/8">
                     <div className="px-6 py-4 text-xs font-bold text-white/40 uppercase tracking-widest">
-                        Phân hệ
+                        {t('table.module')}
                     </div>
                     {allActions.map((action) => (
                         <div key={action} className="px-4 py-4 text-xs font-bold text-white/40 uppercase tracking-widest text-center">
@@ -280,8 +281,8 @@ export const AdminRoles: React.FC = () => {
                                                 disabled={isDisabled}
                                                 onCheckedChange={() => toggle(perm.permissionId)}
                                                 className={`w-5 h-5 rounded border-white/20 transition-all ${isDisabled
-                                                        ? 'opacity-40 cursor-not-allowed'
-                                                        : 'cursor-pointer data-[state=checked]:bg-primary data-[state=checked]:border-primary'
+                                                    ? 'opacity-40 cursor-not-allowed'
+                                                    : 'cursor-pointer data-[state=checked]:bg-primary data-[state=checked]:border-primary'
                                                     }`}
                                             />
                                         </div>
@@ -296,8 +297,8 @@ export const AdminRoles: React.FC = () => {
                 {allModules.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-16 gap-3 text-white/30">
                         <ShieldCheck size={36} />
-                        <p className="text-sm">Chưa có quyền hạn nào được định nghĩa.</p>
-                        <p className="text-xs text-white/20">Hãy chạy seed script để khởi tạo dữ liệu.</p>
+                        <p className="text-sm">{t('empty.noPermissions')}</p>
+                        <p className="text-xs text-white/20">{t('empty.seedHint')}</p>
                     </div>
                 )}
             </div>
@@ -306,8 +307,7 @@ export const AdminRoles: React.FC = () => {
             <div className="flex items-center gap-3 px-5 py-3 bg-white/3 border border-white/8 rounded-xl">
                 <ShieldCheck size={16} className="text-primary/70 shrink-0" />
                 <p className="text-white/50 text-xs">
-                    Vai trò <span className="text-white/80 font-semibold">{selectedRole?.roleName}</span> hiện có{' '}
-                    <span className="text-primary font-bold">{checkedIds.size}</span> / {permissions.length} quyền hạn được kích hoạt.
+                    {t('summary.text', { roleName: selectedRole?.roleName, active: checkedIds.size, total: permissions.length })}
                 </p>
             </div>
 

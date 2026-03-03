@@ -22,9 +22,9 @@ export interface OrderDetail {
   paymentMethod?: string;
   totalAmount: string;
   createdAt: string;
-  updatedAt?: string;
   trackingNumber?: string;
   carrier?: string;
+  note?: string | null;
   shippingAddress: {
     recipientName: string;
     phone: string;
@@ -49,6 +49,11 @@ export interface OrderDetail {
     canCancel?: boolean;
     canReorder?: boolean;
   };
+  timeline?: {
+    status: string;
+    changedAt: string;
+    note?: string | null;
+  }[];
 }
 
 export interface MyOrdersResponse {
@@ -187,8 +192,8 @@ export const orderService = {
     return api.get<OrderDetail>(`/api/orders/my/${orderId}`);
   },
 
-  async cancelMyOrder(orderId: number): Promise<{ success: boolean; message?: string }> {
-    return api.post<{ success: boolean; message?: string }>(`/api/orders/${orderId}/cancel`, {});
+  async cancelMyOrder(orderId: number): Promise<OrderDetail> {
+    return api.patch<OrderDetail>(`/api/orders/my/${orderId}/cancel`, {});
   },
 };
 
