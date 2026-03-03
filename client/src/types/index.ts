@@ -23,7 +23,10 @@ export interface Order {
 }
 
 export interface CartItem {
-  id: string;
+  cartItemId?: number; // Unique identifier from DB
+  id: string; // Used as unique key in frontend (now mapped to cartItemId)
+  productId?: string; // Original product ID
+  variantId?: number; // Backend variant ID
   name: string;
   price: number;
   image: string;
