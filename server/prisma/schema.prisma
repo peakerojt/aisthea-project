@@ -267,8 +267,10 @@ model CartItem {
 model Order {
   orderId               Int         @id(map: "PK__Orders__C3905BCF105BDC52") @default(autoincrement()) @map("OrderId")
   userId                Int?        @map("UserId")
+  orderCode             String?     @unique(map: "UQ_Orders_OrderCode") @map("OrderCode") @db.NVarChar(50)
   orderNumber           String      @unique(map: "UQ__Orders__CAC5E7434BE02B58") @map("OrderNumber") @db.NVarChar(50)
   customerName          String      @map("CustomerName") @db.NVarChar(100)
+  customerEmail         String?     @map("CustomerEmail") @db.NVarChar(100)
   customerPhone         String      @map("CustomerPhone") @db.NVarChar(20)
   shippingCity          String      @map("ShippingCity") @db.NVarChar(50)
   shippingDistrict      String      @map("ShippingDistrict") @db.NVarChar(50)
@@ -288,11 +290,13 @@ model Order {
   coupon                Coupon?     @relation(fields: [couponId], references: [couponId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Orders_Coupons")
   payments              Payment[]
   statusHistory         OrderStatusHistory[]
+  shipment              Shipment?
   note                  String?     @map("Note") @db.NVarChar(500)
   inventoryLogs         InventoryLog[]
 
   @@index([createdAt], map: "IX_Orders_CreatedAt")
   @@index([orderNumber], map: "IX_Orders_OrderNumber")
+  @@index([orderCode], map: "IX_Orders_OrderCode")
   @@index([status], map: "IX_Orders_Status")
   @@index([userId], map: "IX_Orders_UserId")
   @@map("Orders")
@@ -309,7 +313,23 @@ model OrderStatusHistory {
   order                Order    @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderStatusHistory_Orders")
 
   @@index([orderId], map: "IX_OrderStatusHistory_OrderId")
+  @@index([orderId, changedAt], map: "IX_OrderStatusHistory_OrderId_ChangedAt")
   @@map("OrderStatusHistory")
+}
+
+model Shipment {
+  shipmentId          Int       @id @default(autoincrement()) @map("ShipmentId")
+  orderId             Int       @unique @map("OrderId")
+  carrier             String?   @map("Carrier") @db.NVarChar(100)
+  trackingNumber      String?   @map("TrackingNumber") @db.NVarChar(100)
+  eta                 DateTime? @map("Eta")
+  lastKnownLocation   String?   @map("LastKnownLocation") @db.NVarChar(255)
+  createdAt           DateTime  @default(now()) @map("CreatedAt")
+  updatedAt           DateTime  @default(now()) @updatedAt @map("UpdatedAt")
+  order               Order     @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
+
+  @@index([trackingNumber], map: "IX_Shipments_TrackingNumber")
+  @@map("Shipments")
 }
 
 model OrderItem {
