@@ -12,9 +12,10 @@ interface StoreHeaderProps {
   searchTerm?: string;
   setSearchTerm?: (term: string) => void;
   onProductClick?: (product: any) => void;
+  cartCount?: number;
 }
 
-export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, transparent = false, searchTerm = '', setSearchTerm, onProductClick }) => {
+export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, transparent = false, searchTerm = '', setSearchTerm, onProductClick, cartCount = 0 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const { user, role } = useAuth();
 
@@ -282,7 +283,11 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, 
           </div>
           <button onClick={() => setView('STORE_CART')} className="text-white/90 hover:text-white p-2 relative">
             <span className="material-symbols-outlined text-2xl">shopping_bag</span>
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full"></span>
+            {cartCount > 0 && (
+              <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-black text-white ring-2 ring-bg-dark">
+                {cartCount}
+              </span>
+            )}
           </button>
           <button onClick={handleUserClick} className="text-white/90 hover:text-white p-2" title={user ? "Profile" : "Sign In"}>
             <span className="material-symbols-outlined text-2xl">person</span>

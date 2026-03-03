@@ -27,6 +27,8 @@ import { OAuthCallback } from '../pages/OAuthCallback';
 import { EmailVerification } from '../pages/EmailVerification';
 import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '../pages/auth/ResetPasswordPage';
+import { fetchCart, addToCartApi, updateCartItemApi, removeCartItemApi } from '../services/cart.service';
+import { getCloudinaryProductCard } from '../utils/cloudinary';
 
 const App: React.FC = () => {
   const { role } = useAuth();
@@ -91,30 +93,80 @@ const App: React.FC = () => {
     }
   }, [view, role]);
 
-  // Cart State (Giữ nguyên dữ liệu mẫu để hiển thị UI)
+  // Cart State
   const [cart, setCart] = useState<CartItem[]>([]);
+  const { user } = useAuth();
 
-  const addToCart = (item: CartItem) => {
-    setCart(prev => {
-      const existing = prev.find(i => i.id === item.id && i.size === item.size && i.color === item.color);
-      if (existing) {
-        return prev.map(i => (i === existing ? { ...i, quantity: i.quantity + item.quantity } : i));
-      }
-      return [...prev, item];
-    });
+  const syncCart = async () => {
+    if (!user) {
+      setCart([]);
+      return;
+    }
+    try {
+      const dbCart = await fetchCart();
+      const mappedItems: CartItem[] = dbCart.items.map(item => ({
+        cartItemId: item.cartItemId,
+        id: item.cartItemId.toString(), // Luôn sử dụng cartItemId làm ID duy nhất ở frontend
+        productId: item.variant.product.productId.toString(),
+        variantId: item.variantId,
+        name: item.variant.product.name,
+        price: Number(item.variant.price),
+        image: getCloudinaryProductCard(item.variant.product.images[0]?.imageUrl || ''),
+        color: item.variant.variantAttributes.find(a => a.value.attribute.name === 'Color' || a.value.attribute.name === 'Màu' || a.value.attribute.name === 'Màu sắc')?.value.value || 'N/A',
+        size: item.variant.variantAttributes.find(a => a.value.attribute.name === 'Size' || a.value.attribute.name === 'Kích thước')?.value.value || 'N/A',
+        quantity: item.quantity,
+        ref: item.variant.sku
+      }));
+      setCart(mappedItems);
+    } catch (error) {
+      console.error('Failed to sync cart:', error);
+    }
   };
 
-  const updateQuantity = (itemId: string, delta: number) => {
-    setCart(prev => prev.map(item => {
-      if (item.id === itemId) {
-        return { ...item, quantity: Math.max(1, item.quantity + delta) };
+  useEffect(() => {
+    syncCart();
+  }, [user]);
+
+  const addToCart = async (item: CartItem) => {
+    if (!user) {
+      setView('AUTH_LOGIN');
+      return;
+    }
+    try {
+      if (item.variantId) {
+        await addToCartApi(item.variantId, item.quantity);
+        await syncCart();
+      } else {
+        console.error('Missing variantId for add to cart');
       }
-      return item;
-    }));
+    } catch (error) {
+      console.error('Add to cart failed:', error);
+    }
   };
 
-  const removeItem = (itemId: string) => {
-    setCart(prev => prev.filter(item => item.id !== itemId));
+  const updateQuantity = async (itemId: string, delta: number) => {
+    const item = cart.find(i => i.id === itemId);
+    if (!item || !item.cartItemId) return;
+
+    try {
+      const newQty = Math.max(1, item.quantity + delta);
+      await updateCartItemApi(item.cartItemId, newQty);
+      await syncCart();
+    } catch (error) {
+      console.error('Update quantity failed:', error);
+    }
+  };
+
+  const removeItem = async (itemId: string) => {
+    const item = cart.find(i => i.id === itemId);
+    if (!item || !item.cartItemId) return;
+
+    try {
+      await removeCartItemApi(item.cartItemId);
+      await syncCart();
+    } catch (error) {
+      console.error('Remove item failed:', error);
+    }
   };
 
   const handleCategoryClick = (category: CategoryType) => {

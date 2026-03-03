@@ -59,6 +59,7 @@ export interface ProductVariant {
     isDefault: boolean;
     images?: ProductImage[];
     variantAttributes?: any[];
+    attributes?: any[]; // Thuộc tính trả về từ Stored Procedure sp_GetProductDetails
 }
 
 export interface Product {

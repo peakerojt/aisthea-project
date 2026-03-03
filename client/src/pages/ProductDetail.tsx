@@ -108,13 +108,15 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
         // Pre-select first variant if available
         if (details.variants && details.variants.length > 0) {
           const defaultVariant = details.variants.find(v => v.isDefault) || details.variants[0];
-          const sizeAttr = defaultVariant.variantAttributes?.find(a => a.attribute?.name === 'Size');
-          const colorAttr = defaultVariant.variantAttributes?.find(a => a.attribute?.name === 'Color');
+          const sizeAttr = defaultVariant.attributes?.find((a: any) => a.attributeName === 'Size' || a.attributeName === 'Kích thước') ||
+            defaultVariant.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Size' || a.value?.attribute?.name === 'Kích thước');
+          const colorAttr = defaultVariant.attributes?.find((a: any) => a.attributeName === 'Color' || a.attributeName === 'Màu sắc' || a.attributeName === 'Màu') ||
+            defaultVariant.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Color' || a.value?.attribute?.name === 'Màu sắc' || a.value?.attribute?.name === 'Màu');
 
-          if (sizeAttr) setSelectedSize(sizeAttr.value);
+          if (sizeAttr) setSelectedSize(sizeAttr.attributeValue || sizeAttr.value?.value || sizeAttr.value);
           else setSelectedSize('M');
 
-          if (colorAttr) setSelectedColor(colorAttr.value);
+          if (colorAttr) setSelectedColor(colorAttr.attributeValue || colorAttr.value?.value || colorAttr.value);
           else setSelectedColor('#111');
         } else {
           setSelectedSize('M');
@@ -151,8 +153,9 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     if (!productDetails?.variants) return ['XS', 'S', 'M', 'L', 'XL'];
     const sizes = new Set<string>();
     productDetails.variants.forEach(v => {
-      const attr = v.variantAttributes?.find(a => a.attribute?.name === 'Size');
-      if (attr) sizes.add(attr.value);
+      const attr = v.attributes?.find((a: any) => a.attributeName === 'Size' || a.attributeName === 'Kích thước') ||
+        v.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Size' || a.value?.attribute?.name === 'Kích thước');
+      if (attr) sizes.add(attr.attributeValue || attr.value?.value || attr.value);
     });
     return sizes.size > 0 ? Array.from(sizes) : ['XS', 'S', 'M', 'L', 'XL'];
   }, [productDetails]);
@@ -161,8 +164,9 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     if (!productDetails?.variants) return ['#111', '#4a0404', '#2a2a2a'];
     const colors = new Set<string>();
     productDetails.variants.forEach(v => {
-      const attr = v.variantAttributes?.find(a => a.attribute?.name === 'Color');
-      if (attr) colors.add(attr.value);
+      const attr = v.attributes?.find((a: any) => a.attributeName === 'Color' || a.attributeName === 'Màu sắc' || a.attributeName === 'Màu') ||
+        v.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Color' || a.value?.attribute?.name === 'Màu sắc' || a.value?.attribute?.name === 'Màu');
+      if (attr) colors.add(attr.attributeValue || attr.value?.value || attr.value);
     });
     return colors.size > 0 ? Array.from(colors) : ['#111', '#4a0404', '#2a2a2a'];
   }, [productDetails]);
@@ -205,12 +209,29 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
   }, [products, productDetails, basicInfo, currentActiveId]);
 
   const handleAddToCart = () => {
+    const variants = productDetails?.variants || initialProduct?.variants || [];
+    const selectedVariant = variants.find((v: any) => {
+      const sizeAttr = v.attributes?.find((a: any) => a.attributeName === 'Size' || a.attributeName === 'Kích thước') ||
+        v.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Size' || a.value?.attribute?.name === 'Kích thước');
+      const colorAttr = v.attributes?.find((a: any) => a.attributeName === 'Color' || a.attributeName === 'Màu sắc' || a.attributeName === 'Màu') ||
+        v.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Color' || a.value?.attribute?.name === 'Màu sắc' || a.value?.attribute?.name === 'Màu');
+      const vSize = sizeAttr?.attributeValue || sizeAttr?.value?.value || sizeAttr?.value;
+      const vColor = colorAttr?.attributeValue || colorAttr?.value?.value || colorAttr?.value;
+      return vSize === selectedSize && vColor === selectedColor;
+    }) || variants.find((v: any) => v.isDefault) || variants[0];
+
+    if (!selectedVariant?.variantId) {
+      alert("Vui lòng đợi thông tin sản phẩm tải xong hoặc chọn Size khác.");
+      return;
+    }
+
     addToCart({
-      id: basicInfo.id,
+      id: basicInfo.id.toString(),
+      variantId: selectedVariant.variantId,
       name: productDetails?.name || basicInfo.name,
-      price: productDetails?.basePrice || basicInfo.price,
-      image: basicInfo.image,
-      ref: basicInfo.ref,
+      price: Number(productDetails?.basePrice || selectedVariant.price || basicInfo.price),
+      image: basicInfo.image || (productDetails?.images?.[0]?.imageUrl),
+      ref: selectedVariant.sku || basicInfo.ref,
       quantity: quantity,
       size: selectedSize,
       color: getColorName(selectedColor)
@@ -218,12 +239,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
   };
 
   const getColorName = (val: string) => {
-    if (val.startsWith('#')) {
-      if (val === '#111') return 'Midnight Black';
-      if (val === '#4a0404') return 'Deep Burgundy';
-      if (val === '#2a2a2a') return 'Charcoal Grey';
-      return 'Selected Color';
-    }
     return val;
   }
 
@@ -278,43 +293,16 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
 
         {/* Right Content */}
         <div className="w-full lg:w-1/2 flex flex-col bg-bg-dark">
-          <header className="sticky top-0 z-20 flex items-center justify-between px-6 py-2 lg:px-12 lg:py-2 bg-bg-dark/95 backdrop-blur-sm border-b border-border-dark/50">
-            <button onClick={() => setView('STORE_HOME')} className="text-primary hover:scale-110 transition-transform"><span className="material-symbols-outlined text-3xl">diamond</span></button>
+          <StoreHeader
+            setView={setView}
+            setCategory={setCategory}
+            transparent={false}
+            setSearchTerm={setSearchTerm}
+            onProductClick={detailsTrigger}
+            cartCount={cartCount}
+          />
 
-            <nav className="hidden md:flex items-center gap-10">
-              {['New Arrivals', 'Women', 'Men', 'Accessories'].map((item) => (
-                <button
-                  key={item}
-                  onClick={() => {
-                    if (['Men', 'Women', 'Accessories'].includes(item)) {
-                      setCategory(item as CategoryType);
-                    } else {
-                      setView('STORE_COLLECTION');
-                    }
-                  }}
-                  className="text-white/70 hover:text-white text-[10px] font-bold uppercase tracking-[0.2em] transition-all hover:tracking-[0.25em]"
-                >
-                  {item}
-                </button>
-              ))}
-            </nav>
-
-            <div className="flex items-center gap-4">
-              <StoreHeader
-                setView={setView}
-                setCategory={setCategory}
-                transparent={false}
-                setSearchTerm={setSearchTerm}
-                onProductClick={detailsTrigger}
-              />
-              <button onClick={() => setView('STORE_CART')} className="relative group p-2">
-                <span className="material-symbols-outlined text-white group-hover:text-primary transition-colors text-2xl">shopping_bag</span>
-                {cartCount > 0 && <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-black text-white ring-2 ring-bg-dark">{cartCount}</span>}
-              </button>
-            </div>
-          </header>
-
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col pt-20"> {/* Add padding top because StoreHeader is fixed */}
 
 
             <div className="px-5 py-4 lg:px-10 lg:py-4 flex flex-col gap-4">
@@ -369,10 +357,10 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                         key={color}
                         onClick={() => setSelectedColor(color)}
                         className={`w-8 h-8 rounded-full border-2 transition-all duration-300 ${selectedColor === color ? 'border-white scale-110 shadow-xl shadow-white/10 ring-4 ring-white/5' : 'border-transparent hover:scale-105'}`}
-                        style={{ backgroundColor: color.startsWith('#') ? color : '#333' }}
+                        style={{ backgroundColor: color.startsWith('#') ? color : '#555' }}
                         title={color}
                       >
-                        {!color.startsWith('#') && <span className="text-[7px] font-bold">{color}</span>}
+                        {!color.startsWith('#') && <span className="text-[7px] font-bold text-white/40">{color.substring(0, 1)}</span>}
                       </button>
                     ))}
                   </div>

@@ -56,13 +56,13 @@ export const ShoppingBag: React.FC<ShoppingBagProps> = ({ setView, setCategory, 
                                         </div>
                                         <div className="flex items-end justify-between mt-6">
                                             <div className="flex items-center border border-border-dark rounded-sm h-10 w-fit">
-                                                <button onClick={() => updateQuantity(item.id, -1)} className="w-10 h-full flex items-center justify-center hover:bg-white/5 text-white"><span className="material-symbols-outlined text-[18px]">remove</span></button>
+                                                <button onClick={() => item.cartItemId && updateQuantity(item.cartItemId.toString(), -1)} className="w-10 h-full flex items-center justify-center hover:bg-white/5 text-white"><span className="material-symbols-outlined text-[18px]">remove</span></button>
                                                 <span className="w-12 text-center text-sm font-medium">{item.quantity}</span>
-                                                <button onClick={() => updateQuantity(item.id, 1)} className="w-10 h-full flex items-center justify-center hover:bg-white/5 text-white"><span className="material-symbols-outlined text-[18px]">add</span></button>
+                                                <button onClick={() => item.cartItemId && updateQuantity(item.cartItemId.toString(), 1)} className="w-10 h-full flex items-center justify-center hover:bg-white/5 text-white"><span className="material-symbols-outlined text-[18px]">add</span></button>
                                             </div>
                                             <div className="flex gap-6">
                                                 <button className="text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-white transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">favorite</span> Save</button>
-                                                <button onClick={() => removeItem(item.id)} className="text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-white transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">close</span> Remove</button>
+                                                <button onClick={() => item.cartItemId && removeItem(item.cartItemId.toString())} className="text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-white transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">close</span> Remove</button>
                                             </div>
                                         </div>
                                     </div>
