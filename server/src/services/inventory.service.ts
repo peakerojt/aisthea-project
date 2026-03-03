@@ -39,6 +39,7 @@ export type InventoryLogReason =
   | 'CHECKOUT'
   | 'RESTOCK'
   | 'CANCELLED_RESTORE'
+  | 'RETURN_RESTORE'
   | 'MANUAL_ADJUST';
 
 // ─── atomicCheckoutDeduction ──────────────────────────────────────────────────

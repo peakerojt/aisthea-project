@@ -59,7 +59,7 @@ const formatDateTime = (iso: string): string => {
  * Fully driven by the FSM config — no magic strings.
  * Displays note and changedBy when available.
  */
-export const OrderTimeline: React.FC<OrderTimelineProps> = ({ history }) => {
+export const OrderTimeline: React.FC<OrderTimelineProps> = ({ history = [] }) => {
   if (history.length === 0) {
     return (
       <div className="px-5 pb-5 pt-2">

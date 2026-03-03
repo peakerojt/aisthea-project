@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { Logo } from './Logo';
 import { ViewState } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, Shirt, ShoppingBag, Users, BarChart2, LogOut, PackagePlus, Tag, TicketPercent, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Shirt, ShoppingBag, Users, BarChart2, LogOut, PackagePlus, Tag, TicketPercent, ShieldCheck, RotateCcw } from 'lucide-react';
+
 
 
 interface AdminSidebarProps {
@@ -48,6 +49,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, setView
       label: t('sidebar:nav.orders'),
       view: 'ADMIN_ORDERS' as ViewState,
       subRoutes: ['ADMIN_TRACKING', 'ADMIN_ORDER_DETAIL']
+    },
+    {
+      icon: RotateCcw,
+      label: 'Hoàn trả',
+      view: 'ADMIN_RETURNS' as ViewState,
+      subRoutes: []
     },
     {
       icon: Users,
