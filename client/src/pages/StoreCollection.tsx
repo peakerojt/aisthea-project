@@ -91,8 +91,7 @@ const ProductGridCard: React.FC<{ product: Product; onProductClick: (p: any) => 
           src={getCloudinaryProductCard(product.image)}
           alt={product.name}
           loading={isAboveFold ? 'eager' : 'lazy'}
-          // @ts-ignore — fetchpriority is valid HTML but not yet in React types
-          fetchpriority={isAboveFold ? 'high' : 'auto'}
+          fetchPriority={isAboveFold ? 'high' : 'auto'}
           onLoad={() => setImgLoaded(true)}
           onError={(e) => { e.currentTarget.src = product.image; setImgLoaded(true); }}
           className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${imgLoaded || isAboveFold ? 'opacity-100' : 'opacity-0'}`}

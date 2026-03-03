@@ -11,6 +11,7 @@ import importExportRoutes from './routes/importExport.routes';
 import orderRoutes from './routes/order.routes';
 import userRoutes from './routes/user.routes';
 import orderModuleRoutes from './modules/order/order.route';
+import reviewRoutes from './routes/review.route';
 import categoryRoutes from './routes/category.routes';
 import inventoryRoutes from './routes/inventory.routes';
 import dashboardRoutes from './routes/dashboard.routes';
@@ -55,6 +56,7 @@ export function createApp() {
   app.use('/api/cart', cartRoutes);
   app.use('/api/roles', roleRoutes);
   app.use('/api/permissions', permissionRoutes);
+  app.use('/api/reviews', reviewRoutes);
 
 
   // Keep existing routes for backward compatibility
