@@ -27,6 +27,7 @@ model User {
   verificationTokens EmailVerificationToken[]
   passwordResetTokens PasswordResetToken[]
   inventoryLogs InventoryLog[]
+  orderReturns  OrderReturn[]
 
   @@index([email, status], map: "IX_Users_Email_Status")
   @@index([phone], map: "IX_Users_Phone")
@@ -264,6 +265,10 @@ model CartItem {
   @@map("CartItems")
 }
 
+// ─── Order Status FSM strings ─────────────────────────────────────────────────
+// Valid status values: Pending | Processing | Shipping | Delivered | Cancelled
+//                     Return_Requested | Returned
+
 model Order {
   orderId               Int         @id(map: "PK__Orders__C3905BCF105BDC52") @default(autoincrement()) @map("OrderId")
   userId                Int?        @map("UserId")
@@ -285,6 +290,7 @@ model Order {
   paymentMethod         String?     @default("COD", map: "DF__Orders__PaymentM__72C60C4A") @map("PaymentMethod") @db.NVarChar(50)
   paymentStatus         String?     @default("Unpaid", map: "DF__Orders__PaymentS__73BA3083") @map("PaymentStatus") @db.NVarChar(20)
   createdAt             DateTime?   @default(now(), map: "DF__Orders__CreatedA__74AE54BC") @map("CreatedAt")
+  updatedAt             DateTime?   @default(now()) @updatedAt @map("UpdatedAt")
   items                 OrderItem[]
   user                  User?       @relation(fields: [userId], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Orders_Users")
   coupon                Coupon?     @relation(fields: [couponId], references: [couponId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Orders_Coupons")
@@ -293,6 +299,8 @@ model Order {
   shipment              Shipment?
   note                  String?     @map("Note") @db.NVarChar(500)
   inventoryLogs         InventoryLog[]
+  orderReturn           OrderReturn?
+  refunds               Refund[]
 
   @@index([createdAt], map: "IX_Orders_CreatedAt")
   @@index([orderNumber], map: "IX_Orders_OrderNumber")
@@ -359,6 +367,7 @@ model Payment {
   paymentDate     DateTime? @default(now(), map: "DF__Payments__Paymen__01142BA1") @map("PaymentDate")
   note            String?   @map("Note") @db.NVarChar(500)
   order           Order     @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Payments_Orders")
+  refunds         Refund[]
 
   @@map("Payments")
 }
@@ -401,6 +410,29 @@ model InventoryLog {
   @@map("InventoryLogs")
 }
 
+// ─── Return & Refund ──────────────────────────────────────────────────────────
+// OrderReturn.status values: PENDING_APPROVAL | APPROVED | REJECTED | COMPLETED
+
+model OrderReturn {
+  returnId    Int      @id @default(autoincrement()) @map("ReturnId")
+  orderId     Int      @unique @map("OrderId")                           // One return per order
+  userId      Int?     @map("UserId")                                    // Customer who requested
+  reason      String   @map("Reason") @db.NVarChar(500)
+  proofImages String   @default("[]") @map("ProofImages") @db.NVarChar(Max) // JSON array of Cloudinary URLs
+  status      String   @default("PENDING_APPROVAL") @map("Status") @db.NVarChar(30)
+  adminNote   String?  @map("AdminNote") @db.NVarChar(500)
+  createdAt   DateTime @default(now()) @map("CreatedAt")
+  updatedAt   DateTime @default(now()) @updatedAt @map("UpdatedAt")
+
+  order Order @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderReturns_Orders")
+  user  User? @relation(fields: [userId], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_OrderReturns_Users")
+
+  @@index([orderId], map: "IX_OrderReturns_OrderId")
+  @@index([status],  map: "IX_OrderReturns_Status")
+  @@index([userId],  map: "IX_OrderReturns_UserId")
+  @@map("OrderReturns")
+}
+
 // ─── Coupon & Discount System ─────────────────────────────────────────────────
 // type values enforced at application layer: "FIXED_AMOUNT" | "PERCENTAGE"
 
@@ -424,4 +456,32 @@ model Coupon {
   @@index([code], map: "IX_Coupons_Code")
   @@index([isActive], map: "IX_Coupons_IsActive")
   @@map("Coupons")
+}
+
+// ─── Financial Refund Ledger ──────────────────────────────────────────────────
+// type:   FULL | PARTIAL
+// method: ORIGINAL_GATEWAY | BANK_TRANSFER | STORE_WALLET
+// status: PENDING | PROCESSING | SUCCESS | FAILED
+
+model Refund {
+  refundId             Int      @id @default(autoincrement()) @map("RefundId")
+  orderId              Int      @map("OrderId")
+  paymentId            Int?     @map("PaymentId")
+  amount               Decimal  @map("Amount") @db.Decimal(18, 2)
+  type                 String   @map("Type") @db.NVarChar(10)
+  method               String   @map("Method") @db.NVarChar(25)
+  status               String   @default("PENDING") @map("Status") @db.NVarChar(15)
+  gatewayTransactionId String?  @map("GatewayTransactionId") @db.NVarChar(100)
+  reason               String   @map("Reason") @db.NVarChar(500)
+  gatewayError         String?  @map("GatewayError") @db.NVarChar(500)
+  createdBy            Int?     @map("CreatedBy")
+  createdAt            DateTime @default(now()) @map("CreatedAt")
+  updatedAt            DateTime @default(now()) @updatedAt @map("UpdatedAt")
+
+  order   Order    @relation(fields: [orderId],   references: [orderId],   onDelete: Cascade, onUpdate: NoAction, map: "FK_Refunds_Orders")
+  payment Payment? @relation(fields: [paymentId], references: [paymentId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Refunds_Payments")
+
+  @@index([orderId],  map: "IX_Refunds_OrderId")
+  @@index([status],   map: "IX_Refunds_Status")
+  @@map("Refunds")
 }

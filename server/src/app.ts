@@ -23,6 +23,10 @@ import roleRoutes from './routes/role.routes';
 import permissionRoutes from './routes/permission.routes';
 import trackingRouter from './modules/tracking/tracking.route';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
+import returnRoutes from './routes/return.routes';
+import refundRoutes from './routes/refund.routes';
+import { authenticateToken } from './middlewares/auth.middleware';
+import { postReturnRequest, getOrderReturn } from './controllers/return.controller';
 
 
 dotenv.config();
@@ -61,6 +65,17 @@ export function createApp() {
   app.use('/api/reviews', reviewRoutes);
 
   app.use('/api/orders', orderRoutes);
+
+  // ── Return & Refund routes ────────────────────────────────────────────────
+  // Order-scoped: customer request + query order return
+  app.post('/api/orders/:id/return', authenticateToken, postReturnRequest);
+  app.get('/api/orders/:id/return', authenticateToken, getOrderReturn);
+  // Admin-facing financial refunds — MUST be before orderModuleRoutes (which has /:id wildcard)
+  app.use('/api/orders', refundRoutes);
+  // Admin-facing returns management
+  app.use('/api/returns', returnRoutes);
+
+  // New production-ready endpoints — registered LAST because /:id wildcard would intercept /refunds
   app.use('/api/orders', orderModuleRoutes);
   app.use('/api', trackingRouter);
 

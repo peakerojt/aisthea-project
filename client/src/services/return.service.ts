@@ -1,4 +1,11 @@
-import { httpClient } from './httpClient';
+/**
+ * return.service.ts (client)
+ * API calls for the Return & Refund module.
+ */
+
+import { api } from '../utils/api';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ReturnReason =
   | 'DEFECTIVE'
@@ -8,56 +15,103 @@ export type ReturnReason =
   | 'OTHER';
 
 export type ReturnStatus =
-  | 'REQUESTED'
+  | 'PENDING_APPROVAL'
   | 'APPROVED'
   | 'REJECTED'
-  | 'RECEIVED'
-  | 'REFUNDED';
+  | 'COMPLETED';
 
 export type RefundMethod = 'ORIGINAL_PAYMENT' | 'WALLET_CREDIT';
 
-export interface CreateReturnPayload {
+export interface OrderReturn {
+  returnId: number;
   orderId: number;
-  reason: ReturnReason;
-  note?: string;
-  items: { orderItemId: number; quantity: number; reason?: string }[];
-  attachments?: string[];
+  userId: number | null;
+  reason: string;
+  proofImages: string[]; // Cloudinary URLs (already parsed from JSON)
+  status: ReturnStatus;
+  adminNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  // Populated in admin list
+  order?: {
+    orderNumber: string;
+    totalAmount: string;
+    customerName: string;
+    customerPhone: string;
+  };
+  user?: {
+    userId: number;
+    fullName: string;
+    email: string;
+    avatarUrl: string | null;
+  } | null;
 }
 
+export interface ReturnListResponse {
+  returns: OrderReturn[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+// ─── Customer ─────────────────────────────────────────────────────────────────
+
 export const returnService = {
-  create: (payload: CreateReturnPayload) => httpClient.post('/api/returns', payload),
-
-  myReturns: (page = 1, limit = 10) =>
-    httpClient.get(`/api/returns/my?page=${page}&limit=${limit}`),
-
-  detail: (id: number) => httpClient.get(`/api/returns/${id}`),
-
-  adminList: (params: {
-    status?: string;
-    orderId?: number;
-    customerId?: number;
-    fromDate?: string;
-    toDate?: string;
-    page?: number;
-    limit?: number;
-  }) => {
-    const usp = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => {
-      if (v !== undefined && v !== null && String(v).length > 0) usp.set(k, String(v));
+  /**
+   * Customer: submit a return request for a delivered order.
+   */
+  async request(orderId: number, reason: string, proofImages: string[]): Promise<OrderReturn> {
+    return api.post<OrderReturn>(`/api/orders/${orderId}/return`, {
+      reason,
+      proofImages,
     });
-    return httpClient.get(`/api/returns/admin/list?${usp.toString()}`);
   },
 
-  adminApprove: (id: number) => httpClient.patch(`/api/returns/admin/${id}/approve`),
+  /**
+   * Get the OrderReturn linked to a specific order (for customer and admin).
+   */
+  async getForOrder(orderId: number): Promise<OrderReturn | null> {
+    const res = await api.get<{ success: boolean; data: OrderReturn | null }>(
+      `/api/orders/${orderId}/return`,
+    );
+    return (res as any).data ?? null;
+  },
+};
 
-  adminReject: (id: number, reason: string) =>
-    httpClient.patch(`/api/returns/admin/${id}/reject`, { reason }),
+// ─── Admin ────────────────────────────────────────────────────────────────────
 
-  adminMarkReceived: (id: number) =>
-    httpClient.patch(`/api/returns/admin/${id}/mark-received`),
+export const adminReturnService = {
+  /**
+   * Paginated list of all return requests.
+   */
+  async list(params?: {
+    status?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<ReturnListResponse> {
+    const q = new URLSearchParams();
+    if (params?.status && params.status !== 'ALL') q.append('status', params.status);
+    if (params?.page) q.append('page', params.page.toString());
+    if (params?.pageSize) q.append('pageSize', params.pageSize.toString());
+    const query = q.toString();
+    const res = await api.get<ReturnListResponse>(`/api/returns${query ? `?${query}` : ''}`);
+    return res as ReturnListResponse;
+  },
 
-  adminRefund: (
-    id: number,
-    payload: { method: RefundMethod; idempotencyKey: string; amount?: number },
-  ) => httpClient.patch(`/api/returns/admin/${id}/refund`, payload),
+  /**
+   * Admin: approve / reject / complete refund for a return request.
+   */
+  async process(
+    returnId: number,
+    action: 'APPROVE' | 'REJECT' | 'COMPLETE_REFUND',
+    note?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return api.patch<{ success: boolean; message: string }>(
+      `/api/returns/${returnId}/process`,
+      { action, note },
+    );
+  },
 };

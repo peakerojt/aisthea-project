@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     ArrowLeft, Package, MapPin, CreditCard, User, Clock,
     CheckCircle2, XCircle, Truck, ShoppingBag, Loader2, AlertCircle,
-    ChevronRight, Copy, Check,
+    ChevronRight, Copy, Check, RotateCcw,
 } from 'lucide-react';
 import { ViewState } from '../types';
 import { adminOrderService, AdminOrderDetail as OrderDetailType } from '../services/order.service';
@@ -11,6 +11,9 @@ import { OrderActionPanel } from '../components/order/OrderActionPanel';
 import { OrderTimeline } from '../components/order/OrderTimeline';
 import { OrderStatusBadge } from '../components/order/OrderStatusBadge';
 import { getStatusMeta, normalizeStatus } from '../config/orderStatus.config';
+import { AdminRefundDialog } from '../components/order/AdminRefundDialog';
+import { OrderFinancials } from '../components/order/OrderFinancials';
+import { adminRefundService, RefundRecord } from '../services/refund.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design System (ui-ux-pro-max: luxury dark ecommerce admin)
@@ -109,6 +112,18 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
     const [error, setError] = useState<string | null>(null);
     const [toast, setToast] = useState<ToastState | null>(null);
 
+    // ── Refund state ─────────────────────────────────────────────────────────
+    const [showRefundDialog, setShowRefundDialog] = useState(false);
+    const [refunds, setRefunds] = useState<RefundRecord[]>([]);
+    const [refundsLoading, setRefundsLoading] = useState(false);
+
+    const loadRefunds = useCallback(async (oId: number) => {
+        setRefundsLoading(true);
+        try { setRefunds(await adminRefundService.list(oId)); }
+        catch { setRefunds([]); }
+        finally { setRefundsLoading(false); }
+    }, []);
+
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3500);
@@ -118,10 +133,12 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
         if (!orderId) { setError('Không tìm thấy mã đơn.'); setLoading(false); return; }
         setLoading(true); setError(null);
         try {
-            setOrder(await adminOrderService.getDetail(orderId));
+            const o = await adminOrderService.getDetail(orderId);
+            setOrder(o);
+            loadRefunds(orderId);
         } catch (e: any) { setError(e.message || 'Không thể tải chi tiết đơn hàng.'); }
         finally { setLoading(false); }
-    }, [orderId]);
+    }, [orderId, loadRefunds]);
 
     useEffect(() => { loadOrder(); }, [loadOrder]);
 
@@ -165,260 +182,295 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
     const statusHistory = (order as any).statusHistory ?? [];
 
     return (
-        <div className="min-h-full" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-            <Toast toast={toast} />
+        <>
+            <div className="min-h-full" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+                <Toast toast={toast} />
 
-            {/* ── Sticky Navigation Bar ──────────────────────────────────────── */}
-            <div className="sticky top-0 z-20 border-b border-white/[0.05] bg-[#0A0A0C]/90 backdrop-blur-xl">
-                <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between">
+                {/* ── Sticky Navigation Bar ──────────────────────────────────────── */}
+                <div className="sticky top-0 z-20 border-b border-white/[0.05] bg-[#0A0A0C]/90 backdrop-blur-xl">
+                    <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between">
 
-                    {/* Breadcrumb */}
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setView('ADMIN_ORDERS')}
-                            className="flex items-center gap-1.5 text-sm text-white/40 hover:text-white transition-colors cursor-pointer group"
-                        >
-                            <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
-                            Đơn hàng
-                        </button>
-                        <ChevronRight size={13} className="text-white/20" />
+                        {/* Breadcrumb */}
                         <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-white font-mono tracking-wide">
-                                {order.orderNumber}
-                            </span>
-                            <CopyButton text={order.orderNumber} />
+                            <button
+                                onClick={() => setView('ADMIN_ORDERS')}
+                                className="flex items-center gap-1.5 text-sm text-white/40 hover:text-white transition-colors cursor-pointer group"
+                            >
+                                <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
+                                Đơn hàng
+                            </button>
+                            <ChevronRight size={13} className="text-white/20" />
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-white font-mono tracking-wide">
+                                    {order.orderNumber}
+                                </span>
+                                <CopyButton text={order.orderNumber} />
+                            </div>
+                        </div>
+
+                        {/* Status + Actions */}
+                        <div className="flex items-center gap-3">
+                            <StatusPill status={status} />
+                            <div className="w-px h-5 bg-white/10" />
+
+                            {/* Hoàn tiền button — only when Paid or Partially Refunded */}
+                            {(['Paid', 'PAID', 'Partially_Refunded', 'PARTIALLY_REFUNDED'].includes(order.paymentStatus ?? '')) && (
+                                <button
+                                    onClick={() => setShowRefundDialog(true)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/25 text-violet-400 hover:bg-violet-500/20 transition-all text-[11px] font-bold uppercase tracking-wider cursor-pointer"
+                                >
+                                    <RotateCcw size={11} />
+                                    Hoàn tiền
+                                </button>
+                            )}
+
+                            <div className="w-px h-5 bg-white/10" />
+                            <OrderActionPanel
+                                orderId={order.orderId}
+                                currentStatus={status}
+                                onStatusUpdated={loadOrder}
+                                onError={(msg) => showToast(msg, 'error')}
+                            />
                         </div>
                     </div>
-
-                    {/* Status + Actions */}
-                    <div className="flex items-center gap-3">
-                        <StatusPill status={status} />
-                        <div className="w-px h-5 bg-white/10" />
-                        <OrderActionPanel
-                            orderId={order.orderId}
-                            currentStatus={status}
-                            onStatusUpdated={loadOrder}
-                            onError={(msg) => showToast(msg, 'error')}
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Page Body ─────────────────────────────────────────────────── */}
-            <div className="max-w-[1400px] mx-auto px-6 py-7">
-                {/* Order metadata row */}
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mb-6 text-[11px] text-white/35 font-mono">
-                    <span>Đặt lúc {fmt(order.createdAt)}</span>
-                    {order.trackingNumber && (
-                        <>
-                            <span className="text-white/15">·</span>
-                            <span>{order.carrier ?? 'Vận chuyển'}: <span className="text-white/60">{order.trackingNumber}</span></span>
-                        </>
-                    )}
-                    <span className="text-white/15">·</span>
-                    <span className={c.textClass}>{c.label}</span>
                 </div>
 
-                {/* Two-column Grid */}
-                <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-5">
-
-                    {/* ══ LEFT COLUMN ═══════════════════════════════════════════════ */}
-                    <div className="space-y-5">
-
-                        {/* ── Product Items Card ─────────────────────────────────── */}
-                        <Card>
-                            <SectionTitle icon={ShoppingBag} title={`Sản phẩm · ${order.items.length} mặt hàng`} />
-
-                            <div className="divide-y divide-white/[0.04]">
-                                {order.items.map((item) => (
-                                    <div key={item.orderItemId} className="flex gap-4 p-5 hover:bg-white/[0.018] transition-colors cursor-default">
-
-                                        {/* Product image */}
-                                        <div className="w-[72px] h-[90px] rounded-xl overflow-hidden shrink-0 bg-white/[0.04] border border-white/[0.07] relative">
-                                            {item.image ? (
-                                                <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                    <Package size={22} className="text-white/15" />
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Info */}
-                                        <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
-                                            <div>
-                                                <p className="text-[13px] font-bold text-white/90 leading-snug line-clamp-2 mb-1.5">
-                                                    {item.productName}
-                                                </p>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    <span className="inline-block text-[10px] bg-white/[0.06] border border-white/[0.08] rounded-md px-2 py-0.5 text-white/50 font-mono">
-                                                        {item.sku}
-                                                    </span>
-                                                    <span className="inline-block text-[10px] bg-white/[0.06] border border-white/[0.08] rounded-md px-2 py-0.5 text-white/60">
-                                                        {item.variantName}
-                                                    </span>
-                                                    <span className="inline-block text-[10px] bg-primary/8 border border-primary/15 rounded-md px-2 py-0.5 text-primary/80">
-                                                        × {item.quantity}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <p className="text-[11px] text-white/35 mt-1">
-                                                Đơn giá: {formatVND(item.unitPrice)}
-                                            </p>
-                                        </div>
-
-                                        {/* Line total */}
-                                        <div className="text-right shrink-0 flex flex-col justify-between py-0.5">
-                                            <p className="text-sm font-bold text-white">{formatVND(item.lineTotal)}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Order total */}
-                            <div className="px-5 py-4 border-t border-white/[0.06] bg-white/[0.015] rounded-b-2xl">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-white/40 font-medium uppercase tracking-wider">Tổng đơn hàng</span>
-                                    <div className="text-right">
-                                        <p className="text-2xl font-black text-white tracking-tight">{formatVND(order.totalAmount)}</p>
-                                        <p className={`text-[11px] font-semibold mt-0.5 ${order.paymentStatus === 'Paid' ? 'text-emerald-400' : 'text-amber-400'
-                                            }`}>
-                                            {order.paymentStatus === 'Paid' ? '✓ Đã thanh toán' : '⏳ Chưa thanh toán'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </Card>
-
-                        {/* ── Note card ─────────────────────────────────────────── */}
-                        {order.note && (
-                            <Card>
-                                <div className="px-5 py-4 flex items-start gap-3">
-                                    <div className="w-1 h-full min-h-[40px] rounded-full bg-amber-500/50 shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="text-[11px] font-bold text-amber-400/80 uppercase tracking-widest mb-1.5">Ghi chú đơn hàng</p>
-                                        <p className="text-sm text-white/70 leading-relaxed">{order.note}</p>
-                                    </div>
-                                </div>
-                            </Card>
+                {/* ── Page Body ─────────────────────────────────────────────────── */}
+                <div className="max-w-[1400px] mx-auto px-6 py-7">
+                    {/* Order metadata row */}
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mb-6 text-[11px] text-white/35 font-mono">
+                        <span>Đặt lúc {fmt(order.createdAt)}</span>
+                        {order.trackingNumber && (
+                            <>
+                                <span className="text-white/15">·</span>
+                                <span>{order.carrier ?? 'Vận chuyển'}: <span className="text-white/60">{order.trackingNumber}</span></span>
+                            </>
                         )}
+                        <span className="text-white/15">·</span>
+                        <span className={c.textClass}>{c.label}</span>
+                    </div>
 
-                        {/* ── Payment details ────────────────────────────────────── */}
-                        {order.payments && order.payments.length > 0 && (
+                    {/* Two-column Grid */}
+                    <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-5">
+
+                        {/* ══ LEFT COLUMN ═══════════════════════════════════════════════ */}
+                        <div className="space-y-5">
+
+                            {/* ── Product Items Card ─────────────────────────────────── */}
                             <Card>
-                                <SectionTitle icon={CreditCard} title="Chi tiết thanh toán" />
-                                <div className="p-5 space-y-3">
-                                    {order.payments.map((p) => (
-                                        <div key={p.paymentId} className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-none">
-                                            <div>
-                                                <p className="text-sm text-white/80 font-medium">{p.method}</p>
-                                                {p.paidAt && <p className="text-[11px] text-white/35 font-mono mt-0.5">{fmt(p.paidAt)}</p>}
+                                <SectionTitle icon={ShoppingBag} title={`Sản phẩm · ${order.items.length} mặt hàng`} />
+
+                                <div className="divide-y divide-white/[0.04]">
+                                    {order.items.map((item) => (
+                                        <div key={item.orderItemId} className="flex gap-4 p-5 hover:bg-white/[0.018] transition-colors cursor-default">
+
+                                            {/* Product image */}
+                                            <div className="w-[72px] h-[90px] rounded-xl overflow-hidden shrink-0 bg-white/[0.04] border border-white/[0.07] relative">
+                                                {item.image ? (
+                                                    <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <Package size={22} className="text-white/15" />
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div className="text-right">
-                                                <p className="text-sm font-bold text-white">{formatVND(p.amount)}</p>
-                                                <span className={`text-[10px] font-bold uppercase tracking-wide ${p.status === 'Completed' ? 'text-emerald-400' : 'text-amber-400'
-                                                    }`}>{p.status === 'Completed' ? 'Thành công' : p.status}</span>
+
+                                            {/* Info */}
+                                            <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                                                <div>
+                                                    <p className="text-[13px] font-bold text-white/90 leading-snug line-clamp-2 mb-1.5">
+                                                        {item.productName}
+                                                    </p>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        <span className="inline-block text-[10px] bg-white/[0.06] border border-white/[0.08] rounded-md px-2 py-0.5 text-white/50 font-mono">
+                                                            {item.sku}
+                                                        </span>
+                                                        <span className="inline-block text-[10px] bg-white/[0.06] border border-white/[0.08] rounded-md px-2 py-0.5 text-white/60">
+                                                            {item.variantName}
+                                                        </span>
+                                                        <span className="inline-block text-[10px] bg-primary/8 border border-primary/15 rounded-md px-2 py-0.5 text-primary/80">
+                                                            × {item.quantity}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <p className="text-[11px] text-white/35 mt-1">
+                                                    Đơn giá: {formatVND(item.unitPrice)}
+                                                </p>
+                                            </div>
+
+                                            {/* Line total */}
+                                            <div className="text-right shrink-0 flex flex-col justify-between py-0.5">
+                                                <p className="text-sm font-bold text-white">{formatVND(item.lineTotal)}</p>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
-                            </Card>
-                        )}
-                    </div>
 
-                    {/* ══ RIGHT COLUMN ═══════════════════════════════════════════════ */}
-                    <div className="space-y-4">
-
-                        {/* ── Customer card ─────────────────────────────────────── */}
-                        <Card>
-                            <SectionTitle icon={User} title="Khách hàng" />
-                            <div className="p-5">
-                                {order.user ? (
-                                    <div className="flex items-center gap-3">
-                                        {/* Avatar */}
-                                        {order.user.avatarUrl ? (
-                                            <img src={order.user.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-white/10 shrink-0" />
-                                        ) : (
-                                            <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-sm font-black text-primary shrink-0">
-                                                {order.user.fullName?.charAt(0) ?? '?'}
-                                            </div>
-                                        )}
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-bold text-white">{order.user.fullName}</p>
-                                            <p className="text-[11px] text-white/40 truncate">{order.user.email}</p>
-                                            {order.user.phone && <p className="text-[11px] text-white/40">{order.user.phone}</p>}
+                                {/* Order total */}
+                                <div className="px-5 py-4 border-t border-white/[0.06] bg-white/[0.015] rounded-b-2xl">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-white/40 font-medium uppercase tracking-wider">Tổng đơn hàng</span>
+                                        <div className="text-right">
+                                            <p className="text-2xl font-black text-white tracking-tight">{formatVND(order.totalAmount)}</p>
+                                            <p className={`text-[11px] font-semibold mt-0.5 ${order.paymentStatus === 'Paid' ? 'text-emerald-400' : 'text-amber-400'
+                                                }`}>
+                                                {order.paymentStatus === 'Paid' ? '✓ Đã thanh toán' : '⏳ Chưa thanh toán'}
+                                            </p>
                                         </div>
                                     </div>
-                                ) : (
+                                </div>
+                            </Card>
+
+                            {/* ── Note card ─────────────────────────────────────────── */}
+                            {order.note && (
+                                <Card>
+                                    <div className="px-5 py-4 flex items-start gap-3">
+                                        <div className="w-1 h-full min-h-[40px] rounded-full bg-amber-500/50 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-[11px] font-bold text-amber-400/80 uppercase tracking-widest mb-1.5">Ghi chú đơn hàng</p>
+                                            <p className="text-sm text-white/70 leading-relaxed">{order.note}</p>
+                                        </div>
+                                    </div>
+                                </Card>
+                            )}
+
+                            {/* ── Payment details ────────────────────────────────────── */}
+                            {order.payments && order.payments.length > 0 && (
+                                <Card>
+                                    <SectionTitle icon={CreditCard} title="Chi tiết thanh toán" />
+                                    <div className="p-5 space-y-3">
+                                        {order.payments.map((p) => (
+                                            <div key={p.paymentId} className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-none">
+                                                <div>
+                                                    <p className="text-sm text-white/80 font-medium">{p.method}</p>
+                                                    {p.paidAt && <p className="text-[11px] text-white/35 font-mono mt-0.5">{fmt(p.paidAt)}</p>}
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-bold text-white">{formatVND(p.amount)}</p>
+                                                    <span className={`text-[10px] font-bold uppercase tracking-wide ${p.status === 'Completed' ? 'text-emerald-400' : 'text-amber-400'
+                                                        }`}>{p.status === 'Completed' ? 'Thành công' : p.status}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </Card>
+                            )}
+                        </div>
+
+                        {/* ══ RIGHT COLUMN ═══════════════════════════════════════════════ */}
+                        <div className="space-y-4">
+
+                            {/* ── Customer card ─────────────────────────────────────── */}
+                            <Card>
+                                <SectionTitle icon={User} title="Khách hàng" />
+                                <div className="p-5">
+                                    {order.user ? (
+                                        <div className="flex items-center gap-3">
+                                            {/* Avatar */}
+                                            {order.user.avatarUrl ? (
+                                                <img src={order.user.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-white/10 shrink-0" />
+                                            ) : (
+                                                <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-sm font-black text-primary shrink-0">
+                                                    {order.user.fullName?.charAt(0) ?? '?'}
+                                                </div>
+                                            )}
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-bold text-white">{order.user.fullName}</p>
+                                                <p className="text-[11px] text-white/40 truncate">{order.user.email}</p>
+                                                {order.user.phone && <p className="text-[11px] text-white/40">{order.user.phone}</p>}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <p className="text-sm font-bold text-white">{order.shippingAddress.recipientName}</p>
+                                            <p className="text-[11px] text-white/40 mt-0.5">{order.shippingAddress.phone}</p>
+                                            <p className="text-[11px] text-white/35 mt-0.5">Khách lẻ (không có tài khoản)</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </Card>
+
+                            {/* ── Shipping address card ─────────────────────────────── */}
+                            <Card>
+                                <SectionTitle icon={MapPin} title="Địa chỉ giao hàng" />
+                                <div className="p-5 space-y-3">
                                     <div>
                                         <p className="text-sm font-bold text-white">{order.shippingAddress.recipientName}</p>
-                                        <p className="text-[11px] text-white/40 mt-0.5">{order.shippingAddress.phone}</p>
-                                        <p className="text-[11px] text-white/35 mt-0.5">Khách lẻ (không có tài khoản)</p>
+                                        <p className="text-[11px] text-white/50 mt-0.5">{order.shippingAddress.phone}</p>
                                     </div>
-                                )}
-                            </div>
-                        </Card>
-
-                        {/* ── Shipping address card ─────────────────────────────── */}
-                        <Card>
-                            <SectionTitle icon={MapPin} title="Địa chỉ giao hàng" />
-                            <div className="p-5 space-y-3">
-                                <div>
-                                    <p className="text-sm font-bold text-white">{order.shippingAddress.recipientName}</p>
-                                    <p className="text-[11px] text-white/50 mt-0.5">{order.shippingAddress.phone}</p>
-                                </div>
-                                <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
-                                    <p className="text-[12px] text-white/65 leading-relaxed">
-                                        {order.shippingAddress.addressDetail}
-                                        {order.shippingAddress.district && `, ${order.shippingAddress.district}`}
-                                        {`, ${order.shippingAddress.city}`}
-                                    </p>
-                                </div>
-                                {order.trackingNumber && (
-                                    <div className="flex items-center gap-2 pt-1">
-                                        <Truck size={12} className="text-violet-400 shrink-0" />
-                                        <div>
-                                            <p className="text-[10px] text-white/35 uppercase tracking-wider">{order.carrier ?? 'Tracking'}</p>
-                                            <p className="text-[12px] text-violet-400 font-mono font-semibold">{order.trackingNumber}</p>
+                                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+                                        <p className="text-[12px] text-white/65 leading-relaxed">
+                                            {order.shippingAddress.addressDetail}
+                                            {order.shippingAddress.district && `, ${order.shippingAddress.district}`}
+                                            {`, ${order.shippingAddress.city}`}
+                                        </p>
+                                    </div>
+                                    {order.trackingNumber && (
+                                        <div className="flex items-center gap-2 pt-1">
+                                            <Truck size={12} className="text-violet-400 shrink-0" />
+                                            <div>
+                                                <p className="text-[10px] text-white/35 uppercase tracking-wider">{order.carrier ?? 'Tracking'}</p>
+                                                <p className="text-[12px] text-violet-400 font-mono font-semibold">{order.trackingNumber}</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
-                        </Card>
-
-                        {/* ── Payment summary card ──────────────────────────────── */}
-                        <Card>
-                            <SectionTitle icon={CreditCard} title="Thanh toán" />
-                            <div className="p-5 space-y-3">
-                                {[
-                                    { label: 'Phương thức', value: order.paymentMethod ?? 'COD' },
-                                ].map(({ label, value }) => (
-                                    <div key={label} className="flex items-center justify-between">
-                                        <span className="text-[12px] text-white/40">{label}</span>
-                                        <span className="text-[12px] font-semibold text-white">{value}</span>
-                                    </div>
-                                ))}
-
-                                <div className="flex items-center justify-between pt-1 border-t border-white/[0.05]">
-                                    <span className="text-[12px] text-white/40">Trạng thái</span>
-                                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${order.paymentStatus === 'Paid'
-                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                        : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                                        }`}>
-                                        {order.paymentStatus === 'Paid' ? '✓ Đã thanh toán' : '⏳ Chưa thanh toán'}
-                                    </span>
+                                    )}
                                 </div>
-                            </div>
-                        </Card>
+                            </Card>
 
-                        {/* ── Status Timeline ───────────────────────────────────── */}
-                        <Card>
-                            <SectionTitle icon={Clock} title="Lịch sử trạng thái" />
-                            <OrderTimeline history={statusHistory} />
-                        </Card>
+                            {/* ── Payment summary card ──────────────────────────────── */}
+                            <Card>
+                                <SectionTitle icon={CreditCard} title="Thanh toán" />
+                                <div className="p-5 space-y-3">
+                                    {[
+                                        { label: 'Phương thức', value: order.paymentMethod ?? 'COD' },
+                                    ].map(({ label, value }) => (
+                                        <div key={label} className="flex items-center justify-between">
+                                            <span className="text-[12px] text-white/40">{label}</span>
+                                            <span className="text-[12px] font-semibold text-white">{value}</span>
+                                        </div>
+                                    ))}
+
+                                    <div className="flex items-center justify-between pt-1 border-t border-white/[0.05]">
+                                        <span className="text-[12px] text-white/40">Trạng thái</span>
+                                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${order.paymentStatus === 'Paid'
+                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                            : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                            }`}>
+                                            {order.paymentStatus === 'Paid' ? '✓ Đã thanh toán' : '⏳ Chưa thanh toán'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            {/* ── Status Timeline ───────────────────────────────────── */}
+                            <Card>
+                                <SectionTitle icon={Clock} title="Lịch sử trạng thái" />
+                                <OrderTimeline history={statusHistory} />
+                            </Card>
+
+                            {/* ── Financial History ──────────────────────────────────── */}
+                            <OrderFinancials refunds={refunds} loading={refundsLoading} />
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+
+            {/* ── Refund Dialog ─────────────────────────────────────────────────── */}
+            {
+                showRefundDialog && order && (
+                    <AdminRefundDialog
+                        orderId={order.orderId}
+                        totalPaid={Number(order.totalAmount)}
+                        existingRefunds={refunds}
+                        onClose={() => setShowRefundDialog(false)}
+                        onSuccess={(newRefund) => {
+                            setRefunds(prev => [newRefund, ...prev]);
+                            showToast('Lệnh hoàn tiền đã được gửi tới cổng thanh toán thành công.', 'success');
+                            loadOrder();
+                        }}
+                    />
+                )
+            }
+        </>
     );
 };

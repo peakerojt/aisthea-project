@@ -453,8 +453,23 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
     const order = await prisma.order.findFirst({
       where: { orderId, userId },
       include: {
-        items: true,
+        items: {
+          include: {
+            variant: {
+              include: {
+                images: {
+                  where: { isPrimary: true },
+                  select: { imageUrl: true, thumbnailUrl: true },
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
         payments: true,
+        statusHistory: {
+          orderBy: { changedAt: 'asc' },
+        },
       },
     });
 
@@ -470,23 +485,41 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount.toString(),
       createdAt: order.createdAt?.toISOString(),
+      updatedAt: order.updatedAt?.toISOString() ?? order.createdAt?.toISOString(),
       trackingNumber: order.trackingNumber,
       carrier: order.carrier,
       shippingAddress: {
         recipientName: order.customerName,
         phone: order.customerPhone,
         city: order.shippingCity,
-        district: order.shippingDistrict,
+        district: order.shippingDistrict ?? undefined,
+        ward: order.shippingWard ?? undefined,
         addressDetail: order.shippingAddressDetail,
       },
-      items: order.items.map((item) => ({
-        orderItemId: item.orderItemId,
-        productName: item.productName,
-        sku: item.sku,
-        variantName: item.variantName,
-        unitPrice: item.unitPrice.toString(),
-        quantity: item.quantity,
-        lineTotal: (parseFloat(item.unitPrice.toString()) * item.quantity).toString(),
+      items: order.items.map((item) => {
+        const variantImg =
+          item.variant?.images?.[0]?.thumbnailUrl ??
+          item.variant?.images?.[0]?.imageUrl ??
+          null;
+        return {
+          orderItemId: item.orderItemId,
+          productName: item.productName,
+          sku: item.sku,
+          variantName: item.variantName,
+          unitPrice: item.unitPrice.toString(),
+          quantity: item.quantity,
+          lineTotal: (parseFloat(item.unitPrice.toString()) * item.quantity).toString(),
+          thumbnailUrl: variantImg,
+        };
+      }),
+      payments: order.payments.map((p) => ({
+        paymentId: p.paymentId,
+        paymentMethod: p.paymentMethod,
+        amount: p.amount?.toString() ?? '0',
+        status: p.status,
+        paymentDate: p.paymentDate?.toISOString() ?? null,
+        transactionCode: (p as any).transactionCode ?? null,
+        note: (p as any).note ?? null,
       })),
     };
 
@@ -496,6 +529,7 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // USER: Create Order (Checkout via Stored Procedure + Coupon Integration)

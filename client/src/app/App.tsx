@@ -26,6 +26,7 @@ import { AdminRestock } from '../pages/AdminRestock';
 import { AdminCategories } from '../pages/AdminCategories';
 import { AdminCoupons } from '../pages/AdminCoupons';
 import { AdminRoles } from '../pages/AdminRoles';
+import { AdminReturns } from '../pages/AdminReturns';
 
 import { Login } from '../pages/Login';
 import { Signup } from '../pages/Signup';
@@ -215,6 +216,7 @@ const App: React.FC = () => {
           {view === 'ADMIN_ANALYTICS' && <AdminAnalytics />}
           {view === 'ADMIN_COUPONS' && <AdminCoupons />}
           {view === 'ADMIN_ROLES' && <AdminRoles />}
+          {view === 'ADMIN_RETURNS' && <AdminReturns />}
         </main>
 
       </div>
