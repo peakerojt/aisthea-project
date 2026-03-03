@@ -14,6 +14,7 @@ import categoryRoutes from './routes/category.routes';
 import inventoryRoutes from './routes/inventory.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import vnpayRoutes from './routes/vnpay.routes';
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ export function createApp() {
   app.use('/api/inventory', inventoryRoutes);
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/analytics', analyticsRoutes);
+  app.use('/api/vnpay', vnpayRoutes);
 
   // Keep existing routes for backward compatibility
   app.use('/api/orders', orderRoutes);
