@@ -25,8 +25,11 @@ export class CartController {
 
             await cartService.addToCart(userId, variantId, quantity);
             res.json({ message: 'Item added to cart successfully' });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Add to cart error:', error);
+            if (error.message && (error.message.includes('vượt quá số lượng') || error.message.includes('Sản phẩm không tồn tại'))) {
+                return res.status(400).json({ message: error.message });
+            }
             res.status(500).json({ message: 'Error adding item to cart' });
         }
     }
@@ -41,8 +44,11 @@ export class CartController {
 
             await cartService.updateCartItem(cartItemId, quantity);
             res.json({ message: 'Cart item updated successfully' });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Update cart item error:', error);
+            if (error.message && error.message.includes('vượt quá số lượng')) {
+                return res.status(400).json({ message: error.message });
+            }
             res.status(500).json({ message: 'Error updating cart item' });
         }
     }
