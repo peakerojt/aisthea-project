@@ -2,9 +2,31 @@ import { PrismaClient } from '../src/generated/client';
 
 const prisma = new PrismaClient();
 
+// ─── Default Permissions ────────────────────────────────────────────────────
+const DEFAULT_PERMISSIONS = [
+  // PRODUCT module
+  { code: 'VIEW_PRODUCT',    module: 'PRODUCT',    description: 'Xem danh sách và chi tiết sản phẩm' },
+  { code: 'CREATE_PRODUCT',  module: 'PRODUCT',    description: 'Thêm sản phẩm mới' },
+  { code: 'EDIT_PRODUCT',    module: 'PRODUCT',    description: 'Sửa thông tin sản phẩm' },
+  { code: 'DELETE_PRODUCT',  module: 'PRODUCT',    description: 'Xóa sản phẩm' },
+  // ORDER module
+  { code: 'VIEW_ORDER',      module: 'ORDER',      description: 'Xem danh sách và chi tiết đơn hàng' },
+  { code: 'EDIT_ORDER',      module: 'ORDER',      description: 'Cập nhật trạng thái đơn hàng' },
+  // INVENTORY module
+  { code: 'VIEW_INVENTORY',  module: 'INVENTORY',  description: 'Xem tồn kho và lịch sử nhập kho' },
+  { code: 'EDIT_INVENTORY',  module: 'INVENTORY',  description: 'Cập nhật số lượng tồn kho' },
+  // CUSTOMER module
+  { code: 'VIEW_CUSTOMER',   module: 'CUSTOMER',   description: 'Xem danh sách khách hàng' },
+  { code: 'EDIT_CUSTOMER',   module: 'CUSTOMER',   description: 'Chỉnh sửa thông tin khách hàng' },
+  // REVENUE module
+  { code: 'VIEW_REVENUE',    module: 'REVENUE',    description: 'Xem báo cáo doanh thu và phân tích' },
+  // COUPON module
+  { code: 'MANAGE_COUPON',   module: 'COUPON',     description: 'Thêm, sửa, xóa mã giảm giá' },
+];
+
 async function main() {
-  // Ensure base roles exist
-  const [customerRole, adminRole] = await Promise.all([
+  // ── 1. Ensure base roles exist ──────────────────────────────────────────────
+  const [customerRole, adminRole, superAdminRole] = await Promise.all([
     prisma.role.upsert({
       where: { roleName: 'Customer' },
       update: {},
@@ -15,9 +37,46 @@ async function main() {
       update: {},
       create: { roleName: 'Admin' },
     }),
+    prisma.role.upsert({
+      where: { roleName: 'Super Admin' },
+      update: {},
+      create: { roleName: 'Super Admin' },
+    }),
   ]);
 
-  // Seed a test customer and admin user
+  // ── 2. Upsert all permissions ───────────────────────────────────────────────
+  const permissions = await Promise.all(
+    DEFAULT_PERMISSIONS.map((p) =>
+      prisma.permission.upsert({
+        where: { code: p.code },
+        update: { module: p.module, description: p.description },
+        create: p,
+      })
+    )
+  );
+
+  // ── 3. Assign ALL permissions to Super Admin ────────────────────────────────
+  await Promise.all(
+    permissions.map((perm) =>
+      prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: {
+            roleId: superAdminRole.roleId,
+            permissionId: perm.permissionId,
+          },
+        },
+        update: {},
+        create: {
+          roleId: superAdminRole.roleId,
+          permissionId: perm.permissionId,
+        },
+      })
+    )
+  );
+
+  console.log(`✅ Seeded ${permissions.length} permissions and assigned all to "Super Admin"`);
+
+  // ── 4. Seed a test customer and admin user ──────────────────────────────────
   const customer = await prisma.user.upsert({
     where: { email: 'customer.order@example.com' },
     update: {},
@@ -38,7 +97,7 @@ async function main() {
     },
   });
 
-  // Attach roles
+  // ── 5. Attach roles ─────────────────────────────────────────────────────────
   await Promise.all([
     prisma.userRole.upsert({
       where: {
@@ -68,12 +127,12 @@ async function main() {
     }),
   ]);
 
-  // Seed three demo orders for the customer
+  // ── 6. Seed three demo orders for the customer ──────────────────────────────
   // 1) Pending order
   const ord1 = await prisma.order.create({
     data: {
       userId: customer.userId,
-      orderNumber: 'OD20260001',
+      orderNumber: `OD2026SEED1_${Date.now()}`,
       customerName: customer.fullName,
       customerPhone: '0900000001',
       shippingCity: 'TP.HCM',
@@ -103,7 +162,7 @@ async function main() {
   const ord2 = await prisma.order.create({
     data: {
       userId: customer.userId,
-      orderNumber: 'OD20260002',
+      orderNumber: `OD2026SEED2_${Date.now()}`,
       customerName: customer.fullName,
       customerPhone: '0900000002',
       shippingCity: 'TP.HCM',
@@ -141,7 +200,7 @@ async function main() {
   const ord3 = await prisma.order.create({
     data: {
       userId: customer.userId,
-      orderNumber: 'OD20260003',
+      orderNumber: `OD2026SEED3_${Date.now()}`,
       customerName: customer.fullName,
       customerPhone: '0900000003',
       shippingCity: 'Ha Noi',
@@ -167,51 +226,22 @@ async function main() {
     },
   });
 
-  // Seed status history timeline for each order
+  // ── 7. Seed status history ──────────────────────────────────────────────────
   const now = new Date();
 
   await prisma.orderStatusHistory.createMany({
     data: [
-      // Order 1: pending -> confirmed
-      {
-        orderId: ord1.orderId,
-        status: 'Pending',
-        changedAt: new Date(now.getTime() - 1000 * 60 * 30),
-      },
-      {
-        orderId: ord1.orderId,
-        status: 'Confirmed',
-        changedAt: new Date(now.getTime() - 1000 * 60 * 20),
-      },
-      // Order 2: pending -> confirmed -> shipping
-      {
-        orderId: ord2.orderId,
-        status: 'Pending',
-        changedAt: new Date(now.getTime() - 1000 * 60 * 90),
-      },
-      {
-        orderId: ord2.orderId,
-        status: 'Confirmed',
-        changedAt: new Date(now.getTime() - 1000 * 60 * 70),
-      },
-      {
-        orderId: ord2.orderId,
-        status: 'Shipping',
-        changedAt: new Date(now.getTime() - 1000 * 60 * 50),
-      },
-      // Order 3: pending -> cancelled
-      {
-        orderId: ord3.orderId,
-        status: 'Pending',
-        changedAt: new Date(now.getTime() - 1000 * 60 * 120),
-      },
-      {
-        orderId: ord3.orderId,
-        status: 'Cancelled',
-        changedAt: new Date(now.getTime() - 1000 * 60 * 110),
-      },
+      { orderId: ord1.orderId, status: 'Pending',   changedAt: new Date(now.getTime() - 1000 * 60 * 30) },
+      { orderId: ord1.orderId, status: 'Confirmed', changedAt: new Date(now.getTime() - 1000 * 60 * 20) },
+      { orderId: ord2.orderId, status: 'Pending',   changedAt: new Date(now.getTime() - 1000 * 60 * 90) },
+      { orderId: ord2.orderId, status: 'Confirmed', changedAt: new Date(now.getTime() - 1000 * 60 * 70) },
+      { orderId: ord2.orderId, status: 'Shipping',  changedAt: new Date(now.getTime() - 1000 * 60 * 50) },
+      { orderId: ord3.orderId, status: 'Pending',   changedAt: new Date(now.getTime() - 1000 * 60 * 120) },
+      { orderId: ord3.orderId, status: 'Cancelled', changedAt: new Date(now.getTime() - 1000 * 60 * 110) },
     ],
   });
+
+  console.log('✅ Seed completed successfully!');
 }
 
 main()
@@ -222,4 +252,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-

@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ViewState } from '../types';
 import { useProducts } from '../contexts/ProductContext';
 import { deleteProductById } from '../services/product.service';
-import { Trash2, Edit2, AlertCircle, CheckCircle2, Archive, Loader2 } from 'lucide-react';
+import { Trash2, Edit2, AlertCircle, CheckCircle2, Archive, Loader2, UploadCloud } from 'lucide-react';
+import { BulkImportExportModal } from '../components/BulkImportExportModal';
 
 export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: number) => void }> = ({ setView }) => {
   const { t } = useTranslation();
@@ -26,6 +26,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'archive' | 'error'; visible: boolean } | null>(null);
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showImportExport, setShowImportExport] = useState(false);
 
   const filteredProducts = products.filter(product => {
     const statusMatch = statusFilter === 'All' || product.status === statusFilter;
@@ -137,6 +138,15 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col relative">
+      {/* ── Import/Export Modal ── */}
+      {showImportExport && (
+        <BulkImportExportModal
+          onClose={(didImport) => {
+            setShowImportExport(false);
+            if (didImport) refreshProducts();
+          }}
+        />
+      )}
       {/* ── Xác nhận xóa ──── */}
       {deleteModal?.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -210,7 +220,14 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
           <h2 className="text-2xl font-bold text-white">{t('products:page.title')}</h2>
           <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">{t('products:page.subtitle')}</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowImportExport(true)}
+            className="flex items-center gap-2 border border-white/15 hover:border-white/30 text-white/70 hover:text-white text-xs font-bold uppercase tracking-[0.1em] px-5 py-3 rounded shadow-md transition-all"
+          >
+            <UploadCloud size={15} />
+            Nhập / Xuất
+          </button>
           <button
             onClick={() => setView('ADMIN_CREATE_PRODUCT')}
             className="bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-[0.1em] px-6 py-3 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-2"

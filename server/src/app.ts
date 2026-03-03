@@ -7,6 +7,7 @@ import { configureGoogleStrategy } from './config/passport.config';
 
 import authRoutes from './routes/auth.routes';
 import productRoutes from './routes/product.routes';
+import importExportRoutes from './routes/importExport.routes';
 import orderRoutes from './routes/order.routes';
 import userRoutes from './routes/user.routes';
 import orderModuleRoutes from './modules/order/order.route';
@@ -14,8 +15,11 @@ import categoryRoutes from './routes/category.routes';
 import inventoryRoutes from './routes/inventory.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import vnpayRoutes from './routes/vnpay.routes';
 import couponRoutes from './routes/coupon.routes';
 import cartRoutes from './routes/cart.routes';
+import roleRoutes from './routes/role.routes';
+import permissionRoutes from './routes/permission.routes';
 
 dotenv.config();
 
@@ -38,13 +42,20 @@ export function createApp() {
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
   app.use('/api/auth', authRoutes);
+  // Import/Export routes MUST be registered before general product routes
+  // to prevent /api/products/:id wildcard from capturing /export and /import
+  app.use('/api/products', importExportRoutes);
   app.use('/api/products', productRoutes);
   app.use('/api/categories', categoryRoutes);
   app.use('/api/inventory', inventoryRoutes);
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/analytics', analyticsRoutes);
+  app.use('/api/vnpay', vnpayRoutes);
   app.use('/api/coupons', couponRoutes);
   app.use('/api/cart', cartRoutes);
+  app.use('/api/roles', roleRoutes);
+  app.use('/api/permissions', permissionRoutes);
+
 
   // Keep existing routes for backward compatibility
   app.use('/api/orders', orderRoutes);

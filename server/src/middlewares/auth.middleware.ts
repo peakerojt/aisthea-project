@@ -56,3 +56,83 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
         }
     });
 };
+
+// ─── RBAC: Permission Cache & Middleware ──────────────────────────────────────
+
+interface CacheEntry {
+    permissions: string[];
+    expiresAt: number;
+}
+
+/** In-memory TTL cache: userId -> { permissions, expiresAt } */
+const permissionCache = new Map<number, CacheEntry>();
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+/** Clear cached permissions for a specific user (call after role changes) */
+export const clearPermissionCache = (userId: number) => {
+    permissionCache.delete(userId);
+};
+
+/** Fetch all permission codes for a user via UserRole -> Role -> RolePermission -> Permission */
+async function fetchUserPermissions(userId: number): Promise<string[]> {
+    const cached = permissionCache.get(userId);
+    if (cached && cached.expiresAt > Date.now()) {
+        return cached.permissions;
+    }
+
+    const userRoles = await prisma.userRole.findMany({
+        where: { userId },
+        include: {
+            role: {
+                include: {
+                    rolePermissions: {
+                        include: { permission: true },
+                    },
+                },
+            },
+        },
+    });
+
+    const permissions = [
+        ...new Set(
+            userRoles.flatMap((ur) =>
+                ur.role.rolePermissions.map((rp) => rp.permission.code)
+            )
+        ),
+    ];
+
+    permissionCache.set(userId, { permissions, expiresAt: Date.now() + CACHE_TTL_MS });
+    return permissions;
+}
+
+/**
+ * Middleware factory for granular permission checks.
+ * Usage: router.delete('/products/:id', authenticateToken, requirePermission('DELETE_PRODUCT'), handler)
+ */
+export const requirePermission = (requiredPermissionCode: string) => {
+    return async (req: AuthRequest, res: Response, next: NextFunction) => {
+        if (!req.user?.userId) {
+            return res.status(401).json({ success: false, message: 'Vui lòng đăng nhập để tiếp tục.' });
+        }
+
+        try {
+            const permissions = await fetchUserPermissions(req.user.userId);
+
+            if (!permissions.includes(requiredPermissionCode)) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền thực hiện thao tác này.',
+                    code: 'PERMISSION_DENIED',
+                    required: requiredPermissionCode,
+                });
+            }
+
+            // Attach permissions to request for downstream use
+            req.user.permissions = permissions;
+            next();
+        } catch (error) {
+            console.error('Permission check error:', error);
+            return res.status(500).json({ success: false, message: 'Lỗi kiểm tra quyền hạn.' });
+        }
+    };
+};

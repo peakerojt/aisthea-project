@@ -7,13 +7,16 @@ interface User {
   name: string;
   email: string;
   roles: string[];
+  permissions: string[];
 }
+
 
 export type UserRole = 'guest' | 'customer' | 'admin';
 
 interface AuthContextType {
   user: User | null;
   role: UserRole;
+  permissions: string[];
   login: (email: string, password: string) => Promise<User | null>;
   register: (data: any) => Promise<User | null>;
   logout: () => Promise<void>;
@@ -23,13 +26,16 @@ interface AuthContextType {
   setUserFromSession: (session: AuthSession) => void;
 }
 
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<UserRole>('guest');
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
+
 
   /**
    * Initialize authentication on app load by checking session
@@ -47,14 +53,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           id: session.user.userId.toString(),
           name: session.user.fullName,
           email: session.user.email,
-          roles: session.user.roles
+          roles: session.user.roles,
+          permissions: session.user.permissions || [],
         };
 
         setUser(mappedUser);
-        setRole(session.user.roles.includes('Admin') ? 'admin' : 'customer');
+        setPermissions(session.user.permissions || []);
+        setRole(session.user.roles.includes('Admin') || session.user.roles.includes('Super Admin') ? 'admin' : 'customer');
       } else {
         setUser(null);
         setRole('guest');
+        setPermissions([]);
       }
     } catch (error: any) {
       // Cleanly handle expected auth errors (e.g. 401 Unauthorized for guests)
@@ -113,11 +122,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         id: userData.userId,
         name: userData.fullName,
         email: userData.email,
-        roles: userData.roles
+        roles: userData.roles,
+        permissions: userData.permissions || [],
       };
 
       setUser(mappedUser);
-      setRole(userData.roles.includes('Admin') ? 'admin' : 'customer');
+      setPermissions(userData.permissions || []);
+      setRole(userData.roles.includes('Admin') || userData.roles.includes('Super Admin') ? 'admin' : 'customer');
 
       // Note: With cookie-based auth, we don't need to manually store tokens
       // The server sets HTTP-only cookies automatically
@@ -150,8 +161,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         id: userData.userId,
         name: userData.fullName,
         email: userData.email,
-        roles: userData.roles || ['Customer'] // Default if not detailed
+        roles: userData.roles || ['Customer'], // Default if not detailed
+        permissions: userData.permissions || [],
       };
+
 
       setUser(mappedUser);
       setRole('customer'); // Default for new registration
@@ -173,11 +186,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setUser(null);
       setRole('guest');
+      setPermissions([]);
     } catch (error) {
       console.error('Logout error:', error);
       // Even if server call fails, clear local state
       setUser(null);
       setRole('guest');
+      setPermissions([]);
     } finally {
       setIsLoading(false);
     }
@@ -193,22 +208,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         id: session.user.userId.toString(),
         name: session.user.fullName,
         email: session.user.email,
-        roles: session.user.roles
+        roles: session.user.roles,
+        permissions: session.user.permissions || [],
       };
 
       setUser(mappedUser);
-      setRole(session.user.roles.includes('Admin') ? 'admin' : 'customer');
+      setPermissions(session.user.permissions || []);
+      setRole(session.user.roles.includes('Admin') || session.user.roles.includes('Super Admin') ? 'admin' : 'customer');
     } else {
       setUser(null);
       setRole('guest');
+      setPermissions([]);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, login, register, logout, isLoading, initializeAuth, refreshSession: checkSession, setUserFromSession }}>
+    <AuthContext.Provider value={{ user, role, permissions, login, register, logout, isLoading, initializeAuth, refreshSession: checkSession, setUserFromSession }}>
       {children}
     </AuthContext.Provider>
   );
+
 };
 
 export const useAuth = () => {
