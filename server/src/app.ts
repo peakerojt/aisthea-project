@@ -10,6 +10,7 @@ import productRoutes from './routes/product.routes';
 import orderRoutes from './routes/order.routes';
 import userRoutes from './routes/user.routes';
 import orderModuleRoutes from './modules/order/order.route';
+import reviewRoutes from './routes/review.route';
 import categoryRoutes from './routes/category.routes';
 import inventoryRoutes from './routes/inventory.routes';
 
@@ -37,6 +38,7 @@ export function createApp() {
   app.use('/api/products', productRoutes);
   app.use('/api/categories', categoryRoutes);
   app.use('/api/inventory', inventoryRoutes);
+  app.use('/api/reviews', reviewRoutes);
 
   // Keep existing routes for backward compatibility
   app.use('/api/orders', orderRoutes);

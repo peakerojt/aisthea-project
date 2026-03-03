@@ -111,3 +111,20 @@ export interface AuthError {
   message?: string;
 }
 
+// =======================
+// Product Rating Types
+// =======================
+
+export interface Rating {
+  ratingId: number;
+  productId: number;
+  userId: number;
+  rating: number; // 1–5 stars
+  comment?: string;
+  createdAt: string;
+}
+
+export interface RatingSummary {
+  averageRating: number;
+  totalRatings: number;
+}

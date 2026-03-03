@@ -22,6 +22,7 @@ import { fetchProductById, fetchProducts, Product as ApiProductType } from '../s
 import { getCloudinaryProductCard } from '../utils/cloudinary';
 import { useProducts } from '../contexts/ProductContext';
 import { ProductCard } from '../components/ProductCard/ProductCard';
+import { getReviewsByProduct } from "../services/review.service";
 
 interface ProductDetailProps {
   setView: (v: ViewState) => void;
@@ -39,10 +40,38 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
   const [isLoading, setIsLoading] = useState(true);
   const carouselRef = React.useRef<HTMLDivElement>(null);
   const { products } = useProducts();
+  const [reviews, setReviews] = useState<any[]>([]);
+  const productId = initialProduct?.id
+    ? Number(initialProduct.id)
+    : null;
 
   // Selection states
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<string>('');
+
+  // Review state 
+  useEffect(() => {
+
+    console.log("initialProduct:", initialProduct);
+    console.log("productId:", productId);
+
+    if (!productId) {
+      console.log("Skip review fetch - invalid productId");
+      return;
+    }
+
+    const fetchReviews = async () => {
+      try {
+        const data = await getReviewsByProduct(productId);
+        console.log("Review API response:", data);
+        setReviews(data);
+      } catch (err) {
+        console.error("Error fetching reviews:", err);
+      }
+    };
+
+    fetchReviews();
+  }, [productId]);
 
   // Fallback default product if none selected
   if (!initialProduct) {
@@ -63,6 +92,11 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
 
   // Recently Viewed Tracking and Loading
   useEffect(() => {
+    if (!currentActiveId || isNaN(Number(currentActiveId))) {
+      console.log("Skip recent tracking - invalid currentActiveId");
+      return;
+    }
+
     const trackAndLoadRecent = async () => {
       try {
         // Always work with string IDs to avoid logic errors
@@ -480,6 +514,32 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                   </div>
                 </div>
               )}
+
+              {/* Reviews Section */}
+              <div className="mt-10 border-t border-border-dark pt-8">
+                <h2 className="text-lg font-bold uppercase tracking-wider mb-4">
+                  Customer Reviews
+                </h2>
+
+                {reviews.length === 0 && (
+                  <p className="text-gray-500 text-sm">Chưa có đánh giá nào.</p>
+                )}
+
+                <div className="flex flex-col gap-4">
+                  {reviews.map((review) => (
+                    <div
+                      key={review.reviewId}
+                      className="bg-surface-dark/30 border border-border-dark p-4 rounded-sm"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <p className="font-bold text-sm">{review.user?.fullName}</p>
+                        <p className="text-primary text-sm">⭐ {review.rating}</p>
+                      </div>
+                      <p className="text-gray-400 text-sm">{review.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               {/* Related Products Grid - Prominent placement at bottom of info panel */}
               {suggestedProducts.length > 0 && (
