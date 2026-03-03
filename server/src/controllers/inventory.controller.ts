@@ -137,7 +137,7 @@ export const getInventory = async (req: Request, res: Response) => {
 
 export const bulkUpdateStock = async (req: Request, res: Response) => {
     try {
-        const changes: { variantId: number; quantity: number }[] = req.body;
+        const changes: { variantId: number; quantity: number; reason?: string }[] = req.body;
 
         if (!Array.isArray(changes) || changes.length === 0) {
             return res.status(400).json({ error: 'Danh sách cập nhật không được để trống.' });
@@ -154,14 +154,48 @@ export const bulkUpdateStock = async (req: Request, res: Response) => {
             }
         }
 
-        await prisma.$transaction(
-            changes.map((c) =>
-                (prisma.productVariant.update as any)({
+        // ── Admin ID from auth token (optional) ────────────────────────────
+        const userId: number | null = (req as any).user?.userId ?? null;
+
+        // ── Wrap all updates + audit logs in one transaction ───────────────
+        await prisma.$transaction(async (tx) => {
+            for (const c of changes) {
+                // Read previousStock before update
+                const current = await (tx.productVariant.findUnique as any)({
+                    where: { variantId: c.variantId },
+                    select: { stockQuantity: true },
+                });
+
+                if (!current) {
+                    throw new Error(`Không tìm thấy biến thể có ID: ${c.variantId}`);
+                }
+
+                const previousStock: number = current.stockQuantity;
+
+                // Absolute-set stock quantity (admin's explicit new value)
+                await (tx.productVariant.update as any)({
                     where: { variantId: c.variantId },
                     data: { stockQuantity: c.quantity },
-                })
-            )
-        );
+                });
+
+                const changeQuantity = c.quantity - previousStock; // +/- delta
+
+                // Audit log — defaults to MANUAL_ADJUST
+                const reason = (c.reason?.trim() || 'MANUAL_ADJUST').toUpperCase();
+                await (tx.inventoryLog.create as any)({
+                    data: {
+                        variantId: c.variantId,
+                        orderId: null,
+                        userId,
+                        changeQuantity,
+                        previousStock,
+                        newStock: c.quantity,
+                        reason,
+                        note: c.reason || null,
+                    },
+                });
+            }
+        });
 
         res.json({
             success: true,
@@ -176,6 +210,7 @@ export const bulkUpdateStock = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Lỗi máy chủ', details: error.message });
     }
 };
+
 
 // ─── GET /api/inventory/alerts ───────────────────────────────────────────────
 // Returns total count + top 20 variants with stockQuantity <= 10,
@@ -260,3 +295,60 @@ export const getLowStockAlerts = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Lỗi máy chủ', details: error.message });
     }
 };
+
+// ─── GET /api/inventory/:variantId/logs ───────────────────────────────────────
+// Returns paginated InventoryLog records for a specific variant.
+// Query params:
+//   ?page=1  (default: 1)
+//   ?limit=20 (default: 20, max: 100)
+
+export const getInventoryLogs = async (req: Request, res: Response) => {
+    try {
+        const variantId = parseInt(String(req.params['variantId'] ?? ''), 10);
+        if (isNaN(variantId) || variantId <= 0) {
+            return res.status(400).json({ error: 'variantId không hợp lệ.' });
+        }
+
+        const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? '20'), 10) || 20));
+        const skip = (page - 1) * limit;
+
+        const [total, logs] = await Promise.all([
+            (prisma.inventoryLog.count as any)({ where: { variantId } }),
+            (prisma.inventoryLog.findMany as any)({
+                where: { variantId },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+                include: {
+                    order: { select: { orderNumber: true } },
+                    user: { select: { fullName: true, email: true } },
+                },
+            }),
+        ]);
+
+        const items = logs.map((log: any) => ({
+            logId: log.logId,
+            changeQuantity: log.changeQuantity,
+            previousStock: log.previousStock,
+            newStock: log.newStock,
+            reason: log.reason,
+            note: log.note,
+            createdAt: log.createdAt,
+            orderNumber: log.order?.orderNumber ?? null,
+            changedBy: log.user?.fullName ?? log.user?.email ?? null,
+        }));
+
+        res.json({
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+            items,
+        });
+    } catch (error: any) {
+        console.error('Get inventory logs error:', error);
+        res.status(500).json({ error: 'Lỗi máy chủ', details: error.message });
+    }
+};
+

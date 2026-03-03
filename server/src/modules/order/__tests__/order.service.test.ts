@@ -1,14 +1,32 @@
 import * as repo from '../order.repository';
-import { cancelOrderForUser, getOrderDetailForUser, AppError } from '../order.service';
+import { cancelOrderForUser, getOrderDetailForUser } from '../order.service';
 
+// ─── Mock: order repository ────────────────────────────────────────────────────
 jest.mock('../order.repository');
-
 const mockedRepo = repo as jest.Mocked<typeof repo>;
+
+// ─── Mock: prisma (cancelOrderForUser uses prisma.$transaction directly) ───────
+jest.mock('../../../utils/prisma', () => ({
+  prisma: {
+    $transaction: jest.fn(),
+  },
+}));
+import { prisma } from '../../../utils/prisma';
+const mockedPrisma = prisma as jest.Mocked<typeof prisma>;
+
+// ─── Mock: inventory.service (atomicCancelRestore called inside the tx) ────────
+jest.mock('../../../services/inventory.service', () => ({
+  atomicCancelRestore: jest.fn().mockResolvedValue(undefined),
+}));
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 describe('order.service', () => {
   beforeEach(() => {
     jest.resetAllMocks();
   });
+
+  // ─── getOrderDetailForUser ─────────────────────────────────────────────────
 
   describe('getOrderDetailForUser', () => {
     it('throws NOT_FOUND when order does not exist', async () => {
@@ -47,7 +65,7 @@ describe('order.service', () => {
       ).rejects.toMatchObject({ code: 'FORBIDDEN', status: 403 });
     });
 
-    it('allows admin', async () => {
+    it('allows admin to view any order', async () => {
       mockedRepo.findOrderByIdWithRelations.mockResolvedValueOnce({
         orderId: 10,
         orderNumber: 'OD20260001',
@@ -90,8 +108,10 @@ describe('order.service', () => {
     });
   });
 
+  // ─── cancelOrderForUser ────────────────────────────────────────────────────
+
   describe('cancelOrderForUser', () => {
-    it('rejects cancel when status is not pending/confirmed', async () => {
+    it('rejects cancel when status is not pending', async () => {
       mockedRepo.findOrderByIdWithRelations.mockResolvedValueOnce({
         orderId: 10,
         orderNumber: 'OD20260001',
@@ -119,8 +139,9 @@ describe('order.service', () => {
       ).rejects.toMatchObject({ code: 'ORDER_CANNOT_BE_CANCELLED', status: 400 });
     });
 
-    it('updates status and appends history', async () => {
-      mockedRepo.findOrderByIdWithRelations.mockResolvedValueOnce({
+    it('runs a prisma.$transaction that updates status and restores stock', async () => {
+      // Arrange: pending order with one item
+      const existingOrder = {
         orderId: 10,
         orderNumber: 'OD20260001',
         userId: 1,
@@ -137,40 +158,32 @@ describe('order.service', () => {
         totalAmount: 100,
         note: null,
         user: { email: 'x@example.com' },
-        items: [],
+        items: [{ variantId: 5, quantity: 2, sku: 'SKU', productName: 'P', variantName: 'V', unitPrice: 50, variant: null }],
         payments: [],
         statusHistory: [],
-      } as any);
+      };
+      mockedRepo.findOrderByIdWithRelations.mockResolvedValueOnce(existingOrder as any);
 
-      mockedRepo.updateOrderStatus.mockResolvedValueOnce({
-        orderId: 10,
-        orderNumber: 'OD20260001',
-        userId: 1,
-        status: 'Cancelled',
-        paymentMethod: 'COD',
-        paymentStatus: 'Unpaid',
-        createdAt: new Date('2026-02-24T08:00:00.000Z'),
-        customerName: 'A',
-        customerPhone: '090',
-        shippingAddressDetail: '123',
-        shippingWard: null,
-        shippingDistrict: 'D',
-        shippingCity: 'C',
-        totalAmount: 100,
-        note: null,
-        user: { email: 'x@example.com' },
-        items: [],
-        payments: [],
-        statusHistory: [],
-      } as any);
+      // The updated order returned by tx.order.update inside $transaction
+      const cancelledOrder = { ...existingOrder, status: 'Cancelled', statusHistory: [] };
 
-      mockedRepo.appendOrderStatusHistory.mockResolvedValueOnce({} as any);
+      // Mock prisma.$transaction to execute the callback with a fake tx context
+      (mockedPrisma.$transaction as jest.Mock).mockImplementationOnce(async (fn: Function) => {
+        const fakeTx = {
+          order: { update: jest.fn().mockResolvedValue(cancelledOrder) },
+          orderStatusHistory: { create: jest.fn().mockResolvedValue({}) },
+          productVariant: { findUnique: jest.fn().mockResolvedValue({ stockQuantity: 10 }), update: jest.fn().mockResolvedValue({}) },
+          inventoryLog: { create: jest.fn().mockResolvedValue({}) },
+        };
+        return fn(fakeTx);
+      });
 
+      // Act
       const dto = await cancelOrderForUser('10', { userId: 1, roles: ['Customer'] });
-      expect(mockedRepo.updateOrderStatus).toHaveBeenCalledWith(10, 'Cancelled');
-      expect(mockedRepo.appendOrderStatusHistory).toHaveBeenCalledWith(10, 'Cancelled');
+
+      // Assert
       expect(dto.status).toBe('cancelled');
+      expect(mockedPrisma.$transaction).toHaveBeenCalledTimes(1);
     });
   });
 });
-

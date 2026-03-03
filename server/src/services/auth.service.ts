@@ -78,10 +78,16 @@ export const loginUser = async (input: LoginInput) => {
         include: {
             userRoles: {
                 include: {
-                    role: true
-                }
-            }
-        }
+                    role: {
+                        include: {
+                            rolePermissions: {
+                                include: { permission: { select: { code: true } } },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     });
 
     if (!user || !user.passwordHash) {
@@ -103,6 +109,13 @@ export const loginUser = async (input: LoginInput) => {
     }
 
     const roles = user.userRoles.map(ur => ur.role.roleName);
+    const permissions = [
+        ...new Set(
+            user.userRoles.flatMap((ur) =>
+                ur.role.rolePermissions.map((rp) => rp.permission.code)
+            )
+        ),
+    ];
 
     const accessToken = jwt.sign(
         { userId: user.userId, email: user.email, roles },
@@ -122,6 +135,7 @@ export const loginUser = async (input: LoginInput) => {
             email: user.email,
             fullName: user.fullName,
             roles,
+            permissions,
         },
         accessToken,
         refreshToken,

@@ -2,60 +2,32 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     ArrowLeft, Package, MapPin, CreditCard, User, Clock,
     CheckCircle2, XCircle, Truck, ShoppingBag, Loader2, AlertCircle,
-    AlertTriangle, ChevronRight, Copy, Check, MoreHorizontal,
+    ChevronRight, Copy, Check,
 } from 'lucide-react';
 import { ViewState } from '../types';
 import { adminOrderService, AdminOrderDetail as OrderDetailType } from '../services/order.service';
 import { formatVND, getOrderStatusColor } from './AdminOrders';
+import { OrderActionPanel } from '../components/order/OrderActionPanel';
+import { OrderTimeline } from '../components/order/OrderTimeline';
+import { OrderStatusBadge } from '../components/order/OrderStatusBadge';
+import { getStatusMeta, normalizeStatus } from '../config/orderStatus.config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design System (ui-ux-pro-max: luxury dark ecommerce admin)
 // Palette: #0A0A0C bg · #111114 surface · #1A1A1F card · primary=#E31837
-// Font: Be Vietnam Pro
-// Effects: subtle glass borders, red glow accents, smooth transitions
+// Font: Be Vietnam Pro | Status config now lives in orderStatus.config.ts
 // ─────────────────────────────────────────────────────────────────────────────
 
-const STATUS_STEPS = ['PENDING', 'PROCESSING', 'SHIPPING', 'COMPLETED'] as const;
-
-const STATUS_ICONS: Record<string, React.ElementType> = {
-    PENDING: ShoppingBag,
-    PROCESSING: Package,
-    SHIPPING: Truck,
-    COMPLETED: CheckCircle2,
-    CANCELLED: XCircle,
-};
-
-const STATUS_CONFIG: Record<string, {
-    label: string;
-    badge: string;
-    glow: string;
-    text: string;
-    bg: string;
-    dot: string;
-}> = {
-    PENDING: { label: 'Chờ xác nhận', badge: 'border-amber-500/30 bg-amber-500/10', glow: 'shadow-amber-500/10', text: 'text-amber-400', bg: 'bg-amber-400', dot: 'bg-amber-400 animate-pulse' },
-    PROCESSING: { label: 'Đang chuẩn bị', badge: 'border-sky-500/30 bg-sky-500/10', glow: 'shadow-sky-500/10', text: 'text-sky-400', bg: 'bg-sky-400', dot: 'bg-sky-400' },
-    SHIPPING: { label: 'Đang giao hàng', badge: 'border-violet-500/30 bg-violet-500/10', glow: 'shadow-violet-500/10', text: 'text-violet-400', bg: 'bg-violet-400', dot: 'bg-violet-400' },
-    COMPLETED: { label: 'Giao thành công', badge: 'border-emerald-500/30 bg-emerald-500/10', glow: 'shadow-emerald-500/10', text: 'text-emerald-400', bg: 'bg-emerald-400', dot: 'bg-emerald-400' },
-    CANCELLED: { label: 'Đã hủy', badge: 'border-red-500/30 bg-red-500/10', glow: 'shadow-red-500/10', text: 'text-red-400', bg: 'bg-red-400', dot: 'bg-red-400' },
-};
-
-const cfg = (s?: string | null) => STATUS_CONFIG[s ?? ''] ?? STATUS_CONFIG['PENDING'];
+const cfg = (s?: string | null) => getStatusMeta(normalizeStatus(s) ?? s ?? '');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
 // ─────────────────────────────────────────────────────────────────────────────
 
-const StatusPill: React.FC<{ status: string; size?: 'sm' | 'md' }> = ({ status, size = 'md' }) => {
-    const c = cfg(status);
-    return (
-        <span className={`inline-flex items-center gap-1.5 border rounded-full font-semibold ${c.badge} ${size === 'sm' ? 'px-2 py-0.5 text-[11px]' : 'px-3 py-1.5 text-xs'
-            } ${c.text}`}>
-            <span className={`rounded-full ${c.dot} ${size === 'sm' ? 'w-1.5 h-1.5' : 'w-2 h-2'}`} />
-            {c.label}
-        </span>
-    );
-};
+// StatusPill delegates to the reusable OrderStatusBadge (FSM-driven)
+const StatusPill: React.FC<{ status: string; size?: 'sm' | 'md' }> = ({ status, size = 'md' }) => (
+    <OrderStatusBadge status={status} size={size} />
+);
 
 /* Glassmorphic card wrapper */
 const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
@@ -94,168 +66,9 @@ const CopyButton: React.FC<{ text: string }> = ({ text }) => {
     );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Status Timeline (vertical stepper — pro-max style)
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface HistoryEntry { status: string; statusLabel: string; changedAt: string }
-
-const StatusTimeline: React.FC<{ history: HistoryEntry[]; currentStatus: string }> = ({ history, currentStatus }) => {
-    const isCancelled = currentStatus === 'CANCELLED';
-    const steps = isCancelled
-        ? [...STATUS_STEPS.filter(s => history.some(h => h.status === s)), 'CANCELLED' as const]
-        : STATUS_STEPS;
-
-    const historyMap = new Map<string, string>();
-    history.forEach(h => historyMap.set(h.status, h.changedAt));
-
-    const fmt = (iso: string) => new Intl.DateTimeFormat('vi-VN', {
-        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-    }).format(new Date(iso));
-
-    const stepIndex = steps.indexOf(currentStatus as any);
-
-    return (
-        <div className="px-5 pb-5 pt-2 space-y-0">
-            {steps.map((step, idx) => {
-                const isLast = idx === steps.length - 1;
-                const isDone = idx <= stepIndex;
-                const isCurrent = step === currentStatus;
-                const time = historyMap.get(step);
-                const Icon = STATUS_ICONS[step] ?? CheckCircle2;
-                const c = cfg(step);
-
-                return (
-                    <div key={step} className="flex gap-3 relative">
-                        {/* Vertical connector */}
-                        {!isLast && (
-                            <div className={`absolute left-[13px] top-8 w-0.5 h-8 rounded-full ${isDone ? 'bg-white/15' : 'bg-white/[0.05]'}`} />
-                        )}
-
-                        {/* Icon circle */}
-                        <div className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all ${isCurrent
-                                ? `${c.badge} ${c.text} shadow-lg ${c.glow}`
-                                : isDone
-                                    ? 'border-white/15 bg-white/[0.04]'
-                                    : 'border-white/[0.06] bg-transparent'
-                            }`}>
-                            <Icon size={13} className={isCurrent ? '' : isDone ? 'text-white/40' : 'text-white/15'} />
-                        </div>
-
-                        {/* Label & time */}
-                        <div className="pb-8 flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <p className={`text-sm font-semibold leading-none ${isCurrent ? 'text-white' : isDone ? 'text-white/60' : 'text-white/25'}`}>
-                                    {c.label}
-                                </p>
-                                {isCurrent && (
-                                    <StatusPill status={step} size="sm" />
-                                )}
-                            </div>
-                            {time && (
-                                <p className="text-[11px] text-white/35 mt-1.5 font-mono">{fmt(time)}</p>
-                            )}
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
-    );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Cancel Modal — pro-max glassmorphic sheet
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface CancelModalProps {
-    isOpen: boolean; loading: boolean;
-    onClose: () => void; onConfirm: (reason: string) => void;
-}
-
-const CancelModal: React.FC<CancelModalProps> = ({ isOpen, loading, onClose, onConfirm }) => {
-    const [reason, setReason] = useState('');
-    const PRESETS = ['Khách hàng yêu cầu hủy', 'Hàng hết tồn kho', 'Địa chỉ không hợp lệ', 'Nghi ngờ gian lận'];
-
-    useEffect(() => { if (!isOpen) setReason(''); }, [isOpen]);
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-
-            {/* Sheet */}
-            <div className="relative w-full max-w-md bg-[#111114] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-                {/* Red accent top bar */}
-                <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-red-500 to-transparent" />
-
-                <div className="p-6 space-y-5">
-                    {/* Header */}
-                    <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
-                            <AlertTriangle size={18} className="text-red-400" />
-                        </div>
-                        <div>
-                            <h3 className="text-base font-bold text-white">Hủy đơn hàng</h3>
-                            <p className="text-xs text-white/40 mt-0.5 leading-relaxed">
-                                Tồn kho sẽ được hoàn trả tự động sau khi xác nhận.
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Reason textarea */}
-                    <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-widest text-white/40 mb-2">
-                            Lý do hủy <span className="text-red-400 normal-case">*</span>
-                        </label>
-                        <textarea
-                            rows={3}
-                            value={reason}
-                            onChange={e => setReason(e.target.value)}
-                            placeholder="Mô tả lý do hủy đơn hàng..."
-                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20 resize-none transition-all"
-                        />
-                    </div>
-
-                    {/* Quick reason chips */}
-                    <div className="flex flex-wrap gap-2">
-                        {PRESETS.map(p => (
-                            <button
-                                key={p}
-                                onClick={() => setReason(p)}
-                                className={`px-3 py-1.5 rounded-full text-[11px] font-medium border transition-all cursor-pointer ${reason === p
-                                        ? 'border-red-500/40 bg-red-500/10 text-red-400'
-                                        : 'border-white/10 bg-white/[0.03] text-white/50 hover:text-white/80 hover:border-white/20'
-                                    }`}
-                            >
-                                {p}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-3 pt-1">
-                        <button
-                            onClick={onClose}
-                            disabled={loading}
-                            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white/60 bg-white/[0.04] border border-white/10 hover:bg-white/[0.07] transition-all cursor-pointer disabled:opacity-50"
-                        >
-                            Giữ lại
-                        </button>
-                        <button
-                            onClick={() => onConfirm(reason)}
-                            disabled={loading || !reason.trim()}
-                            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-500 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-red-900/30"
-                        >
-                            {loading ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
-                            {loading ? 'Đang hủy...' : 'Xác nhận hủy'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
+// Legacy StatusTimeline, CancelModal, ActionBar — removed.
+// All action logic is now encapsulated in <OrderActionPanel />.
+// All history display is encapsulated in <OrderTimeline />.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Toast notification
@@ -269,8 +82,8 @@ const Toast: React.FC<{ toast: ToastState | null }> = ({ toast }) => {
     return (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
             <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border shadow-2xl backdrop-blur-xl ${isError
-                    ? 'bg-red-950/90 border-red-500/30 shadow-red-900/20'
-                    : 'bg-[#0d1f18]/90 border-emerald-500/25 shadow-emerald-900/10'
+                ? 'bg-red-950/90 border-red-500/30 shadow-red-900/20'
+                : 'bg-[#0d1f18]/90 border-emerald-500/25 shadow-emerald-900/10'
                 }`}>
                 {isError
                     ? <AlertCircle size={15} className="text-red-400 shrink-0" />
@@ -279,81 +92,6 @@ const Toast: React.FC<{ toast: ToastState | null }> = ({ toast }) => {
             </div>
         </div>
     );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Action Bar (sticky CTA panel)
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface ActionBarProps {
-    status: string;
-    loading: boolean;
-    onAction: (nextStatus: string) => void;
-    onCancel: () => void;
-}
-
-const ActionBar: React.FC<ActionBarProps> = ({ status, loading, onAction, onCancel }) => {
-    const Spinner = () => <Loader2 size={14} className="animate-spin" />;
-
-    if (status === 'PENDING') return (
-        <div className="flex items-center gap-2">
-            <button
-                onClick={onCancel} disabled={loading}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-all cursor-pointer disabled:opacity-50"
-            >
-                <XCircle size={13} /> Hủy đơn
-            </button>
-            <button
-                onClick={() => onAction('PROCESSING')} disabled={loading}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 shadow-lg shadow-sky-900/30 transition-all cursor-pointer disabled:opacity-50"
-            >
-                {loading ? <Spinner /> : <Package size={13} />}
-                Xác nhận đơn hàng
-            </button>
-        </div>
-    );
-
-    if (status === 'PROCESSING') return (
-        <div className="flex items-center gap-2">
-            <button
-                onClick={onCancel} disabled={loading}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-all cursor-pointer disabled:opacity-50"
-            >
-                <XCircle size={13} /> Hủy đơn
-            </button>
-            <button
-                onClick={() => onAction('SHIPPING')} disabled={loading}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-violet-600 hover:bg-violet-500 shadow-lg shadow-violet-900/30 transition-all cursor-pointer disabled:opacity-50"
-            >
-                {loading ? <Spinner /> : <Truck size={13} />}
-                Bắt đầu giao hàng
-            </button>
-        </div>
-    );
-
-    if (status === 'SHIPPING') return (
-        <button
-            onClick={() => onAction('COMPLETED')} disabled={loading}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-900/30 transition-all cursor-pointer disabled:opacity-50"
-        >
-            {loading ? <Spinner /> : <CheckCircle2 size={13} />}
-            Đã giao thành công
-        </button>
-    );
-
-    if (status === 'COMPLETED') return (
-        <span className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-emerald-400 border border-emerald-500/25 bg-emerald-500/5">
-            <CheckCircle2 size={13} /> Đã hoàn thành
-        </span>
-    );
-
-    if (status === 'CANCELLED') return (
-        <span className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-red-400 border border-red-500/25 bg-red-500/5">
-            <XCircle size={13} /> Đã hủy
-        </span>
-    );
-
-    return null;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -369,8 +107,6 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
     const [order, setOrder] = useState<OrderDetailType | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [actionLoading, setActionLoading] = useState(false);
-    const [cancelOpen, setCancelOpen] = useState(false);
     const [toast, setToast] = useState<ToastState | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -388,31 +124,6 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
     }, [orderId]);
 
     useEffect(() => { loadOrder(); }, [loadOrder]);
-
-    const handleAction = async (nextStatus: string) => {
-        if (!order) return;
-        setActionLoading(true);
-        try {
-            await adminOrderService.updateStatus(order.orderId, { status: nextStatus });
-            showToast('Cập nhật trạng thái thành công');
-            await loadOrder();
-        } catch (e: any) {
-            showToast(e.message || 'Có lỗi xảy ra', 'error');
-        } finally { setActionLoading(false); }
-    };
-
-    const handleCancel = async (reason: string) => {
-        if (!order) return;
-        setActionLoading(true);
-        try {
-            await adminOrderService.updateStatus(order.orderId, { status: 'CANCELLED', note: reason });
-            showToast('Đã hủy đơn hàng và hoàn trả tồn kho');
-            setCancelOpen(false);
-            await loadOrder();
-        } catch (e: any) {
-            showToast(e.message || 'Có lỗi xảy ra', 'error');
-        } finally { setActionLoading(false); }
-    };
 
     const fmt = (iso?: string) => iso
         ? new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
@@ -456,12 +167,6 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
     return (
         <div className="min-h-full" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
             <Toast toast={toast} />
-            <CancelModal
-                isOpen={cancelOpen}
-                loading={actionLoading}
-                onClose={() => setCancelOpen(false)}
-                onConfirm={handleCancel}
-            />
 
             {/* ── Sticky Navigation Bar ──────────────────────────────────────── */}
             <div className="sticky top-0 z-20 border-b border-white/[0.05] bg-[#0A0A0C]/90 backdrop-blur-xl">
@@ -489,11 +194,11 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
                     <div className="flex items-center gap-3">
                         <StatusPill status={status} />
                         <div className="w-px h-5 bg-white/10" />
-                        <ActionBar
-                            status={status}
-                            loading={actionLoading}
-                            onAction={handleAction}
-                            onCancel={() => setCancelOpen(true)}
+                        <OrderActionPanel
+                            orderId={order.orderId}
+                            currentStatus={status}
+                            onStatusUpdated={loadOrder}
+                            onError={(msg) => showToast(msg, 'error')}
                         />
                     </div>
                 </div>
@@ -511,7 +216,7 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
                         </>
                     )}
                     <span className="text-white/15">·</span>
-                    <span className={c.text}>{c.label}</span>
+                    <span className={c.textClass}>{c.label}</span>
                 </div>
 
                 {/* Two-column Grid */}
@@ -697,8 +402,8 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
                                 <div className="flex items-center justify-between pt-1 border-t border-white/[0.05]">
                                     <span className="text-[12px] text-white/40">Trạng thái</span>
                                     <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${order.paymentStatus === 'Paid'
-                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                            : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                        : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                                         }`}>
                                         {order.paymentStatus === 'Paid' ? '✓ Đã thanh toán' : '⏳ Chưa thanh toán'}
                                     </span>
@@ -709,7 +414,7 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
                         {/* ── Status Timeline ───────────────────────────────────── */}
                         <Card>
                             <SectionTitle icon={Clock} title="Lịch sử trạng thái" />
-                            <StatusTimeline history={statusHistory} currentStatus={status} />
+                            <OrderTimeline history={statusHistory} />
                         </Card>
                     </div>
                 </div>

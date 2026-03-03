@@ -61,7 +61,10 @@ export type ViewState =
   | 'ADMIN_CUSTOMERS'
   | 'ADMIN_ANALYTICS'
   | 'ADMIN_RESTOCK'
-  | 'ADMIN_CATEGORIES';
+  | 'ADMIN_CATEGORIES'
+  | 'ADMIN_COUPONS'
+  | 'ADMIN_ROLES';
+
 
 export type CategoryType = 'Men' | 'Women' | 'Accessories';
 
@@ -105,8 +108,10 @@ export interface AuthSession {
     fullName: string;
     avatarUrl?: string | null;
     roles: string[];
+    permissions?: string[];
   };
 }
+
 
 export interface AuthError {
   error: string;

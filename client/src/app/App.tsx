@@ -24,6 +24,9 @@ import { AdminCustomers } from '../pages/AdminCustomers';
 import { AdminAnalytics } from '../pages/AdminAnalytics';
 import { AdminRestock } from '../pages/AdminRestock';
 import { AdminCategories } from '../pages/AdminCategories';
+import { AdminCoupons } from '../pages/AdminCoupons';
+import { AdminRoles } from '../pages/AdminRoles';
+
 import { Login } from '../pages/Login';
 import { Signup } from '../pages/Signup';
 import { OAuthCallback } from '../pages/OAuthCallback';
@@ -158,7 +161,10 @@ const App: React.FC = () => {
           {view === 'ADMIN_ORDER_DETAIL' && <AdminOrderDetail orderId={selectedOrderId} setView={setView} />}
           {view === 'ADMIN_CUSTOMERS' && <AdminCustomers />}
           {view === 'ADMIN_ANALYTICS' && <AdminAnalytics />}
+          {view === 'ADMIN_COUPONS' && <AdminCoupons />}
+          {view === 'ADMIN_ROLES' && <AdminRoles />}
         </main>
+
       </div>
     );
   }

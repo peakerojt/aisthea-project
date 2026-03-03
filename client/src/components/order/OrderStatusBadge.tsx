@@ -1,30 +1,58 @@
 import React from 'react';
+import { getStatusMeta, normalizeStatus } from '../../config/orderStatus.config';
 
-const translateStatus = (status: string | null | undefined) => {
-  const s = (status || '').toLowerCase();
-  if (s === 'pending') return 'Chờ xác nhận';
-  if (s === 'confirmed') return 'Đã xác nhận';
-  if (s === 'shipping') return 'Đang giao';
-  if (s === 'delivered') return 'Đã giao';
-  if (s === 'cancelled' || s === 'canceled') return 'Đã hủy';
-  return status || 'Không xác định';
+interface OrderStatusBadgeProps {
+  status: string | null | undefined;
+  size?: 'sm' | 'md' | 'lg';
+  showDot?: boolean;
+}
+
+/**
+ * Order status badge fully driven by the FSM config.
+ * No more magic strings — all colors, labels, and dots come from ORDER_STATUS_META.
+ */
+export const OrderStatusBadge: React.FC<OrderStatusBadgeProps> = ({
+  status,
+  size = 'md',
+  showDot = true,
+}) => {
+  const canonical = normalizeStatus(status) ?? status ?? '';
+  const meta = getStatusMeta(canonical);
+
+  const sizeClasses: Record<string, string> = {
+    sm: 'px-2 py-0.5 text-[10px]',
+    md: 'px-3 py-1.5 text-xs',
+    lg: 'px-4 py-2 text-sm',
+  };
+
+  const dotSize: Record<string, string> = {
+    sm: 'w-1.5 h-1.5',
+    md: 'w-2 h-2',
+    lg: 'w-2.5 h-2.5',
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border font-semibold
+        ${meta.badgeClass} ${meta.textClass} ${sizeClasses[size]}`}
+    >
+      {showDot && (
+        <span className={`rounded-full shrink-0 ${meta.dotClass} ${dotSize[size]}`} />
+      )}
+      {meta.label}
+    </span>
+  );
 };
 
-const statusTone = (status?: string | null) => {
-  const s = (status || '').toLowerCase();
-  if (['delivered', 'success', 'paid', 'completed'].includes(s)) return 'border-emerald-500/30 text-emerald-200 bg-emerald-500/10';
-  if (['shipping', 'shipped', 'delivering'].includes(s)) return 'border-indigo-500/30 text-indigo-200 bg-indigo-500/10';
-  if (['pending', 'processing', 'confirmed'].includes(s)) return 'border-amber-500/30 text-amber-200 bg-amber-500/10';
-  if (['cancelled', 'canceled', 'failed', 'error'].includes(s)) return 'border-red-500/30 text-red-200 bg-red-500/10';
-  return 'border-white/10 text-white/70 bg-white/5';
-};
+/**
+ * @deprecated Use getStatusMeta() from orderStatus.config instead.
+ * Kept for backward compatibility with existing OrderTimeline usage.
+ */
+export const translateOrderStatus = (status: string | null | undefined): string =>
+  getStatusMeta(normalizeStatus(status) ?? status ?? '').label;
 
-export const OrderStatusBadge: React.FC<{ status: string | null | undefined }> = ({ status }) => (
-  <span className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded border ${statusTone(status)}`}>
-    {translateStatus(status)}
-  </span>
-);
-
-export const translateOrderStatus = translateStatus;
-export const getStatusTone = statusTone;
-
+/**
+ * @deprecated Use getStatusMeta() from orderStatus.config instead.
+ */
+export const getStatusTone = (status?: string | null): string =>
+  getStatusMeta(normalizeStatus(status) ?? status ?? '').badgeClass;
