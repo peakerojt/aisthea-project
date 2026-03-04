@@ -24,14 +24,36 @@ export interface OrderDetail {
   createdAt: string;
   trackingNumber?: string;
   carrier?: string;
+  note?: string | null;
   shippingAddress: {
     recipientName: string;
     phone: string;
     city: string;
     district?: string;
+    ward?: string;
     addressDetail: string;
   };
   items: OrderItem[];
+  payments?: {
+    paymentId: number;
+    paymentMethod: string;
+    amount: string;
+    status: string;
+    paymentDate?: string;
+    transactionCode?: string;
+    note?: string;
+  }[];
+  actionsAvailable?: {
+    canPay?: boolean;
+    canTrack?: boolean;
+    canCancel?: boolean;
+    canReorder?: boolean;
+  };
+  timeline?: {
+    status: string;
+    changedAt: string;
+    note?: string | null;
+  }[];
 }
 
 export interface MyOrdersResponse {
@@ -123,8 +145,11 @@ export interface AdminOrderDetail {
   }[];
   statusHistory: {
     status: string;
+    oldStatus: string | null;
     statusLabel: string;
     changedAt: string;
+    changedBy: number | null;
+    note: string | null;
   }[];
 }
 
@@ -165,6 +190,10 @@ export const orderService = {
 
   async getMyOrderDetail(orderId: number): Promise<OrderDetail> {
     return api.get<OrderDetail>(`/api/orders/my/${orderId}`);
+  },
+
+  async cancelMyOrder(orderId: number): Promise<OrderDetail> {
+    return api.patch<OrderDetail>(`/api/orders/my/${orderId}/cancel`, {});
   },
 };
 

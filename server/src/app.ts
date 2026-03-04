@@ -7,14 +7,27 @@ import { configureGoogleStrategy } from './config/passport.config';
 
 import authRoutes from './routes/auth.routes';
 import productRoutes from './routes/product.routes';
+import importExportRoutes from './routes/importExport.routes';
 import orderRoutes from './routes/order.routes';
 import userRoutes from './routes/user.routes';
 import orderModuleRoutes from './modules/order/order.route';
+import reviewRoutes from './routes/review.route';
 import categoryRoutes from './routes/category.routes';
 import inventoryRoutes from './routes/inventory.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import vnpayRoutes from './routes/vnpay.routes';
+import couponRoutes from './routes/coupon.routes';
 import cartRoutes from './routes/cart.routes';
+import roleRoutes from './routes/role.routes';
+import permissionRoutes from './routes/permission.routes';
+import trackingRouter from './modules/tracking/tracking.route';
+import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
+import returnRoutes from './routes/return.routes';
+import refundRoutes from './routes/refund.routes';
+import { authenticateToken } from './middlewares/auth.middleware';
+import { postReturnRequest, getOrderReturn } from './controllers/return.controller';
+
 
 dotenv.config();
 
@@ -32,29 +45,48 @@ export function createApp() {
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
+
   app.use(cookieParser());
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
   app.use('/api/auth', authRoutes);
+  app.use('/api/products', importExportRoutes);
   app.use('/api/products', productRoutes);
   app.use('/api/categories', categoryRoutes);
   app.use('/api/inventory', inventoryRoutes);
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/analytics', analyticsRoutes);
+  app.use('/api/vnpay', vnpayRoutes);
+  app.use('/api/coupons', couponRoutes);
   app.use('/api/cart', cartRoutes);
+  app.use('/api/roles', roleRoutes);
+  app.use('/api/permissions', permissionRoutes);
+  app.use('/api/reviews', reviewRoutes);
 
-  // Keep existing routes for backward compatibility
   app.use('/api/orders', orderRoutes);
-  // New production-ready endpoints
+
+  // ── Return & Refund routes ────────────────────────────────────────────────
+  // Order-scoped: customer request + query order return
+  app.post('/api/orders/:id/return', authenticateToken, postReturnRequest);
+  app.get('/api/orders/:id/return', authenticateToken, getOrderReturn);
+  // Admin-facing financial refunds — MUST be before orderModuleRoutes (which has /:id wildcard)
+  app.use('/api/orders', refundRoutes);
+  // Admin-facing returns management
+  app.use('/api/returns', returnRoutes);
+
+  // New production-ready endpoints — registered LAST because /:id wildcard would intercept /refunds
   app.use('/api/orders', orderModuleRoutes);
+  app.use('/api', trackingRouter);
 
   app.use('/api/users', userRoutes);
 
-  app.get('/', (req: Request, res: Response) => {
+  app.get('/', (_req: Request, res: Response) => {
     res.send('<h1>Server SQL Server đã kết nối thành công! 🚀</h1>');
   });
 
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+
   return app;
 }
-

@@ -9,7 +9,8 @@
         "categories": "Danh mục",
         "orders": "Đơn hàng",
         "customers": "Khách hàng",
-        "analytics": "Thống kê"
+        "analytics": "Thống kê",
+        "coupons": "Mã giảm giá"
     },
     "user": {
         "signOut": "Đăng xuất",

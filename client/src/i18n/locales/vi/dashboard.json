@@ -1,0 +1,15 @@
+{
+    "page": {
+        "label": "Admin Portal • v2.4",
+        "title": "Tổng quan kinh doanh"
+    },
+    "range": {
+        "today": "Hôm nay",
+        "week": "Tuần này",
+        "month": "Tháng này",
+        "year": "Năm nay"
+    },
+    "feedback": {
+        "loadError": "Không thể tải dữ liệu."
+    }
+}

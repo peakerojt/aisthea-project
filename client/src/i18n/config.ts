@@ -6,6 +6,14 @@ import commonVI from './locales/vi/common.json';
 import sidebarVI from './locales/vi/sidebar.json';
 import productsVI from './locales/vi/products.json';
 import ordersVI from './locales/vi/orders.json';
+import customersVI from './locales/vi/customers.json';
+import couponsVI from './locales/vi/coupons.json';
+import restockVI from './locales/vi/restock.json';
+import returnsVI from './locales/vi/returns.json';
+import rolesVI from './locales/vi/roles.json';
+import analyticsVI from './locales/vi/analytics.json';
+import categoriesVI from './locales/vi/categories.json';
+import dashboardVI from './locales/vi/dashboard.json';
 
 // ── i18next initialisation ──────────────────────────────────────────────────
 i18n
@@ -21,6 +29,14 @@ i18n
                 sidebar: sidebarVI,
                 products: productsVI,
                 orders: ordersVI,
+                customers: customersVI,
+                coupons: couponsVI,
+                restock: restockVI,
+                returns: returnsVI,
+                roles: rolesVI,
+                analytics: analyticsVI,
+                categories: categoriesVI,
+                dashboard: dashboardVI,
             },
         },
 

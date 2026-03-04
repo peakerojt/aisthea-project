@@ -21,8 +21,10 @@ import { ProductImageGallery } from '../components/ProductImageGallery';
 import { fetchProductById, fetchProducts, Product as ApiProductType } from '../services/product.service';
 import { getCloudinaryProductCard } from '../utils/cloudinary';
 import { useProducts } from '../contexts/ProductContext';
+import { useAuth } from '../contexts/AuthContext';
 import { ProductCard } from '../components/ProductCard/ProductCard';
 import { StoreHeader } from '../components/StoreHeader';
+import { getReviewsByProduct } from "../services/review.service";
 
 interface ProductDetailProps {
   setView: (v: ViewState, id?: number) => void;
@@ -40,11 +42,41 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
   const [recentProducts, setRecentProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const carouselRef = React.useRef<HTMLDivElement>(null);
+
   const { products } = useProducts();
+  const { user } = useAuth(); // Hook để check đăng nhập
+  const [reviews, setReviews] = useState<any[]>([]);
+  const productId = initialProduct?.id
+    ? Number(initialProduct.id)
+    : null;
 
   // Selection states
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<string>('');
+
+  // Review state 
+  useEffect(() => {
+
+    console.log("initialProduct:", initialProduct);
+    console.log("productId:", productId);
+
+    if (!productId) {
+      console.log("Skip review fetch - invalid productId");
+      return;
+    }
+
+    const fetchReviews = async () => {
+      try {
+        const data = await getReviewsByProduct(productId);
+        console.log("Review API response:", data);
+        setReviews(data);
+      } catch (err) {
+        console.error("Error fetching reviews:", err);
+      }
+    };
+
+    fetchReviews();
+  }, [productId]);
 
   // Fallback default product if none selected
   if (!initialProduct) {
@@ -65,6 +97,11 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
 
   // Recently Viewed Tracking and Loading
   useEffect(() => {
+    if (!currentActiveId || isNaN(Number(currentActiveId))) {
+      console.log("Skip recent tracking - invalid currentActiveId");
+      return;
+    }
+
     const trackAndLoadRecent = async () => {
       try {
         // Always work with string IDs to avoid logic errors
@@ -105,7 +142,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
         const details = await fetchProductById(id);
         setProductDetails(details);
 
-        // Pre-select first variant if available
+        // Pre-select first variant if available (Logic của feature/cart-Truong)
         if (details.variants && details.variants.length > 0) {
           const defaultVariant = details.variants.find(v => v.isDefault) || details.variants[0];
           const sizeAttr = defaultVariant.attributes?.find((a: any) => a.attributeName === 'Size' || a.attributeName === 'Kích thước') ||
@@ -209,6 +246,14 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
   }, [products, productDetails, basicInfo, currentActiveId]);
 
   const handleAddToCart = () => {
+    // 1. Kiểm tra đăng nhập (từ nhánh dev)
+    if (!user) {
+      setView('AUTH_LOGIN');
+      window.scrollTo(0, 0);
+      return;
+    }
+
+    // 2. Logic tìm variantId (từ nhánh feature/cart-Truong)
     const variants = productDetails?.variants || initialProduct?.variants || [];
     const selectedVariant = variants.find((v: any) => {
       const sizeAttr = v.attributes?.find((a: any) => a.attributeName === 'Size' || a.attributeName === 'Kích thước') ||
@@ -239,6 +284,12 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
   };
 
   const getColorName = (val: string) => {
+    if (val.startsWith('#')) {
+      if (val === '#111') return 'Midnight Black';
+      if (val === '#4a0404') return 'Deep Burgundy';
+      if (val === '#2a2a2a') return 'Charcoal Grey';
+      return 'Selected Color';
+    }
     return val;
   }
 
@@ -320,7 +371,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
           />
 
           <div className="flex-1 flex flex-col pt-20"> {/* Add padding top because StoreHeader is fixed */}
-
 
             <div className="px-5 py-4 lg:px-10 lg:py-4 flex flex-col gap-4">
               <div className="flex flex-col gap-6">
@@ -466,7 +516,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                 ))}
               </div>
 
-              {/* Recently Viewed Strip - Repositioned below accordions */}
+              {/* Recently Viewed Strip */}
               {recentProducts.length > 0 && (
                 <div className="py-4 border-t border-border-dark/30">
                   <div className="flex items-center gap-4 mb-3">
@@ -497,7 +547,33 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                 </div>
               )}
 
-              {/* Related Products Grid - Prominent placement at bottom of info panel */}
+              {/* Reviews Section */}
+              <div className="mt-10 border-t border-border-dark pt-8">
+                <h2 className="text-lg font-bold uppercase tracking-wider mb-4">
+                  Customer Reviews
+                </h2>
+
+                {reviews.length === 0 && (
+                  <p className="text-gray-500 text-sm">Chưa có đánh giá nào.</p>
+                )}
+
+                <div className="flex flex-col gap-4">
+                  {reviews.map((review) => (
+                    <div
+                      key={review.reviewId}
+                      className="bg-surface-dark/30 border border-border-dark p-4 rounded-sm"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <p className="font-bold text-sm">{review.user?.fullName}</p>
+                        <p className="text-primary text-sm">⭐ {review.rating}</p>
+                      </div>
+                      <p className="text-gray-400 text-sm">{review.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Related Products Grid */}
               {suggestedProducts.length > 0 && (
                 <div className="mt-2 pt-2 pb-20">
                   <div className="flex flex-col gap-2 mb-6">

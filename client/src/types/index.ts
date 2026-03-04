@@ -45,6 +45,9 @@ export type ViewState =
   | 'STORE_STYLIST'
   | 'STORE_PROFILE'
   | 'STORE_MY_ORDERS'
+  | 'STORE_CHECKOUT'
+  | 'STORE_ORDER_SUCCESS'
+  | 'STORE_PAYMENT_QR'
   | 'AUTH_LOGIN'
   | 'AUTH_SIGNUP'
   | 'AUTH_CALLBACK'
@@ -61,7 +64,12 @@ export type ViewState =
   | 'ADMIN_CUSTOMERS'
   | 'ADMIN_ANALYTICS'
   | 'ADMIN_RESTOCK'
-  | 'ADMIN_CATEGORIES';
+  | 'ADMIN_CATEGORIES'
+  | 'ADMIN_COUPONS'
+  | 'ADMIN_ROLES'
+  | 'ADMIN_RETURNS'
+  | 'ADMIN_RETURN_DETAIL';
+
 
 export type CategoryType = 'Men' | 'Women' | 'Accessories';
 
@@ -105,8 +113,10 @@ export interface AuthSession {
     fullName: string;
     avatarUrl?: string | null;
     roles: string[];
+    permissions?: string[];
   };
 }
+
 
 export interface AuthError {
   error: string;
@@ -114,3 +124,20 @@ export interface AuthError {
   message?: string;
 }
 
+// =======================
+// Product Rating Types
+// =======================
+
+export interface Rating {
+  ratingId: number;
+  productId: number;
+  userId: number;
+  rating: number; // 1–5 stars
+  comment?: string;
+  createdAt: string;
+}
+
+export interface RatingSummary {
+  averageRating: number;
+  totalRatings: number;
+}

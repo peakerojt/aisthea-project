@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ViewState } from '../types';
 import { useProducts } from '../contexts/ProductContext';
 import { deleteProductById } from '../services/product.service';
-import { Trash2, Edit2, AlertCircle, CheckCircle2, Archive, Loader2 } from 'lucide-react';
+import { Trash2, Edit2, AlertCircle, CheckCircle2, Archive, Loader2, UploadCloud } from 'lucide-react';
+import { BulkImportExportModal } from '../components/BulkImportExportModal';
 
 export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: number) => void }> = ({ setView }) => {
   const { t } = useTranslation();
@@ -26,6 +26,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'archive' | 'error'; visible: boolean } | null>(null);
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showImportExport, setShowImportExport] = useState(false);
 
   const filteredProducts = products.filter(product => {
     const statusMatch = statusFilter === 'All' || product.status === statusFilter;
@@ -73,10 +74,10 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
   };
 
   const deleteSelected = () => {
-    if (window.confirm(`Bạn có chắc muốn xóa ${selectedIds.length} mục đã chọn không?`)) {
+    if (window.confirm(t('products:feedback.deleteSelectedConfirm', { count: selectedIds.length }))) {
       selectedIds.forEach(id => deleteProduct(id));
       setSelectedIds([]);
-      showToast(`Đã xóa ${selectedIds.length} sản phẩm thành công`);
+      showToast(t('products:feedback.deleteSelectedSuccess', { count: selectedIds.length }));
     }
   };
 
@@ -137,6 +138,15 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col relative">
+      {/* ── Import/Export Modal ── */}
+      {showImportExport && (
+        <BulkImportExportModal
+          onClose={(didImport) => {
+            setShowImportExport(false);
+            if (didImport) refreshProducts();
+          }}
+        />
+      )}
       {/* ── Xác nhận xóa ──── */}
       {deleteModal?.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -210,7 +220,14 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
           <h2 className="text-2xl font-bold text-white">{t('products:page.title')}</h2>
           <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">{t('products:page.subtitle')}</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowImportExport(true)}
+            className="flex items-center gap-2 border border-white/15 hover:border-white/30 text-white/70 hover:text-white text-xs font-bold uppercase tracking-[0.1em] px-5 py-3 rounded shadow-md transition-all"
+          >
+            <UploadCloud size={15} />
+            Nhập / Xuất
+          </button>
           <button
             onClick={() => setView('ADMIN_CREATE_PRODUCT')}
             className="bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-[0.1em] px-6 py-3 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-2"
@@ -253,7 +270,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
               <div className="w-full flex items-center justify-between animate-fade-in">
                 <div className="flex items-center gap-4">
                   <span className="text-sm font-bold text-white">
-                    {selectedIds.length} đã chọn
+                    {t('products:toolbar.selected', { count: selectedIds.length })}
                   </span>
                   <div className="h-4 w-px bg-white/10"></div>
                   <button
@@ -315,7 +332,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
             <div className="p-6 border-b border-white/5 bg-white/[0.02] flex flex-wrap gap-6 animate-fade-in">
               <div className="flex flex-col gap-2">
                 <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">
-                  Trạng thái
+                  {t('products:table.status')}
                 </label>
                 <select
                   value={statusFilter}
@@ -448,7 +465,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
                             className="flex flex-col cursor-pointer hover:bg-white/5 px-2 py-1 -ml-2 rounded group/edit w-fit"
                           >
                             <span className="text-white/90 flex items-center gap-1">
-                              {p.stock} trong kho
+                              {t('products:table.inStockUnit', { count: p.stock })}
                               <span className="opacity-0 group-hover/edit:opacity-50 ml-1"><Edit2 size={12} /></span>
                             </span>
                           </div>

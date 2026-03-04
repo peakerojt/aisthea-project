@@ -1,0 +1,48 @@
+{
+    "page": {
+        "title": "Phân tích & Báo cáo",
+        "subtitle": "Admin Portal • Analytics",
+        "apply": "Áp dụng",
+        "exportCSV": "Xuất báo cáo (CSV)"
+    },
+    "kpi": {
+        "currentRevenue": "Doanh thu kỳ này",
+        "revenueGrowth": "{{sign}}{{value}}% so với kỳ trước",
+        "totalOrders": "Tổng đơn hàng",
+        "completedOrders": "{{count}} đơn hoàn thành",
+        "avgOrderValue": "Giá trị đơn TB",
+        "avgOrderSub": "Dựa trên đơn hoàn thành",
+        "topCustomers": "Khách hàng mua",
+        "topCustomersSub": "Top 5 chi tiêu nhiều nhất"
+    },
+    "charts": {
+        "revenueByCategory": "Doanh thu theo danh mục",
+        "revenueByCategorySub": "Doanh thu từ đơn hoàn thành, phân theo danh mục sản phẩm",
+        "statusFunnel": "Tỉ lệ trạng thái đơn hàng",
+        "statusFunnelSub": "Phân bổ đơn hàng theo trạng thái trong kỳ",
+        "monthlyTrend": "Doanh thu & Số lượng đơn hàng theo tháng",
+        "monthlyTrendSub": "Tổng hợp xu hướng doanh thu (vùng) và số đơn (cột) trên cùng biểu đồ",
+        "noData": "Chưa có dữ liệu",
+        "noMonthlyData": "Chưa có dữ liệu theo tháng"
+    },
+    "tables": {
+        "topCustomersTitle": "Khách hàng chi tiêu nhiều nhất",
+        "topCustomersRank": "#",
+        "topCustomersName": "Khách hàng",
+        "topCustomersSpent": "Chi tiêu",
+        "topCustomersOrders": "Đơn",
+        "cancelledTitle": "Sản phẩm bị hủy nhiều nhất",
+        "cancelledSub": "Phân tích hủy đơn — quan trọng cho chiến lược kinh doanh",
+        "cancelledRank": "#",
+        "cancelledProduct": "Sản phẩm",
+        "cancelledCount": "Số lần hủy",
+        "cancelledLost": "DT mất",
+        "cancelTimes": "{{count}} lần",
+        "noData": "Chưa có dữ liệu",
+        "noCancelled": "Không có sản phẩm bị hủy"
+    },
+    "orderUnit": "{{count}} đơn",
+    "feedback": {
+        "loadError": "Không thể tải dữ liệu."
+    }
+}

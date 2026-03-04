@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ViewState } from '../types';
 import { NotificationBell } from '../components/NotificationBell';
 import { DashboardCards } from '../components/Dashboard/DashboardCards';
@@ -17,16 +18,18 @@ interface AdminDashboardProps {
    setView?: (view: ViewState) => void;
 }
 
-const RANGE_OPTIONS: { value: DashboardRange; label: string }[] = [
-   { value: 'today', label: 'Hôm nay' },
-   { value: 'week', label: 'Tuần này' },
-   { value: 'month', label: 'Tháng này' },
-   { value: 'year', label: 'Năm nay' },
-];
+// RANGE_OPTIONS are defined inside the component so they can use t()
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setView }) => {
+   const { t } = useTranslation('dashboard');
+   const RANGE_OPTIONS: { value: DashboardRange; label: string }[] = [
+      { value: 'today', label: t('range.today') },
+      { value: 'week', label: t('range.week') },
+      { value: 'month', label: t('range.month') },
+      { value: 'year', label: t('range.year') },
+   ];
    const [range, setRange] = useState<DashboardRange>('month');
    const [summary, setSummary] = useState<DashboardSummary | null>(null);
    const [isLoading, setIsLoading] = useState(true);
@@ -56,10 +59,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setView }) => {
          <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-white/5">
             <div>
                <p className="text-xs font-bold text-primary tracking-[0.2em] uppercase mb-1.5">
-                  Admin Portal • v2.4
+                  {t('page.label')}
                </p>
                <h2 className="text-3xl xl:text-4xl font-black text-white tracking-tighter uppercase">
-                  Tổng quan kinh doanh
+                  {t('page.title')}
                </h2>
             </div>
 

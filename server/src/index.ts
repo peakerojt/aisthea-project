@@ -1,12 +1,15 @@
 import os from 'os';
+import http from 'http';
 import dotenv from 'dotenv';
 import { createApp } from './app';
+import { initSocket } from './socket';
 
 dotenv.config();
 
-// Start server
 const PORT = Number(process.env.PORT) || 5000;
 const app = createApp();
+const server = http.createServer(app);
+initSocket(server);
 
 const getLocalIp = () => {
   const interfaces = os.networkInterfaces();
@@ -20,9 +23,9 @@ const getLocalIp = () => {
   return 'localhost';
 };
 
-app.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
   const localIp = getLocalIp();
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`   ➜  Local:   http://localhost:${PORT}/`);
-  console.log(`   ➜  Network: http://${localIp}:${PORT}/`);
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Local:   http://localhost:${PORT}/`);
+  console.log(`Network: http://${localIp}:${PORT}/`);
 });

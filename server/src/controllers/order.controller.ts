@@ -1,7 +1,13 @@
 import { Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { AuthRequest } from '../middlewares/auth.middleware';
-import { VALID_TRANSITIONS, ORDER_STATUS, STATUS_LABELS } from '../utils/orderConstants';
+import {
+  ORDER_STATUS,
+  STATUS_LABELS,
+  isValidTransition,
+  INVENTORY_RESTORE_STATUSES,
+  getValidNextStatuses,
+} from '../config/orderStatus.config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -234,8 +240,11 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
       })),
       statusHistory: order.statusHistory.map((h) => ({
         status: h.status,
+        oldStatus: (h as any).oldStatus ?? null,
         statusLabel: STATUS_LABELS[h.status] ?? h.status,
         changedAt: h.changedAt.toISOString(),
+        changedBy: (h as any).changedBy ?? null,
+        note: (h as any).note ?? null,
       })),
     };
 
@@ -260,50 +269,46 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Invalid order ID' });
     }
 
-    const { status: newStatus, note } = req.body as {
-      status: string;
-      note?: string;
-    };
-
+    const { status: newStatus, note } = req.body as { status: string; note?: string };
     if (!newStatus) {
-      return res.status(400).json({ error: 'status is required' });
+      return res.status(400).json({ error: 'status là bắt buộc.' });
     }
+
+    const changedBy = req.user?.userId ?? null;
 
     // 1. Fetch current order with items for stock restoration
     const order = await prisma.order.findUnique({
       where: { orderId },
       include: {
         items: {
-          select: {
-            orderItemId: true,
-            variantId: true,
-            quantity: true,
-          },
+          select: { orderItemId: true, variantId: true, quantity: true },
         },
       },
     });
-
     if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
+      return res.status(404).json({ error: 'Không tìm thấy đơn hàng.' });
     }
 
-    const currentStatus = order.status ?? 'PENDING';
+    const currentStatus = order.status ?? ORDER_STATUS.PENDING;
 
-    // 2. Validate transition via state machine
-    const allowedNext = VALID_TRANSITIONS[currentStatus] ?? [];
-    if (!allowedNext.includes(newStatus)) {
+    // 2. FSM validation — throw 400 on invalid transition
+    if (!isValidTransition(currentStatus, newStatus)) {
       return res.status(400).json({
-        error: `Không thể chuyển đơn hàng từ "${STATUS_LABELS[currentStatus] ?? currentStatus}" sang "${STATUS_LABELS[newStatus] ?? newStatus}". Hành động này không được phép.`,
+        error: 'Chuyển đổi trạng thái không hợp lệ.',
+        message: `Không thể chuyển từ "${STATUS_LABELS[currentStatus] ?? currentStatus}" sang "${STATUS_LABELS[newStatus] ?? newStatus}".`,
         currentStatus,
         requestedStatus: newStatus,
-        allowedTransitions: allowedNext,
+        allowedTransitions: getValidNextStatuses(currentStatus),
       });
     }
 
-    // 3. Execute update — Prisma transaction if cancelling (restore stock)
-    if (newStatus === ORDER_STATUS.CANCELLED) {
-      await prisma.$transaction(async (tx) => {
-        // Restore stock for every variant
+    // 3. Determine if inventory should be restored
+    const shouldRestoreInventory = INVENTORY_RESTORE_STATUSES.includes(newStatus as any);
+
+    // 4. Execute in a single Prisma transaction
+    await prisma.$transaction(async (tx) => {
+      // Optionally restore stock
+      if (shouldRestoreInventory) {
         for (const item of order.items) {
           if (item.variantId) {
             await tx.productVariant.update({
@@ -312,35 +317,28 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
             });
           }
         }
+      }
 
-        // Update order status + optional note
-        await tx.order.update({
-          where: { orderId },
-          data: {
-            status: newStatus,
-            ...(note !== undefined ? { note } : {}),
-          },
-        });
+      // Update Order.status (and optionally Order.note for cancellation reason)
+      await tx.order.update({
+        where: { orderId },
+        data: {
+          status: newStatus,
+          ...(note !== undefined ? { note } : {}),
+        },
+      });
 
-        // Record history
-        await tx.orderStatusHistory.create({
-          data: { orderId, status: newStatus },
-        });
+      // Insert audit record with full context
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId,
+          oldStatus: currentStatus,
+          status: newStatus,
+          changedBy,
+          note: note ?? null,
+        },
       });
-    } else {
-      await prisma.$transaction(async (tx) => {
-        await tx.order.update({
-          where: { orderId },
-          data: {
-            status: newStatus,
-            ...(note !== undefined ? { note } : {}),
-          },
-        });
-        await tx.orderStatusHistory.create({
-          data: { orderId, status: newStatus },
-        });
-      });
-    }
+    });
 
     res.json({
       success: true,
@@ -348,11 +346,11 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       previousStatus: currentStatus,
       newStatus,
       statusLabel: STATUS_LABELS[newStatus] ?? newStatus,
-      stockRestored: newStatus === ORDER_STATUS.CANCELLED,
+      stockRestored: shouldRestoreInventory,
       message: `Cập nhật trạng thái thành công: ${STATUS_LABELS[newStatus] ?? newStatus}`,
     });
   } catch (error: any) {
-    console.error('Error updating order status:', error);
+    console.error('[updateOrderStatus] Error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 };
@@ -455,8 +453,23 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
     const order = await prisma.order.findFirst({
       where: { orderId, userId },
       include: {
-        items: true,
+        items: {
+          include: {
+            variant: {
+              include: {
+                images: {
+                  where: { isPrimary: true },
+                  select: { imageUrl: true, thumbnailUrl: true },
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
         payments: true,
+        statusHistory: {
+          orderBy: { changedAt: 'asc' },
+        },
       },
     });
 
@@ -472,23 +485,41 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount.toString(),
       createdAt: order.createdAt?.toISOString(),
+      updatedAt: order.updatedAt?.toISOString() ?? order.createdAt?.toISOString(),
       trackingNumber: order.trackingNumber,
       carrier: order.carrier,
       shippingAddress: {
         recipientName: order.customerName,
         phone: order.customerPhone,
         city: order.shippingCity,
-        district: order.shippingDistrict,
+        district: order.shippingDistrict ?? undefined,
+        ward: order.shippingWard ?? undefined,
         addressDetail: order.shippingAddressDetail,
       },
-      items: order.items.map((item) => ({
-        orderItemId: item.orderItemId,
-        productName: item.productName,
-        sku: item.sku,
-        variantName: item.variantName,
-        unitPrice: item.unitPrice.toString(),
-        quantity: item.quantity,
-        lineTotal: (parseFloat(item.unitPrice.toString()) * item.quantity).toString(),
+      items: order.items.map((item) => {
+        const variantImg =
+          item.variant?.images?.[0]?.thumbnailUrl ??
+          item.variant?.images?.[0]?.imageUrl ??
+          null;
+        return {
+          orderItemId: item.orderItemId,
+          productName: item.productName,
+          sku: item.sku,
+          variantName: item.variantName,
+          unitPrice: item.unitPrice.toString(),
+          quantity: item.quantity,
+          lineTotal: (parseFloat(item.unitPrice.toString()) * item.quantity).toString(),
+          thumbnailUrl: variantImg,
+        };
+      }),
+      payments: order.payments.map((p) => ({
+        paymentId: p.paymentId,
+        paymentMethod: p.paymentMethod,
+        amount: p.amount?.toString() ?? '0',
+        status: p.status,
+        paymentDate: p.paymentDate?.toISOString() ?? null,
+        transactionCode: (p as any).transactionCode ?? null,
+        note: (p as any).note ?? null,
       })),
     };
 
@@ -499,9 +530,11 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
   }
 };
 
+
 // ─────────────────────────────────────────────────────────────────────────────
-// USER: Create Order (Checkout via Stored Procedure)
+// USER: Create Order (Checkout via Stored Procedure + Coupon Integration)
 // POST /api/orders
+// Body: { ..., couponCode?: string }
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const createOrder = async (req: AuthRequest, res: Response) => {
@@ -511,13 +544,92 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { paymentMethod } = req.body;
+    const {
+      paymentMethod,
+      customerName,
+      customerPhone,
+      shippingCity,
+      shippingDistrict,
+      shippingWard,
+      shippingAddressDetail,
+      note,
+      items,
+      couponCode, // Optional coupon code
+    } = req.body;
 
     if (!paymentMethod) {
       return res.status(400).json({ error: 'Payment method is required' });
     }
 
-    const result: any[] = await prisma.$queryRaw`EXEC sp_Checkout @UserId = ${userId}, @PaymentMethod = ${paymentMethod}`;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Cart is empty. Vui lòng thêm sản phẩm vào giỏ hàng.' });
+    }
+
+    // --- SYNCHRONIZE CART ---
+    let cart = await prisma.cart.findFirst({ where: { userId } });
+    if (!cart) {
+      cart = await prisma.cart.create({ data: { userId } });
+    }
+
+    await prisma.cartItem.deleteMany({ where: { cartId: cart.cartId } });
+
+    for (const item of items) {
+      const productId = parseInt(item.id, 10);
+      if (isNaN(productId)) continue;
+
+      const variants = await prisma.productVariant.findMany({
+        where: { productId },
+        include: {
+          variantAttributes: {
+            include: { value: { include: { attribute: true } } },
+          },
+        },
+      });
+
+      if (variants.length === 0) continue;
+
+      let matchedVariant = null;
+
+      if (item.size || item.color) {
+        matchedVariant = variants.find((v) => {
+          let sizeMatch = !item.size;
+          let colorMatch = !item.color;
+          v.variantAttributes.forEach((va) => {
+            const attrName = va.value.attribute.name.toLowerCase();
+            const attrVal = va.value.value.toLowerCase();
+            if (attrName === 'size' && item.size && attrVal === item.size.toLowerCase()) sizeMatch = true;
+            if (attrName === 'color' && item.color && attrVal === item.color.toLowerCase()) colorMatch = true;
+          });
+          return sizeMatch && colorMatch;
+        });
+      }
+
+      if (!matchedVariant) {
+        matchedVariant = variants.find((v) => v.isDefault) || variants[0];
+      }
+
+      await prisma.cartItem.create({
+        data: {
+          cartId: cart.cartId,
+          variantId: matchedVariant.variantId,
+          quantity: item.quantity > 0 ? item.quantity : 1,
+        },
+      });
+    }
+    // --- END CART SYNCHRONIZATION ---
+
+    // Run the stored procedure to create the order
+    const result: any[] = await prisma.$queryRaw`
+      EXEC sp_Checkout 
+        @UserId = ${userId}, 
+        @PaymentMethod = ${paymentMethod},
+        @CustomerName = ${customerName || 'Khách hàng'},
+        @CustomerPhone = ${customerPhone || '0000000000'},
+        @ShippingCity = ${shippingCity || 'Hà Nội'},
+        @ShippingDistrict = ${shippingDistrict || 'Không xác định'},
+        @ShippingWard = ${shippingWard || null},
+        @ShippingAddressDetail = ${shippingAddressDetail || 'Không xác định'}
+    `;
 
     if (!result || result.length === 0) {
       throw new Error('Checkout execution returned no result.');
@@ -526,9 +638,65 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     const row = result[0];
     const orderId = row.OrderId || row.orderId;
 
-    res.json({ success: true, orderId, message: 'Order created successfully' });
+    // ── Coupon application (post-SP, in a separate atomic transaction) ────────
+    let discountAmount = 0;
+
+    if (couponCode && typeof couponCode === 'string' && couponCode.trim()) {
+      try {
+        // Calculate cart subtotal from items (server-side — never trust client)
+        const cartSubtotal = items.reduce((sum: number, item: any) => {
+          return sum + (Number(item.price) || 0) * (Number(item.quantity) || 1);
+        }, 0);
+
+        // Re-validate coupon inside a transaction for atomicity
+        await prisma.$transaction(async (tx) => {
+          const { validateCoupon } = await import('../services/coupon.service');
+          const { coupon, discountAmount: discount } = await validateCoupon(
+            couponCode.trim(),
+            userId,
+            cartSubtotal,
+            tx as any,
+          );
+
+          discountAmount = discount;
+
+          // 1. Deduct discount from order total
+          const currentOrder = await (tx.order as any).findUnique({
+            where: { orderId },
+            select: { totalAmount: true },
+          });
+          const newTotal = Math.max(0, Number(currentOrder.totalAmount) - discount);
+
+          await (tx.order as any).update({
+            where: { orderId },
+            data: {
+              totalAmount: newTotal,
+              discountAmount: discount,
+              couponId: coupon.couponId,
+            },
+          });
+
+          // 2. Atomically increment coupon usedCount
+          await (tx.coupon as any).update({
+            where: { couponId: coupon.couponId },
+            data: { usedCount: { increment: 1 } },
+          });
+        });
+      } catch (couponErr: any) {
+        // Coupon validation failed AFTER order was created — order is still valid
+        // but discount is not applied. Log the error and continue without coupon.
+        console.warn('[createOrder] Coupon validation failed (order still created):', couponErr.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      orderId,
+      discountAmount,
+      message: 'Order created successfully',
+    });
   } catch (error: any) {
     console.error('Checkout Error:', error);
-    res.status(500).json({ error: 'Checkout failed', details: error.message });
+    return res.status(500).json({ error: 'Checkout failed', details: error.message });
   }
 };

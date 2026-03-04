@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Plus, Edit2, Trash2, ChevronRight, ChevronDown,
     CornerDownRight, AlertCircle, CheckCircle2, ImageIcon, Loader2,
@@ -48,6 +49,7 @@ interface TreeRowProps {
     onToggle: (id: number) => void;
     onEdit: (node: CategoryNode) => void;
     onDelete: (id: number, name: string) => void;
+    t: (key: string) => string;
 }
 
 const TreeRow: React.FC<TreeRowProps> = ({
@@ -57,6 +59,7 @@ const TreeRow: React.FC<TreeRowProps> = ({
     onToggle,
     onEdit,
     onDelete,
+    t,
 }) => {
     const hasChildren = node.children.length > 0;
     const isExpanded = expandedIds.has(node.categoryId);
@@ -66,8 +69,8 @@ const TreeRow: React.FC<TreeRowProps> = ({
         <>
             <tr
                 className={`group transition-colors border-b border-white/[0.04] ${isRoot
-                        ? 'bg-white/[0.03] hover:bg-white/[0.06]'
-                        : 'hover:bg-white/[0.02]'
+                    ? 'bg-white/[0.03] hover:bg-white/[0.06]'
+                    : 'hover:bg-white/[0.02]'
                     }`}
             >
                 {/* Expand toggle + indent */}
@@ -113,8 +116,8 @@ const TreeRow: React.FC<TreeRowProps> = ({
                         <div>
                             <p
                                 className={`text-sm leading-tight ${isRoot
-                                        ? 'font-bold text-white'
-                                        : 'font-medium text-white/80'
+                                    ? 'font-bold text-white'
+                                    : 'font-medium text-white/80'
                                     }`}
                             >
                                 {node.name}
@@ -139,8 +142,8 @@ const TreeRow: React.FC<TreeRowProps> = ({
                 <td className="py-3 pr-4 text-center">
                     <span
                         className={`text-xs font-bold px-2.5 py-1 rounded-full ${node._count.products > 0
-                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                : 'bg-white/5 text-white/30 border border-white/10'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : 'bg-white/5 text-white/30 border border-white/10'
                             }`}
                     >
                         {node._count.products}
@@ -153,14 +156,14 @@ const TreeRow: React.FC<TreeRowProps> = ({
                         <button
                             onClick={() => onEdit(node)}
                             className="p-1.5 rounded-lg text-white/40 hover:text-primary hover:bg-white/10 transition-colors"
-                            title="Chỉnh sửa"
+                            title={t('actions.edit')}
                         >
                             <Edit2 size={15} />
                         </button>
                         <button
                             onClick={() => onDelete(node.categoryId, node.name)}
                             className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-white/10 transition-colors"
-                            title="Xóa"
+                            title={t('actions.delete')}
                         >
                             <Trash2 size={15} />
                         </button>
@@ -178,6 +181,7 @@ const TreeRow: React.FC<TreeRowProps> = ({
                     onToggle={onToggle}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    t={t}
                 />
             ))}
         </>
@@ -187,6 +191,7 @@ const TreeRow: React.FC<TreeRowProps> = ({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setView }) => {
+    const { t } = useTranslation('categories');
     const [tree, setTree] = useState<CategoryNode[]>([]);
     const [flat, setFlat] = useState<CategoryFlat[]>([]);
     const [loading, setLoading] = useState(true);
@@ -227,11 +232,11 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
             // Auto-expand all roots
             setExpandedIds(new Set(treeData.map(n => n.categoryId)));
         } catch (e: any) {
-            setError(e.message || 'Không thể tải danh sách danh mục.');
+            setError(e.message || t('feedback.loadErrorDetail'));
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         loadData();
@@ -259,15 +264,15 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
         try {
             if (formModal.mode === 'create') {
                 await createCategory(payload);
-                showToast('Danh mục đã được tạo thành công!', 'success');
+                showToast(t('feedback.createSuccess'), 'success');
             } else if (formModal.editing) {
                 await updateCategory(formModal.editing.categoryId, payload);
-                showToast('Danh mục đã được cập nhật!', 'success');
+                showToast(t('feedback.updateSuccess'), 'success');
             }
             handleCloseForm();
             await loadData();
         } catch (e: any) {
-            showToast(e.message || 'Có lỗi xảy ra. Vui lòng thử lại.', 'error');
+            showToast(e.message || t('feedback.genericError'), 'error');
             throw e; // Let modal handle spinner reset
         }
     };
@@ -282,11 +287,11 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
         try {
             await deleteCategory(deleteModal.id);
             setDeleteModal(null);
-            showToast('Danh mục đã được xóa.', 'success');
+            showToast(t('feedback.deleteSuccess'), 'success');
             await loadData();
         } catch (e: any) {
             setDeleteModal(null);
-            showToast(e.message || 'Không thể xóa danh mục này.', 'error');
+            showToast(e.message || t('feedback.deleteError'), 'error');
         } finally {
             setDeleting(false);
         }
@@ -322,7 +327,7 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
                                 <Trash2 size={18} className="text-red-400" />
                             </div>
                             <div>
-                                <h3 className="text-base font-bold text-white">Xác nhận xóa danh mục?</h3>
+                                <h3 className="text-base font-bold text-white">{t('delete.title')}</h3>
                                 <p className="text-[11px] text-white/40 mt-0.5 font-mono truncate max-w-[280px]">
                                     {deleteModal.name}
                                 </p>
@@ -338,7 +343,7 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
                                 disabled={deleting}
                                 className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-50"
                             >
-                                Hủy
+                                {t('delete.cancel')}
                             </button>
                             <button
                                 onClick={handleConfirmDelete}
@@ -346,7 +351,7 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
                                 className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center gap-2 shadow-lg shadow-red-900/30"
                             >
                                 {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                                {deleting ? 'Đang xóa...' : 'Xóa danh mục'}
+                                {deleting ? t('delete.deleting') : t('delete.confirm')}
                             </button>
                         </div>
                     </div>
@@ -373,10 +378,10 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
                         <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
                             <Tag size={16} className="text-primary" />
                         </div>
-                        <h2 className="text-2xl font-bold text-white">Danh mục sản phẩm</h2>
+                        <h2 className="text-2xl font-bold text-white">{t('page.title')}</h2>
                     </div>
                     <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1 pl-11">
-                        {totalCategories} danh mục · {rootCount} danh mục gốc
+                        {t('page.summary', { total: totalCategories, roots: rootCount })}
                     </p>
                 </div>
                 <button
@@ -384,7 +389,7 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
                     className="bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-[0.1em] px-6 py-3 rounded-lg shadow-lg shadow-primary/20 transition-all flex items-center gap-2"
                 >
                     <Plus size={16} />
-                    Thêm danh mục
+                    {t('actions.addCategory')}
                 </button>
             </header>
 
@@ -393,7 +398,7 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
                 <div className="bg-white/[0.02] border border-white/5 rounded-xl flex-1 flex items-center justify-center">
                     <div className="flex flex-col items-center gap-4">
                         <div className="w-10 h-10 border-4 border-white/10 border-t-primary rounded-full animate-spin" />
-                        <p className="text-sm text-white/40">Đang tải danh mục...</p>
+                        <p className="text-sm text-white/40">{t('feedback.loading')}</p>
                     </div>
                 </div>
             )}
@@ -404,14 +409,14 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
                     <div className="flex flex-col items-center gap-4 max-w-sm text-center">
                         <AlertCircle size={40} className="text-red-400" />
                         <div>
-                            <h3 className="text-base font-bold text-white mb-1">Không thể tải dữ liệu</h3>
+                            <h3 className="text-base font-bold text-white mb-1">{t('feedback.loadError')}</h3>
                             <p className="text-sm text-white/50">{error}</p>
                         </div>
                         <button
                             onClick={loadData}
                             className="text-xs text-primary font-bold uppercase tracking-wider hover:underline"
                         >
-                            Thử lại
+                            {t('actions.retry')}
                         </button>
                     </div>
                 </div>
@@ -426,14 +431,14 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
                                 <Tag size={24} className="text-white/20" />
                             </div>
                             <div className="text-center">
-                                <p className="text-base font-semibold text-white/60">Chưa có danh mục nào</p>
-                                <p className="text-sm text-white/30 mt-1">Bắt đầu bằng cách tạo danh mục đầu tiên</p>
+                                <p className="text-base font-semibold text-white/60">{t('empty.noCategories')}</p>
+                                <p className="text-sm text-white/30 mt-1">{t('empty.startHint')}</p>
                             </div>
                             <button
                                 onClick={handleOpenCreate}
                                 className="mt-2 text-xs font-bold text-primary uppercase tracking-wider hover:underline flex items-center gap-1"
                             >
-                                <Plus size={13} /> Tạo danh mục
+                                <Plus size={13} /> {t('actions.createFirst')}
                             </button>
                         </div>
                     ) : (
@@ -442,11 +447,11 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
                                 <thead className="bg-white/[0.02] border-b border-white/8">
                                     <tr className="text-[10px] uppercase tracking-widest text-white/40 font-bold">
                                         <th className="pl-4 py-4 w-10" />
-                                        <th className="py-4 pr-3 w-14">Ảnh</th>
-                                        <th className="py-4 pr-4">Tên danh mục</th>
-                                        <th className="py-4 pr-4">Đường dẫn tĩnh</th>
-                                        <th className="py-4 pr-4 text-center w-28">Sản phẩm</th>
-                                        <th className="py-4 pr-4 text-right w-24">Thao tác</th>
+                                        <th className="py-4 pr-3 w-14">{t('table.image')}</th>
+                                        <th className="py-4 pr-4">{t('table.name')}</th>
+                                        <th className="py-4 pr-4">{t('table.slug')}</th>
+                                        <th className="py-4 pr-4 text-center w-28">{t('table.products')}</th>
+                                        <th className="py-4 pr-4 text-right w-24">{t('table.actions')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -459,6 +464,7 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
                                             onToggle={handleToggle}
                                             onEdit={handleOpenEdit}
                                             onDelete={handleDeleteRequest}
+                                            t={t as (key: string) => string}
                                         />
                                     ))}
                                 </tbody>

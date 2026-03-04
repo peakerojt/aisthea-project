@@ -189,7 +189,7 @@ export const OrderDetailPage: React.FC = () => {
             </div>
             <div className="lg:col-span-4 space-y-6">
               <OrderPricingSummary order={order} />
-              <OrderTimeline order={order} />
+              <OrderTimeline history={(order.timeline ?? []).map(t => ({ status: t.status, changedAt: t.at }))} />
               {order.note && (
                 <div className="bg-surface-dark border border-white/5 rounded-sm p-6">
                   <div className="text-[10px] uppercase tracking-widest text-white/40">Ghi chú</div>
@@ -201,11 +201,10 @@ export const OrderDetailPage: React.FC = () => {
                 <button
                   disabled={!canCancel || cancelMutation.isPending}
                   onClick={() => cancelMutation.mutate()}
-                  className={`mt-4 w-full px-4 py-3 border text-xs font-bold uppercase tracking-widest transition-colors ${
-                    !canCancel || cancelMutation.isPending
+                  className={`mt-4 w-full px-4 py-3 border text-xs font-bold uppercase tracking-widest transition-colors ${!canCancel || cancelMutation.isPending
                       ? 'bg-white/5 border-white/10 text-white/30 cursor-not-allowed'
                       : 'bg-red-500/10 hover:bg-red-500/20 border-red-500/50 text-red-300'
-                  }`}
+                    }`}
                 >
                   {cancelMutation.isPending ? 'Đang hủy đơn...' : 'Hủy đơn hàng'}
                 </button>

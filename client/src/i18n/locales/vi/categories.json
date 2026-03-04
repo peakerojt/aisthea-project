@@ -1,0 +1,44 @@
+{
+    "page": {
+        "title": "Danh mục sản phẩm",
+        "summary": "{{total}} danh mục · {{roots}} danh mục gốc"
+    },
+    "table": {
+        "image": "Ảnh",
+        "name": "Tên danh mục",
+        "slug": "Đường dẫn tĩnh",
+        "products": "Sản phẩm",
+        "actions": "Thao tác"
+    },
+    "actions": {
+        "addCategory": "Thêm danh mục",
+        "edit": "Chỉnh sửa",
+        "delete": "Xóa",
+        "createFirst": "Tạo danh mục",
+        "retry": "Thử lại"
+    },
+    "treeRow": {
+        "variantCount": "{{count}} biến thể"
+    },
+    "empty": {
+        "noCategories": "Chưa có danh mục nào",
+        "startHint": "Bắt đầu bằng cách tạo danh mục đầu tiên"
+    },
+    "delete": {
+        "title": "Xác nhận xóa danh mục?",
+        "warning": "Hành động này <1>không thể hoàn tác</1>. Danh mục chỉ có thể xóa khi <2>không có danh mục con và không có sản phẩm</2>.",
+        "cancel": "Hủy",
+        "confirm": "Xóa danh mục",
+        "deleting": "Đang xóa..."
+    },
+    "feedback": {
+        "loading": "Đang tải danh mục...",
+        "loadError": "Không thể tải dữ liệu",
+        "loadErrorDetail": "Không thể tải danh sách danh mục.",
+        "createSuccess": "Danh mục đã được tạo thành công!",
+        "updateSuccess": "Danh mục đã được cập nhật!",
+        "deleteSuccess": "Danh mục đã được xóa.",
+        "deleteError": "Không thể xóa danh mục này.",
+        "genericError": "Có lỗi xảy ra. Vui lòng thử lại."
+    }
+}

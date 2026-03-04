@@ -1,4 +1,15 @@
+/**
+ * AdminRestock.tsx — Quản lý Tồn kho & Nhập kho
+ * ──────────────────────────────────────────────────────────────────────
+ * Enhancements (v2):
+ *   • Mandatory "Lý do điều chỉnh" reason field before saving changes
+ *   • Save is blocked until a reason is provided
+ *   • Per-variant "Lịch sử tồn kho" history slide-over panel
+ *   • i18n via react-i18next (restock namespace)
+ */
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
    Search,
    PackagePlus,
@@ -10,11 +21,17 @@ import {
    X,
    TrendingDown,
    ChevronRight,
+   History,
+   ChevronLeft,
+   ChevronRight as ChevronRightIcon,
+   FileText,
 } from 'lucide-react';
 import {
    fetchInventory,
    bulkUpdateStock,
+   fetchInventoryLogs,
    type InventoryVariant,
+   type InventoryLogEntry,
 } from '../services/inventory.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -28,13 +45,26 @@ interface ProductGroup {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const getStockStatus = (qty: number): { label: string; className: string } => {
-   if (qty === 0) return { label: 'Hết hàng', className: 'bg-red-500/15 text-red-400 border-red-500/25' };
-   if (qty < 10) return { label: 'Sắp hết', className: 'bg-amber-500/15 text-amber-400 border-amber-500/25' };
-   return { label: 'Còn hàng', className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' };
+const getStockStatus = (qty: number, t: (key: string) => string): { label: string; className: string } => {
+   if (qty === 0) return { label: t('restock:stockStatus.outOfStock'), className: 'bg-red-500/15 text-red-400 border-red-500/25' };
+   if (qty < 10) return { label: t('restock:stockStatus.lowStock'), className: 'bg-amber-500/15 text-amber-400 border-amber-500/25' };
+   return { label: t('restock:stockStatus.inStock'), className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' };
 };
 
-/** Group a flat variant list into ProductGroup[] */
+const REASON_COLORS: Record<string, string> = {
+   CHECKOUT: 'text-blue-400',
+   RESTOCK: 'text-emerald-400',
+   CANCELLED_RESTORE: 'text-amber-400',
+   MANUAL_ADJUST: 'text-purple-400',
+};
+
+function fmtDate(iso: string): string {
+   return new Date(iso).toLocaleString('vi-VN', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+   });
+}
+
 function groupVariants(variants: InventoryVariant[]): ProductGroup[] {
    const map = new Map<number, ProductGroup>();
    for (const v of variants) {
@@ -64,16 +94,14 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () 
 
 const SkeletonGroup: React.FC = () => (
    <>
-      {/* group header skeleton */}
       <tr className="bg-white/[0.025] border-b border-white/[0.06]">
-         <td colSpan={6} className="px-5 py-3">
+         <td colSpan={7} className="px-5 py-3">
             <div className="h-4 w-48 rounded bg-white/[0.07] animate-pulse" />
          </td>
       </tr>
-      {/* variant rows skeleton */}
       {[1, 2, 3].map((i) => (
          <tr key={i} className="border-b border-white/[0.04]">
-            {[1, 2, 3, 4, 5, 6].map((j) => (
+            {[1, 2, 3, 4, 5, 6, 7].map((j) => (
                <td key={j} className="px-5 py-4 pl-14">
                   <div className="h-3.5 rounded bg-white/[0.05] animate-pulse" style={{ width: `${55 + j * 7}%` }} />
                </td>
@@ -83,19 +111,241 @@ const SkeletonGroup: React.FC = () => (
    </>
 );
 
+// ─── Inventory Log Slide-Over ─────────────────────────────────────────────────
+
+interface LogPanelProps {
+   variant: InventoryVariant;
+   onClose: () => void;
+   t: (key: string, opts?: Record<string, unknown>) => string;
+}
+
+const LogPanel: React.FC<LogPanelProps> = ({ variant, onClose, t }) => {
+   const [logs, setLogs] = useState<InventoryLogEntry[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [page, setPage] = useState(1);
+   const [totalPages, setTotalPages] = useState(1);
+   const [total, setTotal] = useState(0);
+
+   useEffect(() => {
+      const load = async () => {
+         setLoading(true);
+         try {
+            const res = await fetchInventoryLogs(variant.variantId, page);
+            setLogs(res.items);
+            setTotalPages(res.totalPages);
+            setTotal(res.total);
+         } finally {
+            setLoading(false);
+         }
+      };
+      load();
+   }, [variant.variantId, page]);
+
+   return (
+      <>
+         {/* Backdrop */}
+         <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-fade-in"
+            onClick={onClose}
+         />
+         {/* Slide-over panel */}
+         <div className="fixed right-0 top-0 h-full w-full max-w-[520px] bg-[#0e0e0e] border-l border-white/[0.08] z-50 flex flex-col shadow-2xl animate-slide-in-right">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+               <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                     <History size={16} className="text-primary" />
+                     <h2 className="text-sm font-bold text-white">{t('restock:logPanel.title')}</h2>
+                  </div>
+                  <p className="text-[11px] text-white/40 font-mono">
+                     {variant.variantLabel || t('restock:table.default')} · {variant.sku}
+                  </p>
+               </div>
+               <button onClick={onClose} className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all">
+                  <X size={18} />
+               </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto">
+               {loading ? (
+                  <div className="flex items-center justify-center py-16">
+                     <RefreshCw size={20} className="text-white/20 animate-spin" />
+                  </div>
+               ) : logs.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-center">
+                     <FileText size={36} className="text-white/10 mb-3" />
+                     <p className="text-white/40 text-sm">{t('restock:logPanel.empty')}</p>
+                  </div>
+               ) : (
+                  <div className="divide-y divide-white/[0.04]">
+                     {logs.map((log) => {
+                        const isPositive = log.changeQuantity > 0;
+                        const reasonLabel = t(`restock:logReasons.${log.reason}`) || log.reason;
+                        const reasonColor = REASON_COLORS[log.reason] ?? 'text-white/50';
+                        return (
+                           <div key={log.logId} className="px-6 py-4 hover:bg-white/[0.015] transition-colors">
+                              <div className="flex items-start justify-between gap-3 mb-2">
+                                 <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 border border-white/[0.08] ${reasonColor}`}>
+                                       {reasonLabel}
+                                    </span>
+                                    {log.orderNumber && (
+                                       <span className="text-[10px] font-mono text-white/30 bg-white/5 px-1.5 py-0.5 rounded">
+                                          #{log.orderNumber}
+                                       </span>
+                                    )}
+                                 </div>
+                                 <span className={`text-base font-black tabular-nums shrink-0 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                                    {isPositive ? '+' : ''}{log.changeQuantity}
+                                 </span>
+                              </div>
+                              <div className="flex items-center gap-4 text-xs text-white/50">
+                                 <span>{log.previousStock} → <span className="font-bold text-white/70">{log.newStock}</span></span>
+                                 {log.changedBy && <span className="truncate max-w-[150px]">{log.changedBy}</span>}
+                                 <span className="ml-auto shrink-0">{fmtDate(log.createdAt)}</span>
+                              </div>
+                              {log.note && (
+                                 <p className="mt-1 text-[11px] text-white/30 italic truncate">{log.note}</p>
+                              )}
+                           </div>
+                        );
+                     })}
+                  </div>
+               )}
+            </div>
+
+            {/* Footer pagination */}
+            {!loading && totalPages > 1 && (
+               <div className="border-t border-white/[0.06] px-6 py-3 flex items-center justify-between">
+                  <span className="text-[11px] text-white/30">
+                     {t('restock:logPanel.pagination', { total, page, totalPages })}
+                  </span>
+                  <div className="flex gap-1">
+                     <button
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="p-1.5 rounded text-white/40 hover:text-white hover:bg-white/5 disabled:opacity-20 transition-all"
+                     >
+                        <ChevronLeft size={16} />
+                     </button>
+                     <button
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                        className="p-1.5 rounded text-white/40 hover:text-white hover:bg-white/5 disabled:opacity-20 transition-all"
+                     >
+                        <ChevronRightIcon size={16} />
+                     </button>
+                  </div>
+               </div>
+            )}
+         </div>
+      </>
+   );
+};
+
+// ─── Reason Modal (confirm save) ──────────────────────────────────────────────
+
+interface ReasonModalProps {
+   dirtyCount: number;
+   onConfirm: (reason: string) => void;
+   onCancel: () => void;
+   saving: boolean;
+   t: (key: string, opts?: Record<string, unknown>) => string;
+   reasonPresets: string[];
+}
+
+const ReasonModal: React.FC<ReasonModalProps> = ({ dirtyCount, onConfirm, onCancel, saving, t, reasonPresets }) => {
+   const [reason, setReason] = useState('');
+
+   return (
+      <>
+         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" onClick={onCancel} />
+         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-[#141414] border border-white/[0.10] rounded-2xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
+               {/* Header */}
+               <div className="flex items-center gap-3 mb-5">
+                  <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                     <FileText size={18} className="text-amber-400" />
+                  </div>
+                  <div>
+                     <h3 className="text-sm font-bold text-white">{t('restock:reasonModal.title')}</h3>
+                     <p className="text-[11px] text-white/40">{t('restock:reasonModal.subtitle', { count: dirtyCount })}</p>
+                  </div>
+               </div>
+
+               {/* Reason field */}
+               <label className="block mb-4">
+                  <span className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-2 block">
+                     {t('restock:reasonModal.reasonLabel')} <span className="text-red-400">*</span>
+                  </span>
+                  <input
+                     autoFocus
+                     type="text"
+                     placeholder={t('restock:reasonModal.reasonPlaceholder')}
+                     value={reason}
+                     onChange={(e) => setReason(e.target.value)}
+                     onKeyDown={(e) => { if (e.key === 'Enter' && reason.trim()) onConfirm(reason.trim()); }}
+                     className="w-full bg-white/[0.04] border border-white/[0.10] rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/50 transition-all"
+                  />
+                  {/* Quick presets */}
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                     {reasonPresets.map((p) => (
+                        <button
+                           key={p}
+                           type="button"
+                           onClick={() => setReason(p)}
+                           className={`text-[10px] px-2 py-1 rounded-full border transition-all ${reason === p
+                              ? 'bg-primary/15 border-primary/40 text-primary'
+                              : 'bg-white/[0.03] border-white/[0.08] text-white/40 hover:text-white/70 hover:border-white/20'
+                              }`}
+                        >
+                           {p}
+                        </button>
+                     ))}
+                  </div>
+               </label>
+
+               {/* Actions */}
+               <div className="flex justify-end gap-3 mt-2">
+                  <button
+                     onClick={onCancel}
+                     className="px-4 py-2 text-xs font-semibold text-white/40 hover:text-white border border-white/10 hover:border-white/25 rounded-lg transition-all"
+                  >
+                     {t('restock:reasonModal.cancel')}
+                  </button>
+                  <button
+                     onClick={() => { if (reason.trim()) onConfirm(reason.trim()); }}
+                     disabled={!reason.trim() || saving}
+                     className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${!reason.trim() || saving
+                        ? 'bg-white/5 text-white/25 cursor-not-allowed'
+                        : 'bg-primary hover:bg-red-700 text-white shadow-lg shadow-primary/20'
+                        }`}
+                  >
+                     {saving ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
+                     {saving ? t('restock:actions.saving') : t('restock:reasonModal.confirm')}
+                  </button>
+               </div>
+            </div>
+         </div>
+      </>
+   );
+};
+
 // ─── Product Group Row ────────────────────────────────────────────────────────
 
 interface ProductGroupRowProps {
    group: ProductGroup;
    dirtyMap: Record<number, number>;
    onQuantityChange: (variantId: number, value: string) => void;
+   onViewHistory: (variant: InventoryVariant) => void;
    defaultOpen: boolean;
+   t: (key: string, opts?: Record<string, unknown>) => string;
 }
 
-const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQuantityChange, defaultOpen }) => {
+const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQuantityChange, onViewHistory, defaultOpen, t }) => {
    const [open, setOpen] = useState(defaultOpen);
 
-   // Aggregate stats for the header
    const totalStock = group.variants.reduce((s, v) => s + v.stockQuantity, 0);
    const pendingTotalStock = group.variants.reduce((s, v) => s + (v.variantId in dirtyMap ? dirtyMap[v.variantId] : v.stockQuantity), 0);
    const hasLow = group.variants.some((v) => v.stockQuantity < 10);
@@ -110,15 +360,12 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
                } ${hasDirty ? 'border-l-2 border-l-amber-400/50' : ''}`}
             onClick={() => setOpen((p) => !p)}
          >
-            <td className="px-5 py-3" colSpan={6}>
+            <td className="px-5 py-3" colSpan={7}>
                <div className="flex items-center gap-3">
-                  {/* Chevron */}
                   <ChevronRight
                      size={15}
                      className={`text-white/30 transition-transform shrink-0 ${open ? 'rotate-90' : ''}`}
                   />
-
-                  {/* Product image */}
                   <div className="w-8 h-10 rounded overflow-hidden bg-white/5 border border-white/5 shrink-0">
                      {group.primaryImageUrl ? (
                         <img src={group.primaryImageUrl} alt={group.productName} className="w-full h-full object-cover" />
@@ -128,30 +375,26 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
                         </div>
                      )}
                   </div>
-
-                  {/* Product name + variant count */}
                   <div className="flex-1 min-w-0">
                      <span className="text-sm font-bold text-white tracking-tight">{group.productName}</span>
                      <span className="ml-2 text-[10px] text-white/30 font-medium">
-                        {group.variants.length} biến thể
+                        {t('restock:table.variantCount', { count: group.variants.length })}
                      </span>
                   </div>
-
-                  {/* Aggregate stats */}
                   <div className="flex items-center gap-4 shrink-0">
                      {hasDirty && (
                         <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
-                           Đang chỉnh sửa
+                           {t('restock:groupRow.editing')}
                         </span>
                      )}
                      {hasOut && !hasDirty && (
-                        <span className="text-[10px] font-bold text-red-400">● Có biến thể hết hàng</span>
+                        <span className="text-[10px] font-bold text-red-400">{t('restock:groupRow.hasOut')}</span>
                      )}
                      {hasLow && !hasOut && !hasDirty && (
-                        <span className="text-[10px] font-bold text-amber-400">● Có biến thể sắp hết</span>
+                        <span className="text-[10px] font-bold text-amber-400">{t('restock:groupRow.hasLow')}</span>
                      )}
                      <span className="text-xs text-white/40">
-                        Tổng tồn:{' '}
+                        {t('restock:table.totalStock')}{' '}
                         <span className={`font-bold ${pendingTotalStock !== totalStock ? 'text-amber-300' : 'text-white'}`}>
                            {pendingTotalStock !== totalStock ? pendingTotalStock : totalStock}
                         </span>
@@ -166,27 +409,25 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
             group.variants.map((v, idx) => {
                const isDirty = v.variantId in dirtyMap;
                const displayQty = isDirty ? dirtyMap[v.variantId] : v.stockQuantity;
-               const status = getStockStatus(isDirty ? dirtyMap[v.variantId] : v.stockQuantity);
+               const status = getStockStatus(isDirty ? dirtyMap[v.variantId] : v.stockQuantity, t);
                const isLast = idx === group.variants.length - 1;
 
                return (
                   <tr
                      key={v.variantId}
                      className={`transition-colors ${isDirty
-                           ? 'bg-amber-500/[0.035]'
-                           : v.stockQuantity === 0
-                              ? 'bg-red-900/[0.08] hover:bg-red-900/[0.12]'
-                              : 'hover:bg-white/[0.015]'
+                        ? 'bg-amber-500/[0.035]'
+                        : v.stockQuantity === 0
+                           ? 'bg-red-900/[0.08] hover:bg-red-900/[0.12]'
+                           : 'hover:bg-white/[0.015]'
                         } ${isLast ? 'border-b border-white/[0.07]' : 'border-b border-white/[0.03]'}`}
                   >
-                     {/* Sản phẩm (variant label only, indented) */}
+                     {/* Variant label */}
                      <td className="pl-14 pr-5 py-3">
                         <div className="flex items-center gap-1.5">
-                           {isDirty && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                           )}
+                           {isDirty && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
                            <span className="text-sm text-white/80 font-medium">
-                              {v.variantLabel || <span className="text-white/30 italic text-xs">Mặc định</span>}
+                              {v.variantLabel || <span className="text-white/30 italic text-xs">{t('restock:table.default')}</span>}
                            </span>
                         </div>
                      </td>
@@ -205,7 +446,7 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
                         </span>
                      </td>
 
-                     {/* Tồn kho hiện tại */}
+                     {/* Tồn kho HT */}
                      <td className="px-5 py-3 text-center">
                         <span className={`text-base font-black tabular-nums ${v.stockQuantity === 0 ? 'text-red-400' : v.stockQuantity < 10 ? 'text-amber-400' : 'text-white'
                            }`}>
@@ -213,7 +454,7 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
                         </span>
                      </td>
 
-                     {/* Cập nhật (input) */}
+                     {/* Cập nhật */}
                      <td className="px-5 py-3">
                         <div className="flex justify-center">
                            <input
@@ -223,8 +464,8 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
                               onChange={(e) => onQuantityChange(v.variantId, e.target.value)}
                               onClick={(e) => e.stopPropagation()}
                               className={`w-24 text-center rounded-lg px-3 py-1.5 text-sm font-semibold border transition-all focus:outline-none focus:ring-1 ${isDirty
-                                    ? 'bg-amber-500/10 border-amber-400/40 text-amber-300 focus:ring-amber-400/30'
-                                    : 'bg-white/[0.04] border-white/[0.08] text-white focus:ring-primary/40 focus:border-primary/50'
+                                 ? 'bg-amber-500/10 border-amber-400/40 text-amber-300 focus:ring-amber-400/30'
+                                 : 'bg-white/[0.04] border-white/[0.08] text-white focus:ring-primary/40 focus:border-primary/50'
                                  }`}
                            />
                         </div>
@@ -236,6 +477,17 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
                            {status.label}
                         </span>
                      </td>
+
+                     {/* Lịch sử */}
+                     <td className="px-5 py-3 text-center">
+                        <button
+                           onClick={(e) => { e.stopPropagation(); onViewHistory(v); }}
+                           title={t('restock:feedback.viewHistory')}
+                           className="p-1.5 rounded-lg text-white/25 hover:text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all"
+                        >
+                           <History size={14} />
+                        </button>
+                     </td>
                   </tr>
                );
             })}
@@ -246,6 +498,7 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const AdminRestock: React.FC = () => {
+   const { t } = useTranslation();
    const [variants, setVariants] = useState<InventoryVariant[]>([]);
    const [loading, setLoading] = useState(true);
    const [error, setError] = useState<string | null>(null);
@@ -253,9 +506,19 @@ export const AdminRestock: React.FC = () => {
    const [onlyLowStock, setOnlyLowStock] = useState(false);
    const [dirtyMap, setDirtyMap] = useState<Record<number, number>>({});
    const [saving, setSaving] = useState(false);
+   const [showReasonModal, setShowReasonModal] = useState(false);
    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+   const [logVariant, setLogVariant] = useState<InventoryVariant | null>(null);
    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
    const [debouncedSearch, setDebouncedSearch] = useState('');
+
+   // Reason presets from locale
+   const reasonPresets: string[] = t('restock:reasonPresets', { returnObjects: true }) as string[] ?? [
+      'Nhập hàng từ nhà cung cấp',
+      'Hàng bị lỗi / trả về',
+      'Kiểm kê định kỳ',
+      'Điều chỉnh thủ công',
+   ];
 
    useEffect(() => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -271,11 +534,11 @@ export const AdminRestock: React.FC = () => {
          setVariants(data);
          setDirtyMap({});
       } catch (e: any) {
-         setError(e.message || 'Không thể tải dữ liệu tồn kho.');
+         setError(e.message || t('restock:feedback.loadError'));
       } finally {
          setLoading(false);
       }
-   }, [onlyLowStock, debouncedSearch]);
+   }, [onlyLowStock, debouncedSearch, t]);
 
    useEffect(() => { loadInventory(); }, [loadInventory]);
 
@@ -292,16 +555,20 @@ export const AdminRestock: React.FC = () => {
       setDirtyMap((prev) => ({ ...prev, [variantId]: Math.max(0, parsed) }));
    };
 
-   const handleSave = async () => {
-      if (dirtyCount === 0) return;
+   const handleSaveConfirmed = async (reason: string) => {
       setSaving(true);
+      setShowReasonModal(false);
       try {
-         const changes = Object.entries(dirtyMap).map(([id, qty]) => ({ variantId: Number(id), quantity: qty }));
+         const changes = Object.entries(dirtyMap).map(([id, qty]) => ({
+            variantId: Number(id),
+            quantity: qty,
+            reason,
+         }));
          const res = await bulkUpdateStock(changes);
          setToast({ message: res.message, type: 'success' });
          await loadInventory();
       } catch (e: any) {
-         setToast({ message: e.message || 'Lưu thất bại. Vui lòng thử lại.', type: 'error' });
+         setToast({ message: e.message || t('restock:feedback.saveError'), type: 'error' });
       } finally {
          setSaving(false);
       }
@@ -309,13 +576,37 @@ export const AdminRestock: React.FC = () => {
 
    useEffect(() => {
       if (!toast) return;
-      const t = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
    }, [toast]);
+
+   // ─── Keyboard shortcut: Escape closes any modal ──────────────────────────
+   useEffect(() => {
+      const handler = (e: KeyboardEvent) => {
+         if (e.key === 'Escape') {
+            setShowReasonModal(false);
+            setLogVariant(null);
+         }
+      };
+      window.addEventListener('keydown', handler);
+      return () => window.removeEventListener('keydown', handler);
+   }, []);
+
+   const tTyped = t as (key: string, opts?: Record<string, unknown>) => string;
 
    return (
       <div className="min-h-full p-8 max-w-[1600px] mx-auto flex flex-col gap-6" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-         <style>{`@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');`}</style>
+         <style>{`
+            @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');
+            @keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+            @keyframes slide-in-right { from { transform: translateX(100%) } to { transform: translateX(0) } }
+            @keyframes scale-in { from { opacity: 0; transform: scale(0.95) } to { opacity: 1; transform: scale(1) } }
+            @keyframes fade-in-up { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
+            .animate-fade-in { animation: fade-in 0.15s ease-out both; }
+            .animate-slide-in-right { animation: slide-in-right 0.25s ease-out both; }
+            .animate-scale-in { animation: scale-in 0.18s ease-out both; }
+            .animate-fade-in-up { animation: fade-in-up 0.2s ease-out both; }
+         `}</style>
 
          {/* ── Header ── */}
          <header className="flex items-start justify-between gap-4">
@@ -324,10 +615,10 @@ export const AdminRestock: React.FC = () => {
                   <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
                      <PackagePlus size={20} className="text-primary" />
                   </div>
-                  <h1 className="text-2xl font-bold text-white tracking-tight">Nhập Kho Nhanh</h1>
+                  <h1 className="text-2xl font-bold text-white tracking-tight">{t('restock:page.title')}</h1>
                </div>
                <p className="text-xs text-white/40 uppercase tracking-[0.15em] ml-[3.5rem]">
-                  Cập nhật số lượng tồn kho · Nhóm theo sản phẩm
+                  {t('restock:page.subtitle')}
                </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
@@ -336,19 +627,19 @@ export const AdminRestock: React.FC = () => {
                      onClick={() => setDirtyMap({})}
                      className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-white/50 hover:text-white border border-white/10 hover:border-white/30 rounded-lg transition-all"
                   >
-                     Huỷ ({dirtyCount})
+                     {t('restock:actions.cancel', { count: dirtyCount })}
                   </button>
                )}
                <button
-                  onClick={handleSave}
+                  onClick={() => { if (dirtyCount > 0) setShowReasonModal(true); }}
                   disabled={dirtyCount === 0 || saving}
                   className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-lg ${dirtyCount > 0 && !saving
-                        ? 'bg-primary hover:bg-red-700 text-white shadow-primary/20 cursor-pointer'
-                        : 'bg-white/5 text-white/30 cursor-not-allowed border border-white/5'
+                     ? 'bg-primary hover:bg-red-700 text-white shadow-primary/20 cursor-pointer'
+                     : 'bg-white/5 text-white/30 cursor-not-allowed border border-white/5'
                      }`}
                >
                   {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
-                  {saving ? 'Đang lưu…' : `Lưu thay đổi${dirtyCount > 0 ? ` (${dirtyCount})` : ''}`}
+                  {saving ? t('restock:actions.saving') : dirtyCount > 0 ? t('restock:actions.saveWithCount', { count: dirtyCount }) : t('restock:actions.save')}
                </button>
             </div>
          </header>
@@ -358,12 +649,12 @@ export const AdminRestock: React.FC = () => {
             <div className="bg-[#111] border border-white/[0.06] rounded-xl px-5 py-4 flex items-center gap-4">
                <div className="p-2.5 rounded-lg bg-white/5"><Package size={18} className="text-white/60" /></div>
                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">Tổng biến thể</p>
+                  <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">{t('restock:stats.totalVariants')}</p>
                   <p className="text-2xl font-black text-white">{loading ? '–' : totalVariants}</p>
                </div>
                {!loading && (
                   <div className="ml-auto text-right">
-                     <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold">Nhóm SP</p>
+                     <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold">{t('restock:stats.productGroups')}</p>
                      <p className="text-lg font-bold text-white/60">{groups.length}</p>
                   </div>
                )}
@@ -371,14 +662,14 @@ export const AdminRestock: React.FC = () => {
             <div className="bg-[#111] border border-amber-500/10 rounded-xl px-5 py-4 flex items-center gap-4">
                <div className="p-2.5 rounded-lg bg-amber-500/10"><TrendingDown size={18} className="text-amber-400" /></div>
                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-amber-400/60 font-semibold">Sắp hết hàng</p>
+                  <p className="text-[10px] uppercase tracking-widest text-amber-400/60 font-semibold">{t('restock:stats.lowStock')}</p>
                   <p className="text-2xl font-black text-amber-400">{loading ? '–' : lowStockCount}</p>
                </div>
             </div>
             <div className="bg-[#111] border border-red-500/10 rounded-xl px-5 py-4 flex items-center gap-4">
                <div className="p-2.5 rounded-lg bg-red-500/10"><AlertTriangle size={18} className="text-red-400" /></div>
                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-red-400/60 font-semibold">Hết hàng</p>
+                  <p className="text-[10px] uppercase tracking-widest text-red-400/60 font-semibold">{t('restock:stats.outOfStock')}</p>
                   <p className="text-2xl font-black text-red-400">{loading ? '–' : outOfStockCount}</p>
                </div>
             </div>
@@ -390,7 +681,7 @@ export const AdminRestock: React.FC = () => {
                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" size={15} />
                <input
                   type="text"
-                  placeholder="Tìm theo tên sản phẩm hoặc SKU…"
+                  placeholder={t('restock:filters.searchPlaceholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full bg-[#111] border border-white/[0.08] rounded-lg pl-9 pr-8 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary/60 transition-colors"
@@ -409,7 +700,7 @@ export const AdminRestock: React.FC = () => {
                >
                   <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${onlyLowStock ? 'translate-x-5' : ''}`} />
                </div>
-               <span className="text-xs font-medium text-white/60 group-hover:text-white transition-colors">Chỉ hiện sắp hết hàng</span>
+               <span className="text-xs font-medium text-white/60 group-hover:text-white transition-colors">{t('restock:filters.onlyLowStock')}</span>
             </label>
             <button
                onClick={loadInventory}
@@ -417,11 +708,11 @@ export const AdminRestock: React.FC = () => {
                className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold text-white/50 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg transition-all"
             >
                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-               Làm mới
+               {t('restock:filters.refresh')}
             </button>
             {!loading && (
                <span className="text-xs text-white/30 ml-auto">
-                  {groups.length} sản phẩm · {totalVariants} biến thể
+                  {t('restock:filters.summary', { groups: groups.length, variants: totalVariants })}
                </span>
             )}
          </div>
@@ -431,10 +722,10 @@ export const AdminRestock: React.FC = () => {
             {error ? (
                <div className="flex flex-col items-center justify-center py-24 text-center">
                   <AlertTriangle size={40} className="text-red-400 mb-4" />
-                  <p className="text-white/60 font-medium mb-2">Lỗi tải dữ liệu</p>
+                  <p className="text-white/60 font-medium mb-2">{t('restock:feedback.dataError')}</p>
                   <p className="text-white/30 text-sm mb-6">{error}</p>
                   <button onClick={loadInventory} className="text-xs font-bold uppercase tracking-wider text-primary border border-primary/30 px-4 py-2 rounded-lg hover:bg-primary/10 transition-all">
-                     Thử lại
+                     {t('restock:feedback.retry')}
                   </button>
                </div>
             ) : (
@@ -442,12 +733,13 @@ export const AdminRestock: React.FC = () => {
                   <table className="w-full text-left border-collapse">
                      <thead>
                         <tr className="bg-white/[0.025] border-b border-white/[0.06]">
-                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">Sản phẩm / Biến thể</th>
-                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 w-36">Mã SKU</th>
-                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-right w-32">Giá bán</th>
-                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-36">Tồn kho HT</th>
-                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-40">Cập nhật</th>
-                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-32">Trạng thái</th>
+                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">{t('restock:table.productVariant')}</th>
+                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 w-36">{t('restock:table.sku')}</th>
+                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-right w-32">{t('restock:table.price')}</th>
+                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-36">{t('restock:table.currentStock')}</th>
+                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-40">{t('restock:table.update')}</th>
+                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-32">{t('restock:table.status')}</th>
+                           <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-16">{t('restock:table.history')}</th>
                         </tr>
                      </thead>
                      <tbody>
@@ -455,15 +747,15 @@ export const AdminRestock: React.FC = () => {
                            Array.from({ length: 4 }).map((_, i) => <SkeletonGroup key={i} />)
                         ) : groups.length === 0 ? (
                            <tr>
-                              <td colSpan={6}>
+                              <td colSpan={7}>
                                  <div className="flex flex-col items-center justify-center py-20 text-center">
                                     <Package size={48} className="text-white/10 mb-4" />
                                     <p className="text-white/40 text-sm font-medium">
-                                       {onlyLowStock || search ? 'Không tìm thấy sản phẩm phù hợp' : 'Chưa có dữ liệu tồn kho'}
+                                       {onlyLowStock || search ? t('restock:empty.noMatch') : t('restock:empty.noData')}
                                     </p>
                                     {(onlyLowStock || search) && (
                                        <button onClick={() => { setSearch(''); setOnlyLowStock(false); }} className="mt-3 text-xs text-primary hover:underline">
-                                          Xoá bộ lọc
+                                          {t('restock:empty.clearFilter')}
                                        </button>
                                     )}
                                  </div>
@@ -476,7 +768,9 @@ export const AdminRestock: React.FC = () => {
                                  group={group}
                                  dirtyMap={dirtyMap}
                                  onQuantityChange={handleQuantityChange}
+                                 onViewHistory={setLogVariant}
                                  defaultOpen={onlyLowStock || !!search}
+                                 t={tTyped}
                               />
                            ))
                         )}
@@ -491,21 +785,41 @@ export const AdminRestock: React.FC = () => {
             <div className="sticky bottom-6 mx-auto bg-[#181818] border border-white/10 rounded-2xl px-6 py-3.5 flex items-center gap-6 shadow-2xl shadow-black/60 animate-fade-in-up z-10">
                <div className="flex items-center gap-2 text-amber-400">
                   <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                  <span className="text-sm font-semibold">{dirtyCount} biến thể đã thay đổi chưa được lưu</span>
+                  <span className="text-sm font-semibold">{t('restock:stickyBar.unsaved', { count: dirtyCount })}</span>
                </div>
                <div className="ml-auto flex gap-3">
                   <button onClick={() => setDirtyMap({})} className="text-xs font-bold uppercase tracking-wider text-white/40 hover:text-white transition-colors px-3">
-                     Huỷ bỏ
+                     {t('restock:actions.cancelAll')}
                   </button>
                   <button
-                     onClick={handleSave}
+                     onClick={() => setShowReasonModal(true)}
                      className="flex items-center gap-2 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl shadow-lg shadow-primary/20 transition-all"
                   >
                      <Save size={14} />
-                     Lưu thay đổi
+                     {t('restock:actions.save')}
                   </button>
                </div>
             </div>
+         )}
+
+         {/* ── Modals & Panels ── */}
+         {showReasonModal && (
+            <ReasonModal
+               dirtyCount={dirtyCount}
+               onConfirm={handleSaveConfirmed}
+               onCancel={() => setShowReasonModal(false)}
+               saving={saving}
+               t={tTyped}
+               reasonPresets={reasonPresets}
+            />
+         )}
+
+         {logVariant && (
+            <LogPanel
+               variant={logVariant}
+               onClose={() => setLogVariant(null)}
+               t={tTyped}
+            />
          )}
 
          {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}

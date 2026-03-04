@@ -10,6 +10,9 @@ import { ShoppingBag } from '../pages/ShoppingBag';
 import { StoreStylist } from '../pages/StoreStylist';
 import { StoreProfile } from '../pages/StoreProfile';
 import { StoreMyOrders } from '../pages/StoreMyOrders';
+import Checkout from '../pages/Checkout';
+import OrderSuccess from '../pages/OrderSuccess';
+import PaymentQR from '../pages/PaymentQR';
 import { AdminDashboard } from '../pages/AdminDashboard';
 import { AdminProducts } from '../pages/AdminProducts';
 import { AdminCreateProduct } from '../pages/AdminCreateProduct';
@@ -21,6 +24,10 @@ import { AdminCustomers } from '../pages/AdminCustomers';
 import { AdminAnalytics } from '../pages/AdminAnalytics';
 import { AdminRestock } from '../pages/AdminRestock';
 import { AdminCategories } from '../pages/AdminCategories';
+import { AdminCoupons } from '../pages/AdminCoupons';
+import { AdminRoles } from '../pages/AdminRoles';
+import { AdminReturns } from '../pages/AdminReturns';
+
 import { Login } from '../pages/Login';
 import { Signup } from '../pages/Signup';
 import { OAuthCallback } from '../pages/OAuthCallback';
@@ -209,7 +216,11 @@ const App: React.FC = () => {
           {view === 'ADMIN_ORDER_DETAIL' && <AdminOrderDetail orderId={selectedOrderId} setView={setView} />}
           {view === 'ADMIN_CUSTOMERS' && <AdminCustomers />}
           {view === 'ADMIN_ANALYTICS' && <AdminAnalytics />}
+          {view === 'ADMIN_COUPONS' && <AdminCoupons />}
+          {view === 'ADMIN_ROLES' && <AdminRoles />}
+          {view === 'ADMIN_RETURNS' && <AdminReturns />}
         </main>
+
       </div>
     );
   }
@@ -225,6 +236,9 @@ const App: React.FC = () => {
       {view === 'STORE_STYLIST' && <StoreStylist setView={handleSetView} setCategory={handleCategoryClick} onProductClick={handleProductClick} />}
       {view === 'STORE_PROFILE' && <StoreProfile setView={handleSetView} setCategory={handleCategoryClick} />}
       {view === 'STORE_MY_ORDERS' && <StoreMyOrders setView={handleSetView} setCategory={handleCategoryClick} />}
+      {view === 'STORE_CHECKOUT' && <Checkout setView={handleSetView} setCategory={handleCategoryClick} cart={cart} />}
+      {view === 'STORE_ORDER_SUCCESS' && <OrderSuccess setView={handleSetView} setCategory={handleCategoryClick} />}
+      {view === 'STORE_PAYMENT_QR' && <PaymentQR setView={handleSetView} totalAmount={cart.reduce((sum, item) => sum + item.price * item.quantity, 0) + (cart.reduce((sum, item) => sum + item.price * item.quantity, 0) > 200 ? 0 : 15)} />}
       {view === 'AUTH_LOGIN' && <Login setView={setView} />}
       {view === 'AUTH_SIGNUP' && <Signup setView={setView} />}
       {view === 'AUTH_CALLBACK' && <OAuthCallback setView={setView} />}
