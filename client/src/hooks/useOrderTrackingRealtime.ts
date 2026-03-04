@@ -5,7 +5,6 @@ import { getOrderTracking } from '../services/tracking.service';
 import { useTrackingStore } from '../store/tracking.store';
 
 export function useOrderTrackingRealtime(orderId?: number, userId?: number, enabled = true) {
-  const socketRef = useRef<Socket | null>(null);
   const pollingRef = useRef<number | null>(null);
   const disconnectAtRef = useRef<number | null>(null);
   const setTracking = useTrackingStore((s) => s.setTracking);
@@ -14,8 +13,8 @@ export function useOrderTrackingRealtime(orderId?: number, userId?: number, enab
   useEffect(() => {
     if (!enabled || !orderId) return;
 
-    const socket = io(API_BASE_URL, { transports: ['websocket', 'polling'] });
-    socketRef.current = socket;
+    let mounted = true;
+    const socket = io(API_BASE_URL);
 
     socket.on('connect', async () => {
       socket.emit('tracking:join_order', orderId);
@@ -28,9 +27,9 @@ export function useOrderTrackingRealtime(orderId?: number, userId?: number, enab
 
       try {
         const latest = await getOrderTracking(orderId);
-        setTracking(latest);
+        if (mounted) setTracking(latest);
       } catch {
-        // ignore when user is not authenticated
+        // ignore when user is not authenticated or request fails
       }
     });
 
@@ -41,7 +40,7 @@ export function useOrderTrackingRealtime(orderId?: number, userId?: number, enab
           pollingRef.current = window.setInterval(async () => {
             try {
               const latest = await getOrderTracking(orderId);
-              setTracking(latest);
+              if (mounted) setTracking(latest);
             } catch {
               // ignore 401 while polling
             }
@@ -51,10 +50,11 @@ export function useOrderTrackingRealtime(orderId?: number, userId?: number, enab
     });
 
     socket.on('order:status_updated', (payload: { status: string; timeline: any[] }) => {
-      updateFromSocket(payload.status, payload.timeline as any);
+      if (mounted) updateFromSocket(payload.status, payload.timeline as any);
     });
 
     return () => {
+      mounted = false;
       socket.disconnect();
       if (pollingRef.current) window.clearInterval(pollingRef.current);
     };

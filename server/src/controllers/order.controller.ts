@@ -237,13 +237,25 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
         status: p.status,
         paidAt: p.paymentDate?.toISOString(),
       })),
-      statusHistory: order.statusHistory.map((h) => ({
-        status: h.status,
-        oldStatus: (h as any).oldStatus ?? null,
-        changedAt: h.changedAt.toISOString(),
-        changedBy: (h as any).changedBy ?? null,
-        note: (h as any).note ?? null,
-      })),
+      statusHistory: (() => {
+        const history = order.statusHistory.map((h) => ({
+          status: h.status,
+          oldStatus: (h as any).oldStatus ?? null,
+          changedAt: h.changedAt.toISOString(),
+          changedBy: (h as any).changedBy ?? null,
+          note: (h as any).note ?? null,
+        }));
+        if (history.length === 0 || !history.some((h) => h.status.toLowerCase() === 'pending')) {
+          history.unshift({
+            status: 'Pending',
+            oldStatus: null,
+            changedAt: (order.createdAt || new Date()).toISOString(),
+            changedBy: null,
+            note: 'Order placed',
+          });
+        }
+        return history.sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime());
+      })(),
     };
 
     res.json(formatted);

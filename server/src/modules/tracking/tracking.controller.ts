@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../../middlewares/auth.middleware';
 import { AppError } from '../../middlewares/error.middleware';
+import { t } from '../../i18n';
+import { resolveRequestLocale } from '../../middlewares/locale.middleware';
 import { trackingService } from './tracking.service';
 import { publicTrackingSchema, updateOrderStatusSchema } from './tracking.validator';
 
@@ -14,13 +16,25 @@ const isAdminUser = (roles: unknown): boolean => {
 export const trackingController = {
   async publicTracking(req: Request, res: Response, next: NextFunction) {
     try {
+      const locale = resolveRequestLocale(req);
       const parsed = publicTrackingSchema.safeParse(req.body);
       if (!parsed.success) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Invalid request body', parsed.error.flatten());
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          'common:errors.validation',
+          undefined,
+          parsed.error.flatten(),
+        );
       }
 
       const data = await trackingService.getPublicTracking(parsed.data.orderCode, parsed.data.contact);
-      return res.json({ success: true, data });
+      return res.json({
+        success: true,
+        messageKey: 'tracking:success.getPublicTracking',
+        message: t(locale, 'tracking:success.getPublicTracking'),
+        data,
+      });
     } catch (error) {
       next(error);
     }
@@ -28,12 +42,18 @@ export const trackingController = {
 
   async getMyOrders(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      const locale = resolveRequestLocale(req);
       if (!req.user?.userId) {
-        throw new AppError(401, 'UNAUTHORIZED', 'Unauthorized');
+        throw new AppError(401, 'UNAUTHORIZED', 'common:errors.unauthorized');
       }
 
       const orders = await trackingService.getMyOrders(req.user.userId);
-      return res.json({ success: true, data: orders });
+      return res.json({
+        success: true,
+        messageKey: 'tracking:success.getMyOrders',
+        message: t(locale, 'tracking:success.getMyOrders'),
+        data: orders,
+      });
     } catch (error) {
       next(error);
     }
@@ -41,13 +61,14 @@ export const trackingController = {
 
   async getOrderTracking(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      const locale = resolveRequestLocale(req);
       if (!req.user?.userId) {
-        throw new AppError(401, 'UNAUTHORIZED', 'Unauthorized');
+        throw new AppError(401, 'UNAUTHORIZED', 'common:errors.unauthorized');
       }
 
       const orderId = Number(req.params.id);
       if (!Number.isFinite(orderId)) {
-        throw new AppError(400, 'INVALID_ORDER_ID', 'Invalid order id');
+        throw new AppError(400, 'INVALID_ORDER_ID', 'tracking:errors.invalidOrderId');
       }
 
       const isAdmin = isAdminUser(req.user.roles);
@@ -56,7 +77,12 @@ export const trackingController = {
         isAdmin,
       });
 
-      return res.json({ success: true, data });
+      return res.json({
+        success: true,
+        messageKey: 'tracking:success.getOrderTracking',
+        message: t(locale, 'tracking:success.getOrderTracking'),
+        data,
+      });
     } catch (error) {
       next(error);
     }
@@ -64,27 +90,39 @@ export const trackingController = {
 
   async adminUpdateOrderStatus(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      const locale = resolveRequestLocale(req);
       if (!req.user?.userId) {
-        throw new AppError(401, 'UNAUTHORIZED', 'Unauthorized');
+        throw new AppError(401, 'UNAUTHORIZED', 'common:errors.unauthorized');
       }
 
       const isAdmin = isAdminUser(req.user.roles);
       if (!isAdmin) {
-        throw new AppError(403, 'FORBIDDEN', 'Admin only');
+        throw new AppError(403, 'FORBIDDEN', 'tracking:errors.adminOnly');
       }
 
       const orderId = Number(req.params.id);
       if (!Number.isFinite(orderId)) {
-        throw new AppError(400, 'INVALID_ORDER_ID', 'Invalid order id');
+        throw new AppError(400, 'INVALID_ORDER_ID', 'tracking:errors.invalidOrderId');
       }
 
       const parsed = updateOrderStatusSchema.safeParse(req.body);
       if (!parsed.success) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Invalid request body', parsed.error.flatten());
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          'common:errors.validation',
+          undefined,
+          parsed.error.flatten(),
+        );
       }
 
       const updated = await trackingService.updateOrderStatus(orderId, parsed.data, req.user.userId);
-      return res.json({ success: true, data: updated });
+      return res.json({
+        success: true,
+        messageKey: 'tracking:success.updateStatus',
+        message: t(locale, 'tracking:success.updateStatus', { status: parsed.data.status }),
+        data: updated,
+      });
     } catch (error) {
       next(error);
     }
