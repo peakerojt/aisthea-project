@@ -114,4 +114,27 @@ export const adminReturnService = {
       { action, note },
     );
   },
+
+  /**
+   * Alias methods to support AdminReturnDetailPage components
+   */
+  async detail(returnId: number) {
+    return api.get(`/api/returns/${returnId}`);
+  },
+  async adminApprove(returnId: number) {
+    return this.process(returnId, 'APPROVE');
+  },
+  async adminReject(returnId: number, note?: string) {
+    return this.process(returnId, 'REJECT', note);
+  },
+  async adminMarkReceived(returnId: number) {
+    // There is no explicit MARK_RECEIVED in the old API process, 
+    // it goes straight to COMPLETE_REFUND or we use a custom endpoint if it exists.
+    // Fallback to sending a patch just in case
+    return api.patch(`/api/returns/${returnId}/mark-received`);
+  },
+  async adminRefund(returnId: number, payload: any) {
+    // Pass note as payload JSON if needed or just COMPLET_REFUND
+    return this.process(returnId, 'COMPLETE_REFUND');
+  }
 };

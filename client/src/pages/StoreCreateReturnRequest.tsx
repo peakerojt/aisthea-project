@@ -13,7 +13,7 @@ const returnItemSchema = z.object({
   orderItemId: z.number().int().positive(),
   quantity: z.number().int().min(1, 'Số lượng tối thiểu là 1'),
   reason: z.string().optional(),
-  selected: z.boolean().default(false),
+  selected: z.boolean(),
   maxQuantity: z.number().optional(),
 });
 
@@ -22,7 +22,7 @@ const createReturnSchema = z.object({
   reason: z.enum(['DEFECTIVE', 'WRONG_ITEM', 'SIZE_ISSUE', 'CHANGED_MIND', 'OTHER']),
   note: z.string().max(500).optional(),
   items: z.array(returnItemSchema),
-  attachments: z.array(z.string().url('URL ảnh không hợp lệ')).max(5).default([]),
+  attachments: z.array(z.string().url('URL ảnh không hợp lệ')).max(5).optional(),
 });
 
 type FormData = z.infer<typeof createReturnSchema>;
@@ -109,10 +109,10 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
   }, [order, setValue]);
 
   const mutation = useMutation({
-    mutationFn: (payload: any) => returnService.create(payload),
+    mutationFn: (payload: any) => returnService.request(payload.orderId, payload.reason, payload.attachments ?? []),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['my-returns'] });
-      const newId = res?.data?.data?.returnRequestId;
+      const newId = res?.returnId;
       if (newId && setReturnId) {
         setReturnId(newId);
         setView('STORE_RETURN_DETAIL');
@@ -127,9 +127,20 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
     },
   });
 
+  const [attachmentError, setAttachmentError] = useState('');
+
   const addAttachment = () => {
     const url = attachmentInput.trim();
     if (!url) return;
+
+    try {
+      new URL(url);
+      setAttachmentError('');
+    } catch {
+      setAttachmentError('URL ảnh không hợp lệ');
+      return;
+    }
+
     const current = watchedAttachments ?? [];
     if (current.length >= 5) return;
     setValue('attachments', [...current, url]);
@@ -328,7 +339,10 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
             <input
               type="url"
               value={attachmentInput}
-              onChange={(e) => setAttachmentInput(e.target.value)}
+              onChange={(e) => {
+                setAttachmentInput(e.target.value);
+                if (attachmentError) setAttachmentError('');
+              }}
               placeholder="https://..."
               className="flex-1 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               onKeyDown={(e) => {
@@ -341,12 +355,13 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
             <button
               type="button"
               onClick={addAttachment}
-              disabled={(watchedAttachments?.length ?? 0) >= 5}
+              disabled={(watchedAttachments?.length ?? 0) >= 5 || !attachmentInput.trim()}
               className="rounded-lg bg-white/10 px-3 py-2 text-sm text-white hover:bg-white/20 disabled:opacity-40 transition-colors"
             >
               + Thêm
             </button>
           </div>
+          {attachmentError && <p className="text-xs text-red-400 mt-1">{attachmentError}</p>}
 
           {(watchedAttachments?.length ?? 0) > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

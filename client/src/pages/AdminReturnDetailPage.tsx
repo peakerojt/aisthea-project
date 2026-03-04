@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { returnService } from '../services/return.service';
+import { adminReturnService, returnService } from '../services/return.service';
+import { api } from '../utils/api';
 import { StatusBadge } from '../components/return/StatusBadge';
 import { ReturnItemsTable } from '../components/return/ReturnItemsTable';
 import { ReturnTimeline } from '../components/return/ReturnTimeline';
@@ -70,8 +71,8 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
   const query = useQuery({
     queryKey: ['admin-return-detail', returnId],
     queryFn: async () => {
-      const res = await returnService.detail(returnId);
-      return res.data?.data ?? res.data;
+      const res = await api.get(`/api/returns/${returnId}`);
+      return (res as any).data?.data ?? (res as any).data;
     },
     enabled: returnId > 0,
   });
@@ -94,13 +95,13 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
   };
 
   const approveMut = useMutation({
-    mutationFn: () => returnService.adminApprove(returnId),
+    mutationFn: () => adminReturnService.process(returnId, 'APPROVE'),
     onSuccess: () => onMutateSuccess(t('feedback.approveSuccess')),
     onError: (e: any) => onMutateError(e, t('feedback.approveError')),
   });
 
   const rejectMut = useMutation({
-    mutationFn: () => returnService.adminReject(returnId, rejectReason),
+    mutationFn: () => adminReturnService.process(returnId, 'REJECT', rejectReason),
     onSuccess: () => {
       onMutateSuccess(t('feedback.rejectSuccess'));
       setShowRejectModal(false);
@@ -110,18 +111,13 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
   });
 
   const receivedMut = useMutation({
-    mutationFn: () => returnService.adminMarkReceived(returnId),
+    mutationFn: () => api.patch(`/api/returns/${returnId}/mark-received`),
     onSuccess: () => onMutateSuccess(t('feedback.receivedSuccess')),
     onError: (e: any) => onMutateError(e, t('feedback.receivedError')),
   });
 
   const refundMut = useMutation({
-    mutationFn: () =>
-      returnService.adminRefund(returnId, {
-        method: refundMethod,
-        idempotencyKey: `refund-${returnId}-${Date.now()}`,
-        amount: refundAmount ? Number(refundAmount) : undefined,
-      } as any),
+    mutationFn: () => adminReturnService.process(returnId, 'COMPLETE_REFUND'),
     onSuccess: () => {
       onMutateSuccess(t('feedback.refundSuccess'));
       setShowRefundModal(false);

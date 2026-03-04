@@ -2604,3 +2604,82 @@ PRINT '==============================================';
 PRINT '  Order Tracking Feature migration complete!';
 PRINT '==============================================';
 GO
+
+/* =============================================================
+   FILE: migrations/add_review_orderitem_images.sql
+   ============================================================= */
+
+-- ============================================================
+-- Migration: Add orderItemId + images to Reviews table
+-- ============================================================
+
+-- 1. Add OrderItemId column (nullable, unique) to Reviews
+IF NOT EXISTS (
+  SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_NAME = 'Reviews' AND COLUMN_NAME = 'OrderItemId'
+)
+BEGIN
+  ALTER TABLE Reviews
+    ADD OrderItemId INT NULL;
+
+  -- Add unique constraint (one review per purchased item)
+  ALTER TABLE Reviews
+    ADD CONSTRAINT UQ_Reviews_OrderItemId UNIQUE (OrderItemId);
+
+  -- Add foreign key to OrderItems
+  ALTER TABLE Reviews
+    ADD CONSTRAINT FK_Reviews_OrderItems
+    FOREIGN KEY (OrderItemId)
+    REFERENCES OrderItems(OrderItemId)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION;
+
+  PRINT 'Added OrderItemId column with UNIQUE constraint and FK to OrderItems.';
+END
+ELSE
+BEGIN
+  PRINT 'Column OrderItemId already exists in Reviews. Skipped.';
+END
+GO
+
+-- 2. Add Images column (JSON array stored as nvarchar(max))
+IF NOT EXISTS (
+  SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_NAME = 'Reviews' AND COLUMN_NAME = 'Images'
+)
+BEGIN
+  ALTER TABLE Reviews
+    ADD Images NVARCHAR(MAX) DEFAULT '[]' NULL;
+
+  PRINT 'Added Images column to Reviews.';
+END
+ELSE
+BEGIN
+  PRINT 'Column Images already exists in Reviews. Skipped.';
+END
+GO
+
+-- 3. Expand Comment column from NVarChar(500) to NVarChar(1000)
+ALTER TABLE Reviews
+  ALTER COLUMN Comment NVARCHAR(1000) NULL;
+
+PRINT 'Expanded Comment column to NVARCHAR(1000).';
+GO
+
+-- 4. Add index on UserId for query performance
+IF NOT EXISTS (
+  SELECT 1 FROM sys.indexes
+  WHERE object_id = OBJECT_ID('Reviews') AND name = 'IX_Reviews_UserId'
+)
+BEGIN
+  CREATE NONCLUSTERED INDEX IX_Reviews_UserId
+    ON Reviews (UserId);
+
+  PRINT 'Added index IX_Reviews_UserId.';
+END
+GO
+
+PRINT '==============================================';
+PRINT '  Review + OrderItem migration complete!';
+PRINT '==============================================';
+GO

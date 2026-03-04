@@ -31,14 +31,26 @@
         "PROCESSING": "Đang xử lý",
         "SHIPPING": "Đang giao hàng",
         "COMPLETED": "Hoàn thành",
-        "CANCELLED": "Đã hủy"
+        "CANCELLED": "Đã hủy",
+        "Pending": "Chờ xác nhận",
+        "Processing": "Đang xử lý",
+        "Shipping": "Đang giao hàng",
+        "Delivered": "Đã giao hàng",
+        "Cancelled": "Đã hủy",
+        "Returned": "Đã trả hàng"
     },
     "statusBadge": {
         "PENDING": "Chờ",
         "PROCESSING": "Xử lý",
         "SHIPPING": "Giao hàng",
         "COMPLETED": "Hoàn thành",
-        "CANCELLED": "Đã hủy"
+        "CANCELLED": "Đã hủy",
+        "Pending": "Chờ xác nhận",
+        "Processing": "Đang xử lý",
+        "Shipping": "Đang giao hàng",
+        "Delivered": "Đã giao hàng",
+        "Cancelled": "Đã hủy",
+        "Returned": "Đã trả hàng"
     },
     "filters": {
         "all": "Tất cả",

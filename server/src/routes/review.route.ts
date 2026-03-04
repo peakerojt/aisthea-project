@@ -1,15 +1,16 @@
-import { Router } from "express";
+import { Router } from 'express';
+import { authenticateToken } from '../middlewares/auth.middleware';
 import {
     createReview,
     getReviewsByProduct,
-} from "../controllers/review.controller";
+} from '../controllers/review.controller';
 
 const router = Router();
 
-// POST /api/reviews
-router.post("/", createReview);
+// POST /api/reviews — requires authentication (validates ownership + delivered order internally)
+router.post('/', authenticateToken, createReview);
 
-// GET /api/reviews/product/:productId
-router.get("/product/:productId", getReviewsByProduct);
+// GET /api/reviews/product/:productId — public
+router.get('/product/:productId', getReviewsByProduct);
 
 export default router;

@@ -162,8 +162,8 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
             variant: {
               include: {
                 images: {
-                  where: { isPrimary: true },
                   select: { imageUrl: true, thumbnailUrl: true },
+                  orderBy: { imageId: 'asc' },
                   take: 1,
                 },
                 product: {
@@ -191,6 +191,7 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
       paymentStatus: order.paymentStatus,
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount?.toString() ?? '0',
+      discountAmount: order.discountAmount?.toString() ?? '0',
       note: order.note,
       createdAt: order.createdAt?.toISOString(),
       trackingNumber: order.trackingNumber,
@@ -454,11 +455,14 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
             variant: {
               include: {
                 images: {
-                  where: { isPrimary: true },
                   select: { imageUrl: true, thumbnailUrl: true },
+                  orderBy: { imageId: 'asc' },
                   take: 1,
                 },
               },
+            },
+            review: {
+              select: { reviewId: true },
             },
           },
         },
@@ -480,6 +484,7 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
       paymentStatus: order.paymentStatus,
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount.toString(),
+      discountAmount: order.discountAmount?.toString() ?? '0',
       createdAt: order.createdAt?.toISOString(),
       updatedAt: order.updatedAt?.toISOString() ?? order.createdAt?.toISOString(),
       trackingNumber: order.trackingNumber,
@@ -499,6 +504,7 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
           null;
         return {
           orderItemId: item.orderItemId,
+          productId: item.variant?.productId ?? null,
           productName: item.productName,
           sku: item.sku,
           variantName: item.variantName,
@@ -506,6 +512,8 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
           quantity: item.quantity,
           lineTotal: (parseFloat(item.unitPrice.toString()) * item.quantity).toString(),
           thumbnailUrl: variantImg,
+          isReviewed: !!item.review,
+          reviewId: item.review?.reviewId ?? null,
         };
       }),
       payments: order.payments.map((p) => ({
@@ -516,6 +524,10 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
         paymentDate: p.paymentDate?.toISOString() ?? null,
         transactionCode: (p as any).transactionCode ?? null,
         note: (p as any).note ?? null,
+      })),
+      timeline: order.statusHistory.map((h) => ({
+        status: h.status,
+        at: h.changedAt.toISOString(),
       })),
     };
 
@@ -709,5 +721,76 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('Checkout Error:', error);
     return res.status(500).json({ error: 'Checkout failed', details: error.message });
+  }
+};
+
+// ───────────────────────────────────────────────────────────────────────────────
+// USER: Confirm Receipt (Đã nhận được hàng)
+// PATCH /api/orders/:id/confirm-receipt
+// Lets the order owner confirm they received the shipment, transitioning Shipping → Delivered
+// ───────────────────────────────────────────────────────────────────────────────
+export const confirmReceipt = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ errorCode: ERROR_CODES.UNAUTHORIZED });
+    }
+
+    const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const orderId = parseInt(idParam, 10);
+    if (isNaN(orderId)) {
+      return res.status(400).json({ errorCode: ERROR_CODES.INVALID_ORDER_ID });
+    }
+
+    // 1. Fetch the order
+    const order = await prisma.order.findUnique({
+      where: { orderId },
+      select: { orderId: true, userId: true, status: true },
+    });
+
+    if (!order) {
+      return res.status(404).json({ errorCode: ERROR_CODES.ORDER_NOT_FOUND });
+    }
+
+    // 2. Ownership check — only the order owner can confirm receipt
+    if (order.userId !== userId) {
+      return res.status(403).json({ errorCode: ERROR_CODES.NOT_ORDER_OWNER });
+    }
+
+    // 3. Status check — must be Shipping to confirm receipt
+    if (order.status !== ORDER_STATUS.SHIPPING) {
+      return res.status(400).json({
+        errorCode: ERROR_CODES.ORDER_NOT_SHIPPING,
+        currentStatus: order.status,
+      });
+    }
+
+    // 4. Transition to Delivered in a transaction and log the event
+    await prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { orderId },
+        data: { status: ORDER_STATUS.DELIVERED },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId,
+          oldStatus: ORDER_STATUS.SHIPPING,
+          status: ORDER_STATUS.DELIVERED,
+          changedBy: userId,
+          note: 'Khách hàng xác nhận đã nhận hàng',
+        },
+      });
+    });
+
+    return res.json({
+      success: true,
+      messageKey: SUCCESS_MESSAGES.RECEIPT_CONFIRMED,
+      orderId,
+      newStatus: ORDER_STATUS.DELIVERED,
+    });
+  } catch (error: any) {
+    console.error('[confirmReceipt] Error:', error);
+    return res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 };

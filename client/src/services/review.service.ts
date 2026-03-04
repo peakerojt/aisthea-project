@@ -1,18 +1,36 @@
-import axios from "axios";
+import { httpClient } from './httpClient';
 
-const API_URL = "http://localhost:5000/api/reviews";
+export interface CreateReviewPayload {
+    orderItemId: number;
+    productId: number;
+    rating: number;
+    comment?: string;
+    images?: string[];
+}
 
+export interface ReviewResponse {
+    reviewId: number;
+    productId: number;
+    orderItemId: number;
+    rating: number;
+    comment: string | null;
+    images: string[];
+    createdAt: string;
+}
+
+// GET /api/reviews/product/:productId — public
 export const getReviewsByProduct = async (productId: number) => {
-    const res = await axios.get(`${API_URL}/product/${productId}`);
+    const res = await httpClient.get<{ reviews: ReviewResponse[]; total: number }>(
+        `/api/reviews/product/${productId}`
+    );
     return res.data;
 };
 
-export const createReview = async (data: {
-    productId: number;
-    userId: number;
-    rating: number;
-    comment: string;
-}) => {
-    const res = await axios.post(API_URL, data);
-    return res.data;
+// POST /api/reviews — requires auth cookie
+export const createReview = async (payload: CreateReviewPayload): Promise<ReviewResponse> => {
+    const res = await httpClient.post<{ success: boolean; review: ReviewResponse }>(
+        '/api/reviews',
+        payload
+    );
+    return res.data.review;
 };

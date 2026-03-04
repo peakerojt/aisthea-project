@@ -48,7 +48,9 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
   const [reviews, setReviews] = useState<any[]>([]);
   const productId = initialProduct?.id
     ? Number(initialProduct.id)
-    : null;
+    : initialProduct?.productId
+      ? Number(initialProduct.productId)
+      : null;
 
   // Selection states
   const [selectedSize, setSelectedSize] = useState<string>('');
@@ -69,13 +71,23 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
       try {
         const data = await getReviewsByProduct(productId);
         console.log("Review API response:", data);
-        setReviews(data);
+        setReviews(data.reviews ?? []);
       } catch (err) {
         console.error("Error fetching reviews:", err);
       }
     };
 
     fetchReviews();
+
+    // Re-fetch reviews when a review is submitted (e.g., from OrderDetailPage modal)
+    const handleReviewSubmitted = (e: Event) => {
+      const { productId: submittedProductId } = (e as CustomEvent).detail ?? {};
+      if (submittedProductId === productId) {
+        fetchReviews();
+      }
+    };
+    window.addEventListener('review-submitted', handleReviewSubmitted);
+    return () => window.removeEventListener('review-submitted', handleReviewSubmitted);
   }, [productId]);
 
   // Fallback default product if none selected

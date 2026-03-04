@@ -8,6 +8,7 @@ import { ProductProvider } from './contexts/ProductContext';
 import './styles/index.css';
 import './i18n/config';
 import { OrderDetailPage } from './pages/OrderDetailPage';
+import { CreateReturnPage } from './pages/CreateReturnPage';
 import { VNPayReturn } from './pages/VNPayReturn';
 import { TrackingLookupPage } from './pages/TrackingLookupPage';
 import { TrackingDetailPage } from './pages/TrackingDetailPage';
@@ -24,6 +25,7 @@ root.render(
           <BrowserRouter>
             <Routes>
               <Route path="/orders/:id" element={<OrderDetailPage />} />
+              <Route path="/orders/:id/return" element={<CreateReturnPage />} />
               <Route path="/vnpay-return" element={<VNPayReturn />} />
               <Route path="/tracking" element={<TrackingLookupPage />} />
               <Route path="/tracking/:id" element={<TrackingDetailPage />} />

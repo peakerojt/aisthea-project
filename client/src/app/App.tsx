@@ -72,6 +72,26 @@ const App: React.FC = () => {
     if (pathname.includes('/reset-password')) {
       setView('AUTH_RESET_PASSWORD');
     }
+
+    // Check for product navigation from order detail page
+    const productIdParam = url.searchParams.get('productId');
+    if (productIdParam) {
+      const productId = parseInt(productIdParam, 10);
+      if (!isNaN(productId)) {
+        import('../services/product.service').then(({ fetchProductById }) => {
+          fetchProductById(productId).then((product) => {
+            if (product) {
+              setSelectedProduct(product);
+              setView('STORE_DETAIL');
+              // Clean up the URL param without page reload
+              const cleanUrl = new URL(window.location.href);
+              cleanUrl.searchParams.delete('productId');
+              window.history.replaceState({}, '', cleanUrl.toString());
+            }
+          }).catch(() => { });
+        });
+      }
+    }
   }, []);
 
   // State để chứa danh sách sản phẩm lấy từ Database

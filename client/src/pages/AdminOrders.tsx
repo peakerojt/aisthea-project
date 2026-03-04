@@ -13,11 +13,11 @@ import { adminOrderService, AdminOrder } from '../services/order.service';
 
 const STATUS_TABS = [
   { key: 'ALL', translationKey: 'filters.all' },
-  { key: 'PENDING', translationKey: 'status.PENDING' },
-  { key: 'PROCESSING', translationKey: 'status.PROCESSING' },
-  { key: 'SHIPPING', translationKey: 'status.SHIPPING' },
-  { key: 'COMPLETED', translationKey: 'status.COMPLETED' },
-  { key: 'CANCELLED', translationKey: 'status.CANCELLED' },
+  { key: 'Pending', translationKey: 'status.Pending' },
+  { key: 'Processing', translationKey: 'status.Processing' },
+  { key: 'Shipping', translationKey: 'status.Shipping' },
+  { key: 'Delivered', translationKey: 'status.Delivered' },
+  { key: 'Cancelled', translationKey: 'status.Cancelled' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
