@@ -7,6 +7,7 @@ import { returnService } from '../services/return.service';
 import { orderService } from '../services/order.service';
 import { useAuth } from '../contexts/AuthContext';
 import { ViewState } from '../types';
+import { useTranslation } from 'react-i18next';
 
 // ─── Zod Schema ─────────────────────────────────────────────────────────────
 const returnItemSchema = z.object({
@@ -27,13 +28,8 @@ const createReturnSchema = z.object({
 
 type FormData = z.infer<typeof createReturnSchema>;
 
-const REASONS = [
-  { value: 'DEFECTIVE', label: '🔧 Hàng lỗi / hỏng' },
-  { value: 'WRONG_ITEM', label: '📦 Giao sai sản phẩm' },
-  { value: 'SIZE_ISSUE', label: '📏 Sai kích thước / màu sắc' },
-  { value: 'CHANGED_MIND', label: '💭 Tôi đổi ý' },
-  { value: 'OTHER', label: '❓ Lý do khác' },
-];
+// ─── Constants ─────────────────────────────────────────────────────────────
+const REASON_KEYS = ['DEFECTIVE', 'WRONG_ITEM', 'SIZE_ISSUE', 'CHANGED_MIND', 'OTHER'] as const;
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 interface Props {
@@ -59,6 +55,7 @@ function Toast({ msg, type }: { msg: string; type: 'error' | 'success' }) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForReturn, setReturnId }) => {
+  const { t } = useTranslation(['returns']);
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -231,9 +228,9 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
             {...register('reason')}
             className="w-full appearance-none rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
           >
-            {REASONS.map((r) => (
-              <option key={r.value} value={r.value} className="text-black bg-white">
-                {r.label}
+            {REASON_KEYS.map((value) => (
+              <option key={value} value={value} className="text-black bg-white">
+                {t(`reason.${value}`, { defaultValue: value })}
               </option>
             ))}
           </select>

@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { AuthRequest } from '../middlewares/auth.middleware';
-import { emitNewOrder } from '../socket';
+import { emitNewOrder, emitOrderStatusUpdated } from '../socket';
 import {
   ORDER_STATUS,
   isValidTransition,
@@ -280,7 +280,20 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Invalid order ID' });
     }
 
-    const { status: newStatus, note } = req.body as { status: string; note?: string };
+    const {
+      status: newStatus,
+      note,
+      carrier,
+      trackingNumber,
+      estimatedDeliveryDate,
+    } = req.body as {
+      status: string;
+      note?: string;
+      carrier?: string;
+      trackingNumber?: string;
+      estimatedDeliveryDate?: string;
+    };
+
     if (!newStatus) {
       return res.status(400).json({ errorCode: ERROR_CODES.STATUS_REQUIRED });
     }
@@ -302,7 +315,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
 
     const currentStatus = order.status ?? ORDER_STATUS.PENDING;
 
-    // 2. FSM validation — throw 400 on invalid transition
+    // 2. FSM validation
     if (!isValidTransition(currentStatus, newStatus)) {
       return res.status(400).json({
         errorCode: ERROR_CODES.INVALID_STATUS_TRANSITION,
@@ -317,7 +330,6 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
 
     // 4. Execute in a single Prisma transaction
     await prisma.$transaction(async (tx) => {
-      // Optionally restore stock
       if (shouldRestoreInventory) {
         for (const item of order.items) {
           if (item.variantId) {
@@ -329,16 +341,14 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
         }
       }
 
-      // Update Order.status (and optionally Order.note for cancellation reason)
-      await tx.order.update({
-        where: { orderId },
-        data: {
-          status: newStatus,
-          ...(note !== undefined ? { note } : {}),
-        },
-      });
+      // Build order update data (status + optional logistics)
+      const orderData: Record<string, any> = { status: newStatus };
+      if (note !== undefined) orderData.note = note;
+      if (carrier) orderData.carrier = carrier;
+      if (trackingNumber) orderData.trackingNumber = trackingNumber;
 
-      // Insert audit record with full context
+      await tx.order.update({ where: { orderId }, data: orderData });
+
       await tx.orderStatusHistory.create({
         data: {
           orderId,
@@ -348,7 +358,49 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
           note: note ?? null,
         },
       });
+
+      // Upsert Shipment when logistics info is provided
+      if (carrier || trackingNumber || estimatedDeliveryDate) {
+        const eta = estimatedDeliveryDate ? new Date(estimatedDeliveryDate) : undefined;
+        await tx.shipment.upsert({
+          where: { orderId },
+          update: { carrier: carrier ?? undefined, trackingNumber: trackingNumber ?? undefined, eta },
+          create: { orderId, carrier: carrier ?? null, trackingNumber: trackingNumber ?? null, eta },
+        });
+      }
     });
+
+    // 5. Emit real-time socket update to the order room
+    try {
+      const latest = await prisma.order.findUnique({
+        where: { orderId },
+        include: {
+          statusHistory: { orderBy: { changedAt: 'asc' } },
+          shipment: true,
+          items: {
+            select: { orderItemId: true, productName: true, variantName: true, quantity: true, unitPrice: true },
+          },
+        },
+      });
+      if (latest) {
+        const timeline = (latest.statusHistory || []).map((h: any) => ({
+          status: h.status,
+          timestamp: h.changedAt,
+          note: h.note ?? null,
+        }));
+        emitOrderStatusUpdated({
+          orderId,
+          userId: latest.userId ?? undefined,
+          status: newStatus,
+          timeline,
+          carrier: carrier ?? latest.carrier ?? latest.shipment?.carrier ?? null,
+          trackingNumber: trackingNumber ?? latest.trackingNumber ?? latest.shipment?.trackingNumber ?? null,
+          estimatedDeliveryDate: latest.shipment?.eta ?? null,
+        });
+      }
+    } catch (socketErr: any) {
+      console.warn('[updateOrderStatus] Socket emit failed (non-critical):', socketErr.message);
+    }
 
     res.json({
       success: true,

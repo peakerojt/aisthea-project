@@ -12,15 +12,17 @@ export function initSocket(server: HttpServer): Server {
   });
 
   io.on('connection', (socket: Socket) => {
+    // Join a room scoped to a specific order for real-time tracking updates
     socket.on('tracking:join_order', (orderId: string | number) => {
       socket.join(`order:${orderId}`);
     });
 
+    // Join a room scoped to a user (for cross-device notification)
     socket.on('tracking:join_user', (userId: string | number) => {
       socket.join(`user:${userId}`);
     });
 
-    // Admin dashboard joins the 'admin' room to receive real-time KPI events
+    // Admin dashboard room — receives real-time KPI and new-order events
     socket.on('admin:join', () => {
       socket.join('admin');
     });
@@ -36,15 +38,26 @@ export function getIO(): Server {
   return io;
 }
 
+/**
+ * Emitted whenever an admin updates an order's status.
+ * Clients listening on `order:<orderId>` or `user:<userId>` will receive
+ * the `order:status_updated` event containing the full logistics update.
+ */
 export function emitOrderStatusUpdated(payload: {
   orderId: number;
   userId?: number | null;
   status: string;
   timeline: unknown[];
+  carrier?: string | null;
+  trackingNumber?: string | null;
+  estimatedDeliveryDate?: Date | null;
 }) {
   if (!io) return;
 
+  // Emit to the order-specific room (used by TrackingDetailPage)
   io.to(`order:${payload.orderId}`).emit('order:status_updated', payload);
+
+  // Also emit to the user room so other tabs/devices get notified
   if (payload.userId) {
     io.to(`user:${payload.userId}`).emit('order:status_updated', payload);
   }
@@ -52,7 +65,6 @@ export function emitOrderStatusUpdated(payload: {
 
 /**
  * Broadcast a new order event to all connected admin dashboards.
- * Call this immediately after a new order is successfully created.
  */
 export function emitNewOrder(payload: { orderId: number; totalAmount: number }) {
   if (!io) return;

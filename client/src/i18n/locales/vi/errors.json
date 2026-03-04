@@ -54,5 +54,11 @@
     "INSUFFICIENT_STOCK": "Sản phẩm đã hết hàng hoặc không đủ số lượng yêu cầu.",
     "STATUS_REQUIRED": "Trạng thái đơn hàng là bắt buộc.",
     "INVALID_STATUS_TRANSITION": "Chuyển đổi trạng thái không hợp lệ.",
-    "CART_EMPTY": "Giỏ hàng trống. Vui lòng thêm sản phẩm vào giỏ hàng."
+    "CART_EMPTY": "Giỏ hàng trống. Vui lòng thêm sản phẩm vào giỏ hàng.",
+    "ORDER_NOT_SHIPPING": "Đơn hàng phải ở trạng thái đang giao hàng để xác nhận nhận hàng.",
+    "NOT_ORDER_OWNER": "Bạn không có quyền xác nhận đơn hàng này.",
+    "ORDER_ITEM_NOT_FOUND": "Không tìm thấy sản phẩm trong đơn hàng.",
+    "REVIEW_ALREADY_EXISTS": "Sản phẩm này đã được đánh giá.",
+    "ITEM_NOT_FROM_DELIVERED_ORDER": "Chỉ có thể đánh giá sản phẩm của đơn hàng đã giao thành công.",
+    "RATING_REQUIRED": "Vui lòng chọn số sao đánh giá (từ 1 đến 5)."
 }

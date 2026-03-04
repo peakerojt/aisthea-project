@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { adminReturnService, OrderReturn } from '../services/return.service';
+import { ReasonLabel } from '../components/return/ReasonLabel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -123,7 +124,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
                         <div>
                             <div className="text-[10px] uppercase tracking-widest text-white/40 mb-2">{t('modal.returnReason')}</div>
                             <div className="p-4 bg-white/5 border border-white/5 rounded text-sm text-white/80 leading-relaxed">
-                                {item.reason}
+                                <ReasonLabel reason={item.reason} />
                             </div>
                         </div>
 
@@ -400,7 +401,7 @@ export const AdminReturns: React.FC = () => {
                                     </div>
 
                                     <div className="hidden md:block min-w-0">
-                                        <p className="text-xs text-white/60 line-clamp-2 leading-relaxed">{ret.reason}</p>
+                                        <p className="text-xs text-white/60 line-clamp-2 leading-relaxed"><ReasonLabel reason={ret.reason} /></p>
                                         {ret.proofImages.length > 0 && (
                                             <span className="inline-flex items-center gap-1 mt-1 text-[10px] text-white/30">
                                                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

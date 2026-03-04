@@ -17,6 +17,7 @@ import dashboardVI from './locales/vi/dashboard.json';
 import errorsVI from './locales/vi/errors.json';
 import messagesVI from './locales/vi/messages.json';
 import enumsVI from './locales/vi/enums.json';
+import trackingVI from './locales/vi/tracking.json';
 
 // ── i18next initialisation ──────────────────────────────────────────────────
 i18n
@@ -43,6 +44,7 @@ i18n
                 errors: errorsVI,
                 messages: messagesVI,
                 enums: enumsVI,
+                tracking: trackingVI,
             },
         },
 

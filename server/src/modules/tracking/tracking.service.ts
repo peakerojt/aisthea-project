@@ -3,6 +3,7 @@ import { emitOrderStatusUpdated } from '../../socket';
 import { canTransition } from '../../shared/orderTracking.constants';
 import { prisma } from '../../utils/prisma';
 import { trackingRepository } from './tracking.repository';
+import { UpdateOrderStatusInput } from './tracking.validator';
 
 function maskPhone(phone: string) {
   if (phone.length < 4) return '***';
@@ -18,7 +19,6 @@ function maskEmail(email: string) {
 
 function normalizeStatus(status: string | null | undefined): string {
   if (!status) return 'PENDING';
-  // Standardize on uppercase for the frontend dictionary lookups (e.g. STATUS_LABEL['PENDING'])
   return status.toUpperCase();
 }
 
@@ -30,22 +30,26 @@ function hydrateTimeline(order: any, isPublic = false) {
       statusLabelKey: `tracking:status.${status}`,
       timestamp: history.changedAt,
       note: history.note,
+      location: (history as any).location ?? null,
+      description: (history as any).description ?? null,
       updatedBy: isPublic ? null : history.changedBy,
     };
   });
 
-  // If the checkout logic omitted the initial status history record, synthesize one
+  // Synthesize initial PENDING entry if missing
   if (mapped.length === 0 || !mapped.some((h: any) => h.status === 'PENDING')) {
     mapped.unshift({
       status: 'PENDING',
       statusLabelKey: 'tracking:status.PENDING',
       timestamp: order.createdAt || new Date(),
-      note: 'Order placed',
+      note: 'Đơn hàng đã được đặt',
+      location: null,
+      description: null,
       updatedBy: null,
     });
   }
 
-  // Ensure it is chronologically ordered
+  // Chronological order
   return mapped.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
@@ -57,14 +61,20 @@ function toTrackingPayload(order: any, isPublic = false) {
     orderCode: order.orderCode || order.orderNumber,
     currentStatus,
     currentStatusLabelKey: `tracking:status.${currentStatus}`,
-    eta: order.shipment?.eta ?? null,
+    // Top-level logistics fields (from Order model)
+    carrier: order.carrier ?? order.shipment?.carrier ?? null,
+    trackingNumber: isPublic ? null : (order.trackingNumber ?? order.shipment?.trackingNumber ?? null),
+    estimatedDeliveryDate: order.shipment?.eta ?? null,
+    // Shipment sub-object
     shipment: order.shipment
       ? {
-        carrier: order.shipment.carrier,
-        trackingNumber: isPublic ? null : order.shipment.trackingNumber,
+        carrier: order.shipment.carrier ?? order.carrier ?? null,
+        trackingNumber: isPublic ? null : (order.shipment.trackingNumber ?? order.trackingNumber ?? null),
         lastKnownLocation: order.shipment.lastKnownLocation,
+        eta: order.shipment.eta,
       }
       : null,
+    // Masked contact for public mode
     contact: isPublic
       ? {
         customerPhone: order.customerPhone ? maskPhone(order.customerPhone) : null,
@@ -113,7 +123,7 @@ export const trackingService = {
 
   async updateOrderStatus(
     orderId: number,
-    payload: { status: string; note?: string; eta?: string; location?: string },
+    payload: UpdateOrderStatusInput,
     updatedBy: number,
   ) {
     const order = await trackingRepository.findOrderTrackingById(orderId);
@@ -132,11 +142,17 @@ export const trackingService = {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      // 1. Update Order status + logistics fields (carrier, trackingNumber, estimatedDeliveryDate)
+      const orderUpdateData: Record<string, any> = { status: payload.status };
+      if (payload.carrier) orderUpdateData.carrier = payload.carrier;
+      if (payload.trackingNumber) orderUpdateData.trackingNumber = payload.trackingNumber;
+
       const updated = await tx.order.update({
         where: { orderId },
-        data: { status: payload.status },
+        data: orderUpdateData,
       });
 
+      // 2. Create history entry
       await tx.orderStatusHistory.create({
         data: {
           orderId,
@@ -147,19 +163,30 @@ export const trackingService = {
         },
       });
 
-      if (payload.eta || payload.location) {
+      // 3. Upsert Shipment if any logistics data is provided
+      if (payload.eta || payload.location || payload.carrier || payload.trackingNumber || payload.estimatedDeliveryDate) {
         await tx.shipment.upsert({
           where: { orderId },
           update: {
-            eta: payload.eta ? new Date(payload.eta) : undefined,
+            eta: payload.estimatedDeliveryDate
+              ? new Date(payload.estimatedDeliveryDate)
+              : payload.eta
+                ? new Date(payload.eta)
+                : undefined,
             lastKnownLocation: payload.location,
+            carrier: payload.carrier,
+            trackingNumber: payload.trackingNumber,
           },
           create: {
             orderId,
-            eta: payload.eta ? new Date(payload.eta) : undefined,
+            eta: payload.estimatedDeliveryDate
+              ? new Date(payload.estimatedDeliveryDate)
+              : payload.eta
+                ? new Date(payload.eta)
+                : undefined,
             lastKnownLocation: payload.location,
-            carrier: order.carrier,
-            trackingNumber: order.trackingNumber,
+            carrier: payload.carrier ?? order.carrier,
+            trackingNumber: payload.trackingNumber ?? order.trackingNumber,
           },
         });
       }
@@ -167,16 +194,21 @@ export const trackingService = {
       return updated;
     });
 
+    // Re-fetch the full order to build the real-time payload
     const latest = await trackingRepository.findOrderTrackingById(orderId);
     const timeline = latest ? hydrateTimeline(latest, false) : [];
 
+    // Emit Socket.io event to the order room so all live viewers see instant update
     emitOrderStatusUpdated({
       orderId,
       userId: latest?.userId,
       status: normalizeStatus(result.status || payload.status),
       timeline,
+      carrier: latest?.carrier ?? latest?.shipment?.carrier ?? null,
+      trackingNumber: latest?.trackingNumber ?? latest?.shipment?.trackingNumber ?? null,
+      estimatedDeliveryDate: latest?.shipment?.eta ?? null,
     });
 
-    return latest;
+    return latest ? toTrackingPayload(latest, false) : null;
   },
 };

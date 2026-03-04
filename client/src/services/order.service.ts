@@ -166,6 +166,9 @@ export interface AdminOrdersResponse {
 export interface UpdateStatusPayload {
   status: string;
   note?: string;
+  carrier?: string;
+  trackingNumber?: string;
+  estimatedDeliveryDate?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

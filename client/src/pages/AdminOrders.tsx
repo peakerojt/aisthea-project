@@ -357,8 +357,8 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
                     {/* Trạng thái */}
                     <td className="py-4 px-6">
                       <StatusBadge
-                        status={order.status ?? ''}
-                        label={order.status ? t(`status.${order.status}`) : order.statusLabel ?? ''}
+                        status={order.status?.toUpperCase() ?? ''}
+                        label={order.status ? t(`status.${order.status.toUpperCase()}`) : order.statusLabel ?? ''}
                       />
                     </td>
 

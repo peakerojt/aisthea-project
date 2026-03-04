@@ -10,5 +10,7 @@
     "REFUND_INITIATED": "Lệnh hoàn tiền đã gửi tới cổng thanh toán thành công.",
     "STATUS_UPDATED": "Cập nhật trạng thái thành công.",
     "ROLE_UPDATED": "Cập nhật vai trò thành công.",
-    "PERMISSIONS_UPDATED": "Cập nhật quyền hạn thành công."
+    "PERMISSIONS_UPDATED": "Cập nhật quyền hạn thành công.",
+    "RECEIPT_CONFIRMED": "Xác nhận đã nhận hàng thành công!",
+    "REVIEW_CREATED": "Cảm ơn bạn đã đánh giá sản phẩm!"
 }

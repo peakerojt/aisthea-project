@@ -1,0 +1,22 @@
+{
+    "status": {
+        "PENDING": "Chờ xác nhận",
+        "CONFIRMED": "Đã xác nhận",
+        "PACKING": "Đang đóng gói",
+        "PROCESSING": "Đang xử lý",
+        "SHIPPING": "Đang giao hàng",
+        "SHIPPED": "Đã gửi hàng",
+        "OUT_FOR_DELIVERY": "Đơn hàng đang đến",
+        "DELIVERED": "Giao thành công",
+        "FAILED_DELIVERY": "Giao thất bại",
+        "CANCELLED": "Đã hủy",
+        "RETURN_REQUESTED": "Yêu cầu trả hàng",
+        "RETURNED": "Đã trả hàng"
+    },
+    "errors": {
+        "notFound": "Không tìm thấy thông tin đơn hàng.",
+        "orderNotFound": "Đơn hàng không tồn tại.",
+        "forbidden": "Bạn không có quyền truy cập thông tin vận chuyển này.",
+        "invalidStatusTransition": "Chuyển đổi trạng thái không hợp lệ."
+    }
+}

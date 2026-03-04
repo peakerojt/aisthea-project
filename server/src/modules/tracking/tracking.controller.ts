@@ -14,6 +14,11 @@ const isAdminUser = (roles: unknown): boolean => {
 };
 
 export const trackingController = {
+  /**
+   * POST /api/tracking/public
+   * Public order lookup — requires orderCode + phone/email.
+   * No JWT needed. Brute-force mitigated by requiring exact contact match.
+   */
   async publicTracking(req: Request, res: Response, next: NextFunction) {
     try {
       const locale = resolveRequestLocale(req);
@@ -29,6 +34,35 @@ export const trackingController = {
       }
 
       const data = await trackingService.getPublicTracking(parsed.data.orderCode, parsed.data.contact);
+      return res.json({
+        success: true,
+        messageKey: 'tracking:success.getPublicTracking',
+        message: t(locale, 'tracking:success.getPublicTracking'),
+        data,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * GET /api/tracking/lookup?orderCode=...&contact=...
+   * Alternative GET-based public lookup (supports ?phone= or ?email= too).
+   */
+  async publicTrackingGet(req: Request, res: Response, next: NextFunction) {
+    try {
+      const locale = resolveRequestLocale(req);
+      const orderCode = String(req.query.orderCode || req.query.orderId || '').trim();
+      const contact = String(req.query.phone || req.query.email || req.query.contact || '').trim();
+
+      if (!orderCode || orderCode.length < 4) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'common:errors.validation');
+      }
+      if (!contact || contact.length < 4) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'common:errors.validation');
+      }
+
+      const data = await trackingService.getPublicTracking(orderCode, contact);
       return res.json({
         success: true,
         messageKey: 'tracking:success.getPublicTracking',
@@ -88,6 +122,11 @@ export const trackingController = {
     }
   },
 
+  /**
+   * PATCH /api/admin/orders/:id/status
+   * Admin: update order status with optional logistics fields (carrier, trackingNumber, eta/location).
+   * When setting status to Shipping, carrier + trackingNumber should be provided.
+   */
   async adminUpdateOrderStatus(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const locale = resolveRequestLocale(req);

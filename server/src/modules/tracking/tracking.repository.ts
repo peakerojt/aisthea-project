@@ -1,25 +1,38 @@
 import { prisma } from '../../utils/prisma';
 
+const ORDER_INCLUDE = {
+  items: { orderBy: { orderItemId: 'asc' as const } },
+  statusHistory: { orderBy: { changedAt: 'asc' as const } },
+  shipment: true,
+};
+
 export const trackingRepository = {
+  /**
+   * Public lookup: match by orderNumber (or orderCode) AND phone or email.
+   * Security: Both orderCode AND contact must match exactly.
+   */
   async findOrderByCodeAndContact(orderCode: string, contact: string) {
+    const isEmail = contact.includes('@');
+
     const order = await prisma.order.findFirst({
       where: {
-        orderNumber: orderCode,
-        customerPhone: contact,
+        OR: [
+          { orderNumber: orderCode },
+          { orderCode: orderCode },
+        ],
+        AND: isEmail
+          ? { customerEmail: contact }
+          : { customerPhone: contact },
       },
       orderBy: { createdAt: 'desc' },
-      include: {
-        items: { orderBy: { orderItemId: 'asc' } },
-        statusHistory: { orderBy: { changedAt: 'asc' } },
-        shipment: true,
-      },
+      include: ORDER_INCLUDE,
     });
 
     if (!order) return null;
 
     return {
       ...order,
-      orderCode: order.orderNumber,
+      orderCode: order.orderCode || order.orderNumber,
       customerEmail: order.customerEmail || null,
     };
   },
@@ -36,25 +49,21 @@ export const trackingRepository = {
     return orders.map((order) => ({
       ...order,
       shipment: null,
-      orderCode: order.orderNumber,
+      orderCode: order.orderCode || order.orderNumber,
     }));
   },
 
   async findOrderTrackingById(orderId: number) {
     const order = await prisma.order.findUnique({
       where: { orderId },
-      include: {
-        items: { orderBy: { orderItemId: 'asc' } },
-        statusHistory: { orderBy: { changedAt: 'asc' } },
-        shipment: true,
-      },
+      include: ORDER_INCLUDE,
     });
 
     if (!order) return null;
 
     return {
       ...order,
-      orderCode: order.orderNumber,
+      orderCode: order.orderCode || order.orderNumber,
       customerEmail: order.customerEmail || null,
     };
   },

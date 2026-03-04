@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ViewState, CategoryType, CartItem } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { AdminSidebar } from '../components/AdminSidebar';
@@ -39,7 +40,14 @@ import { getCloudinaryProductCard } from '../utils/cloudinary';
 
 const App: React.FC = () => {
   const { role } = useAuth();
-  const [view, setView] = useState<ViewState>('STORE_HOME');
+  // useLocation MUST be declared before useState so the lazy initializer
+  // can read location.state synchronously — this eliminates the STORE_HOME flash.
+  const location = useLocation();
+  const [view, setView] = useState<ViewState>(() => {
+    const locState = location.state as { initialView?: string } | null;
+    if (locState?.initialView === 'STORE_MY_ORDERS') return 'STORE_MY_ORDERS';
+    return 'STORE_HOME';
+  });
   const [activeCategory, setActiveCategory] = useState<CategoryType>('Men');
   const [activeCollection, setActiveCollection] = useState<string>('Outerwear');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -93,6 +101,16 @@ const App: React.FC = () => {
       }
     }
   }, []);
+
+  // ── Reactive: switch view when location.state.initialView changes (SPA back-nav) ──
+  useEffect(() => {
+    const locState = location.state as { initialView?: string } | null;
+    if (locState?.initialView === 'STORE_MY_ORDERS') {
+      setView('STORE_MY_ORDERS');
+      // Clear state so re-renders don’t re-trigger
+      window.history.replaceState({ ...window.history.state, usr: null }, '');
+    }
+  }, [location.state]);
 
   // State để chứa danh sách sản phẩm lấy từ Database
   const [dbProducts, setDbProducts] = useState<any[]>([]);
