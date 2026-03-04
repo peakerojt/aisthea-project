@@ -17,6 +17,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     X, AlertTriangle, CheckCircle2, Loader2,
     BadgeDollarSign, ChevronDown
@@ -26,7 +27,7 @@ import {
     RefundMethod,
     RefundRecord,
     RefundRequestSchema,
-    REFUND_METHOD_LABELS,
+    REFUND_METHODS,
 } from '../../services/refund.service';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -53,6 +54,8 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
     onClose,
     onSuccess,
 }) => {
+    const { t } = useTranslation(['orders']);
+
     // ── Derived financial state ───────────────────────────────────────────────
     const totalRefunded = existingRefunds
         .filter(r => r.status === 'SUCCESS')
@@ -100,14 +103,14 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (parsed.error.issues as any[]).forEach((e: any) => {
                 const field = String(e.path?.[0] ?? 'amount');
-                fieldErrors[field] = e.message;
+                fieldErrors[field] = t(e.message);
             });
             setErrors(fieldErrors);
             return;
         }
 
         if (amount > maxRefundable) {
-            setErrors({ amount: 'Số tiền hoàn không hợp lệ hoặc vượt quá mức cho phép.' });
+            setErrors({ amount: t('refund.errors.invalidAmountOrExceeds') });
             return;
         }
 
@@ -115,7 +118,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
         try {
             const res = await adminRefundService.create(orderId, parsed.data);
             if (res.success && res.data) {
-                setToast({ type: 'success', msg: 'Lệnh hoàn tiền đã được gửi tới cổng thanh toán thành công.' });
+                setToast({ type: 'success', msg: t('refund.success.initiated') });
                 setTimeout(() => {
                     onSuccess(res.data!);
                     onClose();
@@ -126,7 +129,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
         } catch (err: any) {
             setToast({
                 type: 'error',
-                msg: err?.message ?? 'Số tiền hoàn không hợp lệ hoặc vượt quá mức cho phép.',
+                msg: err?.message ?? t('refund.errors.invalidAmountOrExceeds'),
             });
         } finally {
             setSubmitting(false);
@@ -157,9 +160,9 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                             <BadgeDollarSign size={17} className="text-primary" />
                         </div>
                         <div>
-                            <h2 className="text-base font-black text-white tracking-tight">Hoàn tiền</h2>
+                            <h2 className="text-base font-black text-white tracking-tight">{t('refund.title')}</h2>
                             <p className="text-[10px] text-white/35 uppercase tracking-widest mt-0.5">
-                                Đơn hàng #{orderId}
+                                {t('refund.orderRef', { id: orderId })}
                             </p>
                         </div>
                     </div>
@@ -176,9 +179,9 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                     {/* ── Financial stats ──────────────────────────────────────── */}
                     <div className="grid grid-cols-3 gap-3">
                         {[
-                            { label: 'Tổng đã thanh toán', value: formatVND(totalPaid), color: 'text-white' },
-                            { label: 'Đã hoàn', value: formatVND(totalRefunded), color: 'text-amber-400' },
-                            { label: 'Tối đa có thể hoàn', value: formatVND(maxRefundable), color: 'text-emerald-400' },
+                            { label: t('refund.stats.totalPaid'), value: formatVND(totalPaid), color: 'text-white' },
+                            { label: t('refund.stats.totalRefunded'), value: formatVND(totalRefunded), color: 'text-amber-400' },
+                            { label: t('refund.stats.maxRefundable'), value: formatVND(maxRefundable), color: 'text-emerald-400' },
                         ].map(({ label, value, color }) => (
                             <div key={label} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 text-center">
                                 <p className="text-[9px] uppercase tracking-wider text-white/35 mb-1">{label}</p>
@@ -192,7 +195,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                         <div className="flex items-center gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
                             <AlertTriangle size={15} className="text-amber-400 shrink-0" />
                             <p className="text-[12px] text-amber-300">
-                                Đơn hàng này đã được hoàn tiền toàn bộ.
+                                {t('refund.stats.alreadyFullyRefunded')}
                             </p>
                         </div>
                     )}
@@ -202,22 +205,22 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                             {/* ── Refund type ──────────────────────────────────────── */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-                                    Loại hoàn tiền
+                                    {t('refund.form.refundType')}
                                 </label>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {(['FULL', 'PARTIAL'] as const).map((t) => (
+                                    {(['FULL', 'PARTIAL'] as const).map((type) => (
                                         <button
-                                            key={t}
-                                            onClick={() => setRefundType(t)}
-                                            className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-[12px] font-semibold transition-all cursor-pointer ${refundType === t
+                                            key={type}
+                                            onClick={() => setRefundType(type)}
+                                            className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-[12px] font-semibold transition-all cursor-pointer ${refundType === type
                                                 ? 'bg-primary/10 border-primary/40 text-primary'
                                                 : 'bg-white/[0.03] border-white/[0.07] text-white/50 hover:border-white/15'
                                                 }`}
                                         >
-                                            <span className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${refundType === t ? 'border-primary' : 'border-white/20'}`}>
-                                                {refundType === t && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                            <span className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${refundType === type ? 'border-primary' : 'border-white/20'}`}>
+                                                {refundType === type && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
                                             </span>
-                                            {t === 'FULL' ? 'Hoàn toàn bộ' : 'Hoàn một phần'}
+                                            {type === 'FULL' ? t('refund.form.typeFull') : t('refund.form.typePartial')}
                                         </button>
                                     ))}
                                 </div>
@@ -227,7 +230,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                             {refundType === 'PARTIAL' && (
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-                                        Số tiền hoàn <span className="text-primary">*</span>
+                                        {t('refund.form.amount')} <span className="text-primary">*</span>
                                     </label>
                                     <div className="relative">
                                         <input
@@ -251,7 +254,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                             {/* ── Method ───────────────────────────────────────────── */}
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-                                    Phương thức <span className="text-primary">*</span>
+                                    {t('refund.form.method')} <span className="text-primary">*</span>
                                 </label>
                                 <div className="relative">
                                     <select
@@ -259,9 +262,9 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                                         onChange={e => setMethod(e.target.value as RefundMethod)}
                                         className="w-full appearance-none bg-white/[0.04] border border-white/[0.1] text-white text-[13px] px-4 py-3 rounded-xl focus:outline-none focus:border-primary/40 transition-colors cursor-pointer pr-10"
                                     >
-                                        {(Object.entries(REFUND_METHOD_LABELS) as [RefundMethod, string][]).map(([val, label]) => (
+                                        {REFUND_METHODS.map((val) => (
                                             <option key={val} value={val} className="bg-[#0E0E12] text-white">
-                                                {label}
+                                                {t(`refund.method.${val}`)}
                                             </option>
                                         ))}
                                     </select>
@@ -273,7 +276,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                             {/* ── Reason ───────────────────────────────────────────── */}
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-                                    Lý do hoàn tiền <span className="text-primary">*</span>
+                                    {t('refund.form.reason')} <span className="text-primary">*</span>
                                 </label>
                                 <textarea
                                     ref={reasonRef}
@@ -281,7 +284,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                                     onChange={e => setReason(e.target.value)}
                                     rows={3}
                                     maxLength={500}
-                                    placeholder="Mô tả lý do hoàn tiền..."
+                                    placeholder={t('refund.form.reasonPlaceholder')}
                                     className="w-full bg-white/[0.04] border border-white/[0.1] text-white text-[13px] px-4 py-3 rounded-xl focus:outline-none focus:border-primary/40 transition-colors placeholder-white/20 resize-none"
                                 />
                                 <div className="flex items-center justify-between">
@@ -315,7 +318,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                         disabled={submitting}
                         className="flex-1 px-4 py-3 rounded-xl border border-white/[0.1] text-white/50 hover:text-white hover:border-white/20 text-[12px] font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
                     >
-                        Hủy
+                        {t('refund.form.cancel')}
                     </button>
                     {maxRefundable > 0 && (
                         <button
@@ -324,9 +327,9 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                             className="flex-1 px-4 py-3 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-[12px] font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                             {submitting ? (
-                                <><Loader2 size={13} className="animate-spin" />Đang xử lý...</>
+                                <><Loader2 size={13} className="animate-spin" />{t('refund.form.submitting')}</>
                             ) : (
-                                `Xác nhận hoàn ${formatVND(confirmAmount)}`
+                                t('refund.form.submit', { amount: formatVND(confirmAmount) })
                             )}
                         </button>
                     )}

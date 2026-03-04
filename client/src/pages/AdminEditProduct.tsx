@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod/v4';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -127,7 +128,7 @@ function buildFormState(variants: ExistingVariant[]): {
             attr: va.value.attribute.name,
             value: va.value.value,
         }));
-        const label = combination.map(c => c.value).join(' / ') || `Phân loại ${v.variantId}`;
+        const label = combination.map(c => c.value).join(' / ') || `Variant ${v.variantId}`;
         return {
             id: `existing-${v.variantId}`,
             variantId: v.variantId,
@@ -196,7 +197,7 @@ const GroupRow: React.FC<GroupRowProps> = ({
                 <input
                     value={group.name}
                     onChange={e => onUpdateName(group.id, e.target.value)}
-                    placeholder="Tên nhóm (vd: Màu sắc, Kích thước)"
+                    placeholder="VD: Màu sắc"
                     className="flex-1 bg-black/20 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-primary"
                 />
                 <button type="button" onClick={() => onRemoveGroup(group.id)}
@@ -224,7 +225,7 @@ const GroupRow: React.FC<GroupRowProps> = ({
                             setInputVal('');
                         }
                     }}
-                    placeholder="Nhập giá trị + Enter"
+                    placeholder="..."
                     className="bg-transparent border-b border-white/10 focus:border-primary text-xs text-white outline-none px-1 py-1 min-w-[120px]"
                 />
             </div>
@@ -240,6 +241,7 @@ interface Props {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
+    const { t } = useTranslation(['products']);
     const { refreshProducts } = useProducts();
 
     const {
@@ -396,7 +398,7 @@ export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
 
             setLoadingProduct(false);
         }).catch(err => {
-            setLoadError(err.message || 'Không thể tải sản phẩm');
+            setLoadError(err.message || t('editor.feedback.loadError'));
             setLoadingProduct(false);
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -495,12 +497,12 @@ export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
     // ─── Submit ───────────────────────────────────────────────────────────
     const onSubmit = async (data: FormValues) => {
         if (variants.length === 0) {
-            showToast('error', 'Vui lòng thêm ít nhất một phân loại sản phẩm');
+            showToast('error', t('editor.feedback.noVariants'));
             return;
         }
         for (const v of variants) {
             if (!v.price || Number(v.price) <= 0) {
-                showToast('error', `Phân loại "${v.label}" chưa có giá hợp lệ`);
+                showToast('error', t('editor.feedback.invalidPrice', { label: v.label }));
                 return;
             }
         }
@@ -547,12 +549,12 @@ export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
                 await uploadNewImage(productId, img);
             }
 
-            showToast('success', `Đã lưu thay đổi cho "${data.name}" thành công!`);
+            showToast('success', t('editor.feedback.updateSuccess', { name: data.name }));
             await refreshProducts();
             setFormDirty(false);
             setTimeout(() => setView('ADMIN_PRODUCTS'), 1800);
         } catch (err: any) {
-            showToast('error', err.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
+            showToast('error', err.message || t('editor.feedback.createError'));
         } finally {
             setSaving(false);
         }
@@ -578,7 +580,7 @@ export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
                 onClick={() => setView('ADMIN_PRODUCTS')}
                 className="mt-2 text-primary text-sm font-bold underline underline-offset-2"
             >
-                ← Quay lại danh sách
+                {t('editor.actions.backToList')}
             </button>
         </div>
     );
@@ -611,7 +613,7 @@ export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
                     <button
                         type="button"
                         onClick={() => {
-                            if ((formDirty || newImages.length > 0) && !window.confirm('Bạn có thay đổi chưa lưu. Bạn có muốn rời khỏi trang không?')) return;
+                            if ((formDirty || newImages.length > 0) && !window.confirm(t('editor.feedback.unsavedChanges'))) return;
                             setView('ADMIN_PRODUCTS');
                         }}
                         className="p-2 rounded-lg hover:bg-white/5 text-white/60 hover:text-white transition-colors"
@@ -620,9 +622,9 @@ export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
                     </button>
                     <div>
                         <nav className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-white/40">
-                            <span>Sản phẩm</span>
+                            <span>{t('editor.breadcrumbs.products')}</span>
                             <ChevronRight size={10} />
-                            <span className="text-white/70">Cập nhật</span>
+                            <span className="text-white/70">{t('editor.breadcrumbs.update')}</span>
                         </nav>
                         <h1 className="text-sm font-bold text-white mt-0.5 line-clamp-1">
                             {productName}
@@ -636,7 +638,7 @@ export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
                     className="flex items-center gap-2 bg-primary hover:bg-red-700 disabled:opacity-60 text-white text-xs font-bold uppercase tracking-[0.1em] px-6 py-3 rounded shadow-lg shadow-primary/20 transition-all"
                 >
                     {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                    {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                    {saving ? t('editor.actions.saving') : t('editor.actions.saveChanges')}
                 </button>
             </div>
 
@@ -655,30 +657,30 @@ export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
                         <div className={cardCls}>
                             <div className="flex items-center gap-2 mb-1">
                                 <Tag size={15} className="text-primary" />
-                                <h2 className="text-sm font-bold text-white uppercase tracking-wider">Thông tin cơ bản</h2>
+                                <h2 className="text-sm font-bold text-white uppercase tracking-wider">{t('editor.sections.basicInfo')}</h2>
                             </div>
 
                             <div>
-                                <label className={labelCls}>Tên sản phẩm *</label>
+                                <label className={labelCls}>{t('editor.fields.name')} *</label>
                                 <input
                                     {...register('name')}
-                                    placeholder="Vd: Áo sơ mi dài tay Oxford"
+                                    placeholder={t('editor.fields.VariantNameEdit')}
                                     className={inputCls(!!errors.name)}
                                 />
                                 {errors.name && <p className="mt-1 text-xs text-red-400">{errors.name.message}</p>}
                                 {slugPreview && (
                                     <p className="mt-1.5 text-[11px] text-white/30">
-                                        Slug: <span className="text-white/50 font-mono">{slugPreview}</span>
+                                        {t('editor.fields.slug')} <span className="text-white/50 font-mono">{slugPreview}</span>
                                     </p>
                                 )}
                             </div>
 
                             <div>
-                                <label className={labelCls}>Mô tả sản phẩm</label>
+                                <label className={labelCls}>{t('editor.fields.description')}</label>
                                 <textarea
                                     {...register('description')}
                                     rows={4}
-                                    placeholder="Mô tả chi tiết về chất liệu, xuất xứ, đặc điểm nổi bật..."
+                                    placeholder={t('editor.fields.descPlaceholderEdit')}
                                     className={inputCls() + ' resize-none'}
                                 />
                             </div>
@@ -697,7 +699,7 @@ export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
                             ) : (
                                 <div className="flex items-center gap-2 py-4 text-white/30 text-sm">
                                     <Loader2 size={14} className="animate-spin" />
-                                    Đang tải phân loại...
+                                    {t('editor.feedback.loadingVariants')}
                                 </div>
                             )}
                         </div>
@@ -715,7 +717,7 @@ export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
                             {!imInitialized && (
                                 <div className="flex items-center gap-2 py-6 text-white/30 text-sm">
                                     <Loader2 size={14} className="animate-spin" />
-                                    Đang tải hình ảnh...
+                                    {t('editor.feedback.loadingImages')}
                                 </div>
                             )}
                         </div>
@@ -728,21 +730,21 @@ export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
 
                         {/* Status */}
                         < div className={cardCls} >
-                            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3">Trạng thái</h3>
+                            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3">{t('editor.sections.status')}</h3>
                             <select {...register('status')} className={inputCls()}>
-                                <option value="Active">Active — Đang bán</option>
-                                <option value="Draft">Draft — Nháp</option>
-                                <option value="Archived">Archived — Lưu trữ</option>
+                                <option value="Active">{t('editor.fields.statusActiveEdit')}</option>
+                                <option value="Draft">{t('editor.fields.statusDraftEdit')}</option>
+                                <option value="Archived">{t('editor.fields.statusArchivedEdit')}</option>
                             </select>
                         </div >
 
                         {/* Category & Brand */}
                         < div className={cardCls} >
-                            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3">Danh mục & Thương hiệu</h3>
+                            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3">{t('editor.sections.categoryAndBrand')}</h3>
                             <div>
-                                <label className={labelCls}>Danh mục *</label>
+                                <label className={labelCls}>{t('editor.fields.category')} *</label>
                                 <select {...register('categoryId')} className={inputCls(!!errors.categoryId)}>
-                                    <option value="">-- Chọn danh mục --</option>
+                                    <option value="">{t('editor.fields.categorySelect')}</option>
                                     {categories.map(c => (
                                         <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
                                     ))}
@@ -750,9 +752,9 @@ export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
                                 {errors.categoryId && <p className="mt-1 text-xs text-red-400">{errors.categoryId.message}</p>}
                             </div>
                             <div>
-                                <label className={labelCls}>Thương hiệu</label>
+                                <label className={labelCls}>{t('editor.fields.brand')}</label>
                                 <select {...register('brandId')} className={inputCls()}>
-                                    <option value="">-- Không có --</option>
+                                    <option value="">{t('editor.fields.brandSelect')}</option>
                                     {brands.map(b => (
                                         <option key={b.brandId} value={b.brandId}>{b.name}</option>
                                     ))}
@@ -762,41 +764,41 @@ export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
 
                         {/* Pricing */}
                         < div className={cardCls} >
-                            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3">Giá & SKU</h3>
+                            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3">{t('editor.sections.priceAndSku')}</h3>
                             <div>
-                                <label className={labelCls}>Giá cơ bản (₫) *</label>
+                                <label className={labelCls}>{t('editor.fields.basePrice')} *</label>
                                 <input type="number" {...register('basePrice')}
-                                    placeholder="0"
+                                    placeholder={t('editor.fields.basePricePlaceholder')}
                                     className={inputCls(!!errors.basePrice)} />
                                 {errors.basePrice && <p className="mt-1 text-xs text-red-400">{errors.basePrice.message}</p>}
                             </div>
                             <div>
-                                <label className={labelCls}>Tiền tố SKU</label>
+                                <label className={labelCls}>{t('editor.fields.baseSku')}</label>
                                 <input {...register('baseSku')}
-                                    placeholder="Vd: AISTHEA-AO"
+                                    placeholder={t('editor.fields.baseSkuPlaceholderEdit')}
                                     className={inputCls()}
                                 />
-                                <p className="mt-1 text-[10px] text-white/30">Dùng để tạo lại SKU các biến thể</p>
+                                <p className="mt-1 text-[10px] text-white/30">{t('editor.fields.baseSkuHintEdit')}</p>
                             </div>
                         </div >
 
                         {/* Summary card */}
                         < div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2" >
-                            <p className="text-[10px] uppercase tracking-widest text-primary font-bold mb-3">Tóm tắt</p>
+                            <p className="text-[10px] uppercase tracking-widest text-primary font-bold mb-3">{t('editor.sections.summary')}</p>
                             <div className="flex justify-between text-xs">
-                                <span className="text-white/50">Biến thể hiện có</span>
+                                <span className="text-white/50">{t('editor.fields.summaryExistingVariants')}</span>
                                 <span className="text-white">{variants.filter(v => v.variantId).length}</span>
                             </div>
                             <div className="flex justify-between text-xs">
-                                <span className="text-white/50">Biến thể mới</span>
+                                <span className="text-white/50">{t('editor.fields.summaryNewVariants')}</span>
                                 <span className="text-emerald-400">{variants.filter(v => !v.variantId).length}</span>
                             </div>
                             <div className="flex justify-between text-xs">
-                                <span className="text-white/50">Ảnh sẽ xóa</span>
+                                <span className="text-white/50">{t('editor.fields.summaryImagesToDelete')}</span>
                                 <span className="text-red-400">{existingImages.filter(i => i.markedForDelete).length}</span>
                             </div>
                             <div className="flex justify-between text-xs">
-                                <span className="text-white/50">Ảnh sẽ thêm</span>
+                                <span className="text-white/50">{t('editor.fields.summaryImagesToAdd')}</span>
                                 <span className="text-emerald-400">{newImages.length}</span>
                             </div>
                         </div >

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import {
     Loader2, ShoppingBag, Package, Truck, CheckCircle2,
     XCircle, RotateCcw, AlertTriangle,
@@ -111,38 +112,38 @@ const NoteDialog: React.FC<NoteDialogProps> = ({ targetStatus, loading, onClose,
                                 onClick={() => setNote(p)}
                                 className={`px-3 py-1.5 rounded-full text-[11px] font-medium border transition-all cursor-pointer ${note === p
                                     ? `${meta.badgeClass} ${meta.textClass}`
-                                    : 'border-white/10 bg-white/[0.03] text-white/50 hover:text-white/80 hover:border-white/20'
+                        : 'border-white/10 bg-white/[0.03] text-white/50 hover:text-white/80 hover:border-white/20'
                                     }`}
                             >
-                                {p}
-                            </button>
+                        {p}
+                    </button>
                         ))}
-                    </div>
+                </div>
 
-                    {/* Actions */}
-                    <div className="flex gap-3 pt-1">
-                        <button
-                            onClick={onClose}
-                            disabled={loading}
-                            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white/60 bg-white/[0.04] border border-white/10 hover:bg-white/[0.07] transition-all cursor-pointer disabled:opacity-50"
-                        >
-                            Giữ lại
-                        </button>
-                        <button
-                            onClick={() => onConfirm(note)}
-                            disabled={loading || !note.trim()}
-                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg ${meta.actionClass}`}
-                        >
-                            {loading
-                                ? <Loader2 size={14} className="animate-spin" />
-                                : <StatusIcon name={meta.icon} size={14} />}
-                            {loading ? 'Đang xử lý...' : STATUS_ACTION_LABELS[targetStatus]}
-                        </button>
-                    </div>
+                {/* Actions */}
+                <div className="flex gap-3 pt-1">
+                    <button
+                        onClick={onClose}
+                        disabled={loading}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white/60 bg-white/[0.04] border border-white/10 hover:bg-white/[0.07] transition-all cursor-pointer disabled:opacity-50"
+                    >
+                        Giữ lại
+                    </button>
+                    <button
+                        onClick={() => onConfirm(note)}
+                        disabled={loading || !note.trim()}
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg ${meta.actionClass}`}
+                    >
+                        {loading
+                            ? <Loader2 size={14} className="animate-spin" />
+                            : <StatusIcon name={meta.icon} size={14} />}
+                        {loading ? 'Đang xử lý...' : STATUS_ACTION_LABELS[targetStatus]}
+                    </button>
                 </div>
             </div>
-        </div>,
-        document.body
+        </div>
+        </div >,
+    document.body
     );
 };
 
@@ -207,7 +208,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ targetStatus, loading, on
 interface OrderActionPanelProps {
     orderId: number;
     currentStatus: string;
-    onStatusUpdated: () => void;
+    onStatusUpdated: (msgKey?: string) => void;
     onError: (msg: string) => void;
 }
 
@@ -218,7 +219,7 @@ type DialogState =
 
 /**
  * Fully data-driven action panel.
- * Uses the FSM config to determine which buttons to show — zero hardcoded `if` chains.
+ * Uses the FSM config to determine which buttons to show — zero hardcoded \`if\` chains.
  */
 export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
     orderId,
@@ -226,6 +227,7 @@ export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
     onStatusUpdated,
     onError,
 }) => {
+    const { t } = useTranslation('errors');
     const [loading, setLoading] = useState(false);
     const [dialog, setDialog] = useState<DialogState>({ type: 'none' });
 
@@ -243,14 +245,19 @@ export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
     const executeTransition = async (target: OrderStatusValue, note?: string) => {
         setLoading(true);
         try {
-            await adminOrderService.updateStatus(orderId, { status: target, note });
+            const res = await adminOrderService.updateStatus(orderId, { status: target, note });
             setDialog({ type: 'none' });
-            onStatusUpdated();
+            // Extract the messageKey from response payload
+            const messageKey = (res as any)?.messageKey || 'ORDER_STATUS_UPDATED';
+            onStatusUpdated(messageKey);
         } catch (err: any) {
-            const msg = err?.response?.data?.message
-                || err?.response?.data?.error
-                || err?.message
-                || 'Có lỗi xảy ra';
+            const errorCode = err?.response?.data?.errorCode;
+            const msg = errorCode
+                ? t(errorCode, { defaultValue: errorCode })
+                : (err?.response?.data?.message
+                    || err?.response?.data?.error
+                    || err?.message
+                    || t('INTERNAL_SERVER_ERROR'));
             onError(msg);
             setDialog({ type: 'none' });
         } finally {

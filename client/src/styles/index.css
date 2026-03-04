@@ -42,3 +42,9 @@ body {
 .animate-fade-in {
     animation: fadeIn 0.3s ease-out;
 }
+
+/* AI Insights card shimmer sweep */
+@keyframes shimmerMove {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}

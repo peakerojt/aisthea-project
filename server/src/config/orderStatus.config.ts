@@ -38,17 +38,9 @@ export const FSM_TRANSITIONS: Record<OrderStatusValue, OrderStatusValue[]> = {
     [ORDER_STATUS.RETURNED]: [],
 };
 
-/**
- * Vietnamese UI labels for each status.
- */
-export const STATUS_LABELS: Record<string, string> = {
-    [ORDER_STATUS.PENDING]: 'Chờ xác nhận',
-    [ORDER_STATUS.PROCESSING]: 'Đang chuẩn bị hàng',
-    [ORDER_STATUS.SHIPPING]: 'Đang giao hàng',
-    [ORDER_STATUS.DELIVERED]: 'Giao thành công',
-    [ORDER_STATUS.CANCELLED]: 'Đã hủy',
-    [ORDER_STATUS.RETURNED]: 'Hoàn trả',
-};
+// STATUS_LABELS (Vietnamese UI strings) have been removed.
+// The Frontend is the single owner of all translations via react-i18next.
+// Use enums.orderStatus.{status} in the FE locale files instead.
 
 /**
  * Helper: returns the valid next statuses from a current status.

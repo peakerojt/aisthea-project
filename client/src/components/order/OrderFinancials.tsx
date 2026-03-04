@@ -10,8 +10,9 @@
  */
 
 import React from 'react';
-import { RefundRecord, REFUND_METHOD_LABELS, REFUND_STATUS_LABELS, RefundStatus } from '../../services/refund.service';
+import { RefundRecord, RefundStatus } from '../../services/refund.service';
 import { Landmark } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,9 +34,9 @@ const statusStyles: Record<RefundStatus, string> = {
     PENDING: 'bg-white/5 text-white/40 border-white/10',
 };
 
-const StatusBadge: React.FC<{ status: RefundStatus }> = ({ status }) => (
+const StatusBadge: React.FC<{ status: RefundStatus; label: string }> = ({ status, label }) => (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${statusStyles[status] ?? statusStyles.PENDING}`}>
-        {REFUND_STATUS_LABELS[status] ?? status}
+        {label}
     </span>
 );
 
@@ -49,6 +50,8 @@ interface OrderFinancialsProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loading }) => {
+    const { t } = useTranslation(['orders']);
+
     return (
         <div className="bg-white/[0.025] border border-white/[0.07] rounded-2xl backdrop-blur-sm overflow-hidden">
             {/* Header */}
@@ -57,11 +60,11 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                     <Landmark size={13} className="text-primary" />
                 </div>
                 <span className="text-[11px] font-bold text-white/50 uppercase tracking-[0.12em]">
-                    Lịch sử tài chính
+                    {t('refund.financials.title')}
                 </span>
                 {refunds.length > 0 && (
                     <span className="ml-auto text-[10px] text-white/30 font-mono">
-                        {refunds.length} giao dịch
+                        {t('refund.financials.transactionCount', { count: refunds.length })}
                     </span>
                 )}
             </div>
@@ -79,7 +82,7 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                     <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
                         <Landmark size={18} className="text-white/20" />
                     </div>
-                    <p className="text-[12px] text-white/30">Chưa có giao dịch hoàn tiền nào</p>
+                    <p className="text-[12px] text-white/30">{t('refund.financials.noTransactions')}</p>
                 </div>
             )}
 
@@ -89,7 +92,13 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                     <table className="w-full text-left text-[12px]">
                         <thead>
                             <tr className="border-b border-white/[0.04]">
-                                {['Ngày tạo', 'Mã đối soát', 'Số tiền', 'Phương thức', 'Trạng thái'].map((h) => (
+                                {[
+                                    t('refund.financials.table.createdAt'),
+                                    t('refund.financials.table.transactionId'),
+                                    t('refund.financials.table.amount'),
+                                    t('refund.financials.table.method'),
+                                    t('refund.financials.table.status')
+                                ].map((h) => (
                                     <th key={h} className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-white/30 whitespace-nowrap">
                                         {h}
                                     </th>
@@ -114,15 +123,15 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                                     <td className="px-4 py-3 font-bold text-white whitespace-nowrap">
                                         {formatVND(r.amount)}
                                         <span className="ml-1.5 text-[10px] text-white/30">
-                                            {r.type === 'FULL' ? '(Toàn bộ)' : '(Một phần)'}
+                                            {r.type === 'FULL' ? t('refund.financials.typeFull') : t('refund.financials.typePartial')}
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-white/55 whitespace-nowrap">
-                                        {REFUND_METHOD_LABELS[r.method] ?? r.method}
+                                        {t(`refund.method.${r.method}`)}
                                     </td>
                                     <td className="px-4 py-3">
                                         <div className="flex flex-col gap-1">
-                                            <StatusBadge status={r.status} />
+                                            <StatusBadge status={r.status} label={t(`refund.status.${r.status}`)} />
                                             {r.status === 'FAILED' && r.gatewayError && (
                                                 <span className="text-[10px] text-red-400/70 leading-tight">
                                                     {r.gatewayError}

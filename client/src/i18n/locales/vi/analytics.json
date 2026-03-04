@@ -41,6 +41,20 @@
         "noData": "Chưa có dữ liệu",
         "noCancelled": "Không có sản phẩm bị hủy"
     },
+    "orderStatuses": {
+        "PENDING": "Chờ xử lý",
+        "CONFIRMED": "Đã xác nhận",
+        "PROCESSING": "Đang xử lý",
+        "SHIPPED": "Đang giao",
+        "SHIPPING": "Đang giao",
+        "DELIVERED": "Đã giao hàng",
+        "COMPLETED": "Hoàn thành",
+        "CANCELLED": "Đã hủy",
+        "RETURN_REQUESTED": "Yêu cầu hoàn trả",
+        "RETURNED": "Đã hoàn trả",
+        "REFUNDED": "Đã hoàn tiền",
+        "UNKNOWN": "Không xác định"
+    },
     "orderUnit": "{{count}} đơn",
     "feedback": {
         "loadError": "Không thể tải dữ liệu."

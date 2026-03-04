@@ -1,13 +1,14 @@
 import { Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { AuthRequest } from '../middlewares/auth.middleware';
+import { emitNewOrder } from '../socket';
 import {
   ORDER_STATUS,
-  STATUS_LABELS,
   isValidTransition,
   INVENTORY_RESTORE_STATUSES,
   getValidNextStatuses,
 } from '../config/orderStatus.config';
+import { ERROR_CODES, SUCCESS_MESSAGES } from '../utils/constants/responseKeys';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -99,7 +100,6 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
       customerName: order.customerName,
       customerPhone: order.customerPhone,
       status: order.status,
-      statusLabel: STATUS_LABELS[order.status ?? ''] ?? order.status,
       paymentStatus: order.paymentStatus,
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount?.toString() ?? '0',
@@ -188,7 +188,6 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
       orderId: order.orderId,
       orderNumber: order.orderNumber,
       status: order.status,
-      statusLabel: STATUS_LABELS[order.status ?? ''] ?? order.status,
       paymentStatus: order.paymentStatus,
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount?.toString() ?? '0',
@@ -241,7 +240,6 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
       statusHistory: order.statusHistory.map((h) => ({
         status: h.status,
         oldStatus: (h as any).oldStatus ?? null,
-        statusLabel: STATUS_LABELS[h.status] ?? h.status,
         changedAt: h.changedAt.toISOString(),
         changedBy: (h as any).changedBy ?? null,
         note: (h as any).note ?? null,
@@ -271,7 +269,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
 
     const { status: newStatus, note } = req.body as { status: string; note?: string };
     if (!newStatus) {
-      return res.status(400).json({ error: 'status là bắt buộc.' });
+      return res.status(400).json({ errorCode: ERROR_CODES.STATUS_REQUIRED });
     }
 
     const changedBy = req.user?.userId ?? null;
@@ -286,7 +284,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       },
     });
     if (!order) {
-      return res.status(404).json({ error: 'Không tìm thấy đơn hàng.' });
+      return res.status(404).json({ errorCode: ERROR_CODES.ORDER_NOT_FOUND });
     }
 
     const currentStatus = order.status ?? ORDER_STATUS.PENDING;
@@ -294,8 +292,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
     // 2. FSM validation — throw 400 on invalid transition
     if (!isValidTransition(currentStatus, newStatus)) {
       return res.status(400).json({
-        error: 'Chuyển đổi trạng thái không hợp lệ.',
-        message: `Không thể chuyển từ "${STATUS_LABELS[currentStatus] ?? currentStatus}" sang "${STATUS_LABELS[newStatus] ?? newStatus}".`,
+        errorCode: ERROR_CODES.INVALID_STATUS_TRANSITION,
         currentStatus,
         requestedStatus: newStatus,
         allowedTransitions: getValidNextStatuses(currentStatus),
@@ -342,12 +339,11 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
 
     res.json({
       success: true,
+      messageKey: SUCCESS_MESSAGES.ORDER_STATUS_UPDATED,
       orderId,
       previousStatus: currentStatus,
       newStatus,
-      statusLabel: STATUS_LABELS[newStatus] ?? newStatus,
       stockRestored: shouldRestoreInventory,
-      message: `Cập nhật trạng thái thành công: ${STATUS_LABELS[newStatus] ?? newStatus}`,
     });
   } catch (error: any) {
     console.error('[updateOrderStatus] Error:', error);
@@ -562,7 +558,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'Cart is empty. Vui lòng thêm sản phẩm vào giỏ hàng.' });
+      return res.status(400).json({ errorCode: ERROR_CODES.CART_EMPTY });
     }
 
     // --- SYNCHRONIZE CART ---
@@ -687,6 +683,21 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
         // but discount is not applied. Log the error and continue without coupon.
         console.warn('[createOrder] Coupon validation failed (order still created):', couponErr.message);
       }
+    }
+
+    // ── Emit real-time event to admin dashboard ───────────────────────────
+    // Fetch the final order total (may have been adjusted by coupon)
+    try {
+      const finalOrder = await prisma.order.findUnique({
+        where: { orderId },
+        select: { totalAmount: true },
+      });
+      emitNewOrder({
+        orderId,
+        totalAmount: finalOrder ? Number(finalOrder.totalAmount) : 0,
+      });
+    } catch {
+      // Non-critical — don't fail the checkout if socket emit fails
     }
 
     return res.json({

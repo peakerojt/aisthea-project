@@ -140,7 +140,7 @@ export async function initiateRefund(
     });
 
     if (!order) {
-        throw new RefundError('ORDER_NOT_FOUND', 'Đơn hàng không tồn tại.', 404);
+        throw new RefundError('ORDER_NOT_FOUND', 'Order not found.', 404);
     }
 
     // ── 2. Payment status guard
@@ -151,7 +151,7 @@ export async function initiateRefund(
     if (!isPaid && !isPartiallyRefunded) {
         throw new RefundError(
             'ORDER_NOT_PAID',
-            'Đơn hàng chưa thanh toán, không thể thực hiện hoàn tiền.',
+            'Order has not been paid; refund cannot be processed.',
         );
     }
 
@@ -166,14 +166,14 @@ export async function initiateRefund(
     if (payload.amount <= 0) {
         throw new RefundError(
             'INVALID_AMOUNT',
-            'Số tiền hoàn không hợp lệ hoặc vượt quá mức cho phép.',
+            'Refund amount is invalid or exceeds the allowed limit.',
         );
     }
 
     if (totalAlreadyRefunded + payload.amount > orderTotal) {
         throw new RefundError(
             'OVER_REFUND',
-            'Số tiền hoàn vượt quá tổng giá trị đơn hàng.',
+            'Refund amount exceeds the total order value.',
         );
     }
 
@@ -209,13 +209,13 @@ export async function initiateRefund(
                 where: { refundId: refund.refundId },
                 data: {
                     status: 'FAILED',
-                    gatewayError: gatewayResult.errorMessage ?? 'Lỗi không xác định từ cổng thanh toán.',
+                    gatewayError: gatewayResult.errorMessage ?? 'Unknown gateway error.',
                 },
             });
 
             throw new RefundError(
                 'GATEWAY_FAILED',
-                gatewayResult.errorMessage ?? 'Cổng thanh toán từ chối giao dịch hoàn tiền.',
+                gatewayResult.errorMessage ?? 'Payment gateway rejected the refund transaction.',
             );
         }
 

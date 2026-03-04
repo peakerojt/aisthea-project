@@ -2,6 +2,32 @@ import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Simple in-memory cache (TTL: 15 minutes)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CacheEntry {
+    data: any;
+    expiresAt: number;
+}
+
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const analyticsCache = new Map<string, CacheEntry>();
+
+function getCached(key: string): any | null {
+    const entry = analyticsCache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+        analyticsCache.delete(key);
+        return null;
+    }
+    return entry.data;
+}
+
+function setCache(key: string, data: any): void {
+    analyticsCache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -36,6 +62,13 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
         const start = parseDate(req.query.startDate, defaultStart);
         const end = endOfDay(parseDate(req.query.endDate, defaultEnd));
 
+        // ── Cache check ────────────────────────────────────────────────────────
+        const cacheKey = `${req.query.startDate ?? 'default'}_${req.query.endDate ?? 'default'}`;
+        const cached = getCached(cacheKey);
+        if (cached) {
+            return res.json({ ...cached, _cached: true });
+        }
+
         // ── 1. Revenue by Category ─────────────────────────────────────────────
         const revenueByCategory: Array<{
             category: string;
@@ -65,22 +98,22 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
             _count: { orderId: true },
         });
 
-        const STATUS_VI_MAP: Record<string, string> = {
-            PENDING: 'Chờ xử lý',
-            CONFIRMED: 'Đã xác nhận',
-            PROCESSING: 'Đang xử lý',
-            SHIPPED: 'Đang giao',
-            COMPLETED: 'Hoàn thành',
-            CANCELLED: 'Đã hủy',
-            Pending: 'Chờ xử lý',
+        // Normalize DB status to canonical UPPER_SNAKE_CASE key for FE i18n.
+        // DB may store mixed-case (e.g. "Cancelled", "Return_Requested") — unify them.
+        const normalizeStatus = (s: string | null): string => {
+            if (!s) return 'UNKNOWN';
+            return s
+                .replace(/([a-z])([A-Z])/g, '$1_$2') // CamelCase -> CAMEL_CASE
+                .replace(/ /g, '_')                    // spaces -> underscores
+                .toUpperCase();                        // -> UPPER_SNAKE_CASE
         };
 
         const PIE_COLORS = ['#e11d48', '#3b82f6', '#a855f7', '#06b6d4', '#10b981', '#f97316'];
         const statusFunnel = statusGroups.map((g, i) => ({
-            name: STATUS_VI_MAP[g.status ?? ''] ?? g.status ?? 'Khác',
+            // 'status' is the i18n key the FE uses for translation lookup
+            status: normalizeStatus(g.status),
             value: g._count.orderId,
             color: PIE_COLORS[i % PIE_COLORS.length],
-            status: g.status,
         }));
 
         // ── 3. Monthly Revenue vs Orders (Composed Chart) ─────────────────────
@@ -174,8 +207,42 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
         const completedOrders = statusFunnel.find(g => g.status === 'COMPLETED')?.value ?? 0;
         const avgOrderValue = completedOrders > 0 ? currentRevenue / completedOrders : 0;
 
+        // ── 7. Customer Retention: New vs Returning ───────────────────────────
+        // A "Returning Customer" has at least 1 COMPLETED order BEFORE startDate.
+        // A "New Customer" has no COMPLETED orders before startDate.
+        const retentionRaw: Array<{
+            newCustomers: number | bigint;
+            returningCustomers: number | bigint;
+        }> = await prisma.$queryRaw`
+      SELECT
+        SUM(CASE WHEN prior.UserId IS NULL THEN 1 ELSE 0 END) AS newCustomers,
+        SUM(CASE WHEN prior.UserId IS NOT NULL THEN 1 ELSE 0 END) AS returningCustomers
+      FROM (
+        SELECT DISTINCT o.UserId
+        FROM Orders o
+        WHERE o.CreatedAt >= ${start}
+          AND o.CreatedAt <= ${end}
+          AND o.Status = 'COMPLETED'
+          AND o.UserId IS NOT NULL
+      ) AS current_customers
+      LEFT JOIN (
+        SELECT DISTINCT UserId
+        FROM Orders
+        WHERE Status = 'COMPLETED'
+          AND CreatedAt < ${start}
+          AND UserId IS NOT NULL
+      ) AS prior
+        ON current_customers.UserId = prior.UserId
+    `;
+
+        const retentionRow = retentionRaw[0] ?? { newCustomers: 0, returningCustomers: 0 };
+        const customerRetention = {
+            newCustomers: Number(retentionRow.newCustomers ?? 0),
+            returningCustomers: Number(retentionRow.returningCustomers ?? 0),
+        };
+
         // ── Response ──────────────────────────────────────────────────────────
-        res.json({
+        const payload = {
             success: true,
             period: { start: start.toISOString(), end: end.toISOString() },
             summary: {
@@ -210,7 +277,13 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
                 cancelCount: Number(r.cancelCount ?? 0),
                 lostRevenue: Number(r.lostRevenue ?? 0),
             })),
-        });
+            customerRetention,
+        };
+
+        // Store in cache before responding
+        setCache(cacheKey, payload);
+
+        res.json(payload);
     } catch (error: any) {
         console.error('[getAnalyticsSummary] Error:', error?.message ?? error);
         res.status(500).json({ success: false, error: 'Internal server error', details: error?.message });
