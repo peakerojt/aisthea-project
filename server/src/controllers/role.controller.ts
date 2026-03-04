@@ -19,7 +19,7 @@ export const listRoles = async (req: Request, res: Response) => {
         res.json({ success: true, data: result });
     } catch (error) {
         console.error('listRoles error:', error);
-        res.status(500).json({ success: false, message: 'Lỗi khi tải danh sách vai trò.' });
+        res.status(500).json({ success: false, code: 'FETCH_ROLES_FAILED', message: 'Failed to fetch roles.' });
     }
 };
 
@@ -30,7 +30,7 @@ export const listPermissionsGrouped = async (req: Request, res: Response) => {
         res.json({ success: true, data: grouped });
     } catch (error) {
         console.error('listPermissionsGrouped error:', error);
-        res.status(500).json({ success: false, message: 'Lỗi khi tải danh sách quyền hạn.' });
+        res.status(500).json({ success: false, code: 'FETCH_PERMISSIONS_FAILED', message: 'Failed to fetch permissions.' });
     }
 };
 
@@ -41,7 +41,7 @@ export const listPermissionsFlat = async (req: Request, res: Response) => {
         res.json({ success: true, data: list });
     } catch (error) {
         console.error('listPermissionsFlat error:', error);
-        res.status(500).json({ success: false, message: 'Lỗi khi tải danh sách quyền hạn.' });
+        res.status(500).json({ success: false, code: 'FETCH_PERMISSIONS_FAILED', message: 'Failed to fetch permissions.' });
     }
 };
 
@@ -54,28 +54,28 @@ export const setRolePermissions = async (req: Request, res: Response) => {
         const roleId = parseInt(String(req.params.id), 10);
 
         if (isNaN(roleId)) {
-            return res.status(400).json({ success: false, message: 'roleId không hợp lệ.' });
+            return res.status(400).json({ success: false, code: 'INVALID_ROLE_ID', message: 'Invalid role ID.' });
         }
 
         const { permissionIds } = req.body;
         if (!Array.isArray(permissionIds)) {
-            return res.status(400).json({ success: false, message: 'permissionIds phải là một mảng số.' });
+            return res.status(400).json({ success: false, code: 'INVALID_PERMISSION_IDS', message: 'permissionIds must be an array of numbers.' });
         }
 
         const result = await updateRolePermissions(roleId, permissionIds);
-        res.json({ success: true, message: 'Cập nhật quyền hạn thành công!', data: result });
+        res.json({ success: true, code: 'PERMISSIONS_UPDATED', message: 'Role permissions updated successfully.', data: result });
     } catch (error: any) {
         if (error.message === 'SUPER_ADMIN_PROTECTED') {
             return res.status(403).json({
                 success: false,
-                message: 'Không thể sửa đổi quyền hạn của vai trò Super Admin.',
                 code: 'SUPER_ADMIN_PROTECTED',
+                message: 'Cannot modify permissions of the Super Admin role.',
             });
         }
         if (error.message === 'Role not found') {
-            return res.status(404).json({ success: false, message: 'Vai trò không tồn tại.' });
+            return res.status(404).json({ success: false, code: 'ROLE_NOT_FOUND', message: 'Role not found.' });
         }
         console.error('setRolePermissions error:', error);
-        res.status(500).json({ success: false, message: 'Lỗi khi cập nhật quyền hạn.' });
+        res.status(500).json({ success: false, code: 'UPDATE_PERMISSIONS_FAILED', message: 'Failed to update role permissions.' });
     }
 };

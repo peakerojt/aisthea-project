@@ -27,7 +27,7 @@ const sendError = (res: Response, error: ReturnError | Error) => {
     return res.status(500).json({
         success: false,
         code: 'INTERNAL_SERVER_ERROR',
-        message: 'Lỗi máy chủ nội bộ.',
+        message: 'Internal server error.',
     });
 };
 
@@ -36,12 +36,12 @@ export const postReturnRequest = async (req: AuthRequest, res: Response) => {
     try {
         const orderId = Number(req.params.id);
         if (!Number.isFinite(orderId) || orderId <= 0) {
-            return res.status(400).json({ success: false, message: 'Mã đơn hàng không hợp lệ.' });
+            return res.status(400).json({ success: false, code: 'INVALID_ORDER_ID', message: 'Invalid order ID.' });
         }
 
         const user = req.user;
         if (!user || typeof user.userId !== 'number') {
-            return res.status(401).json({ success: false, message: 'Yêu cầu xác thực.' });
+            return res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'Authentication required.' });
         }
 
         const { reason, proofImages = [] } = req.body as {
@@ -50,11 +50,11 @@ export const postReturnRequest = async (req: AuthRequest, res: Response) => {
         };
 
         if (!reason || reason.trim().length === 0) {
-            return res.status(400).json({ success: false, message: 'Vui lòng nhập lý do trả hàng.' });
+            return res.status(400).json({ success: false, code: 'REASON_REQUIRED', message: 'Return reason is required.' });
         }
 
         if (!Array.isArray(proofImages)) {
-            return res.status(400).json({ success: false, message: 'Hình ảnh minh chứng phải là mảng URL.' });
+            return res.status(400).json({ success: false, code: 'INVALID_PROOF_IMAGES', message: 'proofImages must be an array of URLs.' });
         }
 
         const data = await requestReturn(
@@ -76,12 +76,12 @@ export const patchProcessReturn = async (req: AuthRequest, res: Response) => {
     try {
         const returnId = Number(req.params.id);
         if (!Number.isFinite(returnId) || returnId <= 0) {
-            return res.status(400).json({ success: false, message: 'Mã yêu cầu hoàn trả không hợp lệ.' });
+            return res.status(400).json({ success: false, code: 'INVALID_RETURN_ID', message: 'Invalid return request ID.' });
         }
 
         const user = req.user;
         if (!user || !user.roles?.includes('Admin')) {
-            return res.status(403).json({ success: false, message: 'Chỉ Admin mới có quyền xử lý hoàn trả.' });
+            return res.status(403).json({ success: false, code: 'ADMIN_REQUIRED', message: 'Admin role required to process returns.' });
         }
 
         const { action, note } = req.body as { action: ProcessAction; note?: string };
@@ -90,7 +90,8 @@ export const patchProcessReturn = async (req: AuthRequest, res: Response) => {
         if (!validActions.includes(action)) {
             return res.status(400).json({
                 success: false,
-                message: `Hành động không hợp lệ. Phải là một trong: ${validActions.join(', ')}.`,
+                code: 'INVALID_ACTION',
+                message: `Invalid action. Must be one of: ${validActions.join(', ')}.`,
             });
         }
 
@@ -106,7 +107,7 @@ export const getAdminReturns = async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user;
         if (!user || !user.roles?.includes('Admin')) {
-            return res.status(403).json({ success: false, message: 'Chỉ Admin mới có quyền xem danh sách hoàn trả.' });
+            return res.status(403).json({ success: false, code: 'ADMIN_REQUIRED', message: 'Admin role required to view returns.' });
         }
 
         const page = req.query.page ? Number(req.query.page) : 1;
@@ -125,7 +126,7 @@ export const getOrderReturn = async (req: AuthRequest, res: Response) => {
     try {
         const orderId = Number(req.params.id);
         if (!Number.isFinite(orderId) || orderId <= 0) {
-            return res.status(400).json({ success: false, message: 'Mã đơn hàng không hợp lệ.' });
+            return res.status(400).json({ success: false, code: 'INVALID_ORDER_ID', message: 'Invalid order ID.' });
         }
 
         const data = await getReturnForOrder(orderId);

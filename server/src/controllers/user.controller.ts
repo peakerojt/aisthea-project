@@ -400,7 +400,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
         res.status(200).json({ success: true, data: result });
     } catch (error: any) {
         console.error('[Admin] Get all users error:', error);
-        res.status(500).json({ success: false, message: error.message || 'Không thể lấy danh sách người dùng.' });
+        res.status(500).json({ success: false, code: 'FETCH_USERS_FAILED', message: 'Failed to fetch users.' });
     }
 };
 
@@ -415,14 +415,15 @@ export const updateUserStatus = async (req: Request, res: Response) => {
         const targetId = parseInt(String(req.params.id));
 
         if (isNaN(targetId)) {
-            return res.status(400).json({ success: false, message: 'ID người dùng không hợp lệ.' });
+            return res.status(400).json({ success: false, code: 'INVALID_USER_ID', message: 'Invalid user ID.' });
         }
 
         // Guard: Cannot ban yourself
         if (requesterId === targetId) {
             return res.status(403).json({
                 success: false,
-                message: 'Không thể khóa tài khoản của chính bạn!',
+                code: 'CANNOT_BAN_SELF',
+                message: 'You cannot ban your own account.',
             });
         }
 
@@ -433,7 +434,7 @@ export const updateUserStatus = async (req: Request, res: Response) => {
         });
 
         if (!targetUser) {
-            return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng.' });
+            return res.status(404).json({ success: false, code: 'USER_NOT_FOUND', message: 'User not found.' });
         }
 
         // Guard: Cannot ban another Admin (Super Admin protection)
@@ -441,7 +442,8 @@ export const updateUserStatus = async (req: Request, res: Response) => {
         if (targetRoles.includes('admin')) {
             return res.status(403).json({
                 success: false,
-                message: 'Không thể khóa tài khoản của Quản trị viên.',
+                code: 'CANNOT_BAN_ADMIN',
+                message: 'You cannot ban another admin account.',
             });
         }
 
@@ -456,12 +458,13 @@ export const updateUserStatus = async (req: Request, res: Response) => {
 
         res.status(200).json({
             success: true,
-            message: `Cập nhật trạng thái thành công!`,
+            code: 'STATUS_UPDATED',
+            message: 'User status updated successfully.',
             data: updated,
         });
     } catch (error: any) {
         console.error('[Admin] Update user status error:', error);
-        res.status(500).json({ success: false, message: error.message || 'Không thể cập nhật trạng thái người dùng.' });
+        res.status(500).json({ success: false, code: 'UPDATE_STATUS_FAILED', message: 'Failed to update user status.' });
     }
 };
 
@@ -480,7 +483,7 @@ export const updateUserRole = async (req: Request, res: Response) => {
         const targetId = parseInt(String(req.params.id));
 
         if (isNaN(targetId)) {
-            return res.status(400).json({ success: false, message: 'ID người dùng không hợp lệ.' });
+            return res.status(400).json({ success: false, code: 'INVALID_USER_ID', message: 'Invalid user ID.' });
         }
 
         // Validate request body
@@ -488,7 +491,8 @@ export const updateUserRole = async (req: Request, res: Response) => {
         if (!parsed.success) {
             return res.status(400).json({
                 success: false,
-                message: parsed.error.issues[0]?.message || 'Dữ liệu không hợp lệ.',
+                code: 'INVALID_BODY',
+                message: parsed.error.issues[0]?.message || 'Invalid request body.',
             });
         }
 
@@ -497,13 +501,13 @@ export const updateUserRole = async (req: Request, res: Response) => {
         // Verify role exists
         const role = await adminPrisma.role.findUnique({ where: { roleId } });
         if (!role) {
-            return res.status(404).json({ success: false, message: 'Vai trò không tồn tại.' });
+            return res.status(404).json({ success: false, code: 'ROLE_NOT_FOUND', message: 'Role not found.' });
         }
 
         // Verify user exists
         const user = await adminPrisma.user.findUnique({ where: { userId: targetId } });
         if (!user) {
-            return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng.' });
+            return res.status(404).json({ success: false, code: 'USER_NOT_FOUND', message: 'User not found.' });
         }
 
         // Replace all roles: delete existing, insert new
@@ -514,11 +518,12 @@ export const updateUserRole = async (req: Request, res: Response) => {
 
         res.status(200).json({
             success: true,
-            message: 'Cập nhật vai trò thành công!',
+            code: 'ROLE_UPDATED',
+            message: 'User role updated successfully.',
             data: { userId: targetId, role: { roleId: role.roleId, roleName: role.roleName } },
         });
     } catch (error: any) {
         console.error('[Admin] Update user role error:', error);
-        res.status(500).json({ success: false, message: error.message || 'Không thể cập nhật vai trò người dùng.' });
+        res.status(500).json({ success: false, code: 'UPDATE_ROLE_FAILED', message: 'Failed to update user role.' });
     }
 };

@@ -8,7 +8,7 @@ import {
 import { motion } from 'framer-motion';
 import {
     Download, TrendingUp, TrendingDown,
-    DollarSign, ShoppingCart, Users, AlertTriangle, Calendar,
+    DollarSign, ShoppingCart, Users, AlertTriangle, Calendar, Sparkles,
 } from 'lucide-react';
 import {
     fetchAnalyticsSummary, exportToCSV, formatVND, formatVNDShort,
@@ -21,15 +21,16 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const VNDTooltip = ({ active, payload, label }: any) => {
+    const { t } = useTranslation('analytics');
     if (!active || !payload?.length) return null;
     return (
         <div className="bg-[#1a1a2e] border border-white/10 rounded-lg px-3 py-2 shadow-xl text-xs">
             <p className="text-white/40 font-medium mb-1">{label}</p>
             {payload.map((p: any) => (
                 <p key={p.name} className="font-bold" style={{ color: p.color ?? '#e11d48' }}>
-                    {p.name === 'revenue' || p.name === 'Doanh thu'
+                    {p.name === 'revenue' || p.name === t('charts.revenue', { defaultValue: 'Doanh thu' })
                         ? formatVNDShort(p.value)
-                        : `${p.value.toLocaleString('vi-VN')} đơn`}
+                        : `${p.value.toLocaleString('vi-VN')} ${t('charts.orderUnit', { defaultValue: 'đơn' })}`}
                 </p>
             ))}
         </div>
@@ -99,6 +100,166 @@ const KPICard: React.FC<KPICardProps> = ({ label, value, sub, icon: Icon, positi
         </div>
     </motion.div>
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI Insights Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AI_INSIGHT_TEXT =
+    'Doanh thu tăng trưởng tốt. Đề nghị kiểm tra tỷ lệ hủy đơn của nhóm sản phẩm có lượng tồn kho thấp.';
+
+const AIInsightsCard: React.FC = () => {
+    const { t } = useTranslation('analytics');
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="relative rounded-xl border border-indigo-500/30 bg-[#0d0f1e] overflow-hidden"
+            style={{
+                boxShadow: '0 0 28px rgba(99,102,241,0.30), 0 0 8px rgba(99,102,241,0.15) inset',
+            }}
+        >
+            {/* Animated shimmer overlay */}
+            <div
+                className="absolute inset-0 opacity-[0.06] pointer-events-none"
+                style={{
+                    background:
+                        'linear-gradient(115deg, transparent 40%, rgba(139,92,246,0.6) 50%, transparent 60%)',
+                    backgroundSize: '200% 200%',
+                    animation: 'shimmerMove 4s linear infinite',
+                }}
+            />
+
+            <div className="relative z-10 flex items-start gap-4 px-6 py-4">
+                {/* Icon */}
+                <div className="shrink-0 mt-0.5 w-9 h-9 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-indigo-400" />
+                </div>
+
+                <div>
+                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.18em] mb-1">
+                        {t('aiInsights.badge', { defaultValue: 'AI Insights ✦ Beta' })}
+                    </p>
+                    <p className="text-sm text-white/80 leading-relaxed font-medium">
+                        {t('aiInsights.message', { defaultValue: AI_INSIGHT_TEXT })}
+                    </p>
+                </div>
+
+                {/* Live badge */}
+                <div className="ml-auto shrink-0 flex items-center gap-1.5 text-[10px] font-bold text-indigo-400 border border-indigo-500/30 rounded-full px-2.5 py-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                    {t('aiInsights.live', { defaultValue: 'LIVE' })}
+                </div>
+            </div>
+        </motion.div>
+    );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Customer Retention Donut Chart
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RETENTION_COLORS = ['#10b981', '#3b82f6'] as const;
+
+interface RetentionChartProps {
+    newCustomers: number;
+    returningCustomers: number;
+    loading: boolean;
+}
+
+const RetentionChart: React.FC<RetentionChartProps> = ({ newCustomers, returningCustomers, loading }) => {
+    const { t } = useTranslation('analytics');
+    const total = newCustomers + returningCustomers;
+    const chartData = [
+        { name: t('retention.newCustomers', { defaultValue: 'Khách mới' }), value: newCustomers },
+        { name: t('retention.returningCustomers', { defaultValue: 'Khách quay lại' }), value: returningCustomers },
+    ];
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="bg-surface-dark border border-white/5 rounded-lg p-6 flex flex-col"
+        >
+            <div className="mb-5">
+                <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    {t('retention.title', { defaultValue: 'Tỷ Lệ Khách Hàng Mới / Cũ' })}
+                </h3>
+                <p className="text-xs text-white/30 mt-1">{t('retention.subtitle', { defaultValue: 'Phân loại khách trong kỳ báo cáo' })}</p>
+            </div>
+
+            {loading ? (
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="w-36 h-36 rounded-full border-4 border-white/10 animate-pulse" />
+                </div>
+            ) : total === 0 ? (
+                <div className="flex-1 flex items-center justify-center text-white/20 text-sm">
+                    {t('retention.noData', { defaultValue: 'Không có dữ liệu' })}
+                </div>
+            ) : (
+                <div className="flex flex-col gap-4">
+                    {/* Donut chart */}
+                    <div className="h-48 relative">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={chartData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={52}
+                                    outerRadius={76}
+                                    paddingAngle={4}
+                                    dataKey="value"
+                                    strokeWidth={0}
+                                >
+                                    {chartData.map((_, i) => (
+                                        <Cell key={i} fill={RETENTION_COLORS[i]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip
+                                    contentStyle={{
+                                        backgroundColor: '#1a1a2e',
+                                        borderColor: 'rgba(255,255,255,0.1)',
+                                        borderRadius: '8px',
+                                        fontSize: '11px',
+                                    }}
+                                    itemStyle={{ color: '#fff' }}
+                                    formatter={(value: number) => [
+                                        `${value} (${total > 0 ? ((value / total) * 100).toFixed(1) : 0}%)`,
+                                    ]}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                        {/* Centre label */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <p className="text-xl font-black text-white">{total}</p>
+                            <p className="text-[10px] text-white/30 font-semibold uppercase tracking-wide">Tổng</p>
+                        </div>
+                    </div>
+
+                    {/* Legend rows */}
+                    <div className="grid grid-cols-2 gap-3">
+                        {chartData.map((item, i) => (
+                            <div key={item.name} className="flex flex-col gap-0.5 bg-white/[0.03] rounded-lg p-3 border border-white/5">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: RETENTION_COLORS[i] }} />
+                                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">{item.name}</span>
+                                </div>
+                                <p className="text-xl font-black text-white ml-4">{item.value}</p>
+                                <p className="text-[10px] text-white/30 ml-4">
+                                    {total > 0 ? `${((item.value / total) * 100).toFixed(1)}%` : '—'}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </motion.div>
+    );
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main page
@@ -187,6 +348,9 @@ export const AdminAnalytics: React.FC = () => {
                 </div>
             </header>
 
+            {/* ── AI Insights Card ─────────────────────────────────────────────── */}
+            <AIInsightsCard />
+
             {/* ── Error ────────────────────────────────────────────────────────── */}
             {error && (
                 <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
@@ -197,7 +361,7 @@ export const AdminAnalytics: React.FC = () => {
             {/* ── KPI Strip ────────────────────────────────────────────────────── */}
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
                 <KPICard
-                    label="Doanh thu kỳ này"
+                    label={t('kpi.revenue')}
                     value={formatVNDShort(data?.summary.currentRevenue ?? 0)}
                     sub={`${momPositive ? '+' : ''}${mom.toFixed(1)}% ${t('kpi.revenueGrowth', { sign: '', value: '' }).replace('', '').trim()}`}
                     positive={momPositive}
@@ -230,13 +394,13 @@ export const AdminAnalytics: React.FC = () => {
                 />
             </div>
 
-            {/* ── Charts Row 1: Bar + Pie ──────────────────────────────────────── */}
+            {/* ── Charts Row 1: Bar + Pie + Retention Donut ───────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
                 {/* Chart 1: Revenue by Category (BarChart) */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                    className="lg:col-span-7 bg-surface-dark border border-white/5 rounded-lg p-6 flex flex-col"
+                    className="lg:col-span-5 bg-surface-dark border border-white/5 rounded-lg p-6 flex flex-col"
                 >
                     <div className="mb-5">
                         <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
@@ -276,7 +440,7 @@ export const AdminAnalytics: React.FC = () => {
                                         axisLine={false} tickLine={false} width={120}
                                     />
                                     <Tooltip content={<VNDTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-                                    <Bar dataKey="revenue" name="Doanh thu" fill="url(#barGrad)" radius={[0, 4, 4, 0]} />
+                                    <Bar dataKey="revenue" name={t('charts.revenue', { defaultValue: 'Doanh thu' })} fill="url(#barGrad)" radius={[0, 4, 4, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -286,7 +450,7 @@ export const AdminAnalytics: React.FC = () => {
                 {/* Chart 2: Order Status Funnel (PieChart) */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                    className="lg:col-span-5 bg-surface-dark border border-white/5 rounded-lg p-6 flex flex-col"
+                    className="lg:col-span-4 bg-surface-dark border border-white/5 rounded-lg p-6 flex flex-col"
                 >
                     <div className="mb-5">
                         <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
@@ -325,9 +489,11 @@ export const AdminAnalytics: React.FC = () => {
                             {/* Legend */}
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                 {data.statusFunnel.map((item) => (
-                                    <div key={item.name} className="flex items-center gap-2">
+                                    <div key={item.status} className="flex items-center gap-2">
                                         <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                                        <span className="text-[11px] text-white/50 truncate">{item.name}</span>
+                                        <span className="text-[11px] text-white/50 truncate">
+                                            {t(`orderStatuses.${item.status}`, { defaultValue: item.status })}
+                                        </span>
                                         <span className="text-[11px] font-bold text-white ml-auto">{item.value}</span>
                                     </div>
                                 ))}
@@ -335,6 +501,15 @@ export const AdminAnalytics: React.FC = () => {
                         </div>
                     )}
                 </motion.div>
+
+                {/* Chart 3: Customer Retention Donut */}
+                <div className="lg:col-span-3">
+                    <RetentionChart
+                        newCustomers={data?.customerRetention?.newCustomers ?? 0}
+                        returningCustomers={data?.customerRetention?.returningCustomers ?? 0}
+                        loading={loading}
+                    />
+                </div>
             </div>
 
             {/* ── Chart Row 2: Composed Chart (Revenue + Orders) ───────────────── */}
@@ -385,12 +560,12 @@ export const AdminAnalytics: React.FC = () => {
                                 />
                                 <Tooltip content={<VNDTooltip />} />
                                 <Area
-                                    yAxisId="revenue" type="monotone" dataKey="revenue" name="Doanh thu"
+                                    yAxisId="revenue" type="monotone" dataKey="revenue" name={t('charts.revenue', { defaultValue: 'Doanh thu' })}
                                     stroke="#e11d48" strokeWidth={2} fill="url(#composedGrad)"
                                     dot={false} activeDot={{ r: 4, fill: '#e11d48', strokeWidth: 0 }}
                                 />
                                 <Bar
-                                    yAxisId="orders" dataKey="orders" name="Đơn hàng"
+                                    yAxisId="orders" dataKey="orders" name={t('charts.orders', { defaultValue: 'Đơn hàng' })}
                                     fill="rgba(99,102,241,0.6)" radius={[4, 4, 0, 0]} barSize={20}
                                 />
                             </ComposedChart>

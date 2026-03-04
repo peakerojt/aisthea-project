@@ -19,6 +19,11 @@ export function initSocket(server: HttpServer): Server {
     socket.on('tracking:join_user', (userId: string | number) => {
       socket.join(`user:${userId}`);
     });
+
+    // Admin dashboard joins the 'admin' room to receive real-time KPI events
+    socket.on('admin:join', () => {
+      socket.join('admin');
+    });
   });
 
   return io;
@@ -43,4 +48,13 @@ export function emitOrderStatusUpdated(payload: {
   if (payload.userId) {
     io.to(`user:${payload.userId}`).emit('order:status_updated', payload);
   }
+}
+
+/**
+ * Broadcast a new order event to all connected admin dashboards.
+ * Call this immediately after a new order is successfully created.
+ */
+export function emitNewOrder(payload: { orderId: number; totalAmount: number }) {
+  if (!io) return;
+  io.to('admin').emit('new_order', payload);
 }

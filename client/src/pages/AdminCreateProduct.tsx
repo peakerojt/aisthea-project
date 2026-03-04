@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod/v4';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -89,6 +90,7 @@ interface Props {
 }
 
 export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
+    const { t } = useTranslation(['products']);
     const { refreshProducts } = useProducts();
     const {
         register,
@@ -198,7 +200,7 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
         const p = getValues('basePrice');
         if (!p) return;
         setVariants(v => v.map(x => ({ ...x, price: p })));
-        showToast('success', `Đã đồng bộ giá ${Number(p).toLocaleString('vi-VN')}₫ cho tất cả phân loại`);
+        showToast('success', t('editor.feedback.syncPriceSuccess', { price: Number(p).toLocaleString('vi-VN') }));
     };
 
     const regenSkus = () => {
@@ -235,12 +237,12 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
     // ─── Submit ───────────────────────────────────────────────────────────────
     const onSubmit = async (data: FormValues) => {
         if (variants.length === 0) {
-            showToast('error', 'Vui lòng thêm ít nhất một phân loại sản phẩm');
+            showToast('error', t('editor.feedback.noVariants'));
             return;
         }
         for (const v of variants) {
             if (!v.price || Number(v.price) <= 0) {
-                showToast('error', `Phân loại "${v.label}" chưa có giá hợp lệ`);
+                showToast('error', t('editor.feedback.invalidPrice', { label: v.label }));
                 return;
             }
         }
@@ -275,11 +277,11 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
                 await uploadImage(productId, img);
             }
 
-            showToast('success', `Đã đăng bán "${data.name}" thành công! (${variants.length} phân loại)`);
+            showToast('success', t('editor.feedback.createSuccess', { name: data.name, count: variants.length }));
             await refreshProducts();
             setTimeout(() => setView('ADMIN_PRODUCTS'), 1800);
         } catch (err: any) {
-            showToast('error', err.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
+            showToast('error', err.message || t('editor.feedback.createError'));
         } finally {
             setSaving(false);
         }
@@ -319,13 +321,13 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
             <header className="sticky top-0 z-10 h-16 border-b border-white/5 flex items-center justify-between px-6 bg-surface-dark/80 backdrop-blur-lg shrink-0">
                 <div>
                     <div className="flex items-center gap-1.5 text-[11px] text-gray-500 mb-1">
-                        <button onClick={() => setView('ADMIN_DASHBOARD')} className="hover:text-white transition-colors">Trang chủ</button>
+                        <button onClick={() => setView('ADMIN_DASHBOARD')} className="hover:text-white transition-colors">{t('editor.breadcrumbs.home')}</button>
                         <ChevronRight size={10} />
-                        <button onClick={() => setView('ADMIN_PRODUCTS')} className="hover:text-white transition-colors">Sản phẩm</button>
+                        <button onClick={() => setView('ADMIN_PRODUCTS')} className="hover:text-white transition-colors">{t('editor.breadcrumbs.products')}</button>
                         <ChevronRight size={10} />
-                        <span className="text-gray-300">Tạo mới</span>
+                        <span className="text-gray-300">{t('editor.breadcrumbs.create')}</span>
                     </div>
-                    <h1 className="text-base font-bold text-white leading-none">Thêm sản phẩm mới</h1>
+                    <h1 className="text-base font-bold text-white leading-none">{t('page.create')}</h1>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
@@ -333,7 +335,7 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
                         onClick={() => setView('ADMIN_PRODUCTS')}
                         className="flex items-center gap-2 text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg hover:bg-white/5 transition-all">
                         <ArrowLeft size={15} />
-                        Huỷ bỏ
+                        {t('editor.actions.cancel')}
                     </button>
                     <button
                         type="button"
@@ -341,7 +343,7 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
                         disabled={saving}
                         className="flex items-center gap-2 bg-primary hover:bg-red-700 disabled:opacity-60 text-white text-sm font-bold px-5 py-2.5 rounded-lg shadow-lg shadow-primary/20 transition-all">
                         {saving ? <Loader2 size={16} className="animate-spin" /> : <Package size={16} />}
-                        {saving ? 'Đang lưu...' : 'Hoàn tất đăng bán'}
+                        {saving ? t('editor.actions.saving') : t('editor.actions.publish')}
                     </button>
                 </div>
             </header>
@@ -357,17 +359,17 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
                         <section className={cardCls}>
                             <div className="flex items-center gap-2">
                                 <Tag size={15} className="text-primary" />
-                                <h2 className="text-sm font-bold text-white uppercase tracking-wider">Thông tin cơ bản</h2>
+                                <h2 className="text-sm font-bold text-white uppercase tracking-wider">{t('editor.sections.basicInfo')}</h2>
                             </div>
 
                             {/* Name */}
                             <div>
                                 <label className={labelCls}>
-                                    Tên sản phẩm <span className="text-red-400">*</span>
+                                    {t('editor.fields.name')} <span className="text-red-400">*</span>
                                 </label>
                                 <input
                                     {...register('name')}
-                                    placeholder="VD: ÁO KHOÁC NOIR TRENCH COAT"
+                                    placeholder={t('editor.fields.namePlaceholder')}
                                     className={`w-full bg-transparent border-0 border-b-2 text-2xl font-bold text-white placeholder:text-white/15 py-2 focus:outline-none transition-colors ${errors.name ? 'border-red-500' : 'border-white/15 focus:border-primary'
                                         }`}
                                 />
@@ -376,7 +378,7 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
                                 )}
                                 {productName && (
                                     <p className="text-[11px] text-gray-500 mt-2 font-mono flex items-center gap-1.5">
-                                        <span className="text-gray-600">Slug:</span>
+                                        <span className="text-gray-600">{t('editor.fields.slug')}</span>
                                         <span className="text-primary/80">{slugPreview}</span>
                                     </p>
                                 )}
@@ -384,11 +386,11 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
 
                             {/* Description */}
                             <div>
-                                <label className={labelCls}>Mô tả sản phẩm</label>
+                                <label className={labelCls}>{t('editor.fields.description')}</label>
                                 <textarea
                                     {...register('description')}
                                     rows={5}
-                                    placeholder="Nhập mô tả chi tiết về sản phẩm, chất liệu, phong cách..."
+                                    placeholder={t('editor.fields.descriptionPlaceholder')}
                                     className={inputCls(false) + ' resize-none'}
                                 />
                             </div>
@@ -398,7 +400,7 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
                         <section className={cardCls}>
                             <div className="flex items-center gap-2">
                                 <Layers size={15} className="text-primary" />
-                                <h2 className="text-sm font-bold text-white uppercase tracking-wider">Phân loại hàng</h2>
+                                <h2 className="text-sm font-bold text-white uppercase tracking-wider">{t('editor.sections.variants')}</h2>
                             </div>
                             <p className="text-xs text-gray-500 -mt-3">
                                 Thêm thuộc tính như Màu sắc, Kích thước. Hệ thống tự tạo bảng phân loại.
@@ -411,11 +413,11 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
                                         <div className="flex gap-3 items-start">
                                             {/* Name */}
                                             <div className="w-44 shrink-0">
-                                                <label className="text-[10px] text-gray-500 font-bold uppercase block mb-1">Tên thuộc tính</label>
+                                                <label className="text-[10px] text-gray-500 font-bold uppercase block mb-1">{t('editor.fields.attrName')}</label>
                                                 <input
                                                     value={g.name}
                                                     onChange={e => updateGroupName(g.id, e.target.value)}
-                                                    placeholder="VD: Màu sắc"
+                                                    placeholder={t('editor.fields.attrNamePlaceholder')}
                                                     className="w-full bg-surface-dark border border-white/10 rounded px-2.5 py-2 text-sm text-white focus:outline-none focus:border-primary"
                                                 />
                                                 <div className="flex flex-wrap gap-1 mt-2">
@@ -434,7 +436,7 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
 
                                             {/* Values */}
                                             <div className="flex-1">
-                                                <label className="text-[10px] text-gray-500 font-bold uppercase block mb-1">Giá trị (nhấn Enter để thêm)</label>
+                                                <label className="text-[10px] text-gray-500 font-bold uppercase block mb-1">{t('editor.fields.attrValues')}</label>
                                                 <div className="min-h-[40px] bg-surface-dark border border-white/10 rounded px-2.5 py-1.5 flex flex-wrap gap-1.5 items-center focus-within:border-primary transition-colors">
                                                     {g.values.map(val => (
                                                         <span key={val} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/10 rounded text-xs text-white border border-white/10">
@@ -471,7 +473,7 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
 
                                 <button type="button" onClick={addGroup}
                                     className="flex items-center gap-2 text-xs font-bold text-primary hover:text-white uppercase tracking-wider transition-colors">
-                                    <Plus size={14} /> Thêm thuộc tính
+                                    <Plus size={14} /> {t('editor.fields.createAttr')}
                                 </button>
                             </div>
 
@@ -480,17 +482,17 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
                                 <div className="pt-4 border-t border-white/5">
                                     <div className="flex items-center justify-between mb-3">
                                         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                            Bảng phân loại ({variants.length})
+                                            {t('editor.fields.variantTable', { count: variants.length })}
                                         </h3>
                                         <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider">
                                             <button type="button" onClick={syncPriceAll}
                                                 className="text-primary hover:text-white transition-colors flex items-center gap-1">
-                                                <RefreshCw size={10} /> Đồng bộ giá
+                                                <RefreshCw size={10} /> {t('editor.fields.syncPrice')}
                                             </button>
                                             <span className="text-white/10">|</span>
                                             <button type="button" onClick={regenSkus}
                                                 className="text-primary hover:text-white transition-colors flex items-center gap-1">
-                                                <RefreshCw size={10} /> Tạo lại SKU
+                                                <RefreshCw size={10} /> {t('editor.fields.regenSku')}
                                             </button>
                                         </div>
                                     </div>
@@ -499,10 +501,10 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
                                         <table className="w-full text-left text-sm min-w-[560px]">
                                             <thead className="bg-white/5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                                                 <tr>
-                                                    <th className="px-4 py-3 border-b border-white/10">Tên phân loại</th>
-                                                    <th className="px-4 py-3 border-b border-white/10 w-36">SKU</th>
-                                                    <th className="px-4 py-3 border-b border-white/10 w-32">Giá (₫)</th>
-                                                    <th className="px-4 py-3 border-b border-white/10 w-28">Kho hàng</th>
+                                                    <th className="px-4 py-3 border-b border-white/10">{t('editor.fields.variantName')}</th>
+                                                    <th className="px-4 py-3 border-b border-white/10 w-36">{t('editor.fields.sku')}</th>
+                                                    <th className="px-4 py-3 border-b border-white/10 w-32">{t('editor.fields.price')}</th>
+                                                    <th className="px-4 py-3 border-b border-white/10 w-28">{t('editor.fields.stock')}</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-white/5">
@@ -512,7 +514,7 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
                                                             <span className="text-white font-semibold text-sm">{v.label}</span>
                                                             {i === 0 && (
                                                                 <span className="ml-2 text-[9px] bg-primary/20 text-primary border border-primary/30 px-1.5 py-0.5 rounded uppercase font-bold">
-                                                                    Mặc định
+                                                                    {t('editor.fields.default')}
                                                                 </span>
                                                             )}
                                                         </td>
@@ -568,27 +570,27 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
 
                         {/* Trạng thái */}
                         <div className={cardCls}>
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Trạng thái</h3>
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('editor.sections.status')}</h3>
                             <div>
-                                <label className={labelCls}>Hiển thị sản phẩm</label>
+                                <label className={labelCls}>{t('editor.fields.visibility')}</label>
                                 <select {...register('status')} className={inputCls(false)}>
-                                    <option value="Active">Đang bán</option>
-                                    <option value="Draft">Bản nháp</option>
-                                    <option value="Archived">Đã ẩn</option>
+                                    <option value="Active">{t('editor.fields.statusActive')}</option>
+                                    <option value="Draft">{t('editor.fields.statusDraft')}</option>
+                                    <option value="Archived">{t('editor.fields.statusArchived')}</option>
                                 </select>
                             </div>
                         </div>
 
                         {/* Tổ chức */}
                         <div className={cardCls}>
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Tổ chức</h3>
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('editor.sections.organization')}</h3>
 
                             <div>
                                 <label className={labelCls}>
-                                    Danh mục <span className="text-red-400">*</span>
+                                    {t('editor.fields.category')} <span className="text-red-400">*</span>
                                 </label>
                                 <select {...register('categoryId')} className={inputCls(!!errors.categoryId)}>
-                                    <option value="">— Chọn danh mục —</option>
+                                    <option value="">{t('editor.fields.categorySelect')}</option>
                                     {categories.map(c => (
                                         <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
                                     ))}
@@ -599,9 +601,9 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
                             </div>
 
                             <div>
-                                <label className={labelCls}>Thương hiệu</label>
+                                <label className={labelCls}>{t('editor.fields.brand')}</label>
                                 <select {...register('brandId')} className={inputCls(false)}>
-                                    <option value="">— Không có —</option>
+                                    <option value="">{t('editor.fields.brandSelect')}</option>
                                     {brands.map(b => (
                                         <option key={b.brandId} value={b.brandId}>{b.name}</option>
                                     ))}
@@ -611,11 +613,11 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
 
                         {/* Giá & SKU */}
                         <div className={cardCls}>
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Giá & Kho</h3>
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('editor.sections.priceAndStock')}</h3>
 
                             <div>
                                 <label className={labelCls}>
-                                    Giá bán cơ bản (₫) <span className="text-red-400">*</span>
+                                    {t('editor.fields.basePrice')} <span className="text-red-400">*</span>
                                 </label>
                                 <div className="relative">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₫</span>
@@ -628,7 +630,7 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
                                                 }
                                             },
                                         })}
-                                        placeholder="0"
+                                        placeholder={t('editor.fields.basePricePlaceholder')}
                                         className={inputCls(!!errors.basePrice) + ' pl-7'}
                                     />
                                 </div>
@@ -638,33 +640,33 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
                             </div>
 
                             <div>
-                                <label className={labelCls}>SKU gốc (tuỳ chọn)</label>
+                                <label className={labelCls}>{t('editor.fields.baseSku')}</label>
                                 <input
                                     {...register('baseSku', { onChange: () => regenSkus() })}
-                                    placeholder="VD: NOIR-TRENCH"
+                                    placeholder={t('editor.fields.baseSkuPlaceholder')}
                                     className={inputCls(false) + ' font-mono text-xs'}
                                 />
-                                <p className="text-[10px] text-gray-600 mt-1">Dùng làm tiền tố cho SKU phân loại.</p>
+                                <p className="text-[10px] text-gray-600 mt-1">{t('editor.fields.baseSkuHint')}</p>
                             </div>
                         </div>
 
                         {/* Summary */}
                         {variants.length > 0 && (
                             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2">
-                                <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Tóm tắt</h3>
+                                <h3 className="text-xs font-bold text-primary uppercase tracking-wider">{t('editor.sections.summary')}</h3>
                                 <div className="text-xs text-gray-300 space-y-1.5">
                                     <div className="flex justify-between">
-                                        <span>Số phân loại:</span>
+                                        <span>{t('editor.fields.summaryVariants')}</span>
                                         <span className="font-bold text-white">{variants.length}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span>Tổng kho:</span>
+                                        <span>{t('editor.fields.summaryTotalStock')}</span>
                                         <span className="font-bold text-white">
                                             {variants.reduce((s, v) => s + Number(v.stock || 0), 0).toLocaleString('vi-VN')}
                                         </span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span>Số ảnh:</span>
+                                        <span>{t('editor.fields.summaryImages')}</span>
                                         <span className="font-bold text-white">{managedImages.length}</span>
                                     </div>
                                 </div>

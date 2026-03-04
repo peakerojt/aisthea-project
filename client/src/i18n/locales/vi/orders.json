@@ -1,7 +1,14 @@
 {
     "page": {
         "title": "Quản lý Đơn hàng",
-        "detail": "Chi tiết đơn hàng"
+        "detail": "Chi tiết đơn hàng",
+        "orderCount": "{{count}} đơn hàng",
+        "loading": "Đang tải đơn hàng...",
+        "loadError": "Không thể tải danh sách đơn hàng.",
+        "dataError": "Không thể tải dữ liệu",
+        "retry": "Thử lại",
+        "noOrders": "Chưa có đơn hàng nào trong trạng thái này.",
+        "changeFilter": "Hãy thử thay đổi bộ lọc hoặc chọn tab khác."
     },
     "fields": {
         "orderId": "Mã đơn hàng",
@@ -34,8 +41,11 @@
         "CANCELLED": "Đã hủy"
     },
     "filters": {
+        "all": "Tất cả",
         "allStatus": "Tất cả trạng thái",
         "searchPlaceholder": "Tìm theo mã đơn, khách hàng…",
+        "searchPlaceholderAdmin": "Tìm tên, SĐT, mã đơn...",
+        "clear": "Xóa bộ lọc",
         "dateFrom": "Từ ngày",
         "dateTo": "Đến ngày"
     },
@@ -45,8 +55,10 @@
         "date": "Ngày đặt",
         "total": "Tổng tiền",
         "status": "Trạng thái",
-        "actions": "Thao tác"
+        "actions": "Thao tác",
+        "itemCount": "{{count}} sản phẩm"
     },
+    "pagination": "Trang {{page}} / {{totalPages}} · {{total}} đơn hàng",
     "actions": {
         "updateStatus": "Cập nhật trạng thái",
         "viewDetail": "Xem chi tiết",
@@ -57,5 +69,66 @@
     "feedback": {
         "updateSuccess": "Cập nhật đơn hàng thành công",
         "cancelConfirm": "Bạn có chắc muốn hủy đơn hàng #{{id}} không?"
+    },
+    "refund": {
+        "title": "Hoàn tiền",
+        "orderRef": "Đơn hàng #{{id}}",
+        "stats": {
+            "totalPaid": "Tổng đã thanh toán",
+            "totalRefunded": "Đã hoàn",
+            "maxRefundable": "Tối đa có thể hoàn",
+            "alreadyFullyRefunded": "Đơn hàng này đã được hoàn tiền toàn bộ."
+        },
+        "form": {
+            "refundType": "Loại hoàn tiền",
+            "typeFull": "Hoàn toàn bộ",
+            "typePartial": "Hoàn một phần",
+            "amount": "Số tiền hoàn",
+            "method": "Phương thức",
+            "reason": "Lý do hoàn tiền",
+            "reasonPlaceholder": "Mô tả lý do hoàn tiền...",
+            "cancel": "Hủy",
+            "submit": "Xác nhận hoàn {{amount}}",
+            "submitting": "Đang xử lý..."
+        },
+        "errors": {
+            "invalidType": "Loại hoàn tiền không hợp lệ.",
+            "invalidMethod": "Phương thức hoàn tiền không hợp lệ.",
+            "amountMustBeNumber": "Số tiền phải là số.",
+            "amountGreaterThanZero": "Số tiền hoàn phải lớn hơn 0.",
+            "amountExceedsLimit": "Số tiền hoàn vượt quá giới hạn.",
+            "reasonMinLength": "Lý do phải có ít nhất 5 ký tự.",
+            "reasonMaxLength": "Lý do không được vượt quá 500 ký tự.",
+            "invalidAmountOrExceeds": "Số tiền hoàn không hợp lệ hoặc vượt quá mức cho phép.",
+            "unknownError": "Lỗi không xác định."
+        },
+        "success": {
+            "initiated": "Lệnh hoàn tiền đã được gửi tới cổng thanh toán thành công."
+        },
+        "method": {
+            "ORIGINAL_GATEWAY": "Hoàn qua cổng thanh toán gốc",
+            "BANK_TRANSFER": "Chuyển khoản thủ công",
+            "STORE_WALLET": "Ví AISTHEA"
+        },
+        "status": {
+            "PENDING": "Chờ xử lý",
+            "PROCESSING": "Đang xử lý",
+            "SUCCESS": "Thành công",
+            "FAILED": "Thất bại"
+        },
+        "financials": {
+            "title": "Lịch sử tài chính",
+            "transactionCount": "{{count}} giao dịch",
+            "noTransactions": "Chưa có giao dịch hoàn tiền nào",
+            "table": {
+                "createdAt": "Ngày tạo",
+                "transactionId": "Mã đối soát",
+                "amount": "Số tiền",
+                "method": "Phương thức",
+                "status": "Trạng thái"
+            },
+            "typeFull": "(Toàn bộ)",
+            "typePartial": "(Một phần)"
+        }
     }
 }

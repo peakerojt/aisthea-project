@@ -72,7 +72,7 @@ export async function atomicCheckoutDeduction(
     if (!current) {
       throw new InventoryError(
         'VARIANT_NOT_FOUND',
-        `Sản phẩm "${item.productName}" không còn tồn tại trong hệ thống.`,
+        `Product variant not found in the system.`,
         400,
       );
     }
@@ -95,7 +95,7 @@ export async function atomicCheckoutDeduction(
       if (err?.code === 'P2025') {
         throw new InventoryError(
           'INSUFFICIENT_STOCK',
-          `Sản phẩm "${item.productName}" đã hết hàng hoặc không đủ số lượng yêu cầu.`,
+          `Product is out of stock or the requested quantity is unavailable.`,
           400,
         );
       }

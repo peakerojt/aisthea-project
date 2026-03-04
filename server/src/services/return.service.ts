@@ -62,13 +62,13 @@ export async function requestReturn(
     });
 
     if (!order) {
-        throw new ReturnError('NOT_FOUND', 'Đơn hàng không tồn tại.', 404);
+        throw new ReturnError('NOT_FOUND', 'Order not found.', 404);
     }
 
     if (!isAdmin && order.userId !== userId) {
         throw new ReturnError(
             'FORBIDDEN',
-            'Bạn không có quyền yêu cầu trả hàng cho đơn hàng này.',
+            'You do not have permission to request a return for this order.',
             403,
         );
     }
@@ -77,7 +77,7 @@ export async function requestReturn(
     if (norm(order.status) !== 'delivered') {
         throw new ReturnError(
             'ORDER_NOT_DELIVERED',
-            'Đơn hàng chưa được giao nên không thể yêu cầu trả hàng.',
+            'Order has not been delivered yet, so a return cannot be requested.',
         );
     }
 
@@ -87,7 +87,7 @@ export async function requestReturn(
     if (elapsed > RETURN_WINDOW_MS) {
         throw new ReturnError(
             'RETURN_WINDOW_EXPIRED',
-            'Đã quá thời hạn 7 ngày hỗ trợ trả hàng.',
+            'The 7-day return window has expired.',
         );
     }
 
@@ -95,7 +95,7 @@ export async function requestReturn(
     if (order.orderReturn) {
         throw new ReturnError(
             'RETURN_ALREADY_EXISTS',
-            'Yêu cầu trả hàng đã tồn tại cho đơn này.',
+            'A return request already exists for this order.',
         );
     }
 
@@ -161,7 +161,7 @@ export async function processReturn(
     });
 
     if (!returnReq) {
-        throw new ReturnError('NOT_FOUND', 'Yêu cầu trả hàng không tồn tại.', 404);
+        throw new ReturnError('NOT_FOUND', 'Return request not found.', 404);
     }
 
     if (action === 'APPROVE') {
@@ -172,7 +172,7 @@ export async function processReturn(
                 adminNote: note ?? null,
             },
         });
-        return { success: true, message: 'Đã chấp nhận yêu cầu trả hàng.' };
+        return { success: true, code: 'RETURN_APPROVED', message: 'Return request approved.' };
     }
 
     if (action === 'REJECT') {
@@ -198,7 +198,7 @@ export async function processReturn(
             });
         });
 
-        return { success: true, message: 'Đã từ chối yêu cầu trả hàng.' };
+        return { success: true, code: 'RETURN_REJECTED', message: 'Return request rejected.' };
     }
 
     if (action === 'COMPLETE_REFUND') {
@@ -269,11 +269,12 @@ export async function processReturn(
 
         return {
             success: true,
-            message: 'Đã xác nhận hoàn tiền và nhập lại kho.',
+            code: 'REFUND_COMPLETED',
+            message: 'Refund confirmed and stock restored.',
         };
     }
 
-    throw new ReturnError('INVALID_ACTION', 'Hành động không hợp lệ.', 400);
+    throw new ReturnError('INVALID_ACTION', 'Invalid action.', 400);
 }
 
 // ─── listReturns ──────────────────────────────────────────────────────────────

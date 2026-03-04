@@ -17,7 +17,7 @@ export async function postInitiateRefund(req: Request, res: Response): Promise<v
     const adminUserId = (req as any).user?.userId ?? 0;
 
     if (isNaN(orderId)) {
-        res.status(400).json({ success: false, message: 'Mã đơn hàng không hợp lệ.' });
+        res.status(400).json({ success: false, code: 'INVALID_ORDER_ID', message: 'Invalid order ID.' });
         return;
     }
 
@@ -27,7 +27,8 @@ export async function postInitiateRefund(req: Request, res: Response): Promise<v
     if (!amount || !type || !method || !reason) {
         res.status(400).json({
             success: false,
-            message: 'Thiếu thông tin bắt buộc: amount, type, method, reason.',
+            code: 'MISSING_REQUIRED_FIELDS',
+            message: 'Missing required fields: amount, type, method, reason.',
         });
         return;
     }
@@ -36,7 +37,8 @@ export async function postInitiateRefund(req: Request, res: Response): Promise<v
     if (isNaN(numAmount) || numAmount <= 0) {
         res.status(400).json({
             success: false,
-            message: 'Số tiền hoàn không hợp lệ hoặc vượt quá mức cho phép.',
+            code: 'INVALID_AMOUNT',
+            message: 'Refund amount is invalid or exceeds the allowed limit.',
         });
         return;
     }
@@ -51,7 +53,8 @@ export async function postInitiateRefund(req: Request, res: Response): Promise<v
 
         res.status(201).json({
             success: true,
-            message: 'Lệnh hoàn tiền đã được gửi tới cổng thanh toán thành công.',
+            code: 'REFUND_INITIATED',
+            message: 'Refund sent to payment gateway successfully.',
             data: refund,
         });
     } catch (err: any) {
@@ -59,7 +62,7 @@ export async function postInitiateRefund(req: Request, res: Response): Promise<v
             res.status(err.status).json({ success: false, code: err.code, message: err.message });
         } else {
             console.error('[refund.controller] unexpected error:', err);
-            res.status(500).json({ success: false, message: 'Lỗi máy chủ nội bộ.' });
+            res.status(500).json({ success: false, code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error.' });
         }
     }
 }
@@ -70,7 +73,7 @@ export async function getOrderRefunds(req: Request, res: Response): Promise<void
     const orderId = parseInt(req.params.id as string, 10);
 
     if (isNaN(orderId)) {
-        res.status(400).json({ success: false, message: 'Mã đơn hàng không hợp lệ.' });
+        res.status(400).json({ success: false, code: 'INVALID_ORDER_ID', message: 'Invalid order ID.' });
         return;
     }
 
@@ -79,6 +82,6 @@ export async function getOrderRefunds(req: Request, res: Response): Promise<void
         res.json({ success: true, data: refunds });
     } catch (err: any) {
         console.error('[refund.controller] getOrderRefunds error:', err);
-        res.status(500).json({ success: false, message: 'Không thể tải lịch sử hoàn tiền.' });
+        res.status(500).json({ success: false, code: 'FETCH_REFUND_HISTORY_FAILED', message: 'Failed to load refund history.' });
     }
 }
