@@ -138,7 +138,7 @@ export const getCategoriesTree = async (_req: Request, res: Response) => {
         res.json(tree);
     } catch (error: any) {
         console.error('Get categories tree error:', error);
-        res.status(500).json({ error: 'Lỗi máy chủ', details: error.message });
+        res.status(500).json({ error: 'Server error', details: error.message });
     }
 };
 
@@ -158,7 +158,7 @@ export const getCategoriesFlat = async (_req: Request, res: Response) => {
         res.json(cats);
     } catch (error: any) {
         console.error('Get categories flat error:', error);
-        res.status(500).json({ error: 'Lỗi máy chủ', details: error.message });
+        res.status(500).json({ error: 'Server error', details: error.message });
     }
 };
 
@@ -169,7 +169,7 @@ export const createCategory = async (req: Request, res: Response) => {
         const { name, parentId, description, imageUrl } = req.body;
 
         if (!name || typeof name !== 'string' || name.trim() === '') {
-            return res.status(400).json({ error: 'Tên danh mục là bắt buộc.' });
+            return res.status(400).json({ error: 'Category name is required.', code: 'INVALID_CATEGORY_NAME' });
         }
 
         const slug = generateSlug(name.trim());
@@ -186,15 +186,15 @@ export const createCategory = async (req: Request, res: Response) => {
 
         res.status(201).json({
             success: true,
-            message: 'Danh mục đã được tạo thành công.',
+            message: 'Category created successfully.',
             data: category,
         });
     } catch (error: any) {
         console.error('Create category error:', error);
         if (error.code === 'P2002' || error.message?.includes('Unique constraint')) {
-            return res.status(409).json({ error: 'Slug danh mục đã tồn tại. Vui lòng dùng tên khác.' });
+            return res.status(409).json({ error: 'Category slug already exists. Please use a different name.', code: 'DUPLICATE_SLUG' });
         }
-        res.status(500).json({ error: error.message || 'Lỗi máy chủ.' });
+        res.status(500).json({ error: error.message || 'Server error.' });
     }
 };
 
@@ -203,12 +203,12 @@ export const createCategory = async (req: Request, res: Response) => {
 export const updateCategory = async (req: Request, res: Response) => {
     try {
         const id = Number(req.params.id);
-        if (isNaN(id)) return res.status(400).json({ error: 'ID danh mục không hợp lệ.' });
+        if (isNaN(id)) return res.status(400).json({ error: 'Invalid category ID.', code: 'INVALID_CATEGORY_ID' });
 
         const { name, parentId, description, imageUrl } = req.body;
 
         if (!name || typeof name !== 'string' || name.trim() === '') {
-            return res.status(400).json({ error: 'Tên danh mục là bắt buộc.' });
+            return res.status(400).json({ error: 'Category name is required.', code: 'INVALID_CATEGORY_NAME' });
         }
 
         // Circular parent check
@@ -216,7 +216,8 @@ export const updateCategory = async (req: Request, res: Response) => {
             const circular = await isCircularParent(id, Number(parentId));
             if (circular) {
                 return res.status(400).json({
-                    error: 'Không thể chọn danh mục con của chính nó làm danh mục cha.',
+                    error: 'Cannot select a child category as a parent.',
+                    code: 'CIRCULAR_PARENT'
                 });
             }
         }
@@ -236,18 +237,18 @@ export const updateCategory = async (req: Request, res: Response) => {
 
         res.json({
             success: true,
-            message: 'Danh mục đã được cập nhật thành công.',
+            message: 'Category updated successfully.',
             data: category,
         });
     } catch (error: any) {
         console.error('Update category error:', error);
         if (error.code === 'P2025') {
-            return res.status(404).json({ error: 'Không tìm thấy danh mục.' });
+            return res.status(404).json({ error: 'Category not found.', code: 'CATEGORY_NOT_FOUND' });
         }
         if (error.code === 'P2002') {
-            return res.status(409).json({ error: 'Slug danh mục đã tồn tại. Vui lòng dùng tên khác.' });
+            return res.status(409).json({ error: 'Category slug already exists. Please use a different name.', code: 'DUPLICATE_SLUG' });
         }
-        res.status(500).json({ error: error.message || 'Lỗi máy chủ.' });
+        res.status(500).json({ error: error.message || 'Server error.' });
     }
 };
 
@@ -256,7 +257,7 @@ export const updateCategory = async (req: Request, res: Response) => {
 export const deleteCategory = async (req: Request, res: Response) => {
     try {
         const id = Number(req.params.id);
-        if (isNaN(id)) return res.status(400).json({ error: 'ID danh mục không hợp lệ.' });
+        if (isNaN(id)) return res.status(400).json({ error: 'Invalid category ID.', code: 'INVALID_CATEGORY_ID' });
 
         // Check existence
         const category = await (prisma.category.findUnique as any)({
@@ -264,25 +265,27 @@ export const deleteCategory = async (req: Request, res: Response) => {
             select: {
                 categoryId: true,
                 imageUrl: true,
-                _count: { select: { children: true, products: true } },
+                _count: { children: true, products: true }
             },
         });
 
         if (!category) {
-            return res.status(404).json({ error: 'Không tìm thấy danh mục.' });
+            return res.status(404).json({ error: 'Category not found.', code: 'CATEGORY_NOT_FOUND' });
         }
 
         // Block if has children
         if (category._count.children > 0) {
             return res.status(409).json({
-                error: 'Phải xóa hoặc di chuyển các danh mục con trước.',
+                error: 'Must delete or move child categories first.',
+                code: 'HAS_CHILDREN'
             });
         }
 
         // Block if has products
         if (category._count.products > 0) {
             return res.status(409).json({
-                error: 'Danh mục này đang chứa sản phẩm. Vui lòng gỡ sản phẩm trước.',
+                error: 'Category contains products. Please remove products first.',
+                code: 'HAS_PRODUCTS'
             });
         }
 
@@ -297,10 +300,10 @@ export const deleteCategory = async (req: Request, res: Response) => {
         // Hard delete
         await prisma.category.delete({ where: { categoryId: id } });
 
-        res.json({ success: true, message: 'Danh mục đã được xóa thành công.' });
+        res.json({ success: true, message: 'Category deleted successfully.' });
     } catch (error: any) {
         console.error('Delete category error:', error);
-        res.status(500).json({ error: error.message || 'Lỗi máy chủ.' });
+        res.status(500).json({ error: error.message || 'Server error.' });
     }
 };
 
@@ -310,7 +313,7 @@ export const uploadCategoryImage = async (req: Request, res: Response) => {
     try {
         const file = req.file;
         if (!file) {
-            return res.status(400).json({ success: false, error: 'Không có file ảnh.' });
+            return res.status(400).json({ success: false, error: 'No image file provided.', code: 'NO_IMAGE_FILE' });
         }
 
         const base64Data = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
@@ -327,7 +330,7 @@ export const uploadCategoryImage = async (req: Request, res: Response) => {
         });
     } catch (error: any) {
         console.error('Upload category image error:', error);
-        res.status(500).json({ success: false, error: error.message || 'Lỗi upload ảnh.' });
+        res.status(500).json({ success: false, error: error.message || 'Image upload error.' });
     }
 };
 

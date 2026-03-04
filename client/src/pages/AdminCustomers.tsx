@@ -50,6 +50,7 @@ function getAvatarColor(userId: number): string {
 // ─── Badge helpers ─────────────────────────────────────────────────────────────
 
 function RoleBadge({ roleName }: { roleName: string }) {
+    const { t } = useTranslation(['customers']);
     const styles: Record<string, string> = {
         Admin: 'bg-purple-500/15 text-purple-300 border-purple-500/25',
         Customer: 'bg-blue-500/15 text-blue-300 border-blue-500/25',
@@ -58,17 +59,18 @@ function RoleBadge({ roleName }: { roleName: string }) {
     const cls = styles[roleName] ?? 'bg-white/5 text-white/40 border-white/10';
     return (
         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[11px] font-bold uppercase tracking-wide ${cls}`}>
-            {getRoleLabel(roleName)}
+            {t(`role.labels.${roleName.toLowerCase()}`, { defaultValue: getRoleLabel(roleName) })}
         </span>
     );
 }
 
 function StatusBadge({ status }: { status: string }) {
+    const { t } = useTranslation(['customers']);
     if (status === 'Banned') {
         return (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-red-500/30 bg-red-500/10 text-red-400 text-[11px] font-bold uppercase tracking-wide">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
-                Đã khóa
+                {t('status.banned')}
             </span>
         );
     }
@@ -76,14 +78,14 @@ function StatusBadge({ status }: { status: string }) {
         return (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[11px] font-bold uppercase tracking-wide">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-                Hoạt động
+                {t('status.active')}
             </span>
         );
     }
     return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-white/10 bg-white/5 text-white/40 text-[11px] font-bold uppercase tracking-wide">
             <span className="w-1.5 h-1.5 rounded-full bg-white/30 inline-block" />
-            {STATUS_LABELS[status] ?? status}
+            {t(`status.${status.toLowerCase()}`, { defaultValue: STATUS_LABELS[status] ?? status })}
         </span>
     );
 }
@@ -281,7 +283,7 @@ export const AdminCustomers: React.FC = () => {
                                 disabled={banLoading}
                                 className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-50 cursor-pointer"
                             >
-                                Hủy
+                                {t('ban.cancel')}
                             </button>
                             <button
                                 onClick={handleConfirmBan}
@@ -335,7 +337,7 @@ export const AdminCustomers: React.FC = () => {
                                         : 'border-white/10 bg-white/[0.02] text-white/60 hover:border-white/20 hover:text-white/80'
                                         }`}
                                 >
-                                    <span>{getRoleLabel(r.roleName)}</span>
+                                    <span>{t(`role.labels.${r.roleName.toLowerCase()}`, { defaultValue: getRoleLabel(r.roleName) })}</span>
                                     <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${r.roleName === 'Admin' ? 'bg-purple-500/20 text-purple-300' :
                                         r.roleName === 'Customer' ? 'bg-blue-500/20 text-blue-300' :
                                             'bg-amber-500/20 text-amber-300'
@@ -353,7 +355,7 @@ export const AdminCustomers: React.FC = () => {
                                 disabled={roleLoading}
                                 className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
                             >
-                                Hủy
+                                {t('role.cancel')}
                             </button>
                             <button
                                 onClick={handleConfirmRole}
@@ -408,8 +410,8 @@ export const AdminCustomers: React.FC = () => {
                         className="appearance-none bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-4 pr-9 text-sm text-white/80 focus:outline-none focus:border-primary/50 transition-all cursor-pointer"
                     >
                         <option value="all">{t('filters.allRoles')}</option>
-                        {Object.entries(ROLE_LABELS).map(([key, label]) => (
-                            <option key={key} value={key}>{label}</option>
+                        {Object.entries(ROLE_LABELS).map(([key]) => (
+                            <option key={key} value={key}>{t(`role.labels.${key.toLowerCase()}`, { defaultValue: getRoleLabel(key) })}</option>
                         ))}
                     </select>
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
@@ -422,10 +424,10 @@ export const AdminCustomers: React.FC = () => {
                         onChange={(e) => setStatusFilter(e.target.value)}
                         className="appearance-none bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-4 pr-9 text-sm text-white/80 focus:outline-none focus:border-primary/50 transition-all cursor-pointer"
                     >
-                        <option value="all">Tất cả trạng thái</option>
-                        <option value="Active">Hoạt động</option>
-                        <option value="Banned">Đã khóa</option>
-                        <option value="Pending">Chờ xác nhận</option>
+                        <option value="all">{t('filters.allStatuses')}</option>
+                        <option value="Active">{t('filters.statusActive')}</option>
+                        <option value="Banned">{t('filters.statusBanned')}</option>
+                        <option value="Pending">{t('filters.statusPending')}</option>
                     </select>
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
                 </div>

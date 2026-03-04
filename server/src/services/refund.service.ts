@@ -58,7 +58,7 @@ export class MockVNPayGateway implements IPaymentGateway {
         if (Math.random() < 0.1) {
             return {
                 success: false,
-                errorMessage: 'VNPay: Giao dịch hoàn tiền thất bại - Mã lỗi GW_TIMEOUT',
+                errorMessage: 'VNPay: Refund transaction failed - Error code GW_TIMEOUT',
             };
         }
 

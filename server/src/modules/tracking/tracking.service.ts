@@ -24,20 +24,20 @@ function toTrackingPayload(order: any, isPublic = false) {
     eta: order.shipment?.eta ?? null,
     shipment: order.shipment
       ? {
-          carrier: order.shipment.carrier,
-          trackingNumber: isPublic ? null : order.shipment.trackingNumber,
-          lastKnownLocation: order.shipment.lastKnownLocation,
-        }
+        carrier: order.shipment.carrier,
+        trackingNumber: isPublic ? null : order.shipment.trackingNumber,
+        lastKnownLocation: order.shipment.lastKnownLocation,
+      }
       : null,
     contact: isPublic
       ? {
-          customerPhone: order.customerPhone ? maskPhone(order.customerPhone) : null,
-          customerEmail: order.customerEmail ? maskEmail(order.customerEmail) : null,
-        }
+        customerPhone: order.customerPhone ? maskPhone(order.customerPhone) : null,
+        customerEmail: order.customerEmail ? maskEmail(order.customerEmail) : null,
+      }
       : {
-          customerPhone: order.customerPhone,
-          customerEmail: order.customerEmail,
-        },
+        customerPhone: order.customerPhone,
+        customerEmail: order.customerEmail,
+      },
     items: order.items.map((item: any) => ({
       orderItemId: item.orderItemId,
       productName: item.productName,
@@ -58,7 +58,7 @@ export const trackingService = {
   async getPublicTracking(orderCode: string, contact: string) {
     const order = await trackingRepository.findOrderByCodeAndContact(orderCode, contact);
     if (!order) {
-      throw new AppError(404, 'TRACKING_NOT_FOUND', 'Không tìm thấy đơn hàng với thông tin cung cấp.');
+      throw new AppError(404, 'TRACKING_NOT_FOUND', 'Order not found with provided tracking info.');
     }
     return toTrackingPayload(order, true);
   },
@@ -74,7 +74,7 @@ export const trackingService = {
     }
 
     if (!requester.isAdmin && order.userId !== requester.userId) {
-      throw new AppError(403, 'FORBIDDEN', 'Bạn không có quyền xem đơn này');
+      throw new AppError(403, 'FORBIDDEN', 'You do not have permission to view this order.');
     }
 
     return toTrackingPayload(order, false);

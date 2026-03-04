@@ -31,7 +31,7 @@ export function initSocket(server: HttpServer): Server {
 
 export function getIO(): Server {
   if (!io) {
-    throw new Error('Socket.IO chưa được khởi tạo.');
+    throw new Error('Socket.IO has not been initialized.');
   }
   return io;
 }

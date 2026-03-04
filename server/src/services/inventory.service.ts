@@ -114,7 +114,7 @@ export async function atomicCheckoutDeduction(
         previousStock,
         newStock,
         reason: 'CHECKOUT' satisfies InventoryLogReason,
-        note: `Đặt hàng #${orderId}`,
+        note: `Placed order #${orderId}`,
       },
     });
   }
@@ -172,7 +172,7 @@ export async function atomicCancelRestore(
         previousStock,
         newStock,
         reason: 'CANCELLED_RESTORE' satisfies InventoryLogReason,
-        note: `Huỷ đơn hàng #${orderId}`,
+        note: `Cancelled order #${orderId}`,
       },
     });
   }

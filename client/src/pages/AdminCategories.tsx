@@ -333,10 +333,10 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
                                 </p>
                             </div>
                         </div>
-                        <p className="text-sm text-white/60 bg-white/[0.03] border border-white/5 rounded-lg px-4 py-3 leading-relaxed">
-                            Hành động này <span className="text-white font-semibold">không thể hoàn tác</span>.
-                            Danh mục chỉ có thể xóa khi <span className="text-yellow-400 font-semibold">không có danh mục con và không có sản phẩm</span>.
-                        </p>
+                        <p
+                            className="text-sm text-white/60 bg-white/[0.03] border border-white/5 rounded-lg px-4 py-3 leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: t('delete.warning') }}
+                        />
                         <div className="flex gap-3 justify-end">
                             <button
                                 onClick={() => setDeleteModal(null)}

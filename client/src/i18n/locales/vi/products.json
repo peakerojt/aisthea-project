@@ -49,13 +49,21 @@
         "markInStock": "Đánh dấu còn hàng",
         "deleteSelected": "Xóa đã chọn",
         "resetFilters": "Đặt lại bộ lọc",
-        "searchPlaceholder": "Tìm theo tên, SKU…"
+        "searchPlaceholder": "Tìm theo tên, SKU…",
+        "importExport": "Nhập / Xuất"
     },
     "modal": {
         "deleteTitle": "Xác nhận xóa sản phẩm?",
         "deleteBody": "Hành động này <b>không thể hoàn tác</b>. Nếu sản phẩm đã có đơn hàng, hệ thống sẽ chỉ <b>ẩn sản phẩm</b> để bảo toàn lịch sử đơn hàng.",
+        "deleteWarning": "Hành động này <span class=\"text-white font-semibold\">không thể hoàn tác</span>. Nếu sản phẩm đã có đơn hàng, hệ thống sẽ chỉ <span class=\"text-yellow-400 font-semibold\">ẩn sản phẩm</span> để bảo toàn lịch sử đơn hàng.",
         "deleting": "Đang xóa...",
         "delete": "Xóa"
+    },
+    "categories": {
+        "coats": "Áo khoác",
+        "dresses": "Váy",
+        "accessories": "Phụ kiện",
+        "shoes": "Giày"
     },
     "empty": {
         "noMatch": "Không có sản phẩm nào khớp với bộ lọc",

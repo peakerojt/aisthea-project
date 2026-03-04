@@ -82,7 +82,7 @@ export function createApp() {
   app.use('/api/users', userRoutes);
 
   app.get('/', (_req: Request, res: Response) => {
-    res.send('<h1>Server SQL Server đã kết nối thành công! 🚀</h1>');
+    res.send('<h1>Server SQL Server connected successfully! 🚀</h1>');
   });
 
   app.use(notFoundHandler);

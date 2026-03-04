@@ -122,7 +122,7 @@ export async function requestReturn(
                 oldStatus: order.status,
                 status: 'Return_Requested',
                 changedBy: userId,
-                note: 'Khách hàng gửi yêu cầu trả hàng.',
+                note: 'Customer submitted a return request.',
             },
         });
 
@@ -193,7 +193,7 @@ export async function processReturn(
                     oldStatus: 'Return_Requested',
                     status: 'Delivered',
                     changedBy: adminUserId,
-                    note: note ? `Từ chối hoàn trả: ${note}` : 'Từ chối yêu cầu hoàn trả.',
+                    note: note ? `Return rejected: ${note}` : 'Return request rejected.',
                 },
             });
         });
@@ -225,7 +225,7 @@ export async function processReturn(
                     oldStatus: returnReq.order.status,
                     status: 'Returned',
                     changedBy: adminUserId,
-                    note: note ? `Hoàn tiền: ${note}` : 'Xác nhận hoàn tiền và nhập lại kho.',
+                    note: note ? `Refunded: ${note}` : 'Refund confirmed and stock restored.',
                 },
             });
 
@@ -261,7 +261,7 @@ export async function processReturn(
                         previousStock,
                         newStock,
                         reason: 'RETURN_RESTORE' satisfies InventoryLogReason,
-                        note: `Hoàn trả đơn hàng #${returnReq.orderId}`,
+                        note: `Returned order #${returnReq.orderId}`,
                     },
                 });
             }
