@@ -128,18 +128,14 @@ export interface AuthError {
 
 // =======================
 // Product Rating Types
-// =======================
-
-export interface Rating {
+// =======================export interface Rating {
   ratingId: number;
   productId: number;
   userId: number;
   rating: number; // 1–5 stars
   comment?: string;
   createdAt: string;
-}
-
-export interface RatingSummary {
+}export interface RatingSummary {
   averageRating: number;
   totalRatings: number;
 }

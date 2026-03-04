@@ -18,7 +18,7 @@ import { OrderItemsTable } from '../components/order/OrderItemsTable';
 import { OrderPricingSummary } from '../components/order/OrderPricingSummary';
 import { OrderTimeline } from '../components/order/OrderTimeline';
 import { ReviewModal } from '../components/review/ReviewModal';
-import { RotateCcw, XCircle, ArrowLeft, PackageCheck, Loader2 } from 'lucide-react';
+import { RotateCcw, XCircle, ArrowLeft, PackageCheck, Loader2, MapPin } from 'lucide-react';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -46,6 +46,11 @@ const canReturnStatus = (
 
 const canConfirmReceiptStatus = (status: string | null | undefined) => {
   return (status || '').toLowerCase() === 'shipping';
+};
+
+const canTrackOrderStatus = (status: string | null | undefined) => {
+  const s = (status || '').toLowerCase();
+  return ['confirmed', 'shipping', 'delivered'].includes(s);
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -133,6 +138,11 @@ export const OrderDetailPage: React.FC = () => {
   const canConfirmReceipt = useMemo(() => {
     if (!order) return false;
     return canConfirmReceiptStatus(order.status);
+  }, [order]);
+
+  const canTrack = useMemo(() => {
+    if (!order) return false;
+    return canTrackOrderStatus(order.status);
   }, [order]);
 
   // ── Guest guard ──
@@ -338,6 +348,17 @@ export const OrderDetailPage: React.FC = () => {
                 <div className="text-[10px] uppercase tracking-widest text-white/40">Hành động</div>
                 <div className="flex flex-col gap-3 mt-4">
 
+                  {/* ── Track Order Button (from feature/order-tracking-PhamAnhHao) ── */}
+                  {canTrack && (
+                    <button
+                      onClick={() => navigate(`/tracking/${id}`)}
+                      className="group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.1)] hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]"
+                    >
+                      <MapPin size={15} className="group-hover:scale-110 transition-transform" />
+                      Theo dõi đơn hàng
+                    </button>
+                  )}
+
                   {/* ── Confirm Receipt Button ── */}
                   {canConfirmReceipt && (
                     <button
@@ -381,10 +402,10 @@ export const OrderDetailPage: React.FC = () => {
                 </div>
 
                 {/* Empty state hint */}
-                {!canConfirmReceipt && !canCancel && !canReturn && (
+                {!canTrack && !canConfirmReceipt && !canCancel && !canReturn && (
                   <div className="mt-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.05]">
                     <p className="text-[11px] text-white/40 leading-relaxed">
-                      Chỉ có thể hủy đơn khi <strong className="text-white/60">Chờ xác nhận</strong>, xác nhận nhận hàng khi{' '}
+                      Chỉ có thể hủy đơn khi <strong className="text-white/60">Chờ xác nhận</strong>, theo dõi/xác nhận nhận hàng khi{' '}
                       <strong className="text-white/60">Đang giao</strong>, hoặc hoàn đơn trong 7 ngày sau khi{' '}
                       <strong className="text-white/60">Giao thành công</strong>.
                     </p>

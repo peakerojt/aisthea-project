@@ -16,11 +16,47 @@ function maskEmail(email: string) {
   return `${keep}${'*'.repeat(Math.max(1, name.length - 2))}@${domain}`;
 }
 
+function normalizeStatus(status: string | null | undefined): string {
+  if (!status) return 'PENDING';
+  // Standardize on uppercase for the frontend dictionary lookups (e.g. STATUS_LABEL['PENDING'])
+  return status.toUpperCase();
+}
+
+function hydrateTimeline(order: any, isPublic = false) {
+  const mapped = (order.statusHistory || []).map((history: any) => {
+    const status = normalizeStatus(history.status);
+    return {
+      status,
+      statusLabelKey: `tracking:status.${status}`,
+      timestamp: history.changedAt,
+      note: history.note,
+      updatedBy: isPublic ? null : history.changedBy,
+    };
+  });
+
+  // If the checkout logic omitted the initial status history record, synthesize one
+  if (mapped.length === 0 || !mapped.some((h: any) => h.status === 'PENDING')) {
+    mapped.unshift({
+      status: 'PENDING',
+      statusLabelKey: 'tracking:status.PENDING',
+      timestamp: order.createdAt || new Date(),
+      note: 'Order placed',
+      updatedBy: null,
+    });
+  }
+
+  // Ensure it is chronologically ordered
+  return mapped.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
 function toTrackingPayload(order: any, isPublic = false) {
+  const currentStatus = normalizeStatus(order.status);
+
   return {
     orderId: order.orderId,
-    orderCode: order.orderCode,
-    currentStatus: order.status,
+    orderCode: order.orderCode || order.orderNumber,
+    currentStatus,
+    currentStatusLabelKey: `tracking:status.${currentStatus}`,
     eta: order.shipment?.eta ?? null,
     shipment: order.shipment
       ? {
@@ -45,12 +81,7 @@ function toTrackingPayload(order: any, isPublic = false) {
       quantity: item.quantity,
       unitPrice: item.unitPrice,
     })),
-    timeline: order.statusHistory.map((history: any) => ({
-      status: history.status,
-      timestamp: history.changedAt,
-      note: history.note,
-      updatedBy: isPublic ? null : history.changedBy,
-    })),
+    timeline: hydrateTimeline(order, isPublic),
   };
 }
 
@@ -58,7 +89,7 @@ export const trackingService = {
   async getPublicTracking(orderCode: string, contact: string) {
     const order = await trackingRepository.findOrderByCodeAndContact(orderCode, contact);
     if (!order) {
-      throw new AppError(404, 'TRACKING_NOT_FOUND', 'Order not found with provided tracking info.');
+      throw new AppError(404, 'TRACKING_NOT_FOUND', 'tracking:errors.notFound');
     }
     return toTrackingPayload(order, true);
   },
@@ -70,11 +101,11 @@ export const trackingService = {
   async getOrderTrackingById(orderId: number, requester: { userId: number; isAdmin: boolean }) {
     const order = await trackingRepository.findOrderTrackingById(orderId);
     if (!order) {
-      throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+      throw new AppError(404, 'ORDER_NOT_FOUND', 'tracking:errors.orderNotFound');
     }
 
     if (!requester.isAdmin && order.userId !== requester.userId) {
-      throw new AppError(403, 'FORBIDDEN', 'You do not have permission to view this order.');
+      throw new AppError(403, 'FORBIDDEN', 'tracking:errors.forbidden');
     }
 
     return toTrackingPayload(order, false);
@@ -87,15 +118,17 @@ export const trackingService = {
   ) {
     const order = await trackingRepository.findOrderTrackingById(orderId);
     if (!order) {
-      throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+      throw new AppError(404, 'ORDER_NOT_FOUND', 'tracking:errors.orderNotFound');
     }
 
-    const currentStatus = order.status || 'PENDING';
+    const currentStatus = normalizeStatus(order.status);
     if (!canTransition(currentStatus, payload.status)) {
-      throw new AppError(400, 'INVALID_STATUS_TRANSITION', 'Invalid status transition', {
-        from: currentStatus,
-        to: payload.status,
-      });
+      throw new AppError(
+        400,
+        'INVALID_STATUS_TRANSITION',
+        'tracking:errors.invalidStatusTransition',
+        { from: currentStatus, to: payload.status },
+      );
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -135,17 +168,12 @@ export const trackingService = {
     });
 
     const latest = await trackingRepository.findOrderTrackingById(orderId);
-    const timeline = latest?.statusHistory.map((h: any) => ({
-      status: h.status,
-      timestamp: h.changedAt,
-      note: h.note,
-      updatedBy: h.changedBy,
-    })) || [];
+    const timeline = latest ? hydrateTimeline(latest, false) : [];
 
     emitOrderStatusUpdated({
       orderId,
       userId: latest?.userId,
-      status: result.status || payload.status,
+      status: normalizeStatus(result.status || payload.status),
       timeline,
     });
 

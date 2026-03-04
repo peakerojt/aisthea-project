@@ -1,0 +1,9 @@
+{
+  "errors": {
+    "notFoundRoute": "Không tìm thấy route {{method}} {{url}}",
+    "internalServer": "Lỗi máy chủ nội bộ",
+    "validation": "Dữ liệu request không hợp lệ",
+    "unauthorized": "Vui lòng đăng nhập để tiếp tục",
+    "forbidden": "Bạn không có quyền thực hiện thao tác này"
+  }
+}
