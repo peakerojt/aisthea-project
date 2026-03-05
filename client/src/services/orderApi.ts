@@ -19,6 +19,7 @@ export interface OrderTimelineItem {
 export interface OrderItem {
   orderItemId: number;
   productId: string | null;
+  variantId: number | null;       // needed for "Mua lại"
   sku: string;
   productName: string;
   variant: string;
@@ -87,6 +88,7 @@ export async function fetchOrderDetail(id: string): Promise<OrderDetail> {
     },
     items: (raw.items ?? []).map((item: any) => ({
       ...item,
+      variantId: item.variantId ?? null,
       thumbnail: item.thumbnailUrl ?? item.thumbnail ?? null,
       variant: item.variantName ?? item.variant ?? '',
       price: parseFloat(item.unitPrice ?? item.price ?? '0'),

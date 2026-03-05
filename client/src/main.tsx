@@ -15,6 +15,7 @@ import { VNPayReturn } from './pages/VNPayReturn';
 import { TrackingLookupPage } from './pages/TrackingLookupPage';
 import { TrackingDetailPage } from './pages/TrackingDetailPage';
 import { MyOrdersPage } from './pages/MyOrdersPage';
+import ItemsPage from './pages/ItemsPage';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ root.render(
                   <Route path="/tracking" element={<TrackingLookupPage />} />
                   <Route path="/tracking/:id" element={<TrackingDetailPage />} />
                   <Route path="/my-orders" element={<MyOrdersPage />} />
+                  <Route path="/items" element={<ItemsPage />} />
                   <Route path="*" element={<App />} />
                 </Routes>
               </BrowserRouter>
