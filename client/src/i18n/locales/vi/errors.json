@@ -60,5 +60,9 @@
     "ORDER_ITEM_NOT_FOUND": "Không tìm thấy sản phẩm trong đơn hàng.",
     "REVIEW_ALREADY_EXISTS": "Sản phẩm này đã được đánh giá.",
     "ITEM_NOT_FROM_DELIVERED_ORDER": "Chỉ có thể đánh giá sản phẩm của đơn hàng đã giao thành công.",
-    "RATING_REQUIRED": "Vui lòng chọn số sao đánh giá (từ 1 đến 5)."
+    "RATING_REQUIRED": "Vui lòng chọn số sao đánh giá (từ 1 đến 5).",
+    "CART_NOT_FOUND": "Không tìm thấy giỏ hàng.",
+    "CART_ITEM_NOT_FOUND": "Không tìm thấy sản phẩm trong giỏ hàng.",
+    "VARIANT_OUT_OF_STOCK": "Sản phẩm đã hết hàng.",
+    "MERGE_FAILED": "Không thể đồng bộ giỏ hàng. Vui lòng thử lại."
 }
