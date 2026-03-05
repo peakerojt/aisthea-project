@@ -339,7 +339,24 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     return val;
   }
 
-  const stockLevel = productDetails?.variants?.find(v => v.isDefault)?.stockQuantity || 15;
+  const stockLevel = useMemo(() => {
+    const variants = productDetails?.variants || initialProduct?.variants || [];
+    const selectedVariant = variants.find((v: any) => {
+      const sizeAttr = v.attributes?.find((a: any) => a.attributeName === 'Size' || a.attributeName === 'Kích thước') ||
+        v.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Size' || a.value?.attribute?.name === 'Kích thước');
+      const colorAttr = v.attributes?.find((a: any) => a.attributeName === 'Color' || a.attributeName === 'Màu sắc' || a.attributeName === 'Màu') ||
+        v.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Color' || a.value?.attribute?.name === 'Màu sắc' || a.value?.attribute?.name === 'Màu');
+      const vSize = sizeAttr?.attributeValue || sizeAttr?.value?.value || sizeAttr?.value;
+      const vColor = colorAttr?.attributeValue || colorAttr?.value?.value || colorAttr?.value;
+      return vSize === selectedSize && vColor === selectedColor;
+    });
+
+    if (selectedVariant) {
+      return selectedVariant.stockQuantity ?? 15;
+    }
+
+    return variants.find((v: any) => v.isDefault)?.stockQuantity ?? 15;
+  }, [productDetails, initialProduct, selectedSize, selectedColor]);
 
   function detailsTrigger(p: any) {
     setProductDetails(null);
@@ -431,7 +448,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                   {stockLevel >= 10 && (
                     <span className="text-green-500 text-[8px] font-bold tracking-wider uppercase flex items-center gap-1.5">
                       <span className="w-1 h-1 rounded-full bg-green-500"></span>
-                      In Stock
+                      In Stock <span className="text-white/40 font-medium tracking-normal normal-case ml-1">({stockLevel} sản phẩm)</span>
                     </span>
                   )}
                 </div>

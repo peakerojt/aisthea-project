@@ -178,6 +178,7 @@ const App: React.FC = () => {
       await updateItem(targetId, newQty);
     } catch (error) {
       console.error('Update quantity failed:', error);
+      alert('Có lỗi xảy ra khi cập nhật số lượng. Vui lòng kiểm tra lại số lượng tồn kho.');
     }
   };
 

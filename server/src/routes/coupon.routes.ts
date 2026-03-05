@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticateToken } from '../middlewares/auth.middleware';
 import {
     validateCouponHandler,
+    getAvailableCoupons,
     listCoupons,
     createCoupon,
     updateCoupon,
@@ -9,6 +10,10 @@ import {
 } from '../controllers/coupon.controller';
 
 const router = Router();
+
+// ── User route: get available coupons ─────────────────────────────────────────
+// GET /api/coupons/available (authenticated user)
+router.get('/available', authenticateToken, getAvailableCoupons);
 
 // ── User route: validate a coupon code during checkout ────────────────────────
 // POST /api/coupons/validate  (authenticated user)
