@@ -25,6 +25,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { ProductCard } from '../components/ProductCard/ProductCard';
 import { StoreHeader } from '../components/StoreHeader';
 import { getReviewsByProduct } from "../services/review.service";
+import { getGuestCart, saveGuestCart } from '../services/cart.service';
+import { useToast } from '../contexts/ToastContext';
+import { useCart } from '../contexts/CartContext';
 
 interface ProductDetailProps {
   setView: (v: ViewState, id?: number) => void;
@@ -44,11 +47,15 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
   const carouselRef = React.useRef<HTMLDivElement>(null);
 
   const { products } = useProducts();
-  const { user } = useAuth(); // Hook để check đăng nhập
+  const { user } = useAuth();
+  const { showToast, showCartToast } = useToast();
+  const { addItem } = useCart();
   const [reviews, setReviews] = useState<any[]>([]);
   const productId = initialProduct?.id
     ? Number(initialProduct.id)
-    : null;
+    : initialProduct?.productId
+      ? Number(initialProduct.productId)
+      : null;
 
   // Selection states
   const [selectedSize, setSelectedSize] = useState<string>('');
@@ -69,13 +76,23 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
       try {
         const data = await getReviewsByProduct(productId);
         console.log("Review API response:", data);
-        setReviews(data);
+        setReviews(data.reviews ?? []);
       } catch (err) {
         console.error("Error fetching reviews:", err);
       }
     };
 
     fetchReviews();
+
+    // Re-fetch reviews when a review is submitted (e.g., from OrderDetailPage modal)
+    const handleReviewSubmitted = (e: Event) => {
+      const { productId: submittedProductId } = (e as CustomEvent).detail ?? {};
+      if (submittedProductId === productId) {
+        fetchReviews();
+      }
+    };
+    window.addEventListener('review-submitted', handleReviewSubmitted);
+    return () => window.removeEventListener('review-submitted', handleReviewSubmitted);
   }, [productId]);
 
   // Fallback default product if none selected
@@ -245,15 +262,8 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     return combined.sort(() => 0.5 - Math.random());
   }, [products, productDetails, basicInfo, currentActiveId]);
 
-  const handleAddToCart = () => {
-    // 1. Kiểm tra đăng nhập (từ nhánh dev)
-    if (!user) {
-      setView('AUTH_LOGIN');
-      window.scrollTo(0, 0);
-      return;
-    }
-
-    // 2. Logic tìm variantId (từ nhánh feature/cart-Truong)
+  const handleAddToCart = async () => {
+    // 1. Tìm variant đang được chọn (chung cho cả Guest và User)
     const variants = productDetails?.variants || initialProduct?.variants || [];
     const selectedVariant = variants.find((v: any) => {
       const sizeAttr = v.attributes?.find((a: any) => a.attributeName === 'Size' || a.attributeName === 'Kích thước') ||
@@ -266,21 +276,57 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     }) || variants.find((v: any) => v.isDefault) || variants[0];
 
     if (!selectedVariant?.variantId) {
-      alert("Vui lòng đợi thông tin sản phẩm tải xong hoặc chọn Size khác.");
+      showToast({ type: 'error', title: 'Chưa tải xong', subtitle: 'Vui lòng đợi hoặc chọn Size khác.', duration: 3000 });
       return;
     }
 
-    addToCart({
-      id: basicInfo.id.toString(),
-      variantId: selectedVariant.variantId,
-      name: productDetails?.name || basicInfo.name,
-      price: Number(productDetails?.basePrice || selectedVariant.price || basicInfo.price),
-      image: basicInfo.image || (productDetails?.images?.[0]?.imageUrl),
-      ref: selectedVariant.sku || basicInfo.ref,
-      quantity: quantity,
-      size: selectedSize,
-      color: getColorName(selectedColor)
-    });
+    // 2. Kiểm tra đăng nhập
+    if (!user) {
+      // Guest mode: lưu vào localStorage để merge sau khi đăng nhập
+      const guestItems = getGuestCart();
+      const existing = guestItems.find(i => i.variantId === selectedVariant.variantId);
+      if (existing) {
+        existing.quantity += quantity;
+      } else {
+        guestItems.push({
+          variantId: selectedVariant.variantId,
+          quantity,
+          productName: productDetails?.name || basicInfo.name,
+          price: Number(productDetails?.basePrice || selectedVariant.price || basicInfo.price),
+          imageUrl: basicInfo.image || productDetails?.images?.[0]?.imageUrl || '',
+          stockQuantity: selectedVariant.stockQuantity ?? 99999,
+        });
+      }
+      saveGuestCart(guestItems);
+      showCartToast(
+        productDetails?.name || basicInfo.name,
+        `Size ${selectedSize} · Đăng nhập để hoàn tất mua hàng`
+      );
+      return;
+    }
+
+    // 3. Đã đăng nhập: gọi CartContext.addItem trực tiếp (không qua prop cũ)
+    try {
+      await addItem(
+        selectedVariant.variantId,
+        quantity,
+        {
+          productName: productDetails?.name || basicInfo.name,
+          price: Number(productDetails?.basePrice || selectedVariant.price || basicInfo.price),
+          imageUrl: basicInfo.image || productDetails?.images?.[0]?.imageUrl || '',
+          stockQuantity: selectedVariant.stockQuantity,
+        }
+      );
+      // Toast success (CartContext.addItem đã có toast riêng, đây là backup)
+    } catch (err: any) {
+      const code = err?.response?.data?.code;
+      if (code === 'INSUFFICIENT_STOCK') {
+        const available = err?.response?.data?.available ?? 0;
+        showToast({ type: 'error', title: 'Không đủ hàng', subtitle: `Chỉ còn ${available} sản phẩm trong kho.`, duration: 3500 });
+      } else {
+        showToast({ type: 'error', title: 'Thêm thất bại', subtitle: 'Vui lòng thử lại.', duration: 3000 });
+      }
+    }
   };
 
   const getColorName = (val: string) => {

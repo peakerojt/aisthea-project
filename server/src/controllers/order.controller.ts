@@ -1,13 +1,14 @@
 import { Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { AuthRequest } from '../middlewares/auth.middleware';
+import { emitNewOrder, emitOrderStatusUpdated } from '../socket';
 import {
   ORDER_STATUS,
-  STATUS_LABELS,
   isValidTransition,
   INVENTORY_RESTORE_STATUSES,
   getValidNextStatuses,
 } from '../config/orderStatus.config';
+import { ERROR_CODES, SUCCESS_MESSAGES } from '../utils/constants/responseKeys';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -99,7 +100,6 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
       customerName: order.customerName,
       customerPhone: order.customerPhone,
       status: order.status,
-      statusLabel: STATUS_LABELS[order.status ?? ''] ?? order.status,
       paymentStatus: order.paymentStatus,
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount?.toString() ?? '0',
@@ -162,8 +162,8 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
             variant: {
               include: {
                 images: {
-                  where: { isPrimary: true },
                   select: { imageUrl: true, thumbnailUrl: true },
+                  orderBy: { imageId: 'asc' },
                   take: 1,
                 },
                 product: {
@@ -188,10 +188,10 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
       orderId: order.orderId,
       orderNumber: order.orderNumber,
       status: order.status,
-      statusLabel: STATUS_LABELS[order.status ?? ''] ?? order.status,
       paymentStatus: order.paymentStatus,
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount?.toString() ?? '0',
+      discountAmount: order.discountAmount?.toString() ?? '0',
       note: order.note,
       createdAt: order.createdAt?.toISOString(),
       trackingNumber: order.trackingNumber,
@@ -238,14 +238,25 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
         status: p.status,
         paidAt: p.paymentDate?.toISOString(),
       })),
-      statusHistory: order.statusHistory.map((h) => ({
-        status: h.status,
-        oldStatus: (h as any).oldStatus ?? null,
-        statusLabel: STATUS_LABELS[h.status] ?? h.status,
-        changedAt: h.changedAt.toISOString(),
-        changedBy: (h as any).changedBy ?? null,
-        note: (h as any).note ?? null,
-      })),
+      statusHistory: (() => {
+        const history = order.statusHistory.map((h) => ({
+          status: h.status,
+          oldStatus: (h as any).oldStatus ?? null,
+          changedAt: h.changedAt.toISOString(),
+          changedBy: (h as any).changedBy ?? null,
+          note: (h as any).note ?? null,
+        }));
+        if (history.length === 0 || !history.some((h) => h.status.toLowerCase() === 'pending')) {
+          history.unshift({
+            status: 'Pending',
+            oldStatus: null,
+            changedAt: (order.createdAt || new Date()).toISOString(),
+            changedBy: null,
+            note: 'Order placed',
+          });
+        }
+        return history.sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime());
+      })(),
     };
 
     res.json(formatted);
@@ -269,9 +280,22 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Invalid order ID' });
     }
 
-    const { status: newStatus, note } = req.body as { status: string; note?: string };
+    const {
+      status: newStatus,
+      note,
+      carrier,
+      trackingNumber,
+      estimatedDeliveryDate,
+    } = req.body as {
+      status: string;
+      note?: string;
+      carrier?: string;
+      trackingNumber?: string;
+      estimatedDeliveryDate?: string;
+    };
+
     if (!newStatus) {
-      return res.status(400).json({ error: 'status là bắt buộc.' });
+      return res.status(400).json({ errorCode: ERROR_CODES.STATUS_REQUIRED });
     }
 
     const changedBy = req.user?.userId ?? null;
@@ -286,16 +310,15 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       },
     });
     if (!order) {
-      return res.status(404).json({ error: 'Không tìm thấy đơn hàng.' });
+      return res.status(404).json({ errorCode: ERROR_CODES.ORDER_NOT_FOUND });
     }
 
     const currentStatus = order.status ?? ORDER_STATUS.PENDING;
 
-    // 2. FSM validation — throw 400 on invalid transition
+    // 2. FSM validation
     if (!isValidTransition(currentStatus, newStatus)) {
       return res.status(400).json({
-        error: 'Chuyển đổi trạng thái không hợp lệ.',
-        message: `Không thể chuyển từ "${STATUS_LABELS[currentStatus] ?? currentStatus}" sang "${STATUS_LABELS[newStatus] ?? newStatus}".`,
+        errorCode: ERROR_CODES.INVALID_STATUS_TRANSITION,
         currentStatus,
         requestedStatus: newStatus,
         allowedTransitions: getValidNextStatuses(currentStatus),
@@ -307,7 +330,6 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
 
     // 4. Execute in a single Prisma transaction
     await prisma.$transaction(async (tx) => {
-      // Optionally restore stock
       if (shouldRestoreInventory) {
         for (const item of order.items) {
           if (item.variantId) {
@@ -319,16 +341,14 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
         }
       }
 
-      // Update Order.status (and optionally Order.note for cancellation reason)
-      await tx.order.update({
-        where: { orderId },
-        data: {
-          status: newStatus,
-          ...(note !== undefined ? { note } : {}),
-        },
-      });
+      // Build order update data (status + optional logistics)
+      const orderData: Record<string, any> = { status: newStatus };
+      if (note !== undefined) orderData.note = note;
+      if (carrier) orderData.carrier = carrier;
+      if (trackingNumber) orderData.trackingNumber = trackingNumber;
 
-      // Insert audit record with full context
+      await tx.order.update({ where: { orderId }, data: orderData });
+
       await tx.orderStatusHistory.create({
         data: {
           orderId,
@@ -338,16 +358,57 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
           note: note ?? null,
         },
       });
+
+      // Upsert Shipment when logistics info is provided
+      if (carrier || trackingNumber || estimatedDeliveryDate) {
+        const eta = estimatedDeliveryDate ? new Date(estimatedDeliveryDate) : undefined;
+        await tx.shipment.upsert({
+          where: { orderId },
+          update: { carrier: carrier ?? undefined, trackingNumber: trackingNumber ?? undefined, eta },
+          create: { orderId, carrier: carrier ?? null, trackingNumber: trackingNumber ?? null, eta },
+        });
+      }
     });
+
+    // 5. Emit real-time socket update to the order room
+    try {
+      const latest = await prisma.order.findUnique({
+        where: { orderId },
+        include: {
+          statusHistory: { orderBy: { changedAt: 'asc' } },
+          shipment: true,
+          items: {
+            select: { orderItemId: true, productName: true, variantName: true, quantity: true, unitPrice: true },
+          },
+        },
+      });
+      if (latest) {
+        const timeline = (latest.statusHistory || []).map((h: any) => ({
+          status: h.status,
+          timestamp: h.changedAt,
+          note: h.note ?? null,
+        }));
+        emitOrderStatusUpdated({
+          orderId,
+          userId: latest.userId ?? undefined,
+          status: newStatus,
+          timeline,
+          carrier: carrier ?? latest.carrier ?? latest.shipment?.carrier ?? null,
+          trackingNumber: trackingNumber ?? latest.trackingNumber ?? latest.shipment?.trackingNumber ?? null,
+          estimatedDeliveryDate: latest.shipment?.eta ?? null,
+        });
+      }
+    } catch (socketErr: any) {
+      console.warn('[updateOrderStatus] Socket emit failed (non-critical):', socketErr.message);
+    }
 
     res.json({
       success: true,
+      messageKey: SUCCESS_MESSAGES.ORDER_STATUS_UPDATED,
       orderId,
       previousStatus: currentStatus,
       newStatus,
-      statusLabel: STATUS_LABELS[newStatus] ?? newStatus,
       stockRestored: shouldRestoreInventory,
-      message: `Cập nhật trạng thái thành công: ${STATUS_LABELS[newStatus] ?? newStatus}`,
     });
   } catch (error: any) {
     console.error('[updateOrderStatus] Error:', error);
@@ -458,11 +519,14 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
             variant: {
               include: {
                 images: {
-                  where: { isPrimary: true },
                   select: { imageUrl: true, thumbnailUrl: true },
+                  orderBy: { imageId: 'asc' },
                   take: 1,
                 },
               },
+            },
+            review: {
+              select: { reviewId: true },
             },
           },
         },
@@ -484,6 +548,7 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
       paymentStatus: order.paymentStatus,
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount.toString(),
+      discountAmount: order.discountAmount?.toString() ?? '0',
       createdAt: order.createdAt?.toISOString(),
       updatedAt: order.updatedAt?.toISOString() ?? order.createdAt?.toISOString(),
       trackingNumber: order.trackingNumber,
@@ -503,6 +568,7 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
           null;
         return {
           orderItemId: item.orderItemId,
+          productId: item.variant?.productId ?? null,
           productName: item.productName,
           sku: item.sku,
           variantName: item.variantName,
@@ -510,6 +576,8 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
           quantity: item.quantity,
           lineTotal: (parseFloat(item.unitPrice.toString()) * item.quantity).toString(),
           thumbnailUrl: variantImg,
+          isReviewed: !!item.review,
+          reviewId: item.review?.reviewId ?? null,
         };
       }),
       payments: order.payments.map((p) => ({
@@ -520,6 +588,10 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
         paymentDate: p.paymentDate?.toISOString() ?? null,
         transactionCode: (p as any).transactionCode ?? null,
         note: (p as any).note ?? null,
+      })),
+      timeline: order.statusHistory.map((h) => ({
+        status: h.status,
+        at: h.changedAt.toISOString(),
       })),
     };
 
@@ -562,7 +634,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'Cart is empty. Vui lòng thêm sản phẩm vào giỏ hàng.' });
+      return res.status(400).json({ errorCode: ERROR_CODES.CART_EMPTY });
     }
 
     // --- SYNCHRONIZE CART ---
@@ -689,6 +761,21 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // ── Emit real-time event to admin dashboard ───────────────────────────
+    // Fetch the final order total (may have been adjusted by coupon)
+    try {
+      const finalOrder = await prisma.order.findUnique({
+        where: { orderId },
+        select: { totalAmount: true },
+      });
+      emitNewOrder({
+        orderId,
+        totalAmount: finalOrder ? Number(finalOrder.totalAmount) : 0,
+      });
+    } catch {
+      // Non-critical — don't fail the checkout if socket emit fails
+    }
+
     return res.json({
       success: true,
       orderId,
@@ -698,5 +785,76 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('Checkout Error:', error);
     return res.status(500).json({ error: 'Checkout failed', details: error.message });
+  }
+};
+
+// ───────────────────────────────────────────────────────────────────────────────
+// USER: Confirm Receipt (Đã nhận được hàng)
+// PATCH /api/orders/:id/confirm-receipt
+// Lets the order owner confirm they received the shipment, transitioning Shipping → Delivered
+// ───────────────────────────────────────────────────────────────────────────────
+export const confirmReceipt = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ errorCode: ERROR_CODES.UNAUTHORIZED });
+    }
+
+    const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const orderId = parseInt(idParam, 10);
+    if (isNaN(orderId)) {
+      return res.status(400).json({ errorCode: ERROR_CODES.INVALID_ORDER_ID });
+    }
+
+    // 1. Fetch the order
+    const order = await prisma.order.findUnique({
+      where: { orderId },
+      select: { orderId: true, userId: true, status: true },
+    });
+
+    if (!order) {
+      return res.status(404).json({ errorCode: ERROR_CODES.ORDER_NOT_FOUND });
+    }
+
+    // 2. Ownership check — only the order owner can confirm receipt
+    if (order.userId !== userId) {
+      return res.status(403).json({ errorCode: ERROR_CODES.NOT_ORDER_OWNER });
+    }
+
+    // 3. Status check — must be Shipping to confirm receipt
+    if (order.status !== ORDER_STATUS.SHIPPING) {
+      return res.status(400).json({
+        errorCode: ERROR_CODES.ORDER_NOT_SHIPPING,
+        currentStatus: order.status,
+      });
+    }
+
+    // 4. Transition to Delivered in a transaction and log the event
+    await prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { orderId },
+        data: { status: ORDER_STATUS.DELIVERED },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId,
+          oldStatus: ORDER_STATUS.SHIPPING,
+          status: ORDER_STATUS.DELIVERED,
+          changedBy: userId,
+          note: 'Khách hàng xác nhận đã nhận hàng',
+        },
+      });
+    });
+
+    return res.json({
+      success: true,
+      messageKey: SUCCESS_MESSAGES.RECEIPT_CONFIRMED,
+      orderId,
+      newStatus: ORDER_STATUS.DELIVERED,
+    });
+  } catch (error: any) {
+    console.error('[confirmReceipt] Error:', error);
+    return res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 };

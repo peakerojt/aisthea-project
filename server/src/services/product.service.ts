@@ -493,7 +493,7 @@ export const smartDeleteProduct = async (id: number): Promise<SmartDeleteResult>
     });
 
     if (!product) {
-        throw new Error('Không tìm thấy sản phẩm hoặc sản phẩm đã bị xóa');
+        throw new Error('Product not found or has been deleted');
     }
 
     const variantIds = product.variants.map(v => v.variantId);
@@ -518,7 +518,7 @@ export const smartDeleteProduct = async (id: number): Promise<SmartDeleteResult>
 
         return {
             mode: 'archived',
-            message: 'Sản phẩm đã có đơn hàng. Đã chuyển sang trạng thái "Ngừng kinh doanh" để bảo toàn lịch sử.',
+            message: 'Product has existing orders. State changed to "Archived" to preserve history.',
         };
     }
 
@@ -556,7 +556,7 @@ export const smartDeleteProduct = async (id: number): Promise<SmartDeleteResult>
 
     return {
         mode: 'deleted',
-        message: `Đã xóa hoàn toàn sản phẩm và ${publicIds.length} hình ảnh liên quan.`,
+        message: `Completely deleted product and ${publicIds.length} related images.`,
     };
 };
 

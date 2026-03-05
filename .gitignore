@@ -36,3 +36,4 @@ docs/
 # Postman Collection (local only)
 *.postman_collection.json
 /nbproject/private/
+nul

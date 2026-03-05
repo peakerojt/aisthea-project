@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import {
     Loader2, ShoppingBag, Package, Truck, CheckCircle2,
-    XCircle, RotateCcw, AlertTriangle,
+    XCircle, RotateCcw, AlertTriangle, MapPin,
 } from 'lucide-react';
 import {
     ORDER_STATUS,
@@ -141,7 +142,7 @@ const NoteDialog: React.FC<NoteDialogProps> = ({ targetStatus, loading, onClose,
                     </div>
                 </div>
             </div>
-        </div>,
+        </div >,
         document.body
     );
 };
@@ -207,18 +208,137 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ targetStatus, loading, on
 interface OrderActionPanelProps {
     orderId: number;
     currentStatus: string;
-    onStatusUpdated: () => void;
+    onStatusUpdated: (msgKey?: string) => void;
     onError: (msg: string) => void;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ShippingDialog — collects carrier + trackingNumber when going to SHIPPING
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ShippingDialogProps {
+    loading: boolean;
+    onClose: () => void;
+    onConfirm: (carrier: string, trackingNumber: string) => void;
+}
+
+const CARRIER_PRESETS = [
+    'Giao Hàng Tiết Kiệm',
+    'Giao Hàng Nhanh',
+    'Viettel Post',
+    'J&T Express',
+    'Ninja Van',
+];
+
+const ShippingDialog: React.FC<ShippingDialogProps> = ({ loading, onClose, onConfirm }) => {
+    const [carrier, setCarrier] = useState('');
+    const [trackingNumber, setTracking] = useState('');
+
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
+            <div className="relative w-full max-w-md bg-[#111114] border border-violet-500/20 rounded-2xl shadow-2xl overflow-hidden">
+                <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-violet-500 to-transparent" />
+
+                <div className="p-6 space-y-5">
+                    {/* Header */}
+                    <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl border border-violet-500/30 bg-violet-500/10 flex items-center justify-center shrink-0">
+                            <Truck size={18} className="text-violet-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold text-white">Bắt đầu giao hàng</h3>
+                            <p className="text-xs text-white/40 mt-0.5 leading-relaxed">
+                                Nhập thông tin vận chuyển để khách hàng có thể theo dõi đơn hàng.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Carrier field */}
+                    <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-widest text-white/40 mb-2">
+                            Đơn vị vận chuyển
+                        </label>
+                        <input
+                            type="text"
+                            value={carrier}
+                            onChange={e => setCarrier(e.target.value)}
+                            placeholder="Ví dụ: Giao Hàng Tiết Kiệm"
+                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all"
+                        />
+                        {/* Quick-pick chips */}
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                            {CARRIER_PRESETS.map(c => (
+                                <button
+                                    key={c}
+                                    type="button"
+                                    onClick={() => setCarrier(c)}
+                                    className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all cursor-pointer ${carrier === c
+                                            ? 'border-violet-500/50 bg-violet-500/15 text-violet-300'
+                                            : 'border-white/10 bg-white/[0.03] text-white/50 hover:text-white/80 hover:border-white/20'
+                                        }`}
+                                >
+                                    {c}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Tracking number field */}
+                    <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-widest text-white/40 mb-2">
+                            <span className="flex items-center gap-1.5">
+                                <MapPin size={10} className="text-violet-400" />
+                                Mã vận đơn
+                            </span>
+                        </label>
+                        <input
+                            type="text"
+                            value={trackingNumber}
+                            onChange={e => setTracking(e.target.value)}
+                            placeholder="Ví dụ: GHTK-123456789"
+                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder-white/25 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all"
+                        />
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-1">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={loading}
+                            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white/60 bg-white/[0.04] border border-white/10 hover:bg-white/[0.07] transition-all cursor-pointer disabled:opacity-50"
+                        >
+                            Hủy bỏ
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onConfirm(carrier.trim(), trackingNumber.trim())}
+                            disabled={loading}
+                            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all cursor-pointer disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg bg-violet-600 hover:bg-violet-500 shadow-violet-900/30"
+                        >
+                            {loading ? <Loader2 size={14} className="animate-spin" /> : <Truck size={14} />}
+                            {loading ? 'Đang xử lý...' : 'Bắt đầu giao hàng'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 type DialogState =
     | { type: 'none' }
     | { type: 'confirm'; target: OrderStatusValue }
-    | { type: 'note'; target: OrderStatusValue };
+    | { type: 'note'; target: OrderStatusValue }
+    | { type: 'shipping' };
 
 /**
  * Fully data-driven action panel.
- * Uses the FSM config to determine which buttons to show — zero hardcoded `if` chains.
+ * Uses the FSM config to determine which buttons to show — zero hardcoded \`if\` chains.
  */
 export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
     orderId,
@@ -226,12 +346,18 @@ export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
     onStatusUpdated,
     onError,
 }) => {
+    const { t } = useTranslation('errors');
     const [loading, setLoading] = useState(false);
     const [dialog, setDialog] = useState<DialogState>({ type: 'none' });
 
     const nextStatuses = getValidNextStatuses(currentStatus);
 
     const handleButtonClick = (target: OrderStatusValue) => {
+        // SHIPPING transition: needs carrier + trackingNumber from admin
+        if (target === ORDER_STATUS.SHIPPING) {
+            setDialog({ type: 'shipping' });
+            return;
+        }
         const meta = ORDER_STATUS_META[target];
         if (meta.requiresNote) {
             setDialog({ type: 'note', target });
@@ -240,17 +366,30 @@ export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
         }
     };
 
-    const executeTransition = async (target: OrderStatusValue, note?: string) => {
+    const executeTransition = async (
+        target: OrderStatusValue,
+        note?: string,
+        logistics?: { carrier?: string; trackingNumber?: string },
+    ) => {
         setLoading(true);
         try {
-            await adminOrderService.updateStatus(orderId, { status: target, note });
+            const res = await adminOrderService.updateStatus(orderId, {
+                status: target,
+                note,
+                ...(logistics?.carrier ? { carrier: logistics.carrier } : {}),
+                ...(logistics?.trackingNumber ? { trackingNumber: logistics.trackingNumber } : {}),
+            });
             setDialog({ type: 'none' });
-            onStatusUpdated();
+            const messageKey = (res as any)?.messageKey || 'ORDER_STATUS_UPDATED';
+            onStatusUpdated(messageKey);
         } catch (err: any) {
-            const msg = err?.response?.data?.message
-                || err?.response?.data?.error
-                || err?.message
-                || 'Có lỗi xảy ra';
+            const errorCode = err?.response?.data?.errorCode;
+            const msg = errorCode
+                ? t(errorCode, { defaultValue: errorCode })
+                : (err?.response?.data?.message
+                    || err?.response?.data?.error
+                    || err?.message
+                    || t('INTERNAL_SERVER_ERROR'));
             onError(msg);
             setDialog({ type: 'none' });
         } finally {
@@ -273,6 +412,15 @@ export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
     return (
         <>
             {/* Dialogs */}
+            {dialog.type === 'shipping' && (
+                <ShippingDialog
+                    loading={loading}
+                    onClose={() => setDialog({ type: 'none' })}
+                    onConfirm={(carrier, trackingNumber) =>
+                        executeTransition(ORDER_STATUS.SHIPPING, undefined, { carrier, trackingNumber })
+                    }
+                />
+            )}
             {dialog.type === 'note' && (
                 <NoteDialog
                     targetStatus={dialog.target}

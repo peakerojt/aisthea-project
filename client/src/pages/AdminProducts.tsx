@@ -167,9 +167,10 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
                 </p>
               </div>
             </div>
-            <p className="text-sm text-white/60 bg-white/[0.03] border border-white/5 rounded-lg px-4 py-3 leading-relaxed">
-              Hành động này <span className="text-white font-semibold">không thể hoàn tác</span>. Nếu sản phẩm đã có đơn hàng, hệ thống sẽ chỉ <span className="text-yellow-400 font-semibold">ẩn sản phẩm</span> để bảo toàn lịch sử đơn hàng.
-            </p>
+            <p
+              className="text-sm text-white/60 bg-white/[0.03] border border-white/5 rounded-lg px-4 py-3 leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: t('products:modal.deleteWarning') }}
+            />
             <div className="flex gap-3 justify-end">
               <button
                 type="button"
@@ -226,7 +227,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
             className="flex items-center gap-2 border border-white/15 hover:border-white/30 text-white/70 hover:text-white text-xs font-bold uppercase tracking-[0.1em] px-5 py-3 rounded shadow-md transition-all"
           >
             <UploadCloud size={15} />
-            Nhập / Xuất
+            {t('products:toolbar.importExport')}
           </button>
           <button
             onClick={() => setView('ADMIN_CREATE_PRODUCT')}
@@ -355,10 +356,10 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
                   className="bg-black/20 border border-white/10 rounded px-3 py-1.5 text-xs text-white focus:border-primary focus:ring-0 min-w-[140px]"
                 >
                   <option value="All">{t('products:status.allCategories')}</option>
-                  <option value="Coats & Jackets">Áo khoác</option>
-                  <option value="Dresses">Váy</option>
-                  <option value="Accessories">Phụ kiện</option>
-                  <option value="Shoes">Giày</option>
+                  <option value="Coats & Jackets">{t('products:categories.coats')}</option>
+                  <option value="Dresses">{t('products:categories.dresses')}</option>
+                  <option value="Accessories">{t('products:categories.accessories')}</option>
+                  <option value="Shoes">{t('products:categories.shoes')}</option>
                 </select>
               </div>
               <div className="flex items-end">

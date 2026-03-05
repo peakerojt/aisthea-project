@@ -112,7 +112,7 @@ export async function validateCoupon(
     });
 
     if (!coupon || !coupon.isActive) {
-        throw new CouponError('COUPON_NOT_FOUND', 'Mã giảm giá không hợp lệ hoặc đã bị vô hiệu hóa.', 404);
+        throw new CouponError('COUPON_NOT_FOUND', 'Coupon is invalid or disabled.', 404);
     }
 
     const now = new Date();
@@ -121,18 +121,18 @@ export async function validateCoupon(
     if (now < new Date(coupon.startDate)) {
         throw new CouponError(
             'COUPON_NOT_STARTED',
-            `Mã giảm giá chưa có hiệu lực. Hiệu lực từ ${new Date(coupon.startDate).toLocaleDateString('vi-VN')}.`,
+            `Coupon not yet active. Valid from ${new Date(coupon.startDate).toISOString().split('T')[0]}.`,
             400,
         );
     }
 
     if (now > new Date(coupon.endDate)) {
-        throw new CouponError('COUPON_EXPIRED', 'Mã giảm giá đã hết hạn.', 400);
+        throw new CouponError('COUPON_EXPIRED', 'Coupon has expired.', 400);
     }
 
     // ── 3. Global usage limit ──────────────────────────────────────────────────
     if (coupon.usedCount >= coupon.usageLimit) {
-        throw new CouponError('COUPON_DEPLETED', 'Mã giảm giá đã hết lượt sử dụng.', 400);
+        throw new CouponError('COUPON_DEPLETED', 'Coupon usage usage limit reached.', 400);
     }
 
     // ── 4. Minimum order value ─────────────────────────────────────────────────
@@ -141,7 +141,7 @@ export async function validateCoupon(
         const formatted = minOrderValue.toLocaleString('vi-VN');
         throw new CouponError(
             'ORDER_TOO_SMALL',
-            `Đơn hàng tối thiểu ${formatted}₫ mới được áp dụng mã này.`,
+            `Minimum order value of ${minOrderValue} is required to apply this coupon.`,
             400,
         );
     }
@@ -159,7 +159,7 @@ export async function validateCoupon(
     if (userUsageCount >= coupon.usagePerUser) {
         throw new CouponError(
             'COUPON_ALREADY_USED',
-            `Bạn đã sử dụng mã giảm giá này (tối đa ${coupon.usagePerUser} lần/khách).`,
+            `Coupon already used by you (max ${coupon.usagePerUser} times).`,
             400,
         );
     }

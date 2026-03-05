@@ -10,19 +10,19 @@ import { api } from '../utils/api';
 
 export const RefundRequestSchema = z.object({
     type: z.enum(['FULL', 'PARTIAL'] as const, {
-        error: 'Loại hoàn tiền không hợp lệ.',
+        error: 'refund.errors.invalidType',
     }),
     method: z.enum(['ORIGINAL_GATEWAY', 'BANK_TRANSFER', 'STORE_WALLET'] as const, {
-        error: 'Phương thức hoàn tiền không hợp lệ.',
+        error: 'refund.errors.invalidMethod',
     }),
     amount: z
-        .number({ error: 'Số tiền phải là số.' })
-        .positive('Số tiền hoàn phải lớn hơn 0.')
-        .max(999_999_999, 'Số tiền hoàn vượt quá giới hạn.'),
+        .number({ error: 'refund.errors.amountMustBeNumber' })
+        .positive('refund.errors.amountGreaterThanZero')
+        .max(999_999_999, 'refund.errors.amountExceedsLimit'),
     reason: z
         .string()
-        .min(5, 'Lý do phải có ít nhất 5 ký tự.')
-        .max(500, 'Lý do không được vượt quá 500 ký tự.'),
+        .min(5, 'refund.errors.reasonMinLength')
+        .max(500, 'refund.errors.reasonMaxLength'),
 });
 
 export type RefundRequestPayload = z.infer<typeof RefundRequestSchema>;
@@ -62,18 +62,18 @@ export interface CreateRefundResponse {
 
 // ─── Vietnamese label helpers ─────────────────────────────────────────────────
 
-export const REFUND_METHOD_LABELS: Record<RefundMethod, string> = {
-    ORIGINAL_GATEWAY: 'Hoàn qua cổng thanh toán gốc',
-    BANK_TRANSFER: 'Chuyển khoản thủ công',
-    STORE_WALLET: 'Ví AISTHEA',
-};
+export const REFUND_METHODS: RefundMethod[] = [
+    'ORIGINAL_GATEWAY',
+    'BANK_TRANSFER',
+    'STORE_WALLET',
+];
 
-export const REFUND_STATUS_LABELS: Record<RefundStatus, string> = {
-    PENDING: 'Chờ xử lý',
-    PROCESSING: 'Đang xử lý',
-    SUCCESS: 'Thành công',
-    FAILED: 'Thất bại',
-};
+export const REFUND_STATUSES: RefundStatus[] = [
+    'PENDING',
+    'PROCESSING',
+    'SUCCESS',
+    'FAILED',
+];
 
 // ─── Admin Refund Service ─────────────────────────────────────────────────────
 

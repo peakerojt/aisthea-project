@@ -65,12 +65,13 @@ export const createProduct = async (req: Request, res: Response) => {
         // Basic validation
         if (!name || !slug || basePrice === undefined || !categoryId) {
             return res.status(400).json({
-                error: 'Thiếu thông tin bắt buộc: tên, slug, giá, danh mục',
+                error: 'MISSING_REQUIRED_FIELDS',
+                message: 'Missing required fields: name, slug, price, category.',
             });
         }
 
         if (!variants || !Array.isArray(variants) || variants.length === 0) {
-            return res.status(400).json({ error: 'Sản phẩm phải có ít nhất một phân loại' });
+            return res.status(400).json({ error: 'VARIANTS_REQUIRED', message: 'Product must have at least one variant.' });
         }
 
         const result = await createProductService({
@@ -87,17 +88,19 @@ export const createProduct = async (req: Request, res: Response) => {
 
         res.status(201).json({
             success: true,
-            message: 'Sản phẩm đã được tạo thành công',
+            code: 'PRODUCT_CREATED',
+            message: 'Product created successfully.',
             data: result,
         });
     } catch (error: any) {
         console.error('Create product error:', error);
         // Slug uniqueness violation
         if (error.message?.includes('Unique constraint') || error.code === 'P2002') {
-            return res.status(409).json({ error: 'Slug sản phẩm đã tồn tại. Vui lòng dùng tên khác.' });
+            return res.status(409).json({ error: 'SLUG_ALREADY_EXISTS', message: 'Product slug already exists. Please use a different name.' });
         }
         res.status(500).json({
-            error: error.message || 'Lỗi máy chủ. Vui lòng thử lại.',
+            error: 'INTERNAL_SERVER_ERROR',
+            message: error.message || 'Server error. Please try again.',
         });
     }
 };
@@ -135,15 +138,15 @@ export const getAllBrands = async (_req: Request, res: Response) => {
 export const getProductEdit = async (req: Request, res: Response) => {
     try {
         const id = Number(req.params.id);
-        if (isNaN(id)) return res.status(400).json({ error: 'ID sản phẩm không hợp lệ' });
+        if (isNaN(id)) return res.status(400).json({ error: 'INVALID_PRODUCT_ID', message: 'Invalid product ID.' });
 
         const product = await getProductForEditService(id);
-        if (!product) return res.status(404).json({ error: 'Không tìm thấy sản phẩm' });
+        if (!product) return res.status(404).json({ error: 'PRODUCT_NOT_FOUND', message: 'Product not found.' });
 
         res.json(product);
     } catch (error: any) {
         console.error('Get product for edit error:', error);
-        res.status(500).json({ error: error.message || 'Lỗi máy chủ' });
+        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: error.message || 'Server error.' });
     }
 };
 
@@ -154,7 +157,7 @@ export const getProductEdit = async (req: Request, res: Response) => {
 export const updateProduct = async (req: Request, res: Response) => {
     try {
         const id = Number(req.params.id);
-        if (isNaN(id)) return res.status(400).json({ error: 'ID sản phẩm không hợp lệ' });
+        if (isNaN(id)) return res.status(400).json({ error: 'INVALID_PRODUCT_ID', message: 'Invalid product ID.' });
 
         const {
             name, slug, description, basePrice, categoryId, brandId, status,
@@ -163,7 +166,7 @@ export const updateProduct = async (req: Request, res: Response) => {
         } = req.body;
 
         if (!name || !slug || basePrice === undefined || !categoryId) {
-            return res.status(400).json({ error: 'Thiếu thông tin bắt buộc: tên, slug, giá, danh mục' });
+            return res.status(400).json({ error: 'MISSING_REQUIRED_FIELDS', message: 'Missing required fields: name, slug, price, category.' });
         }
 
         const result = await updateProductService(id, {
@@ -179,13 +182,13 @@ export const updateProduct = async (req: Request, res: Response) => {
             keptVariantIds: keptVariantIds.map(Number),
         });
 
-        res.json({ success: true, message: 'Sản phẩm đã được cập nhật thành công', data: result });
+        res.json({ success: true, code: 'PRODUCT_UPDATED', message: 'Product updated successfully.', data: result });
     } catch (error: any) {
         console.error('Update product error:', error);
         if (error.code === 'P2002') {
-            return res.status(409).json({ error: 'Slug hoặc SKU đã tồn tại. Vui lòng dùng tên khác.' });
+            return res.status(409).json({ error: 'SLUG_OR_SKU_EXISTS', message: 'Slug or SKU already exists. Please use a different name.' });
         }
-        res.status(500).json({ error: error.message || 'Lỗi máy chủ. Vui lòng thử lại.' });
+        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: error.message || 'Server error. Please try again.' });
     }
 };
 
@@ -196,7 +199,7 @@ export const updateProduct = async (req: Request, res: Response) => {
 export const deleteProduct = async (req: Request, res: Response) => {
     try {
         const id = Number(req.params.id);
-        if (isNaN(id)) return res.status(400).json({ error: 'ID sản phẩm không hợp lệ' });
+        if (isNaN(id)) return res.status(400).json({ error: 'INVALID_PRODUCT_ID', message: 'Invalid product ID.' });
 
         const result = await smartDeleteProductService(id);
 
@@ -207,10 +210,10 @@ export const deleteProduct = async (req: Request, res: Response) => {
         });
     } catch (error: any) {
         console.error('Smart delete product error:', error);
-        if (error.message?.includes('Không tìm thấy')) {
-            return res.status(404).json({ error: error.message });
+        if (error.message?.includes('Không tìm thấy') || error.message?.includes('not found')) {
+            return res.status(404).json({ error: 'PRODUCT_NOT_FOUND', message: 'Product not found.' });
         }
-        res.status(500).json({ error: error.message || 'Lỗi máy chủ. Vui lòng thử lại.' });
+        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: error.message || 'Server error. Please try again.' });
     }
 };
 

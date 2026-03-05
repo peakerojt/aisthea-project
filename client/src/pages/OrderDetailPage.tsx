@@ -1,7 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { cancelOrder, fetchOrderDetail, OrderDetail } from '../services/orderApi';
+import {
+  cancelOrder,
+  confirmReceipt,
+  fetchOrderDetail,
+  OrderDetail,
+  OrderItem,
+  OrderTimelineItem,
+} from '../services/orderApi';
 import { ApiError } from '../services/httpClient';
 import { StoreHeader } from '../components/StoreHeader';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,17 +17,56 @@ import { ShippingAddressCard } from '../components/order/ShippingAddressCard';
 import { OrderItemsTable } from '../components/order/OrderItemsTable';
 import { OrderPricingSummary } from '../components/order/OrderPricingSummary';
 import { OrderTimeline } from '../components/order/OrderTimeline';
+import { ReviewModal } from '../components/review/ReviewModal';
+import { RotateCcw, XCircle, ArrowLeft, PackageCheck, Loader2, MapPin } from 'lucide-react';
+
+// ─── Status helpers ───────────────────────────────────────────────────────────
 
 const canCancelStatus = (status: string | null | undefined) => {
   const s = (status || '').toLowerCase();
   return s === 'pending';
 };
 
+const canReturnStatus = (
+  status: string | null | undefined,
+  timeline: OrderTimelineItem[] | undefined
+) => {
+  const s = (status || '').toLowerCase();
+
+  if (s !== 'delivered') return false;
+
+  const deliveredEvent = timeline?.find((t) => t.status.toLowerCase() === 'delivered' || t.status.toLowerCase() === 'giaothanhcong');
+  if (!deliveredEvent) return false;
+
+  const deliveredDate = new Date(deliveredEvent.at);
+  const now = new Date();
+  const diffDays = (now.getTime() - deliveredDate.getTime()) / (1000 * 3600 * 24);
+  return diffDays <= 7;
+};
+
+const canConfirmReceiptStatus = (status: string | null | undefined) => {
+  return (status || '').toLowerCase() === 'shipping';
+};
+
+const canTrackOrderStatus = (status: string | null | undefined) => {
+  const s = (status || '').toLowerCase();
+  return ['confirmed', 'shipping', 'delivered'].includes(s);
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export const OrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { role } = useAuth();
+
+  // Review modal state
+  const [reviewItem, setReviewItem] = useState<OrderItem | null>(null);
+
+  // Confirm receipt dialog state
+  const [confirmReceiptDialog, setConfirmReceiptDialog] = useState(false);
+  const [receiptToastMsg, setReceiptToastMsg] = useState('');
 
   const {
     data: order,
@@ -35,25 +81,21 @@ export const OrderDetailPage: React.FC = () => {
     retry: false,
   });
 
+  // ── Cancel mutation ──
   const cancelMutation = useMutation({
     mutationFn: () => cancelOrder(id || ''),
     onMutate: async () => {
       if (!order) return;
       await queryClient.cancelQueries({ queryKey: ['order-detail', id] });
       const previous = queryClient.getQueryData<OrderDetail>(['order-detail', id]);
-
       const optimistic: OrderDetail = {
         ...order,
         status: 'cancelled',
         timeline: [
           ...order.timeline,
-          {
-            status: 'cancelled',
-            at: new Date().toISOString(),
-          },
+          { status: 'cancelled', at: new Date().toISOString() },
         ],
       };
-
       queryClient.setQueryData(['order-detail', id], optimistic);
       return { previous };
     },
@@ -67,6 +109,20 @@ export const OrderDetailPage: React.FC = () => {
     },
   });
 
+  // ── Confirm receipt mutation ──
+  const confirmReceiptMutation = useMutation({
+    mutationFn: () => confirmReceipt(id || ''),
+    onSuccess: () => {
+      setConfirmReceiptDialog(false);
+      setReceiptToastMsg('Cảm ơn bạn đã mua sắm! Vui lòng đánh giá sản phẩm nhé. 🎉');
+      refetch();
+      setTimeout(() => setReceiptToastMsg(''), 4000);
+    },
+    onError: () => {
+      setConfirmReceiptDialog(false);
+    },
+  });
+
   const structuredError = error as ApiError | null;
 
   const canCancel = useMemo(() => {
@@ -74,6 +130,22 @@ export const OrderDetailPage: React.FC = () => {
     return canCancelStatus(order.status);
   }, [order]);
 
+  const canReturn = useMemo(() => {
+    if (!order) return false;
+    return canReturnStatus(order.status, order.timeline);
+  }, [order]);
+
+  const canConfirmReceipt = useMemo(() => {
+    if (!order) return false;
+    return canConfirmReceiptStatus(order.status);
+  }, [order]);
+
+  const canTrack = useMemo(() => {
+    if (!order) return false;
+    return canTrackOrderStatus(order.status);
+  }, [order]);
+
+  // ── Guest guard ──
   if (role === 'guest') {
     return (
       <div className="bg-bg-dark min-h-screen text-white flex items-center justify-center">
@@ -90,14 +162,82 @@ export const OrderDetailPage: React.FC = () => {
     );
   }
 
-  const isNotFound =
-    structuredError?.status === 404 || structuredError?.code === 'NOT_FOUND';
-  const isForbidden =
-    structuredError?.status === 403 || structuredError?.code === 'FORBIDDEN';
+  const isNotFound = structuredError?.status === 404 || structuredError?.code === 'NOT_FOUND';
+  const isForbidden = structuredError?.status === 403 || structuredError?.code === 'FORBIDDEN';
 
   return (
     <div className="bg-bg-dark min-h-screen text-white font-sans">
       <StoreHeader setView={() => navigate('/')} setCategory={() => undefined} />
+
+      {/* Toast notification */}
+      {receiptToastMsg && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-medium shadow-[0_0_30px_rgba(16,185,129,0.2)] backdrop-blur-sm"
+          style={{ transition: 'opacity 0.3s ease' }}
+        >
+          {receiptToastMsg}
+        </div>
+      )}
+
+      {/* Confirm Receipt AlertDialog */}
+      {confirmReceiptDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-white/10 p-6 space-y-5"
+            style={{
+              background: 'linear-gradient(135deg, rgba(15,15,25,0.98) 0%, rgba(20,20,35,0.98) 100%)',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.7)',
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 shrink-0">
+                <PackageCheck size={20} className="text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white mb-1">Xác nhận đã nhận hàng?</h3>
+                <p className="text-xs text-white/60 leading-relaxed">
+                  Bạn xác nhận đã nhận được sản phẩm nguyên vẹn và không có vấn đề gì?
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmReceiptDialog(false)}
+                disabled={confirmReceiptMutation.isPending}
+                className="flex-1 py-2.5 rounded-xl border border-white/15 text-white/60 hover:text-white hover:border-white/30 text-xs font-semibold uppercase tracking-wider transition-all"
+              >
+                Chưa nhận
+              </button>
+              <button
+                onClick={() => confirmReceiptMutation.mutate()}
+                disabled={confirmReceiptMutation.isPending}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 hover:border-emerald-500/60 text-emerald-300 hover:text-emerald-200 text-xs font-semibold uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(16,185,129,0.1)]"
+              >
+                {confirmReceiptMutation.isPending ? (
+                  <span className="flex items-center justify-center gap-1.5">
+                    <Loader2 size={12} className="animate-spin" />
+                    Đang xử lý...
+                  </span>
+                ) : (
+                  'Đã nhận hàng'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Review Modal */}
+      <ReviewModal
+        open={!!reviewItem}
+        onClose={() => setReviewItem(null)}
+        item={reviewItem}
+        orderId={id || ''}
+      />
 
       <div className="pt-32 px-6 md:px-12 max-w-6xl mx-auto pb-24">
         <div className="flex items-end justify-between gap-4 mb-8">
@@ -108,9 +248,10 @@ export const OrderDetailPage: React.FC = () => {
             </p>
           </div>
           <button
-            onClick={() => navigate(-1)}
-            className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
+            onClick={() => navigate('/', { replace: true, state: { initialView: 'STORE_MY_ORDERS' } })}
+            className="group flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-sm font-medium text-white/80 hover:text-white backdrop-blur-md"
           >
+            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
             Quay lại
           </button>
         </div>
@@ -155,7 +296,7 @@ export const OrderDetailPage: React.FC = () => {
               <div className="bg-surface-dark border border-red-500/30 rounded-sm p-6 text-center">
                 <h2 className="text-lg font-semibold text-red-300 mb-2">Không có quyền truy cập</h2>
                 <p className="text-sm text-red-200/80 mb-4">
-                  Bạn không thể xem chi tiết đơn hàng này. Hãy kiểm tra lại tài khoản của bạn.
+                  Bạn không thể xem chi tiết đơn hàng này.
                 </p>
                 <button
                   onClick={() => navigate('/')}
@@ -185,11 +326,18 @@ export const OrderDetailPage: React.FC = () => {
             <div className="lg:col-span-8 space-y-6">
               <OrderHeader order={order} />
               <ShippingAddressCard order={order} />
-              <OrderItemsTable order={order} />
+              <OrderItemsTable
+                order={order}
+                onReview={(item) => setReviewItem(item)}
+                onProductClick={(productId) => {
+                  navigate(`/?productId=${productId}`);
+                  window.scrollTo(0, 0);
+                }}
+              />
             </div>
             <div className="lg:col-span-4 space-y-6">
               <OrderPricingSummary order={order} />
-              <OrderTimeline history={(order.timeline ?? []).map(t => ({ status: t.status, changedAt: t.at }))} />
+              <OrderTimeline history={(order.timeline ?? []).map((t) => ({ status: t.status, changedAt: t.at }))} />
               {order.note && (
                 <div className="bg-surface-dark border border-white/5 rounded-sm p-6">
                   <div className="text-[10px] uppercase tracking-widest text-white/40">Ghi chú</div>
@@ -198,20 +346,70 @@ export const OrderDetailPage: React.FC = () => {
               )}
               <div className="bg-surface-dark border border-white/5 rounded-sm p-6">
                 <div className="text-[10px] uppercase tracking-widest text-white/40">Hành động</div>
-                <button
-                  disabled={!canCancel || cancelMutation.isPending}
-                  onClick={() => cancelMutation.mutate()}
-                  className={`mt-4 w-full px-4 py-3 border text-xs font-bold uppercase tracking-widest transition-colors ${!canCancel || cancelMutation.isPending
-                      ? 'bg-white/5 border-white/10 text-white/30 cursor-not-allowed'
-                      : 'bg-red-500/10 hover:bg-red-500/20 border-red-500/50 text-red-300'
-                    }`}
-                >
-                  {cancelMutation.isPending ? 'Đang hủy đơn...' : 'Hủy đơn hàng'}
-                </button>
-                {!canCancel && (
-                  <p className="mt-2 text-xs text-white/40">
-                    Chỉ có thể hủy đơn khi trạng thái là <strong>Chờ xác nhận</strong>.
-                  </p>
+                <div className="flex flex-col gap-3 mt-4">
+
+                  {/* ── Track Order Button (from feature/order-tracking-PhamAnhHao) ── */}
+                  {canTrack && (
+                    <button
+                      onClick={() => navigate(`/tracking/${id}`)}
+                      className="group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.1)] hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]"
+                    >
+                      <MapPin size={15} className="group-hover:scale-110 transition-transform" />
+                      Theo dõi đơn hàng
+                    </button>
+                  )}
+
+                  {/* ── Confirm Receipt Button ── */}
+                  {canConfirmReceipt && (
+                    <button
+                      onClick={() => setConfirmReceiptDialog(true)}
+                      className="group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 hover:border-emerald-500/50 text-emerald-400 hover:text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_25px_rgba(16,185,129,0.2)]"
+                    >
+                      <PackageCheck size={15} className="group-hover:scale-110 transition-transform" />
+                      Đã nhận được hàng
+                    </button>
+                  )}
+
+                  {/* ── Cancel Button ── */}
+                  {canCancel && (
+                    <button
+                      disabled={cancelMutation.isPending}
+                      onClick={() => cancelMutation.mutate()}
+                      className={`group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all ${cancelMutation.isPending
+                        ? 'bg-white/5 border-white/10 text-white/30 cursor-not-allowed'
+                        : 'bg-red-500/10 hover:bg-red-500/20 border-red-500/30 hover:border-red-500/50 text-red-400 hover:text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.1)] hover:shadow-[0_0_20px_rgba(239,68,68,0.2)]'
+                        }`}
+                    >
+                      <XCircle
+                        size={15}
+                        className={cancelMutation.isPending ? 'opacity-50' : 'group-hover:scale-110 transition-transform'}
+                      />
+                      {cancelMutation.isPending ? 'Đang xử lý...' : 'Hủy đơn hàng'}
+                    </button>
+                  )}
+
+                  {/* ── Return Button ── */}
+                  {canReturn && (
+                    <button
+                      onClick={() => navigate(`/orders/${id}/return`)}
+                      className="group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all bg-violet-600/10 hover:bg-violet-600/20 text-violet-400 hover:text-violet-300 border-violet-500/30 hover:border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.1)] hover:shadow-[0_0_20px_rgba(139,92,246,0.2)]"
+                    >
+                      <RotateCcw size={15} className="group-hover:-rotate-45 transition-transform" />
+                      Yêu cầu trả hàng
+                    </button>
+                  )}
+
+                </div>
+
+                {/* Empty state hint */}
+                {!canTrack && !canConfirmReceipt && !canCancel && !canReturn && (
+                  <div className="mt-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                    <p className="text-[11px] text-white/40 leading-relaxed">
+                      Chỉ có thể hủy đơn khi <strong className="text-white/60">Chờ xác nhận</strong>, theo dõi/xác nhận nhận hàng khi{' '}
+                      <strong className="text-white/60">Đang giao</strong>, hoặc hoàn đơn trong 7 ngày sau khi{' '}
+                      <strong className="text-white/60">Giao thành công</strong>.
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
@@ -221,4 +419,3 @@ export const OrderDetailPage: React.FC = () => {
     </div>
   );
 };
-

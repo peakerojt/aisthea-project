@@ -1,118 +1,70 @@
 import { prisma } from '../../utils/prisma';
 
+const ORDER_INCLUDE = {
+  items: { orderBy: { orderItemId: 'asc' as const } },
+  statusHistory: { orderBy: { changedAt: 'asc' as const } },
+  shipment: true,
+};
+
 export const trackingRepository = {
+  /**
+   * Public lookup: match by orderNumber (or orderCode) AND phone or email.
+   * Security: Both orderCode AND contact must match exactly.
+   */
   async findOrderByCodeAndContact(orderCode: string, contact: string) {
-    const rows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT TOP 1
-        o.OrderId as orderId,
-        o.UserId as userId,
-        o.OrderNumber as orderNumber,
-        o.CustomerName as customerName,
-        o.CustomerPhone as customerPhone,
-        o.Status as status,
-        o.TrackingNumber as trackingNumber,
-        o.Carrier as carrier,
-        o.CreatedAt as createdAt
-      FROM Orders o
-      WHERE o.OrderNumber = @P1 AND o.CustomerPhone = @P2
-      ORDER BY o.CreatedAt DESC`,
-      orderCode,
-      contact,
-    );
+    const isEmail = contact.includes('@');
 
-    const order = rows?.[0];
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          { orderNumber: orderCode },
+          { orderCode: orderCode },
+        ],
+        AND: isEmail
+          ? { customerEmail: contact }
+          : { customerPhone: contact },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: ORDER_INCLUDE,
+    });
+
     if (!order) return null;
-
-    const [items, statusHistory] = await Promise.all([
-      prisma.orderItem.findMany({
-        where: { orderId: order.orderId },
-        orderBy: { orderItemId: 'asc' },
-      }),
-      prisma.orderStatusHistory.findMany({
-        where: { orderId: order.orderId },
-        orderBy: { changedAt: 'asc' },
-      }),
-    ]);
 
     return {
       ...order,
-      items,
-      statusHistory,
-      shipment: null,
-      orderCode: order.orderNumber,
-      customerEmail: null,
+      orderCode: order.orderCode || order.orderNumber,
+      customerEmail: order.customerEmail || null,
     };
   },
 
   async findMyOrders(userId: number) {
-    const rows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT
-        o.OrderId as orderId,
-        o.UserId as userId,
-        o.OrderNumber as orderNumber,
-        o.CustomerName as customerName,
-        o.CustomerPhone as customerPhone,
-        o.Status as status,
-        o.TrackingNumber as trackingNumber,
-        o.Carrier as carrier,
-        o.CreatedAt as createdAt
-      FROM Orders o
-      WHERE o.UserId = @P1
-      ORDER BY o.CreatedAt DESC`,
-      userId,
-    );
+    const orders = await prisma.order.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        items: { orderBy: { orderItemId: 'asc' } },
+      },
+    });
 
-    return Promise.all(
-      rows.map(async (order) => {
-        const items = await prisma.orderItem.findMany({ where: { orderId: order.orderId } });
-        return {
-          ...order,
-          items,
-          shipment: null,
-          orderCode: order.orderNumber,
-        };
-      }),
-    );
+    return orders.map((order) => ({
+      ...order,
+      shipment: null,
+      orderCode: order.orderCode || order.orderNumber,
+    }));
   },
 
   async findOrderTrackingById(orderId: number) {
-    const rows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT TOP 1
-        o.OrderId as orderId,
-        o.UserId as userId,
-        o.OrderNumber as orderNumber,
-        o.CustomerName as customerName,
-        o.CustomerPhone as customerPhone,
-        o.Status as status,
-        o.TrackingNumber as trackingNumber,
-        o.Carrier as carrier,
-        o.CreatedAt as createdAt
-      FROM Orders o
-      WHERE o.OrderId = @P1`,
-      orderId,
-    );
+    const order = await prisma.order.findUnique({
+      where: { orderId },
+      include: ORDER_INCLUDE,
+    });
 
-    const order = rows?.[0];
     if (!order) return null;
-
-    const [items, statusHistory] = await Promise.all([
-      prisma.orderItem.findMany({
-        where: { orderId },
-        orderBy: { orderItemId: 'asc' },
-      }),
-      prisma.orderStatusHistory.findMany({
-        where: { orderId },
-        orderBy: { changedAt: 'asc' },
-      }),
-    ]);
 
     return {
       ...order,
-      items,
-      statusHistory,
-      shipment: null,
-      orderCode: order.orderNumber,
-      customerEmail: null,
+      orderCode: order.orderCode || order.orderNumber,
+      customerEmail: order.customerEmail || null,
     };
   },
 };

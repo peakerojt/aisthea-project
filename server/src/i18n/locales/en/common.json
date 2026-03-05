@@ -1,0 +1,9 @@
+{
+  "errors": {
+    "notFoundRoute": "Route {{method}} {{url}} not found",
+    "internalServer": "Internal server error",
+    "validation": "Invalid request data",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Forbidden"
+  }
+}

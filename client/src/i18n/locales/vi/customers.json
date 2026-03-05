@@ -24,7 +24,8 @@
     },
     "status": {
         "active": "Hoạt động",
-        "banned": "Đã khóa"
+        "banned": "Đã khóa",
+        "pending": "Chờ xác nhận"
     },
     "ban": {
         "titleBan": "Khóa tài khoản?",
@@ -34,12 +35,19 @@
         "warningBan": "Người dùng này sẽ không thể đăng nhập được nữa.",
         "actionBan": "Khóa tài khoản",
         "actionUnban": "Mở khóa",
-        "processing": "Đang xử lý..."
+        "processing": "Đang xử lý...",
+        "cancel": "Hủy"
     },
     "role": {
         "title": "Phân quyền",
         "saveRole": "Lưu thay đổi",
-        "saving": "Đang lưu..."
+        "saving": "Đang lưu...",
+        "cancel": "Hủy",
+        "labels": {
+            "admin": "Quản trị viên",
+            "customer": "Khách hàng",
+            "staff": "Nhân viên"
+        }
     },
     "feedback": {
         "statusUpdated": "Cập nhật trạng thái thành công!",

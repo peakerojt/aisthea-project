@@ -28,6 +28,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   inventoryLogs InventoryLog[]
   orderReturns  OrderReturn[]
+  cart          Cart?        // 1-to-1: mỗi user có tối đa một giỏ hàng
 
   @@index([email, status], map: "IX_Users_Email_Status")
   @@index([phone], map: "IX_Users_Phone")
@@ -245,9 +246,11 @@ model ProductImage {
 
 model Cart {
   cartId    Int        @id(map: "PK__Carts__51BCD7B73EF6F31C") @default(autoincrement()) @map("CartId")
-  userId    Int?       @map("UserId")
+  userId    Int?       @unique(map: "UQ_Carts_UserId") @map("UserId")   // 1-to-1 với User
   sessionId String?    @map("SessionId") @db.NVarChar(100)
   createdAt DateTime?  @default(now(), map: "DF__Carts__CreatedAt__5AEE82B9") @map("CreatedAt")
+  updatedAt DateTime?  @default(now()) @updatedAt @map("UpdatedAt")
+  user      User?      @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Carts_Users")
   items     CartItem[]
 
   @@map("Carts")
@@ -258,9 +261,11 @@ model CartItem {
   cartId     Int            @map("CartId")
   variantId  Int            @map("VariantId")
   quantity   Int            @map("Quantity")
+  addedAt    DateTime?      @default(now()) @map("AddedAt")
   cart       Cart           @relation(fields: [cartId], references: [cartId], onDelete: Cascade, onUpdate: NoAction, map: "FK_CartItems_Carts")
   variant    ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_CartItems_Variants")
 
+  @@unique([cartId, variantId], map: "UQ_CartItems_Cart_Variant") // ngăn trùng lặp sản phẩm trong giỏ
   @@index([cartId], map: "IX_CartItems_CartId")
   @@map("CartItems")
 }
@@ -351,6 +356,7 @@ model OrderItem {
   quantity    Int             @map("Quantity")
   order       Order           @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderItems_Orders")
   variant     ProductVariant? @relation(fields: [variantId], references: [variantId], onUpdate: NoAction, map: "FK_OrderItems_Variants")
+  review      Review?         // One-to-one: each purchased item can have at most one review
 
   @@index([orderId], map: "IX_OrderItems_OrderId")
   @@index([variantId], map: "IX_OrderItems_VariantId")
@@ -373,16 +379,20 @@ model Payment {
 }
 
 model Review {
-  reviewId  Int       @id(map: "PK__Reviews__74BC79CEFD1A50DD") @default(autoincrement()) @map("ReviewId")
-  productId Int       @map("ProductId")
-  userId    Int       @map("UserId")
-  rating    Int?      @map("Rating")
-  comment   String?   @map("Comment") @db.NVarChar(500)
-  createdAt DateTime? @default(now(), map: "DF__Reviews__Created__0C85DE4D") @map("CreatedAt")
-  product   Product   @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Reviews_Products")
-  user      User      @relation(fields: [userId], references: [userId], onUpdate: NoAction, map: "FK_Reviews_Users")
+  reviewId    Int        @id(map: "PK__Reviews__74BC79CEFD1A50DD") @default(autoincrement()) @map("ReviewId")
+  productId   Int        @map("ProductId")
+  userId      Int        @map("UserId")
+  orderItemId Int?       @unique(map: "UQ_Reviews_OrderItemId") @map("OrderItemId") // CRITICAL: one review per purchased item
+  rating      Int?       @map("Rating")
+  comment     String?    @map("Comment") @db.NVarChar(1000)
+  images      String?    @default("[]") @map("Images") @db.NVarChar(Max) // JSON array of Cloudinary URLs
+  createdAt   DateTime?  @default(now(), map: "DF__Reviews__Created__0C85DE4D") @map("CreatedAt")
+  product     Product    @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Reviews_Products")
+  user        User       @relation(fields: [userId], references: [userId], onUpdate: NoAction, map: "FK_Reviews_Users")
+  orderItem   OrderItem? @relation(fields: [orderItemId], references: [orderItemId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Reviews_OrderItems")
 
   @@index([productId], map: "IX_Reviews_ProductId")
+  @@index([userId], map: "IX_Reviews_UserId")
   @@map("Reviews")
 }
 

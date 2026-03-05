@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Search, Users, AlertCircle, CheckCircle2, Loader2, Shield,
     X, ShieldCheck, ChevronDown,
@@ -49,6 +50,7 @@ function getAvatarColor(userId: number): string {
 // ─── Badge helpers ─────────────────────────────────────────────────────────────
 
 function RoleBadge({ roleName }: { roleName: string }) {
+    const { t } = useTranslation(['customers']);
     const styles: Record<string, string> = {
         Admin: 'bg-purple-500/15 text-purple-300 border-purple-500/25',
         Customer: 'bg-blue-500/15 text-blue-300 border-blue-500/25',
@@ -57,17 +59,18 @@ function RoleBadge({ roleName }: { roleName: string }) {
     const cls = styles[roleName] ?? 'bg-white/5 text-white/40 border-white/10';
     return (
         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[11px] font-bold uppercase tracking-wide ${cls}`}>
-            {getRoleLabel(roleName)}
+            {t(`role.labels.${roleName.toLowerCase()}`, { defaultValue: getRoleLabel(roleName) })}
         </span>
     );
 }
 
 function StatusBadge({ status }: { status: string }) {
+    const { t } = useTranslation(['customers']);
     if (status === 'Banned') {
         return (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-red-500/30 bg-red-500/10 text-red-400 text-[11px] font-bold uppercase tracking-wide">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
-                Đã khóa
+                {t('status.banned')}
             </span>
         );
     }
@@ -75,14 +78,14 @@ function StatusBadge({ status }: { status: string }) {
         return (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[11px] font-bold uppercase tracking-wide">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-                Hoạt động
+                {t('status.active')}
             </span>
         );
     }
     return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-white/10 bg-white/5 text-white/40 text-[11px] font-bold uppercase tracking-wide">
             <span className="w-1.5 h-1.5 rounded-full bg-white/30 inline-block" />
-            {STATUS_LABELS[status] ?? status}
+            {t(`status.${status.toLowerCase()}`, { defaultValue: STATUS_LABELS[status] ?? status })}
         </span>
     );
 }
@@ -90,6 +93,7 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export const AdminCustomers: React.FC = () => {
+    const { t } = useTranslation(['customers']);
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -131,7 +135,7 @@ export const AdminCustomers: React.FC = () => {
             });
             setUsers(data);
         } catch (e: any) {
-            setError(e.message || 'Không thể tải danh sách người dùng.');
+            setError(e.message || t('feedback.loadError'));
         } finally {
             setLoading(false);
         }
@@ -157,11 +161,11 @@ export const AdminCustomers: React.FC = () => {
         setBanLoading(true);
         try {
             const res = await patchUserStatus(banTarget.userId);
-            showToast(res.message || 'Cập nhật trạng thái thành công!', 'success');
+            showToast(res.message || t('feedback.statusUpdated'), 'success');
             setBanTarget(null);
             await loadUsers();
         } catch (e: any) {
-            showToast(e.message || 'Cập nhật thất bại.', 'error');
+            showToast(e.message || t('feedback.statusError'), 'error');
             setBanTarget(null);
         } finally {
             setBanLoading(false);
@@ -179,11 +183,11 @@ export const AdminCustomers: React.FC = () => {
         setRoleLoading(true);
         try {
             const res = await patchUserRole(roleTarget.userId, selectedRoleId);
-            showToast(res.message || 'Cập nhật vai trò thành công!', 'success');
+            showToast(res.message || t('feedback.roleUpdated'), 'success');
             setRoleTarget(null);
             await loadUsers();
         } catch (e: any) {
-            showToast(e.message || 'Cập nhật vai trò thất bại.', 'error');
+            showToast(e.message || t('feedback.roleError'), 'error');
             setRoleTarget(null);
         } finally {
             setRoleLoading(false);
@@ -242,7 +246,7 @@ export const AdminCustomers: React.FC = () => {
                                 </div>
                                 <div>
                                     <h3 className="text-base font-bold text-white">
-                                        {banTarget.status === 'Banned' ? 'Mở khóa tài khoản?' : 'Khóa tài khoản?'}
+                                        {banTarget.status === 'Banned' ? t('ban.titleUnban') : t('ban.titleBan')}
                                     </h3>
                                     <p className="text-xs text-white/40 mt-0.5 truncate max-w-[260px]">
                                         {banTarget.fullName}
@@ -261,13 +265,13 @@ export const AdminCustomers: React.FC = () => {
                         {/* Warning box */}
                         <div className="bg-red-500/[0.05] border border-red-500/20 rounded-lg px-4 py-3 space-y-1">
                             <p className="text-sm font-semibold text-white">
-                                Bạn có chắc chắn muốn{' '}
-                                {banTarget.status === 'Banned' ? 'mở khóa' : 'khóa'} tài khoản{' '}
-                                <span className="text-primary">{banTarget.fullName}</span>?
+                                {banTarget.status === 'Banned' ?
+                                    t('ban.confirmUnban').replace('<1>', '').replace('</1>', '').replace('{{name}}', banTarget.fullName) :
+                                    t('ban.confirmBan').replace('<1>', '').replace('</1>', '').replace('{{name}}', banTarget.fullName)}
                             </p>
                             {banTarget.status !== 'Banned' && (
                                 <p className="text-xs text-red-300/70">
-                                    Người dùng này sẽ không thể đăng nhập được nữa.
+                                    {t('ban.warningBan')}
                                 </p>
                             )}
                         </div>
@@ -279,7 +283,7 @@ export const AdminCustomers: React.FC = () => {
                                 disabled={banLoading}
                                 className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-50 cursor-pointer"
                             >
-                                Hủy
+                                {t('ban.cancel')}
                             </button>
                             <button
                                 onClick={handleConfirmBan}
@@ -287,7 +291,7 @@ export const AdminCustomers: React.FC = () => {
                                 className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center gap-2 shadow-lg shadow-red-900/30 cursor-pointer"
                             >
                                 {banLoading ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
-                                {banLoading ? 'Đang xử lý...' : banTarget.status === 'Banned' ? 'Mở khóa' : 'Khóa tài khoản'}
+                                {banLoading ? t('ban.processing') : banTarget.status === 'Banned' ? t('ban.actionUnban') : t('ban.actionBan')}
                             </button>
                         </div>
                     </div>
@@ -309,7 +313,7 @@ export const AdminCustomers: React.FC = () => {
                                     <ShieldCheck size={16} className="text-purple-400" />
                                 </div>
                                 <div>
-                                    <h3 className="text-sm font-bold text-white">Phân quyền</h3>
+                                    <h3 className="text-sm font-bold text-white">{t('role.title')}</h3>
                                     <p className="text-[11px] text-white/40 truncate max-w-[180px]">{roleTarget.fullName}</p>
                                 </div>
                             </div>
@@ -329,14 +333,14 @@ export const AdminCustomers: React.FC = () => {
                                     key={r.roleId}
                                     onClick={() => setSelectedRoleId(r.roleId)}
                                     className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all cursor-pointer ${selectedRoleId === r.roleId
-                                            ? 'border-primary/50 bg-primary/10 text-white'
-                                            : 'border-white/10 bg-white/[0.02] text-white/60 hover:border-white/20 hover:text-white/80'
+                                        ? 'border-primary/50 bg-primary/10 text-white'
+                                        : 'border-white/10 bg-white/[0.02] text-white/60 hover:border-white/20 hover:text-white/80'
                                         }`}
                                 >
-                                    <span>{getRoleLabel(r.roleName)}</span>
+                                    <span>{t(`role.labels.${r.roleName.toLowerCase()}`, { defaultValue: getRoleLabel(r.roleName) })}</span>
                                     <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${r.roleName === 'Admin' ? 'bg-purple-500/20 text-purple-300' :
-                                            r.roleName === 'Customer' ? 'bg-blue-500/20 text-blue-300' :
-                                                'bg-amber-500/20 text-amber-300'
+                                        r.roleName === 'Customer' ? 'bg-blue-500/20 text-blue-300' :
+                                            'bg-amber-500/20 text-amber-300'
                                         }`}>
                                         {r.roleName}
                                     </span>
@@ -351,7 +355,7 @@ export const AdminCustomers: React.FC = () => {
                                 disabled={roleLoading}
                                 className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
                             >
-                                Hủy
+                                {t('role.cancel')}
                             </button>
                             <button
                                 onClick={handleConfirmRole}
@@ -359,7 +363,7 @@ export const AdminCustomers: React.FC = () => {
                                 className="flex-1 py-2.5 rounded-lg text-sm font-bold text-white bg-primary hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-primary/20 cursor-pointer"
                             >
                                 {roleLoading ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
-                                {roleLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                                {roleLoading ? t('role.saving') : t('role.saveRole')}
                             </button>
                         </div>
                     </div>
@@ -373,10 +377,10 @@ export const AdminCustomers: React.FC = () => {
                         <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
                             <Users size={16} className="text-primary" />
                         </div>
-                        <h2 className="text-2xl font-bold text-white">Quản lý người dùng</h2>
+                        <h2 className="text-2xl font-bold text-white">{t('page.title')}</h2>
                     </div>
                     <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1 pl-11">
-                        {loading ? 'Đang tải...' : `${users.length} người dùng`}
+                        {loading ? t('page.loading') : t('page.userCount', { count: users.length })}
                     </p>
                 </div>
             </header>
@@ -391,7 +395,7 @@ export const AdminCustomers: React.FC = () => {
                     />
                     <input
                         type="text"
-                        placeholder="Tìm theo tên, email, số điện thoại..."
+                        placeholder={t('filters.searchPlaceholder')}
                         value={searchInput}
                         onChange={(e) => handleSearchChange(e.target.value)}
                         className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
@@ -405,9 +409,9 @@ export const AdminCustomers: React.FC = () => {
                         onChange={(e) => setRoleFilter(e.target.value)}
                         className="appearance-none bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-4 pr-9 text-sm text-white/80 focus:outline-none focus:border-primary/50 transition-all cursor-pointer"
                     >
-                        <option value="all">Tất cả vai trò</option>
-                        {Object.entries(ROLE_LABELS).map(([key, label]) => (
-                            <option key={key} value={key}>{label}</option>
+                        <option value="all">{t('filters.allRoles')}</option>
+                        {Object.entries(ROLE_LABELS).map(([key]) => (
+                            <option key={key} value={key}>{t(`role.labels.${key.toLowerCase()}`, { defaultValue: getRoleLabel(key) })}</option>
                         ))}
                     </select>
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
@@ -420,10 +424,10 @@ export const AdminCustomers: React.FC = () => {
                         onChange={(e) => setStatusFilter(e.target.value)}
                         className="appearance-none bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-4 pr-9 text-sm text-white/80 focus:outline-none focus:border-primary/50 transition-all cursor-pointer"
                     >
-                        <option value="all">Tất cả trạng thái</option>
-                        <option value="Active">Hoạt động</option>
-                        <option value="Banned">Đã khóa</option>
-                        <option value="Pending">Chờ xác nhận</option>
+                        <option value="all">{t('filters.allStatuses')}</option>
+                        <option value="Active">{t('filters.statusActive')}</option>
+                        <option value="Banned">{t('filters.statusBanned')}</option>
+                        <option value="Pending">{t('filters.statusPending')}</option>
                     </select>
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
                 </div>
@@ -434,7 +438,7 @@ export const AdminCustomers: React.FC = () => {
                 <div className="bg-white/[0.02] border border-white/5 rounded-xl flex-1 flex items-center justify-center">
                     <div className="flex flex-col items-center gap-4">
                         <div className="w-10 h-10 border-4 border-white/10 border-t-primary rounded-full animate-spin" />
-                        <p className="text-sm text-white/40">Đang tải danh sách người dùng...</p>
+                        <p className="text-sm text-white/40">{t('feedback.loadingList')}</p>
                     </div>
                 </div>
             )}
@@ -445,14 +449,14 @@ export const AdminCustomers: React.FC = () => {
                     <div className="flex flex-col items-center gap-4 max-w-sm text-center">
                         <AlertCircle size={40} className="text-red-400" />
                         <div>
-                            <h3 className="text-base font-bold text-white mb-1">Không thể tải dữ liệu</h3>
+                            <h3 className="text-base font-bold text-white mb-1">{t('feedback.dataError')}</h3>
                             <p className="text-sm text-white/50">{error}</p>
                         </div>
                         <button
                             onClick={loadUsers}
                             className="text-xs text-primary font-bold uppercase tracking-wider hover:underline cursor-pointer"
                         >
-                            Thử lại
+                            {t('feedback.retry')}
                         </button>
                     </div>
                 </div>
@@ -467,8 +471,8 @@ export const AdminCustomers: React.FC = () => {
                                 <Users size={24} className="text-white/20" />
                             </div>
                             <div className="text-center">
-                                <p className="text-base font-semibold text-white/60">Không tìm thấy người dùng</p>
-                                <p className="text-sm text-white/30 mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+                                <p className="text-base font-semibold text-white/60">{t('feedback.notFound')}</p>
+                                <p className="text-sm text-white/30 mt-1">{t('feedback.changeFilter')}</p>
                             </div>
                         </div>
                     ) : (
@@ -476,13 +480,13 @@ export const AdminCustomers: React.FC = () => {
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-white/[0.02] border-b border-white/[0.06]">
                                     <tr className="text-[10px] uppercase tracking-widest text-white/40 font-bold">
-                                        <th className="py-4 px-6">Khách hàng</th>
-                                        <th className="py-4 px-4">Liên hệ</th>
-                                        <th className="py-4 px-4">Vai trò</th>
-                                        <th className="py-4 px-4">Trạng thái</th>
-                                        <th className="py-4 px-4">Đơn hàng</th>
-                                        <th className="py-4 px-4">Ngày tham gia</th>
-                                        <th className="py-4 px-4 text-right">Thao tác</th>
+                                        <th className="py-4 px-6">{t('table.customer')}</th>
+                                        <th className="py-4 px-4">{t('table.contact')}</th>
+                                        <th className="py-4 px-4">{t('table.role')}</th>
+                                        <th className="py-4 px-4">{t('table.status')}</th>
+                                        <th className="py-4 px-4">{t('table.orders')}</th>
+                                        <th className="py-4 px-4">{t('table.joined')}</th>
+                                        <th className="py-4 px-4 text-right">{t('table.actions')}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/[0.04]">
@@ -535,7 +539,7 @@ export const AdminCustomers: React.FC = () => {
                                                             <RoleBadge key={r.roleId} roleName={r.roleName} />
                                                         ))
                                                     ) : (
-                                                        <span className="text-xs text-white/30">Chưa phân quyền</span>
+                                                        <span className="text-xs text-white/30">{t('table.noRole')}</span>
                                                     )}
                                                 </div>
                                             </td>

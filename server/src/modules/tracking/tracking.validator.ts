@@ -11,4 +11,9 @@ export const updateOrderStatusSchema = z.object({
   note: z.string().trim().max(500).optional(),
   eta: z.string().datetime().optional(),
   location: z.string().trim().max(255).optional(),
+  carrier: z.string().trim().max(100).optional(),
+  trackingNumber: z.string().trim().max(100).optional(),
+  estimatedDeliveryDate: z.string().datetime().optional(),
 });
+
+export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;

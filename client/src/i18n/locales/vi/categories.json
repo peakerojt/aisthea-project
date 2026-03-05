@@ -26,7 +26,7 @@
     },
     "delete": {
         "title": "Xác nhận xóa danh mục?",
-        "warning": "Hành động này <1>không thể hoàn tác</1>. Danh mục chỉ có thể xóa khi <2>không có danh mục con và không có sản phẩm</2>.",
+        "warning": "Hành động này <span class=\"text-white font-semibold\">không thể hoàn tác</span>. Danh mục chỉ có thể xóa khi <span class=\"text-yellow-400 font-semibold\">không có danh mục con và không có sản phẩm</span>.",
         "cancel": "Hủy",
         "confirm": "Xóa danh mục",
         "deleting": "Đang xóa..."

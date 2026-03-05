@@ -49,13 +49,21 @@
         "markInStock": "Đánh dấu còn hàng",
         "deleteSelected": "Xóa đã chọn",
         "resetFilters": "Đặt lại bộ lọc",
-        "searchPlaceholder": "Tìm theo tên, SKU…"
+        "searchPlaceholder": "Tìm theo tên, SKU…",
+        "importExport": "Nhập / Xuất"
     },
     "modal": {
         "deleteTitle": "Xác nhận xóa sản phẩm?",
         "deleteBody": "Hành động này <b>không thể hoàn tác</b>. Nếu sản phẩm đã có đơn hàng, hệ thống sẽ chỉ <b>ẩn sản phẩm</b> để bảo toàn lịch sử đơn hàng.",
+        "deleteWarning": "Hành động này <span class=\"text-white font-semibold\">không thể hoàn tác</span>. Nếu sản phẩm đã có đơn hàng, hệ thống sẽ chỉ <span class=\"text-yellow-400 font-semibold\">ẩn sản phẩm</span> để bảo toàn lịch sử đơn hàng.",
         "deleting": "Đang xóa...",
         "delete": "Xóa"
+    },
+    "categories": {
+        "coats": "Áo khoác",
+        "dresses": "Váy",
+        "accessories": "Phụ kiện",
+        "shoes": "Giày"
     },
     "empty": {
         "noMatch": "Không có sản phẩm nào khớp với bộ lọc",
@@ -79,5 +87,92 @@
         "alertTitle": "Cảnh báo tồn kho thấp",
         "alertDescription": "{{count}} sản phẩm đang ở mức tồn kho thấp",
         "restock": "Nhập thêm hàng"
+    },
+    "editor": {
+        "breadcrumbs": {
+            "home": "Trang chủ",
+            "products": "Sản phẩm",
+            "create": "Tạo mới",
+            "update": "Cập nhật"
+        },
+        "actions": {
+            "cancel": "Huỷ bỏ",
+            "saving": "Đang lưu...",
+            "publish": "Hoàn tất đăng bán",
+            "backToList": "← Quay lại danh sách",
+            "saveChanges": "Lưu thay đổi"
+        },
+        "sections": {
+            "basicInfo": "Thông tin cơ bản",
+            "variants": "Phân loại hàng",
+            "images": "Hình ảnh",
+            "status": "Trạng thái",
+            "organization": "Tổ chức",
+            "categoryAndBrand": "Danh mục & Thương hiệu",
+            "priceAndStock": "Giá & Kho",
+            "priceAndSku": "Giá & SKU",
+            "summary": "Tóm tắt"
+        },
+        "fields": {
+            "name": "Tên sản phẩm",
+            "namePlaceholder": "VD: ÁO KHOÁC NOIR TRENCH COAT",
+            "slug": "Slug:",
+            "description": "Mô tả sản phẩm",
+            "descriptionPlaceholder": "Nhập mô tả chi tiết về sản phẩm, chất liệu, phong cách...",
+            "attrName": "Tên thuộc tính",
+            "attrNamePlaceholder": "VD: Màu sắc",
+            "attrValues": "Giá trị (nhấn Enter để thêm)",
+            "attrValuesPlaceholder": "VD: Đỏ, Xanh",
+            "createAttr": "Thêm thuộc tính",
+            "variantTable": "Bảng phân loại ({{count}})",
+            "syncPrice": "Đồng bộ giá",
+            "regenSku": "Tạo lại SKU",
+            "variantName": "Tên phân loại",
+            "sku": "SKU",
+            "price": "Giá (₫)",
+            "stock": "Kho hàng",
+            "default": "Mặc định",
+            "visibility": "Hiển thị sản phẩm",
+            "statusActive": "Đang bán",
+            "statusDraft": "Bản nháp",
+            "statusArchived": "Đã ẩn",
+            "category": "Danh mục",
+            "categorySelect": "— Chọn danh mục —",
+            "brand": "Thương hiệu",
+            "brandSelect": "— Không có —",
+            "basePrice": "Giá bán cơ bản (₫)",
+            "basePricePlaceholder": "0",
+            "baseSku": "SKU gốc (tuỳ chọn)",
+            "baseSkuPlaceholder": "VD: NOIR-TRENCH",
+            "baseSkuHint": "Dùng làm tiền tố cho SKU phân loại.",
+            "summaryVariants": "Số phân loại:",
+            "summaryTotalStock": "Tổng kho:",
+            "summaryImages": "Số ảnh:",
+            "groupNamePlaceholder": "Tên nhóm (vd: Màu sắc, Kích thước)",
+            "enterValues": "Nhập giá trị + Enter",
+            "VariantNameEdit": "Vd: Áo sơ mi dài tay Oxford",
+            "descPlaceholderEdit": "Mô tả chi tiết về chất liệu, xuất xứ, đặc điểm nổi bật...",
+            "statusActiveEdit": "Active — Đang bán",
+            "statusDraftEdit": "Draft — Nháp",
+            "statusArchivedEdit": "Archived — Lưu trữ",
+            "baseSkuPlaceholderEdit": "Vd: AISTHEA-AO",
+            "baseSkuHintEdit": "Dùng để tạo lại SKU các biến thể",
+            "summaryExistingVariants": "Biến thể hiện có",
+            "summaryNewVariants": "Biến thể mới",
+            "summaryImagesToDelete": "Ảnh sẽ xóa",
+            "summaryImagesToAdd": "Ảnh sẽ thêm"
+        },
+        "feedback": {
+            "noVariants": "Vui lòng thêm ít nhất một phân loại sản phẩm",
+            "invalidPrice": "Phân loại \"{{label}}\" chưa có giá hợp lệ",
+            "syncPriceSuccess": "Đã đồng bộ giá {{price}}₫ cho tất cả phân loại",
+            "createSuccess": "Đã đăng bán \"{{name}}\" thành công! ({{count}} phân loại)",
+            "createError": "Có lỗi xảy ra. Vui lòng thử lại.",
+            "updateSuccess": "Đã lưu thay đổi cho \"{{name}}\" thành công!",
+            "loadingVariants": "Đang tải phân loại...",
+            "loadingImages": "Đang tải hình ảnh...",
+            "unsavedChanges": "Bạn có thay đổi chưa lưu. Bạn có muốn rời khỏi trang không?",
+            "loadError": "Không thể tải sản phẩm"
+        }
     }
 }

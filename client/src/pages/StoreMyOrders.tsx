@@ -3,6 +3,7 @@ import { StoreHeader } from '../components/StoreHeader';
 import { CategoryType, ViewState } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { orderService, Order } from '../services/order.service';
+import { Search } from 'lucide-react';
 
 interface StoreMyOrdersProps {
   setView: (v: ViewState) => void;
@@ -66,12 +67,21 @@ export const StoreMyOrders: React.FC<StoreMyOrdersProps> = ({ setView, setCatego
             <h1 className="text-4xl font-black uppercase tracking-tighter">My Orders</h1>
             <p className="text-white/40 text-xs uppercase tracking-widest mt-2">View your order history and details</p>
           </div>
-          <button
-            onClick={() => setView('STORE_PROFILE')}
-            className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
-          >
-            Back to Account
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { window.location.href = '/tracking'; }}
+              className="flex items-center gap-2 px-4 py-3 border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 transition-colors text-xs font-bold uppercase tracking-widest rounded"
+            >
+              <Search size={13} />
+              Tra cứu đơn hàng
+            </button>
+            <button
+              onClick={() => setView('STORE_PROFILE')}
+              className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
+            >
+              Back to Account
+            </button>
+          </div>
         </div>
 
         <div className="bg-surface-dark border border-white/5 rounded-sm overflow-hidden">

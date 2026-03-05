@@ -72,8 +72,9 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading, s
                             </tr>
                         ) : (
                             orders.map((order) => {
+                                const rawStatus = order.status?.toUpperCase() ?? 'PENDING';
                                 const statusInfo =
-                                    STATUS_VI[order.status ?? 'PENDING'] ??
+                                    STATUS_VI[rawStatus] ??
                                     { label: order.status ?? '—', color: 'text-white/40 bg-white/5 border-white/10' };
                                 const dateStr = order.createdAt
                                     ? new Date(order.createdAt).toLocaleDateString('vi-VN', {

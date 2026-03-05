@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { returnService } from '../services/return.service';
+import { adminReturnService, returnService } from '../services/return.service';
+import { api } from '../utils/api';
 import { StatusBadge } from '../components/return/StatusBadge';
 import { ReturnItemsTable } from '../components/return/ReturnItemsTable';
 import { ReturnTimeline } from '../components/return/ReturnTimeline';
@@ -25,8 +27,8 @@ function Toast({
   return (
     <div
       className={`flex items-start gap-3 rounded-xl border p-4 mb-4 ${type === 'success'
-          ? 'border-green-500/30 bg-green-500/10 text-green-300'
-          : 'border-red-500/30 bg-red-500/10 text-red-300'
+        ? 'border-green-500/30 bg-green-500/10 text-green-300'
+        : 'border-red-500/30 bg-red-500/10 text-red-300'
         }`}
     >
       <span>{type === 'success' ? '✅' : '⚠️'}</span>
@@ -53,6 +55,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) => {
+  const { t } = useTranslation(['returns']);
   const queryClient = useQueryClient();
 
   // Toast state
@@ -68,8 +71,8 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
   const query = useQuery({
     queryKey: ['admin-return-detail', returnId],
     queryFn: async () => {
-      const res = await returnService.detail(returnId);
-      return res.data?.data ?? res.data;
+      const res = await api.get(`/api/returns/${returnId}`);
+      return (res as any).data?.data ?? (res as any).data;
     },
     enabled: returnId > 0,
   });
@@ -92,40 +95,35 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
   };
 
   const approveMut = useMutation({
-    mutationFn: () => returnService.adminApprove(returnId),
-    onSuccess: () => onMutateSuccess('Đã duyệt yêu cầu trả hàng ✅'),
-    onError: (e: any) => onMutateError(e, 'Không thể duyệt'),
+    mutationFn: () => adminReturnService.process(returnId, 'APPROVE'),
+    onSuccess: () => onMutateSuccess(t('feedback.approveSuccess')),
+    onError: (e: any) => onMutateError(e, t('feedback.approveError')),
   });
 
   const rejectMut = useMutation({
-    mutationFn: () => returnService.adminReject(returnId, rejectReason),
+    mutationFn: () => adminReturnService.process(returnId, 'REJECT', rejectReason),
     onSuccess: () => {
-      onMutateSuccess('Đã từ chối yêu cầu trả hàng');
+      onMutateSuccess(t('feedback.rejectSuccess'));
       setShowRejectModal(false);
       setRejectReason('');
     },
-    onError: (e: any) => onMutateError(e, 'Không thể từ chối'),
+    onError: (e: any) => onMutateError(e, t('feedback.rejectError')),
   });
 
   const receivedMut = useMutation({
-    mutationFn: () => returnService.adminMarkReceived(returnId),
-    onSuccess: () => onMutateSuccess('Đã đánh dấu nhận hàng 📬'),
-    onError: (e: any) => onMutateError(e, 'Không thể cập nhật'),
+    mutationFn: () => api.patch(`/api/returns/${returnId}/mark-received`),
+    onSuccess: () => onMutateSuccess(t('feedback.receivedSuccess')),
+    onError: (e: any) => onMutateError(e, t('feedback.receivedError')),
   });
 
   const refundMut = useMutation({
-    mutationFn: () =>
-      returnService.adminRefund(returnId, {
-        method: refundMethod,
-        idempotencyKey: `refund-${returnId}-${Date.now()}`,
-        amount: refundAmount ? Number(refundAmount) : undefined,
-      } as any),
+    mutationFn: () => adminReturnService.process(returnId, 'COMPLETE_REFUND'),
     onSuccess: () => {
-      onMutateSuccess('Đã hoàn tiền thành công 💰');
+      onMutateSuccess(t('feedback.refundSuccess'));
       setShowRefundModal(false);
       setRefundAmount('');
     },
-    onError: (e: any) => onMutateError(e, 'Không thể hoàn tiền'),
+    onError: (e: any) => onMutateError(e, t('feedback.refundError')),
   });
 
   if (query.isLoading)
@@ -141,7 +139,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
     return (
       <div className="p-6">
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-300 text-sm">
-          Không tìm thấy return request #{returnId}.
+          {t('detail.notFound', { id: returnId })}
         </div>
       </div>
     );
@@ -154,14 +152,14 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       {/* Reject modal */}
       {showRejectModal && (
-        <Modal title="❌ Từ chối yêu cầu" onClose={() => setShowRejectModal(false)}>
+        <Modal title={t('detail.rejectModalTitle')} onClose={() => setShowRejectModal(false)}>
           <p className="text-sm text-white/60 mb-3">
-            Cung cấp lý do từ chối để thông báo cho khách hàng.
+            {t('detail.rejectModalDesc')}
           </p>
           <textarea
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="Nhập lý do từ chối..."
+            placeholder={t('detail.rejectReasonPlaceholder')}
             rows={3}
             className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-red-500/50 resize-none"
           />
@@ -172,13 +170,13 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
               id="confirm-reject-btn"
               className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-40 transition-colors"
             >
-              {rejectMut.isPending ? 'Đang xử lý...' : 'Xác nhận từ chối'}
+              {rejectMut.isPending ? t('detail.processing') : t('detail.confirmReject')}
             </button>
             <button
               onClick={() => setShowRejectModal(false)}
               className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition-colors"
             >
-              Hủy
+              {t('detail.cancel')}
             </button>
           </div>
         </Modal>
@@ -186,9 +184,9 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
 
       {/* Refund modal */}
       {showRefundModal && (
-        <Modal title="💰 Hoàn tiền" onClose={() => setShowRefundModal(false)}>
+        <Modal title={t('detail.refundModalTitle')} onClose={() => setShowRefundModal(false)}>
           <p className="text-sm text-white/60 mb-4">
-            Số tiền tối đa:{' '}
+            {t('detail.maxRefundAmount')}{' '}
             <strong className="text-green-400">
               {Number(detail.totalRefundAmount).toLocaleString('vi-VN')}đ
             </strong>
@@ -196,24 +194,24 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
 
           <div className="space-y-3">
             <div>
-              <label className="block text-xs text-white/50 mb-1">Phương thức hoàn</label>
+              <label className="block text-xs text-white/50 mb-1">{t('detail.refundMethod')}</label>
               <select
                 value={refundMethod}
                 onChange={(e) => setRefundMethod(e.target.value as any)}
                 className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               >
                 <option value="ORIGINAL_PAYMENT" className="text-black bg-white">
-                  Hoàn về phương thức gốc
+                  {t('detail.refundOriginal')}
                 </option>
                 <option value="WALLET_CREDIT" className="text-black bg-white">
-                  Ví điện tử
+                  {t('detail.refundWallet')}
                 </option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs text-white/50 mb-1">
-                Số tiền hoàn (để trống = hoàn full)
+                {t('detail.refundAmountLabel')}
               </label>
               <input
                 type="number"
@@ -232,13 +230,13 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
               id="confirm-refund-btn"
               className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-medium text-white hover:bg-green-500 disabled:opacity-40 transition-colors"
             >
-              {refundMut.isPending ? 'Đang xử lý...' : 'Xác nhận hoàn tiền'}
+              {refundMut.isPending ? t('detail.processing') : t('detail.confirmRefund')}
             </button>
             <button
               onClick={() => setShowRefundModal(false)}
               className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition-colors"
             >
-              Hủy
+              {t('detail.cancel')}
             </button>
           </div>
         </Modal>
@@ -253,10 +251,10 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">
-            Return #{detail.returnRequestId}
+            {t('detail.headerTitle', { id: detail.returnRequestId })}
           </h1>
           <p className="mt-0.5 text-sm text-white/50">
-            Order #{detail.orderId} · Tạo {new Date(detail.createdAt).toLocaleString('vi-VN')}
+            {t('detail.headerSubtitle', { orderId: detail.orderId, date: new Date(detail.createdAt).toLocaleString('vi-VN') })}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -265,7 +263,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
             onClick={() => setView('ADMIN_RETURNS')}
             className="rounded-lg border border-white/20 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
           >
-            ← Danh sách
+            {t('detail.backToList')}
           </button>
         </div>
       </div>
@@ -273,17 +271,17 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
       {/* Info + Customer */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
-          <h2 className="font-semibold text-white text-sm mb-2">Thông tin yêu cầu</h2>
+          <h2 className="font-semibold text-white text-sm mb-2">{t('detail.infoTitle')}</h2>
           <dl className="grid grid-cols-2 gap-y-2 text-sm">
-            <dt className="text-white/50">Lý do</dt>
+            <dt className="text-white/50">{t('detail.infoReason')}</dt>
             <dd><ReasonLabel reason={detail.reason} /></dd>
-            <dt className="text-white/50">Hoàn tiền dự kiến</dt>
+            <dt className="text-white/50">{t('detail.infoExpectedRefund')}</dt>
             <dd className="font-semibold text-green-400">
               {Number(detail.totalRefundAmount).toLocaleString('vi-VN')}đ
             </dd>
             {detail.note && (
               <>
-                <dt className="text-white/50">Ghi chú</dt>
+                <dt className="text-white/50">{t('detail.infoNote')}</dt>
                 <dd className="text-white/80 col-span-1">{detail.note}</dd>
               </>
             )}
@@ -291,11 +289,11 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
         </div>
 
         <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
-          <h2 className="font-semibold text-white text-sm mb-2">Khách hàng</h2>
+          <h2 className="font-semibold text-white text-sm mb-2">{t('detail.customerTitle')}</h2>
           <dl className="grid grid-cols-2 gap-y-2 text-sm">
-            <dt className="text-white/50">Tên</dt>
+            <dt className="text-white/50">{t('detail.customerName')}</dt>
             <dd className="text-white/80">{detail.user?.fullName ?? '—'}</dd>
-            <dt className="text-white/50">Email</dt>
+            <dt className="text-white/50">{t('detail.customerEmail')}</dt>
             <dd className="text-white/80 truncate">{detail.user?.email ?? '—'}</dd>
           </dl>
         </div>
@@ -303,13 +301,13 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
 
       {/* Items */}
       <div>
-        <h2 className="mb-3 font-semibold text-white">Sản phẩm trả</h2>
+        <h2 className="mb-3 font-semibold text-white">{t('detail.itemsTitle')}</h2>
         <ReturnItemsTable items={detail.items ?? []} />
       </div>
 
       {/* Actions */}
       <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-        <h2 className="font-semibold text-white mb-4 text-sm">Hành động</h2>
+        <h2 className="font-semibold text-white mb-4 text-sm">{t('detail.actionsTitle')}</h2>
         <div className="flex flex-wrap gap-3">
           {/* Approve — only from REQUESTED */}
           <button
@@ -318,7 +316,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
             onClick={() => approveMut.mutate()}
             className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40 transition-colors"
           >
-            {approveMut.isPending ? '⏳' : '✅'} Duyệt
+            {approveMut.isPending ? '⏳' : '✅'} {t('detail.actionApprove')}
           </button>
 
           {/* Reject — only from REQUESTED */}
@@ -328,7 +326,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
             onClick={() => setShowRejectModal(true)}
             className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-40 transition-colors"
           >
-            ❌ Từ chối
+            ❌ {t('detail.actionReject')}
           </button>
 
           {/* Mark Received — only from APPROVED */}
@@ -338,7 +336,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
             onClick={() => receivedMut.mutate()}
             className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-40 transition-colors"
           >
-            {receivedMut.isPending ? '⏳' : '📬'} Đã nhận hàng
+            {receivedMut.isPending ? '⏳' : '📬'} {t('detail.actionReceived')}
           </button>
 
           {/* Refund — only from RECEIVED */}
@@ -348,25 +346,25 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
             onClick={() => setShowRefundModal(true)}
             className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-500 disabled:opacity-40 transition-colors"
           >
-            💰 Hoàn tiền
+            💰 {t('detail.actionRefund')}
           </button>
         </div>
 
         {status === 'REJECTED' && (
           <p className="mt-3 text-xs text-white/40">
-            Yêu cầu này đã bị từ chối. Không thể thực hiện thêm hành động.
+            {t('detail.rejectedNotice')}
           </p>
         )}
         {status === 'REFUNDED' && (
           <p className="mt-3 text-xs text-white/40">
-            Đã hoàn tiền hoàn tất. Không cần hành động thêm.
+            {t('detail.refundedNotice')}
           </p>
         )}
       </div>
 
       {/* Timeline */}
       <div>
-        <h2 className="mb-3 font-semibold text-white">Lịch sử trạng thái</h2>
+        <h2 className="mb-3 font-semibold text-white">{t('detail.timelineTitle')}</h2>
         <div className="rounded-xl border border-white/10 bg-white/5 p-4">
           <ReturnTimeline logs={detail.statusLogs ?? []} />
         </div>
@@ -375,7 +373,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
       {/* Refund Transactions */}
       {Array.isArray(detail.refundTransactions) && detail.refundTransactions.length > 0 && (
         <div>
-          <h2 className="mb-3 font-semibold text-white">Giao dịch hoàn tiền</h2>
+          <h2 className="mb-3 font-semibold text-white">{t('detail.transactionsTitle')}</h2>
           <div className="space-y-2">
             {detail.refundTransactions.map((t: any) => (
               <div

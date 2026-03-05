@@ -27,7 +27,7 @@ import returnRoutes from './routes/return.routes';
 import refundRoutes from './routes/refund.routes';
 import { authenticateToken } from './middlewares/auth.middleware';
 import { postReturnRequest, getOrderReturn } from './controllers/return.controller';
-
+import { localeMiddleware } from './middlewares/locale.middleware';
 
 dotenv.config();
 
@@ -42,13 +42,14 @@ export function createApp() {
       origin: process.env.CLIENT_URL || 'http://localhost:3000',
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-lang', 'accept-language'],
     }),
   );
 
   app.use(cookieParser());
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
+  app.use(localeMiddleware);
 
   app.use('/api/auth', authRoutes);
   app.use('/api/products', importExportRoutes);
@@ -66,23 +67,18 @@ export function createApp() {
 
   app.use('/api/orders', orderRoutes);
 
-  // ── Return & Refund routes ────────────────────────────────────────────────
-  // Order-scoped: customer request + query order return
   app.post('/api/orders/:id/return', authenticateToken, postReturnRequest);
   app.get('/api/orders/:id/return', authenticateToken, getOrderReturn);
-  // Admin-facing financial refunds — MUST be before orderModuleRoutes (which has /:id wildcard)
   app.use('/api/orders', refundRoutes);
-  // Admin-facing returns management
   app.use('/api/returns', returnRoutes);
 
-  // New production-ready endpoints — registered LAST because /:id wildcard would intercept /refunds
   app.use('/api/orders', orderModuleRoutes);
   app.use('/api', trackingRouter);
 
   app.use('/api/users', userRoutes);
 
   app.get('/', (_req: Request, res: Response) => {
-    res.send('<h1>Server SQL Server đã kết nối thành công! 🚀</h1>');
+    res.send('<h1>Server SQL Server connected successfully! 🚀</h1>');
   });
 
   app.use(notFoundHandler);

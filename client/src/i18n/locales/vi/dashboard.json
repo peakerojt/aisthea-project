@@ -11,5 +11,9 @@
     },
     "feedback": {
         "loadError": "Không thể tải dữ liệu."
+    },
+    "toast": {
+        "newOrderTitle": "Đơn hàng mới",
+        "newOrderMessage": "Có đơn hàng mới vừa được đặt!"
     }
 }

@@ -1,0 +1,28 @@
+{
+  "errors": {
+    "notFound": "Order not found with provided tracking info.",
+    "orderNotFound": "Order not found",
+    "forbidden": "You do not have permission to view this order.",
+    "invalidOrderId": "Invalid order id",
+    "invalidStatusTransition": "Cannot transition order from '{{from}}' to '{{to}}'. Check allowed transitions.",
+    "adminOnly": "Admin only"
+  },
+  "success": {
+    "getPublicTracking": "Tracking information retrieved successfully.",
+    "getMyOrders": "Your orders have been retrieved successfully.",
+    "getOrderTracking": "Order tracking details retrieved successfully.",
+    "updateStatus": "Order status has been updated to '{{status}}' successfully."
+  },
+  "status": {
+    "PENDING": "Pending",
+    "CONFIRMED": "Confirmed",
+    "PACKING": "Packing",
+    "SHIPPED": "Shipped",
+    "OUT_FOR_DELIVERY": "Out for delivery",
+    "DELIVERED": "Delivered",
+    "FAILED_DELIVERY": "Failed delivery",
+    "CANCELLED": "Cancelled",
+    "RETURN_REQUESTED": "Return requested",
+    "RETURNED": "Returned"
+  }
+}

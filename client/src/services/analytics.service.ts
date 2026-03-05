@@ -20,10 +20,10 @@ export interface RevenueByCategoryItem {
 }
 
 export interface StatusFunnelItem {
-    name: string;
+    /** Canonical UPPER_SNAKE_CASE key — used as i18n lookup on the FE */
+    status: string;
     value: number;
     color: string;
-    status: string | null;
 }
 
 export interface MonthlyTrendItem {
@@ -47,6 +47,11 @@ export interface CancelledProduct {
     lostRevenue: number;
 }
 
+export interface CustomerRetention {
+    newCustomers: number;
+    returningCustomers: number;
+}
+
 export interface AnalyticsSummary {
     success: boolean;
     period: { start: string; end: string };
@@ -56,6 +61,8 @@ export interface AnalyticsSummary {
     monthlyTrend: MonthlyTrendItem[];
     topCustomers: TopCustomer[];
     mostCancelled: CancelledProduct[];
+    customerRetention: CustomerRetention;
+    _cached?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -136,7 +143,7 @@ export function exportToCSV(data: AnalyticsSummary, startDate: string, endDate: 
 
     rows.push('--- PHÂN BỔ TRẠNG THÁI ĐƠN HÀNG ---');
     rows.push('Trạng thái,Số lượng');
-    data.statusFunnel.forEach(r => rows.push(`${r.name},${r.value}`));
+    data.statusFunnel.forEach(r => rows.push(`${r.status},${r.value}`));
     rows.push('');
 
     rows.push('--- KHÁCH HÀNG CHI TIÊU NHIỀU NHẤT ---');

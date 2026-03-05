@@ -7,13 +7,14 @@ import { returnService } from '../services/return.service';
 import { orderService } from '../services/order.service';
 import { useAuth } from '../contexts/AuthContext';
 import { ViewState } from '../types';
+import { useTranslation } from 'react-i18next';
 
 // ─── Zod Schema ─────────────────────────────────────────────────────────────
 const returnItemSchema = z.object({
   orderItemId: z.number().int().positive(),
   quantity: z.number().int().min(1, 'Số lượng tối thiểu là 1'),
   reason: z.string().optional(),
-  selected: z.boolean().default(false),
+  selected: z.boolean(),
   maxQuantity: z.number().optional(),
 });
 
@@ -22,18 +23,13 @@ const createReturnSchema = z.object({
   reason: z.enum(['DEFECTIVE', 'WRONG_ITEM', 'SIZE_ISSUE', 'CHANGED_MIND', 'OTHER']),
   note: z.string().max(500).optional(),
   items: z.array(returnItemSchema),
-  attachments: z.array(z.string().url('URL ảnh không hợp lệ')).max(5).default([]),
+  attachments: z.array(z.string().url('URL ảnh không hợp lệ')).max(5).optional(),
 });
 
 type FormData = z.infer<typeof createReturnSchema>;
 
-const REASONS = [
-  { value: 'DEFECTIVE', label: '🔧 Hàng lỗi / hỏng' },
-  { value: 'WRONG_ITEM', label: '📦 Giao sai sản phẩm' },
-  { value: 'SIZE_ISSUE', label: '📏 Sai kích thước / màu sắc' },
-  { value: 'CHANGED_MIND', label: '💭 Tôi đổi ý' },
-  { value: 'OTHER', label: '❓ Lý do khác' },
-];
+// ─── Constants ─────────────────────────────────────────────────────────────
+const REASON_KEYS = ['DEFECTIVE', 'WRONG_ITEM', 'SIZE_ISSUE', 'CHANGED_MIND', 'OTHER'] as const;
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 interface Props {
@@ -59,6 +55,7 @@ function Toast({ msg, type }: { msg: string; type: 'error' | 'success' }) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForReturn, setReturnId }) => {
+  const { t } = useTranslation(['returns']);
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -109,10 +106,10 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
   }, [order, setValue]);
 
   const mutation = useMutation({
-    mutationFn: (payload: any) => returnService.create(payload),
+    mutationFn: (payload: any) => returnService.request(payload.orderId, payload.reason, payload.attachments ?? []),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['my-returns'] });
-      const newId = res?.data?.data?.returnRequestId;
+      const newId = res?.returnId;
       if (newId && setReturnId) {
         setReturnId(newId);
         setView('STORE_RETURN_DETAIL');
@@ -127,9 +124,20 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
     },
   });
 
+  const [attachmentError, setAttachmentError] = useState('');
+
   const addAttachment = () => {
     const url = attachmentInput.trim();
     if (!url) return;
+
+    try {
+      new URL(url);
+      setAttachmentError('');
+    } catch {
+      setAttachmentError('URL ảnh không hợp lệ');
+      return;
+    }
+
     const current = watchedAttachments ?? [];
     if (current.length >= 5) return;
     setValue('attachments', [...current, url]);
@@ -220,9 +228,9 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
             {...register('reason')}
             className="w-full appearance-none rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
           >
-            {REASONS.map((r) => (
-              <option key={r.value} value={r.value} className="text-black bg-white">
-                {r.label}
+            {REASON_KEYS.map((value) => (
+              <option key={value} value={value} className="text-black bg-white">
+                {t(`reason.${value}`, { defaultValue: value })}
               </option>
             ))}
           </select>
@@ -328,7 +336,10 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
             <input
               type="url"
               value={attachmentInput}
-              onChange={(e) => setAttachmentInput(e.target.value)}
+              onChange={(e) => {
+                setAttachmentInput(e.target.value);
+                if (attachmentError) setAttachmentError('');
+              }}
               placeholder="https://..."
               className="flex-1 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               onKeyDown={(e) => {
@@ -341,12 +352,13 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
             <button
               type="button"
               onClick={addAttachment}
-              disabled={(watchedAttachments?.length ?? 0) >= 5}
+              disabled={(watchedAttachments?.length ?? 0) >= 5 || !attachmentInput.trim()}
               className="rounded-lg bg-white/10 px-3 py-2 text-sm text-white hover:bg-white/20 disabled:opacity-40 transition-colors"
             >
               + Thêm
             </button>
           </div>
+          {attachmentError && <p className="text-xs text-red-400 mt-1">{attachmentError}</p>}
 
           {(watchedAttachments?.length ?? 0) > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

@@ -3,6 +3,7 @@ import {
   Search, Package, ChevronLeft, ChevronRight, Eye,
   Loader2, AlertCircle, FilterX, Calendar,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ViewState } from '../types';
 import { adminOrderService, AdminOrder } from '../services/order.service';
 
@@ -11,12 +12,12 @@ import { adminOrderService, AdminOrder } from '../services/order.service';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STATUS_TABS = [
-  { key: 'ALL', label: 'Tất cả' },
-  { key: 'PENDING', label: 'Chờ xác nhận' },
-  { key: 'PROCESSING', label: 'Đang chuẩn bị' },
-  { key: 'SHIPPING', label: 'Đang giao' },
-  { key: 'COMPLETED', label: 'Giao thành công' },
-  { key: 'CANCELLED', label: 'Đã hủy' },
+  { key: 'ALL', translationKey: 'filters.all' },
+  { key: 'Pending', translationKey: 'status.Pending' },
+  { key: 'Processing', translationKey: 'status.Processing' },
+  { key: 'Shipping', translationKey: 'status.Shipping' },
+  { key: 'Delivered', translationKey: 'status.Delivered' },
+  { key: 'Cancelled', translationKey: 'status.Cancelled' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -95,6 +96,7 @@ interface AdminOrdersProps {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
+  const { t } = useTranslation(['orders']);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -132,7 +134,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
       setTotalPages(res.pagination.totalPages);
       setTotal(res.pagination.total);
     } catch (e: any) {
-      setError(e.message || 'Không thể tải danh sách đơn hàng.');
+      setError(e.message || t('page.loadError'));
     } finally {
       setLoading(false);
     }
@@ -193,10 +195,10 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
             <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
               <Package size={18} className="text-primary" />
             </div>
-            <h2 className="text-2xl font-bold text-white">Quản lý đơn hàng</h2>
+            <h2 className="text-2xl font-bold text-white">{t('page.title')}</h2>
           </div>
           <p className="text-[11px] text-white/40 uppercase tracking-widest mt-1 pl-12">
-            {total} đơn hàng
+            {t('page.orderCount', { count: total })}
           </p>
         </div>
 
@@ -207,7 +209,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
             type="text"
             value={searchInput}
             onChange={handleSearchChange}
-            placeholder="Tìm tên, SĐT, mã đơn..."
+            placeholder={t('filters.searchPlaceholderAdmin')}
             className="bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 w-72 transition-all"
           />
         </div>
@@ -238,7 +240,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
             onClick={handleClearFilters}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-white/50 hover:text-white border border-white/10 hover:border-white/20 transition-colors"
           >
-            <FilterX size={13} /> Xóa bộ lọc
+            <FilterX size={13} /> {t('filters.clear')}
           </button>
         )}
       </div>
@@ -259,7 +261,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
                   : 'text-white/40 hover:text-white/70'}
               `}
             >
-              {tab.label}
+              {t(tab.translationKey)}
               {activeTab === tab.key && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full" />
               )}
@@ -272,7 +274,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
           <div className="flex-1 flex items-center justify-center">
             <div className="flex flex-col items-center gap-4">
               <div className="w-10 h-10 border-4 border-white/10 border-t-primary rounded-full animate-spin" />
-              <p className="text-sm text-white/40">Đang tải đơn hàng...</p>
+              <p className="text-sm text-white/40">{t('page.loading')}</p>
             </div>
           </div>
         ) : error ? (
@@ -280,11 +282,11 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
             <div className="flex flex-col items-center gap-4 max-w-sm text-center">
               <AlertCircle size={40} className="text-red-400" />
               <div>
-                <h3 className="text-base font-bold text-white mb-1">Không thể tải dữ liệu</h3>
+                <h3 className="text-base font-bold text-white mb-1">{t('page.dataError')}</h3>
                 <p className="text-sm text-white/50">{error}</p>
               </div>
               <button onClick={loadOrders} className="text-xs text-primary font-bold uppercase tracking-wider hover:underline">
-                Thử lại
+                {t('page.retry')}
               </button>
             </div>
           </div>
@@ -294,8 +296,8 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
               <Package size={28} className="text-white/20" />
             </div>
             <div className="text-center">
-              <p className="text-base font-semibold text-white/60">Chưa có đơn hàng nào trong trạng thái này.</p>
-              <p className="text-sm text-white/30 mt-1">Hãy thử thay đổi bộ lọc hoặc chọn tab khác.</p>
+              <p className="text-base font-semibold text-white/60">{t('page.noOrders')}</p>
+              <p className="text-sm text-white/30 mt-1">{t('page.changeFilter')}</p>
             </div>
           </div>
         ) : (
@@ -303,12 +305,12 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
                 <tr className="border-b border-white/[0.06] bg-white/[0.015]">
-                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">Mã đơn</th>
-                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">Khách hàng</th>
-                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">Ngày đặt</th>
-                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">Tổng tiền</th>
-                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">Trạng thái</th>
-                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30 text-right">Thao tác</th>
+                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">{t('table.orderId')}</th>
+                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">{t('table.customer')}</th>
+                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">{t('table.date')}</th>
+                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">{t('table.total')}</th>
+                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">{t('table.status')}</th>
+                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30 text-right">{t('table.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
@@ -322,7 +324,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
                       <span className="text-sm font-bold text-white font-mono">
                         {order.orderNumber}
                       </span>
-                      <p className="text-[10px] text-white/30 mt-0.5">{order.itemCount} sản phẩm</p>
+                      <p className="text-[10px] text-white/30 mt-0.5">{t('table.itemCount', { count: order.itemCount })}</p>
                     </td>
 
                     {/* Khách hàng */}
@@ -355,8 +357,8 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
                     {/* Trạng thái */}
                     <td className="py-4 px-6">
                       <StatusBadge
-                        status={order.status ?? ''}
-                        label={order.statusLabel ?? order.status ?? ''}
+                        status={order.status?.toUpperCase() ?? ''}
+                        label={order.status ? t(`status.${order.status.toUpperCase()}`) : order.statusLabel ?? ''}
                       />
                     </td>
 
@@ -367,7 +369,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white/60 bg-white/[0.04] border border-white/10 hover:text-white hover:bg-white/10 transition-all group-hover:border-white/20"
                       >
                         <Eye size={13} />
-                        Xem chi tiết
+                        {t('actions.viewDetail')}
                       </button>
                     </td>
                   </tr>
@@ -381,7 +383,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
         {!loading && !error && totalPages > 1 && (
           <div className="flex items-center justify-between px-6 py-4 border-t border-white/[0.06]">
             <p className="text-xs text-white/40">
-              Trang {page} / {totalPages} · {total} đơn hàng
+              {t('pagination', { page, totalPages, total })}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -398,8 +400,8 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
                     key={p}
                     onClick={() => setPage(p)}
                     className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${p === page
-                        ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                        : 'border border-white/10 text-white/50 hover:text-white hover:border-white/20'
+                      ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                      : 'border border-white/10 text-white/50 hover:text-white hover:border-white/20'
                       }`}
                   >
                     {p}

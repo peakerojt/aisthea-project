@@ -78,7 +78,7 @@ export class ReturnRequestController {
 
       const role = getRole(req);
       if (!canViewReturn(role) && data.userId !== Number(req.user?.userId)) {
-        return sendError(res, 'FORBIDDEN', 'Không có quyền truy cập', 403);
+        return sendError(res, 'FORBIDDEN', 'Insufficient access rights', 403);
       }
 
       return sendSuccess(res, data);

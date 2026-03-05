@@ -1,5 +1,5 @@
-import React from 'react';
 import { getStatusMeta, normalizeStatus } from '../../config/orderStatus.config';
+import { useTranslation } from 'react-i18next';
 
 interface OrderStatusBadgeProps {
   status: string | null | undefined;
@@ -16,6 +16,7 @@ export const OrderStatusBadge: React.FC<OrderStatusBadgeProps> = ({
   size = 'md',
   showDot = true,
 }) => {
+  const { t } = useTranslation(['orders']);
   const canonical = normalizeStatus(status) ?? status ?? '';
   const meta = getStatusMeta(canonical);
 
@@ -39,7 +40,7 @@ export const OrderStatusBadge: React.FC<OrderStatusBadgeProps> = ({
       {showDot && (
         <span className={`rounded-full shrink-0 ${meta.dotClass} ${dotSize[size]}`} />
       )}
-      {meta.label}
+      {canonical ? t(`status.${canonical.toUpperCase()}`, { defaultValue: meta.label }) : meta.label}
     </span>
   );
 };
@@ -48,8 +49,11 @@ export const OrderStatusBadge: React.FC<OrderStatusBadgeProps> = ({
  * @deprecated Use getStatusMeta() from orderStatus.config instead.
  * Kept for backward compatibility with existing OrderTimeline usage.
  */
-export const translateOrderStatus = (status: string | null | undefined): string =>
-  getStatusMeta(normalizeStatus(status) ?? status ?? '').label;
+export const translateOrderStatus = (status: string | null | undefined): string => {
+  const canonical = normalizeStatus(status) ?? status ?? '';
+  // Fallback to English/meta if needed for raw translations outside components
+  return getStatusMeta(canonical).label;
+};
 
 /**
  * @deprecated Use getStatusMeta() from orderStatus.config instead.
