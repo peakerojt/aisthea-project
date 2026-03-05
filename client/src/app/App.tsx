@@ -45,7 +45,7 @@ const App: React.FC = () => {
   const location = useLocation();
   const [view, setView] = useState<ViewState>(() => {
     const locState = location.state as { initialView?: string } | null;
-    if (locState?.initialView === 'STORE_MY_ORDERS') return 'STORE_MY_ORDERS';
+    if (locState?.initialView) return locState.initialView as ViewState;
     return 'STORE_HOME';
   });
   const [activeCategory, setActiveCategory] = useState<CategoryType>('Men');
@@ -105,8 +105,8 @@ const App: React.FC = () => {
   // ── Reactive: switch view when location.state.initialView changes (SPA back-nav) ──
   useEffect(() => {
     const locState = location.state as { initialView?: string } | null;
-    if (locState?.initialView === 'STORE_MY_ORDERS') {
-      setView('STORE_MY_ORDERS');
+    if (locState?.initialView) {
+      setView(locState.initialView as ViewState);
       // Clear state so re-renders don’t re-trigger
       window.history.replaceState({ ...window.history.state, usr: null }, '');
     }

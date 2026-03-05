@@ -569,6 +569,7 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
         return {
           orderItemId: item.orderItemId,
           productId: item.variant?.productId ?? null,
+          variantId: item.variantId ?? null,   // ← needed for Buy Again
           productName: item.productName,
           sku: item.sku,
           variantName: item.variantName,
