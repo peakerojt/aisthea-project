@@ -3,6 +3,7 @@ import { ViewState, CartItem, CategoryType } from '../types';
 import { StoreHeader } from '../components/StoreHeader';
 import { useAuth } from '../contexts/AuthContext';
 import { httpClient } from '../services/httpClient';
+import { CouponModal } from '../components/CouponModal';
 
 interface CheckoutProps {
     setView: (v: ViewState) => void;
@@ -10,8 +11,19 @@ interface CheckoutProps {
     cart: CartItem[];
 }
 
-// Remote API used for VN Locations (63 Provinces)
+// THÊM: Interface cho cấu trúc dữ liệu Voucher trả về từ Backend
+interface AppliedCoupon {
+    coupon: {
+        couponId: number;
+        code: string;
+        type: string;
+        value: number;
+    };
+    discountAmount: number;
+    message: string;
+}
 
+// Remote API used for VN Locations (63 Provinces)
 const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
     const defaultForm = {
         email: '',
@@ -32,6 +44,14 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const { user } = useAuth();
+
+    // THÊM: Các state quản lý Mã giảm giá (Voucher)
+    const [couponInput, setCouponInput] = useState('');
+    const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+    const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+    const [couponError, setCouponError] = useState('');
+    const [couponSuccessMsg, setCouponSuccessMsg] = useState('');
+    const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
 
     // Location API states
     const [provinces, setProvinces] = useState<any[]>([]);
@@ -117,9 +137,43 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
         setFormData(prev => ({ ...prev, ward: ward ? ward.name : '' }));
     };
 
+    // THÊM & CẬP NHẬT: Tính toán tổng tiền có tính cả Voucher
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const shippingFee = subtotal > 200 ? 0 : 15; // Example threshold
-    const total = subtotal + shippingFee;
+    const discountValue = appliedCoupon ? appliedCoupon.discountAmount : 0;
+    const total = subtotal + shippingFee - discountValue;
+
+    // THÊM: Hàm xử lý gọi API áp dụng mã giảm giá
+    const handleApplyCoupon = async (codeToApply?: string) => {
+        const codeToUse = typeof codeToApply === 'string' ? codeToApply : couponInput;
+        if (!codeToUse.trim()) return;
+
+        setIsApplyingCoupon(true);
+        setCouponError('');
+        setCouponSuccessMsg('');
+
+        try {
+            const response = await httpClient.post('/api/coupons/validate', {
+                code: codeToUse.trim(),
+                cartSubtotal: subtotal
+            });
+
+            setAppliedCoupon(response.data);
+            setCouponSuccessMsg(response.data.message);
+            setCouponInput('');
+        } catch (err: any) {
+            setCouponError(err.response?.data?.error || 'Mã giảm giá không hợp lệ.');
+        } finally {
+            setIsApplyingCoupon(false);
+        }
+    };
+
+    // THÊM: Hàm Gỡ bỏ mã giảm giá
+    const handleRemoveCoupon = () => {
+        setAppliedCoupon(null);
+        setCouponError('');
+        setCouponSuccessMsg('');
+    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -137,33 +191,21 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
     };
 
     const validateForm = () => {
-        // Email
         if (!formData.email) return 'Vui lòng nhập Email.';
         if (!formData.email.includes('@')) return 'Email phải chứa định dạng @.';
         if (/\s/.test(formData.email)) return 'Email không được chứa khoảng trắng.';
-
-        // Full Name
         if (!formData.fullName) return 'Vui lòng nhập Họ và tên.';
         if (formData.fullName.length < 2) return 'Họ và tên phải có ít nhất 2 ký tự.';
         if (/[@#$]/.test(formData.fullName)) return 'Họ và tên không được chứa ký tự đặc biệt như @, #, $.';
-
-        // Phone
         if (!formData.phone) return 'Vui lòng nhập Số điện thoại.';
         if (!/^[0]\d{9}$/.test(formData.phone)) return 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0.';
-
-        // Address
         if (!formData.address) return 'Vui lòng nhập Địa chỉ cụ thể.';
         if (formData.address.length <= 5) return 'Địa chỉ phải có độ dài lớn hơn 5 ký tự.';
-
-        // Location DROPDOWNS
         if (!formData.city) return 'Vui lòng chọn Tỉnh thành.';
         if (!formData.district) return 'Vui lòng chọn Quận huyện.';
         if (!formData.ward) return 'Vui lòng chọn Phường xã.';
-
-        // Note
         if (formData.note && formData.note.length > 500) return 'Ghi chú không được vượt quá 500 ký tự.';
-
-        return null; // Valid
+        return null;
     };
 
     const handlePlaceOrder = async (e: React.FormEvent) => {
@@ -192,6 +234,7 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                 return;
             }
 
+            // CẬP NHẬT: Gửi thêm couponId xuống Backend
             const response = await httpClient.post('/api/orders', {
                 paymentMethod: formData.paymentMethod,
                 customerName: formData.fullName,
@@ -201,15 +244,14 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                 shippingWard: formData.ward,
                 shippingAddressDetail: formData.address,
                 note: formData.note,
-                items: cart
+                items: cart,
+                couponCode: appliedCoupon ? appliedCoupon.coupon.code : undefined,
             });
 
             const data = response.data;
 
-            // Store form data for the success screens
             sessionStorage.setItem('latestOrderData', JSON.stringify(formData));
 
-            // Redirect based on payment method
             if (formData.paymentMethod === 'VNPAY') {
                 try {
                     const vnpResponse = await httpClient.post('/api/vnpay/create_payment_url', {
@@ -220,7 +262,7 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                     });
                     if (vnpResponse.data && vnpResponse.data.vnpUrl) {
                         window.location.href = vnpResponse.data.vnpUrl;
-                        return; // Prevent setting loading to false too quickly before redirect
+                        return;
                     }
                 } catch (vnpErr) {
                     console.error('Failed to get VNPAY URL:', vnpErr);
@@ -232,7 +274,6 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
 
         } catch (err: any) {
             console.error("Order creation error:", err);
-            // Handle Axios errors cleanly
             const errorMessage = err.response?.data?.error || err.message || 'Đã xảy ra lỗi khi đặt hàng.';
             setError(errorMessage);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -243,17 +284,14 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
 
     return (
         <div className="bg-bg-dark text-white font-display overflow-x-hidden min-h-screen">
-            {/* Real Store Header injected here */}
             <StoreHeader setView={setView} setCategory={setCategory} transparent={false} />
 
-            {/* Added top padding because header is fixed */}
             <main className="w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-28 flex flex-col md:flex-row gap-12 lg:gap-20">
 
                 {/* Left Column: Forms */}
                 <div className="w-full md:w-3/5 lg:w-2/3">
                     <form onSubmit={handlePlaceOrder}>
 
-                        {/* Error Message Pushed to the TOP of the Form */}
                         {error && (
                             <div className="mb-8 p-4 bg-red-900/40 border border-red-500/50 rounded-sm text-red-100 text-sm flex items-start gap-2">
                                 <span className="material-symbols-outlined text-red-400 mt-[2px] text-lg">error</span>
@@ -317,7 +355,6 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                                 />
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    {/* City Dropdown */}
                                     <select
                                         name="city"
                                         value={selectedCityCode}
@@ -331,7 +368,6 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                                         ))}
                                     </select>
 
-                                    {/* District Dropdown */}
                                     <select
                                         name="district"
                                         value={selectedDistrictCode}
@@ -346,7 +382,6 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                                         ))}
                                     </select>
 
-                                    {/* Ward Dropdown */}
                                     <select
                                         name="ward"
                                         value={selectedWardCode}
@@ -441,13 +476,44 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                             ))}
                         </div>
 
+                        {/* THÊM: KHU VỰC NHẬP VÀ HIỂN THỊ MÃ GIẢM GIÁ */}
                         <div className="border-t border-border-dark pt-6 mb-6">
-                            <div className="flex gap-2">
-                                <input type="text" placeholder="Nhập mã giảm giá" className="flex-1 bg-transparent border border-border-dark rounded-sm px-3 text-sm placeholder:text-gray-600 focus:border-white focus:outline-none transition-colors" />
-                                <button className="px-4 text-xs font-bold uppercase bg-white/10 hover:bg-white/20 transition-colors rounded-sm text-white">Áp dụng</button>
-                            </div>
+                            {!appliedCoupon ? (
+                                <div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsCouponModalOpen(true)}
+                                        className="w-full flex items-center justify-between bg-surface-dark border border-primary/50 text-primary px-4 py-3 rounded-sm hover:bg-primary/10 transition-colors group shadow-[0_0_10px_rgba(255,0,0,0.1)]"
+                                    >
+                                        <span className="flex items-center gap-2 font-bold text-sm">
+                                            <span className="material-symbols-outlined text-xl">local_activity</span>
+                                            Chọn hoặc nhập mã giảm giá
+                                        </span>
+                                        <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">arrow_forward_ios</span>
+                                    </button>
+                                    {couponError && <p className="text-red-400 text-xs mt-2 animate-fade-in-up">{couponError}</p>}
+                                </div>
+                            ) : (
+                                <div className="bg-green-900/20 border border-green-500/30 p-3 rounded-sm animate-fade-in-up">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-green-400 text-sm font-bold flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-[16px]">local_offer</span>
+                                            {appliedCoupon.coupon.code}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={handleRemoveCoupon}
+                                            className="text-gray-400 hover:text-red-400 text-xs font-bold uppercase transition-colors"
+                                        >
+                                            Gỡ bỏ
+                                        </button>
+                                    </div>
+                                    {couponSuccessMsg && <p className="text-green-400/80 text-xs mt-1">{couponSuccessMsg}</p>}
+                                </div>
+                            )}
                         </div>
 
+                        {/* CẬP NHẬT: CHI TIẾT TẠM TÍNH */}
                         <div className="space-y-3 pt-6 border-t border-border-dark text-sm">
                             <div className="flex justify-between text-gray-400">
                                 <span>Tạm tính</span>
@@ -457,6 +523,13 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                                 <span>Phí vận chuyển</span>
                                 <span className="text-white">{shippingFee === 0 ? 'Miễn phí' : `$${shippingFee.toFixed(2)}`}</span>
                             </div>
+                            {/* Dòng hiển thị tiền giảm giá nếu có voucher */}
+                            {appliedCoupon && (
+                                <div className="flex justify-between text-green-400 font-medium animate-fade-in-up">
+                                    <span>Giảm giá ({appliedCoupon.coupon.code})</span>
+                                    <span>-${appliedCoupon.discountAmount.toFixed(2)}</span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex justify-between items-center mt-6 pt-6 border-t border-border-dark">
@@ -479,6 +552,17 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                     </div>
                 </div>
             </main>
+
+            {/* THÊM: Coupon Modal component */}
+            <CouponModal
+                isOpen={isCouponModalOpen}
+                onClose={() => setIsCouponModalOpen(false)}
+                cartSubtotal={subtotal}
+                onApplyCoupon={(code) => {
+                    setIsCouponModalOpen(false);
+                    handleApplyCoupon(code);
+                }}
+            />
         </div>
     );
 };
