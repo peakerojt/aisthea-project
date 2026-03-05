@@ -184,8 +184,9 @@ const App: React.FC = () => {
       } else {
         console.error('Missing variantId for add to cart');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Add to cart failed:', error);
+      alert(error.response?.data?.message || 'Có lỗi xảy ra khi thêm vào giỏ hàng. Vui lòng kiểm tra lại số lượng tồn kho.');
     }
   };
 
@@ -197,8 +198,9 @@ const App: React.FC = () => {
       const newQty = Math.max(1, item.quantity + delta);
       await updateCartItemApi(item.cartItemId, newQty);
       await syncCart();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Update quantity failed:', error);
+      alert(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật số lượng. Vui lòng kiểm tra lại số lượng tồn kho.');
     }
   };
 
