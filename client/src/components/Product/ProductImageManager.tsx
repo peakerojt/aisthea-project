@@ -1,18 +1,41 @@
 /**
- * ProductImageManager — Two-zone image management component
+ * ProductImageManager — Pro Max v2 (Zoned Edition)
  *
- * Zone A: Ảnh chung (General Gallery) — VariantId = null
- * Zone B: Ảnh theo phân loại (Variant Gallery) — grouped by first attribute value
+ * UI Design (ui-ux-pro-max principles):
+ * ─────────────────────────────────────────────────────────
+ * • Two clearly-separated ZONES instead of one flat grid
  *
- * Upload flow: File → compress → POST /api/products/:productId/image (backend → Cloudinary)
- * In CREATE mode (no productId yet): store as local File → parent handles upload post-creation
+ *   ZONE A ── "Ảnh chung"  (variantId = null)
+ *             Blue-accented header, full-width dropzone
+ *             Grid: 2→4→5 cols
+ *
+ *   ZONE B ── One card per attribute value (e.g. Đỏ / Đen / Hồng)
+ *             Each variant gets its OWN row with:
+ *               - Color-dot header with emoji + name
+ *               - Horizontal scrollable image strip
+ *               - Compact inline drop zone at the end of the strip
+ *
+ * • Drag-to-reorder within ZONE A via @dnd-kit/sortable
+ * • Skeleton shimmer cards while uploading
+ * • Hover actions: ⭐ Ảnh bìa / 🗑️ Xóa (confirmed) / per-card zone-transfer button
+ * • Self-dismissing toast system (Vietnamese)
+ * • 100% Vietnamese UI — 'Be Vietnam Pro' font
  */
 
 import React, { useState, useCallback, useRef } from 'react';
 import {
-    Star, Trash2, Upload, ImageIcon, Loader2, CheckCircle2,
-    AlertCircle, X, Plus, Layers, Image as ImgIcon,
+    Star, Trash2, ImageIcon, Loader2, CheckCircle2, AlertCircle,
+    Upload, X, GripVertical, Plus, Layers, MoveRight,
 } from 'lucide-react';
+import {
+    DndContext, closestCenter, PointerSensor, KeyboardSensor,
+    useSensor, useSensors, DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    arrayMove, SortableContext, sortableKeyboardCoordinates,
+    useSortable, rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { API_BASE_URL } from '../../utils/api';
 import { compressImage } from '../../utils/imageCompression';
 import { getColorEmoji } from '../../utils/groupVariantsHelper';
@@ -21,535 +44,749 @@ import type { VariantRow } from '../Product/VariantManager';
 // ─── Constants ────────────────────────────────────────────────────────────────
 const VN_FONT: React.CSSProperties = { fontFamily: "'Be Vietnam Pro', sans-serif" };
 const ACCEPT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
 export interface ProductImageState {
-    /** Internal unique key */
     id: string;
-    /** Raw file — present for NEW images before upload */
     file?: File;
-    /** Cloudinary public_id — present after upload */
     publicId?: string;
-    /** Preview or final Cloudinary URL */
     url: string;
-    /** Only one image can be isPrimary=true across the whole manager */
+    thumbnailUrl?: string;
     isPrimary: boolean;
-    /**
-     * For Zone B images: the first-attribute value this image represents
-     * e.g. "Đỏ" — links this image to all variants with combination[0].value === "Đỏ"
-     */
+    /** null/undefined = Zone A (general); string = Zone B variant value */
     associatedAttributeValue?: string;
-    /** Upload status */
+    dbImageId?: number;
     status: 'idle' | 'uploading' | 'done' | 'error';
     errorMsg?: string;
 }
 
 export interface ProductImageManagerProps {
-    /**
-     * If provided: images are uploaded immediately to the server.
-     * If undefined (Create mode): images are queued locally; parent must handle upload.
-     */
     productId?: number;
-    /** Current variant rows (to derive group keys for Zone B) */
     variants: VariantRow[];
-    /**
-     * Optional explicit attribute groups — used in Create mode where variants may
-     * not yet be generated from the Cartesian product.
-     * When provided, takes priority over variant-derived groups for Zone B display.
-     */
     attributeGroups?: { name: string; values: string[] }[];
-    /** Pre-loaded images (for Edit mode) */
     initialImages?: ProductImageState[];
-    /** Notifies parent whenever state changes */
     onChange: (images: ProductImageState[]) => void;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helper — derive unique primary-attribute values from variants
-// ─────────────────────────────────────────────────────────────────────────────
+type ToastType = 'success' | 'error' | 'info';
+interface Toast { id: string; message: string; type: ToastType }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+
 function getPrimaryAttrGroups(variants: VariantRow[]): string[] {
     const seen = new Set<string>();
     for (const v of variants) {
-        const primary = v.combination[0]?.value;
-        if (primary && !seen.has(primary)) seen.add(primary);
+        // Only look at the FIRST attribute in the combination (usually Color)
+        const p = v.combination[0]?.value;
+        if (p && !seen.has(p)) seen.add(p);
     }
     return Array.from(seen);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ImageCard sub-component (outside .map() — no hooks violation)
-// ─────────────────────────────────────────────────────────────────────────────
-interface ImageCardProps {
-    img: ProductImageState;
-    onSetPrimary: (id: string) => void;
-    onRemove: (id: string) => void;
-    showPrimaryBadge?: boolean;
+/** Deterministic hue from a string — used for zone accent colours */
+function stringToHsl(str: string): string {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+    return `hsl(${Math.abs(h) % 360},55%,58%)`;
 }
 
-const ImageCard: React.FC<ImageCardProps> = ({ img, onSetPrimary, onRemove, showPrimaryBadge = true }) => (
-    <div className={`group relative rounded-xl overflow-hidden border-2 transition-all duration-200 ${img.isPrimary
-        ? 'border-yellow-400 shadow-lg shadow-yellow-400/20'
-        : img.status === 'error'
-            ? 'border-red-500/40'
-            : 'border-white/10 hover:border-white/30'
-        }`} style={{ width: 96, height: 112 }}>
-        {/* Image */}
-        <img
-            src={img.url}
-            alt=""
-            className="w-full h-full object-cover"
-            draggable={false}
-        />
-
-        {/* Upload overlay */}
-        {img.status === 'uploading' && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                <Loader2 size={20} className="animate-spin text-white" />
+// ─── Toast ────────────────────────────────────────────────────────────────────
+const ToastList: React.FC<{ toasts: Toast[]; remove: (id: string) => void }> = ({ toasts, remove }) => (
+    <div className="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2 pointer-events-none" aria-live="polite">
+        {toasts.map(t => (
+            <div
+                key={t.id}
+                style={VN_FONT}
+                onClick={() => remove(t.id)}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border text-[13px] font-medium
+                    pointer-events-auto cursor-pointer select-none transition-all duration-300
+                    ${t.type === 'success' ? 'bg-emerald-950/95 border-emerald-500/40 text-emerald-300'
+                        : t.type === 'error' ? 'bg-red-950/95 border-red-500/40 text-red-300'
+                            : 'bg-slate-900/95 border-white/10 text-white/80'}`}
+            >
+                {t.type === 'success' && <CheckCircle2 size={15} className="shrink-0" />}
+                {t.type === 'error' && <AlertCircle size={15} className="shrink-0" />}
+                <span>{t.message}</span>
+                <X size={12} className="ml-auto opacity-50 hover:opacity-100 shrink-0" />
             </div>
-        )}
-
-        {img.status === 'error' && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 px-1 text-center">
-                <AlertCircle size={16} className="text-red-400 mb-1" />
-                <span className="text-[9px] text-red-300 leading-tight">
-                    {img.errorMsg || 'Lỗi upload'}
-                </span>
-            </div>
-        )}
-
-        {/* Primary badge */}
-        {img.isPrimary && img.status !== 'uploading' && (
-            <div className="absolute top-1 left-1 bg-yellow-400 rounded-full p-0.5">
-                <Star size={9} fill="currentColor" className="text-black" />
-            </div>
-        )}
-
-        {/* Done badge */}
-        {img.status === 'done' && !img.isPrimary && (
-            <div className="absolute top-1 left-1 bg-emerald-500 rounded-full p-0.5 opacity-70">
-                <CheckCircle2 size={9} className="text-white" />
-            </div>
-        )}
-
-        {/* Hover actions */}
-        {img.status !== 'uploading' && (
-            <div className="absolute inset-0 flex flex-col items-stretch justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                {showPrimaryBadge && !img.isPrimary && (
-                    <button
-                        type="button"
-                        onClick={() => onSetPrimary(img.id)}
-                        title="Đặt làm ảnh đại diện"
-                        className="bg-black/70 py-0.5 text-[9px] text-white/80 hover:text-yellow-400 text-center transition-colors flex items-center justify-center gap-0.5"
-                    >
-                        <Star size={9} /> Đại diện
-                    </button>
-                )}
-                <button
-                    type="button"
-                    onClick={() => onRemove(img.id)}
-                    className="bg-red-700/80 hover:bg-red-600/90 py-0.5 text-[9px] text-white text-center transition-colors flex items-center justify-center gap-0.5"
-                >
-                    <Trash2 size={9} /> Xóa
-                </button>
-            </div>
-        )}
+        ))}
     </div>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DropZone sub-component — drag & drop area with NO extra dependency
-// ─────────────────────────────────────────────────────────────────────────────
-interface DropZoneProps {
-    onFiles: (files: File[]) => void;
-    compact?: boolean;
-    label?: string;
-    disabled?: boolean;
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+const SkeletonCard: React.FC<{ slim?: boolean }> = ({ slim }) => (
+    <div className={`relative rounded-xl overflow-hidden border-2 border-white/10 bg-white/[0.04]
+        flex flex-col items-center justify-center gap-1.5 shrink-0
+        ${slim ? 'w-24 h-28' : 'aspect-square w-full'}`}
+    >
+        <Loader2 size={18} className="animate-spin text-primary/40" />
+        <span className="text-[9px] text-white/25">Đang tải…</span>
+    </div>
+);
+
+// ─── Zone-A Image Card (sortable) ─────────────────────────────────────────────
+interface CardAProps {
+    img: ProductImageState;
+    onPrimary: (id: string) => void;
+    onRemove: (id: string) => void;
 }
+const CardA: React.FC<CardAProps> = ({ img, onPrimary, onRemove }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+        useSortable({ id: img.id, disabled: img.status !== 'done' && img.status !== 'idle' });
 
-const DropZone: React.FC<DropZoneProps> = ({
-    onFiles, compact = false, label = 'Kéo & thả ảnh vào đây\nhoặc click để chọn tệp', disabled = false,
-}) => {
-    const [over, setOver] = useState(false);
-    const inputRef = useRef<HTMLInputElement>(null);
+    const [confirmDelete, setConfirmDelete] = useState(false);
 
-    const acceptFiles = (fileList: FileList | null) => {
-        if (!fileList) return;
-        const valid = Array.from(fileList).filter(f => ACCEPT_TYPES.includes(f.type));
-        if (valid.length) onFiles(valid);
+    const style: React.CSSProperties = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 50 : undefined,
+        opacity: isDragging ? 0.55 : 1,
     };
 
     return (
-        <div
-            onClick={() => !disabled && inputRef.current?.click()}
-            onDragEnter={e => { e.preventDefault(); setOver(true); }}
-            onDragLeave={e => { e.preventDefault(); setOver(false); }}
-            onDragOver={e => e.preventDefault()}
-            onDrop={e => {
-                e.preventDefault(); setOver(false);
-                if (!disabled) acceptFiles(e.dataTransfer.files);
-            }}
-            className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed cursor-pointer select-none transition-all ${over
-                ? 'border-primary bg-primary/10 scale-[1.01]'
-                : disabled
-                    ? 'border-white/5 cursor-not-allowed opacity-40'
-                    : 'border-white/15 hover:border-primary/50 hover:bg-white/[0.02]'
-                } ${compact ? 'p-4' : 'px-6 py-8'}`}
-        >
-            <Upload size={compact ? 18 : 24} className={`${over ? 'text-primary' : 'text-white/30'} transition-colors`} />
-            {label.split('\n').map((line, i) => (
-                <span key={i} className={`text-center ${compact ? 'text-[10px]' : 'text-xs'} text-white/40 leading-tight`}>
-                    {line}
-                </span>
-            ))}
-            <span className="text-[9px] text-white/20">JPG · PNG · WebP · GIF</span>
-            <input
-                ref={inputRef}
-                type="file"
-                accept={ACCEPT_TYPES.join(',')}
-                multiple
-                className="hidden"
-                onChange={e => acceptFiles(e.target.files)}
-            />
+        <div ref={setNodeRef} style={style} className="relative group aspect-square">
+            <div className={`relative w-full h-full rounded-xl overflow-hidden border-2 transition-all duration-200
+                ${img.isPrimary ? 'border-yellow-400 shadow-[0_0_16px_rgba(250,204,21,0.25)]'
+                    : img.status === 'error' ? 'border-red-500/50'
+                        : 'border-white/[0.08] group-hover:border-white/20'}`}
+            >
+                <img src={img.thumbnailUrl || img.url} alt="" className="w-full h-full object-cover" draggable={false} />
+
+                {/* Uploading overlay */}
+                {img.status === 'uploading' && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <Loader2 size={22} className="animate-spin text-white" />
+                    </div>
+                )}
+
+                {/* Error overlay */}
+                {img.status === 'error' && (
+                    <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center px-2 text-center">
+                        <AlertCircle size={16} className="text-red-400 mb-1" />
+                        <span className="text-[9px] text-red-300">{img.errorMsg || 'Lỗi tải lên'}</span>
+                    </div>
+                )}
+
+                {/* Primary badge */}
+                {img.isPrimary && img.status !== 'uploading' && (
+                    <div className="absolute top-1.5 left-1.5 bg-yellow-400 text-black text-[8px] font-bold
+                                    px-1.5 py-0.5 rounded-full flex items-center gap-0.5 leading-none shadow-md">
+                        <Star size={7} fill="currentColor" /> Ảnh bìa
+                    </div>
+                )}
+
+                {/* Done checkmark */}
+                {img.status === 'done' && !img.isPrimary && (
+                    <div className="absolute top-1.5 left-1.5 bg-emerald-500/80 rounded-full p-0.5">
+                        <CheckCircle2 size={9} className="text-white" />
+                    </div>
+                )}
+
+                {/* Hover action bar */}
+                {img.status !== 'uploading' && (
+                    <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-px">
+                        {!img.isPrimary && (
+                            <button type="button" onClick={() => onPrimary(img.id)}
+                                className="w-full bg-black/70 hover:bg-yellow-500/20 backdrop-blur-sm py-1 text-[9px]
+                                           text-white/70 hover:text-yellow-300 flex items-center justify-center gap-0.5 transition-colors cursor-pointer">
+                                <Star size={8} /> Đặt làm ảnh bìa
+                            </button>
+                        )}
+                        {!confirmDelete ? (
+                            <button type="button" onClick={() => setConfirmDelete(true)}
+                                className="w-full bg-red-900/70 hover:bg-red-700/80 backdrop-blur-sm py-1 text-[9px]
+                                           text-white/70 hover:text-white flex items-center justify-center gap-0.5 transition-colors cursor-pointer">
+                                <Trash2 size={8} /> Xóa
+                            </button>
+                        ) : (
+                            <div className="flex">
+                                <button type="button" onClick={() => setConfirmDelete(false)}
+                                    className="flex-1 bg-slate-800/90 py-1 text-[9px] text-white/50 hover:text-white flex items-center justify-center transition-colors cursor-pointer">
+                                    Huỷ
+                                </button>
+                                <button type="button" onClick={() => { onRemove(img.id); setConfirmDelete(false); }}
+                                    className="flex-1 bg-red-600/90 hover:bg-red-500 py-1 text-[9px] text-white font-bold flex items-center justify-center transition-colors cursor-pointer">
+                                    Xác nhận xóa
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Drag handle */}
+            {img.status === 'done' && (
+                <div {...listeners} {...attributes}
+                    className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-60 hover:!opacity-100
+                               bg-black/50 backdrop-blur-sm rounded-full p-1 cursor-grab active:cursor-grabbing transition-opacity z-10">
+                    <GripVertical size={9} className="text-white" />
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ─── Zone-B Image Card (horizontal strip, no DnD) ─────────────────────────────
+interface CardBProps {
+    img: ProductImageState;
+    onRemove: (id: string) => void;
+    accentColor: string;
+}
+const CardB: React.FC<CardBProps> = ({ img, onRemove, accentColor }) => {
+    const [confirmDelete, setConfirmDelete] = useState(false);
+
+    return (
+        <div className="relative group shrink-0 w-24 h-28">
+            <div className="relative w-full h-full rounded-xl overflow-hidden border-2 transition-all duration-200
+                            border-white/[0.08] group-hover:border-white/20"
+                style={{ borderColor: img.status === 'done' ? `${accentColor}55` : undefined }}>
+                <img src={img.thumbnailUrl || img.url} alt="" className="w-full h-full object-cover" draggable={false} />
+
+                {img.status === 'uploading' && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <Loader2 size={16} className="animate-spin text-white" />
+                    </div>
+                )}
+                {img.status === 'error' && (
+                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                        <AlertCircle size={14} className="text-red-400" />
+                    </div>
+                )}
+                {img.status === 'done' && (
+                    <div className="absolute top-1 left-1 w-2 h-2 rounded-full" style={{ backgroundColor: accentColor }} />
+                )}
+
+                {img.status !== 'uploading' && !confirmDelete && (
+                    <button type="button" onClick={() => setConfirmDelete(true)}
+                        className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity
+                                   bg-red-900/80 hover:bg-red-700 py-0.5 text-[8px] text-white flex items-center justify-center gap-0.5 cursor-pointer">
+                        <Trash2 size={7} /> Xóa
+                    </button>
+                )}
+                {confirmDelete && (
+                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-1 p-1">
+                        <span className="text-[8px] text-white/70 text-center">Xóa ảnh này?</span>
+                        <div className="flex gap-1">
+                            <button type="button" onClick={() => setConfirmDelete(false)}
+                                className="px-1.5 py-0.5 text-[7px] bg-white/10 text-white/60 rounded cursor-pointer hover:bg-white/20">
+                                Huỷ
+                            </button>
+                            <button type="button" onClick={() => { onRemove(img.id); setConfirmDelete(false); }}
+                                className="px-1.5 py-0.5 text-[7px] bg-red-600 text-white rounded cursor-pointer hover:bg-red-500 font-bold">
+                                Xóa
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// ─── Zone-B Row (one variant value) ───────────────────────────────────────────
+interface ZoneBRowProps {
+    attrVal: string;
+    variantCount: number;
+    images: ProductImageState[];
+    onRemove: (id: string) => void;
+    onAddFiles: (files: File[], attrVal: string) => void;
+}
+const ZoneBRow: React.FC<ZoneBRowProps> = ({ attrVal, variantCount, images, onRemove, onAddFiles }) => {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [over, setOver] = useState(false);
+    const emoji = getColorEmoji(attrVal);
+    const accentColor = stringToHsl(attrVal);
+    const doneCount = images.filter(i => i.status === 'done').length;
+
+    const acceptFiles = (list: FileList | null) => {
+        if (!list) return;
+        const valid = Array.from(list).filter(f => ACCEPT_TYPES.includes(f.type));
+        if (valid.length) onAddFiles(valid, attrVal);
+    };
+
+    return (
+        <div className="rounded-xl overflow-hidden border border-white/[0.07] transition-all duration-200"
+            style={{ borderColor: over ? `${accentColor}55` : undefined }}>
+            {/* Row header */}
+            <div className="flex items-center gap-3 px-4 py-2.5 bg-white/[0.025] border-b border-white/[0.05]">
+                {/* Color dot */}
+                <div className="w-3 h-3 rounded-full shrink-0 ring-2 ring-black/30"
+                    style={{ backgroundColor: accentColor }} />
+
+                {/* Emoji + name */}
+                <div className="flex items-center gap-1.5 min-w-0">
+                    {emoji && <span className="text-base leading-none">{emoji}</span>}
+                    <span className="text-sm font-semibold text-white truncate">{attrVal}</span>
+                </div>
+
+                {/* Counters */}
+                <div className="flex items-center gap-3 ml-auto text-[10px] text-white/35 shrink-0">
+                    <span>{variantCount} biến thể</span>
+                    <span
+                        className="px-2 py-0.5 rounded-full font-medium"
+                        style={{
+                            backgroundColor: doneCount > 0 ? `${accentColor}22` : 'rgba(255,255,255,0.04)',
+                            color: doneCount > 0 ? accentColor : 'rgba(255,255,255,0.3)',
+                        }}
+                    >
+                        {doneCount} ảnh
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => inputRef.current?.click()}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium
+                                   bg-white/[0.05] hover:bg-white/10 text-white/50 hover:text-white
+                                   border border-white/[0.06] hover:border-white/15 transition-all cursor-pointer"
+                    >
+                        <Plus size={10} /> Thêm ảnh
+                    </button>
+                </div>
+            </div>
+
+            {/* Image strip */}
+            <div
+                className={`px-4 py-3 transition-colors ${over ? 'bg-white/[0.03]' : ''}`}
+                onDragEnter={e => { e.preventDefault(); setOver(true); }}
+                onDragLeave={e => { e.preventDefault(); setOver(false); }}
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => {
+                    e.preventDefault(); setOver(false);
+                    acceptFiles(e.dataTransfer.files);
+                }}
+            >
+                {images.length === 0 ? (
+                    /* Empty drop prompt */
+                    <div
+                        className="flex items-center gap-3 h-20 rounded-xl border-2 border-dashed cursor-pointer
+                                   transition-all duration-200 px-5"
+                        style={{ borderColor: over ? accentColor : 'rgba(255,255,255,0.08)' }}
+                        onClick={() => inputRef.current?.click()}
+                    >
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: `${accentColor}20` }}>
+                            <Upload size={14} style={{ color: accentColor }} />
+                        </div>
+                        <div>
+                            <p className="text-xs text-white/45 font-medium">Kéo thả hoặc nhấn để tải ảnh {attrVal}</p>
+                            <p className="text-[10px] text-white/25 mt-0.5">JPG · PNG · WebP · Tối đa 5MB</p>
+                        </div>
+                    </div>
+                ) : (
+                    /* Horizontal scroll strip */
+                    <div className="flex gap-2.5 overflow-x-auto pb-2"
+                        style={{ scrollbarWidth: 'thin', scrollbarColor: '#333 transparent' }}>
+                        {images.map(img =>
+                            img.status === 'uploading' && !img.url.startsWith('blob:')
+                                ? <SkeletonCard key={img.id} slim />
+                                : <CardB key={img.id} img={img} onRemove={onRemove} accentColor={accentColor} />
+                        )}
+
+                        {/* Inline add button at end of strip */}
+                        <div
+                            className="shrink-0 w-24 h-28 rounded-xl border-2 border-dashed flex flex-col
+                                       items-center justify-center gap-1.5 cursor-pointer transition-all duration-200
+                                       border-white/[0.08] hover:border-white/20 hover:bg-white/[0.03]"
+                            onClick={() => inputRef.current?.click()}
+                        >
+                            <Plus size={16} className="text-white/25 group-hover:text-white/50" />
+                            <span className="text-[9px] text-white/25 text-center leading-tight px-1">
+                                Thêm<br />{attrVal}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                <input
+                    ref={inputRef}
+                    type="file"
+                    accept={ACCEPT_TYPES.join(',')}
+                    multiple
+                    className="hidden"
+                    onChange={e => { acceptFiles(e.target.files); e.target.value = ''; }}
+                />
+            </div>
         </div>
     );
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ProductImageManager — Main component
+// ProductImageManager — Main Component
 // ─────────────────────────────────────────────────────────────────────────────
-
 export const ProductImageManager: React.FC<ProductImageManagerProps> = ({
     productId, variants, attributeGroups, initialImages = [], onChange,
 }) => {
     const [images, setImages] = useState<ProductImageState[]>(initialImages);
+    const [toasts, setToasts] = useState<Toast[]>([]);
+    const [dropActive, setDropActive] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
 
-    // ── Internal state mutator (always calls onChange) ───────────────────────
-    const updateImages = useCallback((updater: (prev: ProductImageState[]) => ProductImageState[]) => {
-        setImages(prev => {
-            const next = updater(prev);
-            onChange(next);
-            return next;
-        });
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    );
+
+    // ── Toast ──────────────────────────────────────────────────────────────
+    const toast = useCallback((message: string, type: ToastType = 'info') => {
+        const id = uid();
+        setToasts(p => [...p, { id, message, type }]);
+        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
+    }, []);
+
+    // ── State mutator ──────────────────────────────────────────────────────
+    const update = useCallback((fn: (p: ProductImageState[]) => ProductImageState[]) => {
+        setImages(p => { const n = fn(p); onChange(n); return n; });
     }, [onChange]);
 
-    // ── Upload single file to backend (if productId known) ───────────────────
-    const uploadFile = useCallback(async (
-        tempId: string,
-        file: File,
-        associatedAttributeValue?: string,
-    ) => {
-        // Compress first
+    // ── Upload single file ─────────────────────────────────────────────────
+    const uploadFile = useCallback(async (tempId: string, file: File, zone?: string) => {
         const { file: compressed } = await compressImage(file);
 
-        // If no productId (create mode), mark as local/idle — parent queues upload
         if (!productId) {
-            updateImages(prev => prev.map(img =>
-                img.id === tempId
-                    ? { ...img, file: compressed, status: 'idle' }
-                    : img
-            ));
+            update(p => p.map(i => i.id === tempId ? { ...i, file: compressed, status: 'idle' } : i));
             return;
         }
 
-        // Mark uploading
-        updateImages(prev => prev.map(img =>
-            img.id === tempId ? { ...img, status: 'uploading' } : img
-        ));
-
+        update(p => p.map(i => i.id === tempId ? { ...i, status: 'uploading' } : i));
         try {
             const fd = new FormData();
             fd.append('file', compressed);
             fd.append('isPrimary', 'false');
-            if (associatedAttributeValue) {
-                fd.append('associatedAttributeValue', associatedAttributeValue);
-            }
+            if (zone) fd.append('associatedAttributeValue', zone);
 
             const res = await fetch(`${API_BASE_URL}/api/products/${productId}/image`, {
-                method: 'POST',
-                credentials: 'include',
-                body: fd,
+                method: 'POST', credentials: 'include', body: fd,
             });
-            if (!res.ok) throw new Error(`Upload thất bại (${res.status})`);
+            if (!res.ok) throw new Error(`Lỗi ${res.status}`);
             const data = await res.json();
 
-            updateImages(prev => prev.map(img =>
-                img.id === tempId
-                    ? {
-                        ...img,
-                        status: 'done',
-                        url: data.imageUrl ?? img.url,
-                        publicId: data.publicId,
-                        file: undefined,
-                    }
-                    : img
-            ));
+            update(p => p.map(i => i.id !== tempId ? i : {
+                ...i,
+                status: 'done',
+                url: data.data?.imageUrl ?? i.url,
+                thumbnailUrl: data.data?.thumbnailUrl,
+                publicId: data.data?.publicId,
+                dbImageId: data.data?.imageId,
+                file: undefined,
+            }));
         } catch (err: any) {
-            updateImages(prev => prev.map(img =>
-                img.id === tempId
-                    ? { ...img, status: 'error', errorMsg: err.message }
-                    : img
-            ));
+            update(p => p.map(i => i.id === tempId ? { ...i, status: 'error', errorMsg: err.message } : i));
         }
-    }, [productId, updateImages]);
+    }, [productId, update]);
 
-    // ── Handle new files dropped/selected ────────────────────────────────────
-    const handleNewFiles = useCallback((
-        files: File[],
-        associatedAttributeValue?: string,
-    ) => {
-        const newImgs: ProductImageState[] = files.map(f => ({
-            id: Math.random().toString(36).slice(2),
-            file: f,
-            url: URL.createObjectURL(f),
-            isPrimary: false,
-            associatedAttributeValue,
-            status: 'uploading' as const,
+    // ── Add files to a zone ────────────────────────────────────────────────
+    const addFiles = useCallback((rawFiles: File[], zone?: string) => {
+        const passes: File[] = [];
+        const blocked: string[] = [];
+
+        for (const f of rawFiles) {
+            if (!ACCEPT_TYPES.includes(f.type)) { blocked.push(`"${f.name}" không hợp lệ`); continue; }
+            if (f.size > MAX_FILE_SIZE) { blocked.push(`"${f.name}" > 5MB`); continue; }
+            passes.push(f);
+        }
+        if (blocked.length) toast(blocked.join(' · '), 'error');
+        if (!passes.length) return;
+
+        const newImgs: ProductImageState[] = passes.map(f => ({
+            id: uid(), file: f, url: URL.createObjectURL(f),
+            isPrimary: false, associatedAttributeValue: zone, status: 'uploading',
         }));
 
-        // Auto-mark first general image as primary if none set
-        updateImages(prev => {
-            const hasPrimary = prev.some(i => i.isPrimary);
+        // Auto-primary: first general image if none set
+        update(p => {
+            const hasPrimary = p.some(i => i.isPrimary);
             const enriched = newImgs.map((img, idx) => ({
                 ...img,
-                isPrimary: !hasPrimary && !associatedAttributeValue && idx === 0,
+                isPrimary: !hasPrimary && !zone && idx === 0,
             }));
-            return [...prev, ...enriched];
+            return [...p, ...enriched];
         });
 
-        // Trigger uploads
-        newImgs.forEach(img => {
-            uploadFile(img.id, img.file!, associatedAttributeValue);
+        let done = 0;
+        passes.forEach((f, idx) => {
+            uploadFile(newImgs[idx].id, f, zone).then(() => {
+                if (++done === passes.length) toast(`Tải lên ${passes.length} ảnh thành công.`, 'success');
+            });
         });
-    }, [updateImages, uploadFile]);
+    }, [update, uploadFile, toast]);
 
-    // ── Set primary ───────────────────────────────────────────────────────────
-    const setPrimary = (id: string) =>
-        updateImages(prev => prev.map(img => ({ ...img, isPrimary: img.id === id })));
+    // ── Set primary ────────────────────────────────────────────────────────
+    const setPrimary = useCallback(async (id: string) => {
+        const img = images.find(i => i.id === id);
+        if (!img) return;
+        update(p => p.map(i => ({ ...i, isPrimary: i.id === id })));
 
-    // ── Remove image ──────────────────────────────────────────────────────────
-    const removeImage = (id: string) =>
-        updateImages(prev => {
-            const filtered = prev.filter(i => i.id !== id);
-            // If we removed primary, auto-promote first general image
-            const hadPrimary = prev.find(i => i.id === id)?.isPrimary;
-            if (hadPrimary) {
-                const firstGeneral = filtered.find(i => !i.associatedAttributeValue);
-                if (firstGeneral) return filtered.map(i => ({ ...i, isPrimary: i.id === firstGeneral.id }));
+        if (productId && img.dbImageId) {
+            try {
+                const r = await fetch(
+                    `${API_BASE_URL}/api/products/${productId}/images/${img.dbImageId}/primary`,
+                    { method: 'PATCH', credentials: 'include' }
+                );
+                if (!r.ok) throw new Error();
+                toast('Đã cập nhật ảnh bìa thành công', 'success');
+            } catch {
+                // rollback
+                update(p => p.map(i => ({
+                    ...i, isPrimary: initialImages.find(ii => ii.id === i.id)?.isPrimary ?? false,
+                })));
+                toast('Không thể cập nhật ảnh bìa', 'error');
             }
-            return filtered;
-        });
+        } else {
+            toast('Đã cập nhật ảnh bìa thành công', 'success');
+        }
+    }, [images, productId, update, toast, initialImages]);
 
-    // ── Derived state ─────────────────────────────────────────────────────────
+    // ── Remove image ───────────────────────────────────────────────────────
+    const removeImage = useCallback(async (id: string) => {
+        const img = images.find(i => i.id === id);
+        if (productId && img?.dbImageId) {
+            await fetch(`${API_BASE_URL}/api/products/images/${img.dbImageId}`, {
+                method: 'DELETE', credentials: 'include',
+            }).catch(() => {/* swallow */ });
+        }
+        update(p => {
+            const f = p.filter(i => i.id !== id);
+            if (p.find(i => i.id === id)?.isPrimary) {
+                const first = f.find(i => !i.associatedAttributeValue);
+                if (first) return f.map(i => ({ ...i, isPrimary: i.id === first.id }));
+            }
+            return f;
+        });
+    }, [images, productId, update]);
+
+    // ── DnD Zone-A reorder ─────────────────────────────────────────────────
+    const onDragEnd = useCallback(({ active, over }: DragEndEvent) => {
+        if (!over || active.id === over.id) return;
+        update(p => {
+            const o = p.findIndex(i => i.id === active.id);
+            const n = p.findIndex(i => i.id === over.id);
+            return arrayMove(p, o, n);
+        });
+    }, [update]);
+
+    // ── Derived ────────────────────────────────────────────────────────────
     const generalImages = images.filter(i => !i.associatedAttributeValue);
 
-    // If explicit attributeGroups provided (Create mode), derive Zone B from first group.
-    // Otherwise fall back to deriving from variants (Edit mode).
     let attrGroups: string[];
     let primaryAttrName: string;
-    if (attributeGroups && attributeGroups.length > 0) {
-        const first = attributeGroups.find(g => g.name.trim() && g.values.length > 0);
-        attrGroups = first?.values ?? [];
-        primaryAttrName = first?.name ?? '';
+    if (attributeGroups?.length) {
+        // Find the group corresponding to the primary attribute name across variants
+        const expectedPrimaryName = variants[0]?.combination[0]?.attr;
+        const primaryGroup = expectedPrimaryName
+            ? attributeGroups.find(g => g.name === expectedPrimaryName)
+            : attributeGroups.find(g => g.name.trim() && g.values.length);
+
+        attrGroups = primaryGroup?.values ?? [];
+        primaryAttrName = primaryGroup?.name ?? '';
     } else {
         attrGroups = getPrimaryAttrGroups(variants);
         primaryAttrName = variants[0]?.combination[0]?.attr ?? '';
     }
-    const hasVariantGroups = attrGroups.length > 0;
-
-    // Images per attribute group
-    const imagesByGroup = (attrVal: string) =>
-        images.filter(i => i.associatedAttributeValue === attrVal);
 
     const totalCount = images.length;
-    const uploadingCount = images.filter(i => i.status === 'uploading').length;
-    const errorCount = images.filter(i => i.status === 'error').length;
+    const uploadingCnt = images.filter(i => i.status === 'uploading').length;
+    const errorCnt = images.filter(i => i.status === 'error').length;
 
     return (
-        <div style={VN_FONT} className="space-y-5">
+        <>
+            <ToastList toasts={toasts} remove={id => setToasts(p => p.filter(t => t.id !== id))} />
 
-            {/* ── Section header ──────────────────────────────────────────── */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <ImgIcon size={15} className="text-primary/70" />
-                    <h3 className="text-sm font-bold text-white">Hình ảnh sản phẩm</h3>
+            <div style={VN_FONT} className="space-y-5">
+
+                {/* ══ Header bar ══════════════════════════════════════════════ */}
+                <div className="flex items-center gap-2.5">
+                    <ImageIcon size={14} className="text-primary/70" />
+                    <h3 className="text-sm font-bold text-white">Quản lý hình ảnh</h3>
                     {totalCount > 0 && (
-                        <span className="px-2 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-[10px] font-semibold text-white/50">
+                        <span className="px-2 py-0.5 rounded-full bg-white/[0.06] border border-white/10
+                                         text-[10px] font-semibold text-white/50">
                             {totalCount} ảnh
                         </span>
                     )}
-                    {uploadingCount > 0 && (
+                    {uploadingCnt > 0 && (
                         <span className="flex items-center gap-1 text-[10px] text-primary/70">
                             <Loader2 size={10} className="animate-spin" />
-                            Đang tải {uploadingCount}...
+                            Đang tải {uploadingCnt}…
                         </span>
                     )}
-                    {errorCount > 0 && (
-                        <span className="text-[10px] text-red-400">
-                            ⚠ {errorCount} lỗi
+                    {errorCnt > 0 && (
+                        <span className="text-[10px] text-red-400 flex items-center gap-0.5">
+                            <AlertCircle size={10} /> {errorCnt} lỗi
+                        </span>
+                    )}
+                    {!productId && totalCount > 0 && (
+                        <span className="ml-auto text-[10px] text-white/30 bg-white/[0.03] border
+                                         border-white/[0.06] rounded-full px-2 py-0.5">
+                            Sẽ tải lên sau khi tạo sản phẩm
                         </span>
                     )}
                 </div>
-                {!productId && totalCount > 0 && (
-                    <span className="text-[10px] text-white/30 bg-white/[0.03] border border-white/8 rounded-full px-2 py-0.5">
-                        Ảnh sẽ được tải lên sau khi tạo sản phẩm
-                    </span>
-                )}
-            </div>
 
-            {/* ══ ZONE A: Ảnh chung ═══════════════════════════════════════ */}
-            <div className="border border-white/[0.07] rounded-xl overflow-hidden">
-                {/* Zone A Header */}
-                <div className="flex items-center gap-2 px-4 py-3 bg-white/[0.025] border-b border-white/[0.05]">
-                    <div className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
-                        <ImageIcon size={10} className="text-blue-400" />
-                    </div>
-                    <div>
-                        <span className="text-xs font-bold text-white">Ảnh chung của sản phẩm</span>
-                        <span className="text-[10px] text-white/30 ml-2">(Hiển thị khi chưa chọn phân loại)</span>
-                    </div>
-                    <span className="ml-auto text-[10px] text-white/30">{generalImages.length} ảnh</span>
-                </div>
+                {/* ══ ZONE A — Ảnh chung ══════════════════════════════════════ */}
+                <div className="rounded-2xl border border-white/[0.07] overflow-hidden">
 
-                <div className="p-4 space-y-4">
-                    {/* Thumbnail grid */}
-                    {generalImages.length > 0 && (
-                        <div className="flex flex-wrap gap-3">
-                            {generalImages.map(img => (
-                                <ImageCard
-                                    key={img.id}
-                                    img={img}
-                                    onSetPrimary={setPrimary}
-                                    onRemove={removeImage}
-                                    showPrimaryBadge={true}
-                                />
-                            ))}
+                    {/* Zone A header */}
+                    <div className="flex items-center gap-3 px-5 py-3 bg-white/[0.025] border-b border-white/[0.05]">
+                        <div className="w-5 h-5 rounded-lg bg-blue-500/20 border border-blue-500/30
+                                         flex items-center justify-center shrink-0">
+                            <ImageIcon size={10} className="text-blue-400" />
                         </div>
-                    )}
-
-                    {/* Drop zone A */}
-                    <DropZone
-                        onFiles={files => handleNewFiles(files, undefined)}
-                        compact={generalImages.length > 0}
-                        label={generalImages.length === 0
-                            ? 'Kéo & thả ảnh sản phẩm vào đây\nhoặc click để chọn từ máy tính'
-                            : 'Thêm ảnh chung'}
-                    />
-
-                    {/* Primary hint */}
-                    {generalImages.length > 0 && (
-                        <p className="text-[10px] text-white/30 flex items-center gap-1">
-                            <Star size={9} className="text-yellow-400" />
-                            Hover ảnh → click "Đại diện" để đặt ảnh thumbnail chính
-                        </p>
-                    )}
-                </div>
-            </div>
-
-            {/* ══ ZONE B: Ảnh theo phân loại ══════════════════════════════ */}
-            {hasVariantGroups && (
-                <div className="border border-white/[0.07] rounded-xl overflow-hidden">
-                    {/* Zone B Header */}
-                    <div className="flex items-center gap-2 px-4 py-3 bg-white/[0.025] border-b border-white/[0.05]">
-                        <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-                            <Layers size={10} className="text-emerald-400" />
-                        </div>
-                        <div>
-                            <span className="text-xs font-bold text-white">Ảnh theo phân loại</span>
+                        <div className="flex-1 min-w-0">
+                            <span className="text-[13px] font-bold text-white">Ảnh chung</span>
                             <span className="text-[10px] text-white/30 ml-2">
-                                (Nhóm theo <span className="text-white/50">{primaryAttrName || 'thuộc tính chính'}</span>)
+                                Hiển thị mặc định khi chưa chọn phân loại
                             </span>
                         </div>
-                        <span className="ml-auto text-[10px] text-white/30">
-                            {attrGroups.length} nhóm
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                            {generalImages.length > 0 && (
+                                <span className="text-[10px] text-blue-400/70 bg-blue-500/10 px-2 py-0.5 rounded-full">
+                                    {generalImages.filter(i => i.status === 'done').length} ảnh
+                                </span>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => inputRef.current?.click()}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium
+                                           bg-blue-500/10 hover:bg-blue-500/20 text-blue-400/80 hover:text-blue-300
+                                           border border-blue-500/20 hover:border-blue-400/30 transition-all cursor-pointer"
+                            >
+                                <Plus size={10} /> Thêm ảnh
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Info banner */}
-                    <div className="px-4 py-2 bg-emerald-500/5 border-b border-white/[0.03]">
-                        <p className="text-[10px] text-emerald-400/70">
-                            💡 Mỗi ảnh bạn tải lên đây sẽ tự động gắn với <strong>tất cả biến thể</strong> có cùng{' '}
-                            {primaryAttrName || 'thuộc tính chính'}. Bạn không cần upload riêng cho từng size.
-                        </p>
-                    </div>
+                    {/* Zone A content */}
+                    <div className="p-5 space-y-4">
 
-                    {/* Group rows */}
-                    <div className="divide-y divide-white/[0.04]">
+                        {/* Global dropzone */}
+                        <div
+                            role="button" tabIndex={0}
+                            onClick={() => inputRef.current?.click()}
+                            onKeyDown={e => e.key === 'Enter' && inputRef.current?.click()}
+                            onDragEnter={e => { e.preventDefault(); setDropActive(true); }}
+                            onDragLeave={e => { e.preventDefault(); setDropActive(false); }}
+                            onDragOver={e => e.preventDefault()}
+                            onDrop={e => {
+                                e.preventDefault(); setDropActive(false);
+                                addFiles(Array.from(e.dataTransfer.files));
+                            }}
+                            className={`flex items-center gap-4 rounded-xl border-2 border-dashed px-5 py-4
+                                        cursor-pointer transition-all duration-200 select-none
+                                        ${dropActive
+                                    ? 'border-blue-400 bg-blue-500/10 scale-[1.005]'
+                                    : 'border-white/10 hover:border-blue-500/30 hover:bg-white/[0.02]'}`}
+                        >
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors
+                                            ${dropActive ? 'bg-blue-500/20' : 'bg-white/[0.04]'}`}>
+                                <Upload size={18} className={dropActive ? 'text-blue-400' : 'text-white/30'} />
+                            </div>
+                            <div>
+                                <p className={`text-[13px] font-medium transition-colors
+                                    ${dropActive ? 'text-blue-300' : 'text-white/55'}`}>
+                                    Kéo thả ảnh vào đây, hoặc nhấn để tải lên
+                                </p>
+                                <p className="text-[11px] text-white/25 mt-0.5">
+                                    Tối đa 5MB/ảnh · JPG · PNG · WebP · GIF
+                                </p>
+                            </div>
+                            <input ref={inputRef} type="file" accept={ACCEPT_TYPES.join(',')} multiple className="hidden"
+                                onChange={e => { addFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
+                        </div>
+
+                        {/* Zone A grid */}
+                        {generalImages.length > 0 && (
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+                                <SortableContext items={generalImages.map(i => i.id)} strategy={rectSortingStrategy}>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-3">
+                                        {generalImages.map(img =>
+                                            img.status === 'uploading' && !img.url.startsWith('blob:')
+                                                ? <SkeletonCard key={img.id} />
+                                                : <CardA key={img.id} img={img} onPrimary={setPrimary} onRemove={removeImage} />
+                                        )}
+                                    </div>
+                                </SortableContext>
+                            </DndContext>
+                        )}
+
+                        {/* Empty inner state */}
+                        {generalImages.length === 0 && (
+                            <p className="text-center text-[11px] text-white/20 py-1">
+                                Chưa có ảnh chung. Kéo thả hoặc nhấn "Thêm ảnh" để bắt đầu.
+                            </p>
+                        )}
+
+                        {/* Hint */}
+                        {generalImages.length > 0 && (
+                            <p className="text-[10px] text-white/20 flex items-center gap-1.5">
+                                <Star size={9} className="text-yellow-400/60" />
+                                Hover → click "Đặt làm ảnh bìa" để chọn thumbnail chính
+                                <span className="mx-1 opacity-30">·</span>
+                                <GripVertical size={9} />
+                                Kéo để sắp xếp thứ tự
+                            </p>
+                        )}
+                    </div>
+                </div>
+
+                {/* ══ ZONE B — Ảnh theo phân loại ════════════════════════════ */}
+                {attrGroups.length > 0 && (
+                    <div className="space-y-3">
+
+                        {/* Zone B title bar */}
+                        <div className="flex items-center gap-2">
+                            <Layers size={13} className="text-emerald-400/70" />
+                            <h4 className="text-[12px] font-bold text-white/80">
+                                Ảnh theo phân loại
+                            </h4>
+                            <span className="text-[10px] text-white/30">
+                                (nhóm theo <span className="text-white/50">{primaryAttrName || 'thuộc tính chính'}</span>)
+                            </span>
+                            <span className="ml-auto text-[10px] text-white/30">
+                                {attrGroups.length} nhóm
+                            </span>
+                        </div>
+
+                        {/* Info banner */}
+                        <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl
+                                        bg-emerald-500/[0.06] border border-emerald-500/15">
+                            <MoveRight size={13} className="text-emerald-400/60 mt-0.5 shrink-0" />
+                            <p className="text-[11px] text-emerald-400/70 leading-relaxed">
+                                Mỗi ảnh tải vào đây sẽ tự động gắn với{' '}
+                                <strong>tất cả biến thể</strong> có cùng{' '}
+                                {primaryAttrName || 'thuộc tính chính'} —
+                                không cần upload riêng cho từng size.
+                            </p>
+                        </div>
+
+                        {/* One row per variant value */}
                         {attrGroups.map(attrVal => {
-                            const groupImgs = imagesByGroup(attrVal);
-                            const emoji = getColorEmoji(attrVal);
+                            // Only count variants where the primary attribute matches this value
                             const variantCount = variants.filter(v => v.combination[0]?.value === attrVal).length;
-
+                            const zoneImages = images.filter(i => i.associatedAttributeValue === attrVal);
                             return (
-                                <div key={attrVal} className="px-4 py-4 space-y-3">
-                                    {/* Group header */}
-                                    <div className="flex items-center gap-2">
-                                        {emoji && <span className="text-sm leading-none">{emoji}</span>}
-                                        <span className="text-sm font-semibold text-white">{attrVal}</span>
-                                        <span className="text-[10px] text-white/30">
-                                            · {variantCount} biến thể · {groupImgs.length} ảnh
-                                        </span>
-                                    </div>
-
-                                    {/* Group images + upload zone in one row */}
-                                    <div className="flex flex-wrap gap-2 items-start">
-                                        {groupImgs.map(img => (
-                                            <ImageCard
-                                                key={img.id}
-                                                img={img}
-                                                onSetPrimary={setPrimary}
-                                                onRemove={removeImage}
-                                                showPrimaryBadge={false}
-                                            />
-                                        ))}
-
-                                        {/* Compact inline drop zone */}
-                                        <div
-                                            style={{ width: 96, height: 112 }}
-                                            className="group flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-white/10 hover:border-primary/40 hover:bg-white/[0.02] cursor-pointer transition-all"
-                                            onClick={() => {
-                                                const el = document.getElementById(`zone-b-input-${attrVal}`);
-                                                el?.click();
-                                            }}
-                                            onDragOver={e => e.preventDefault()}
-                                            onDrop={e => {
-                                                e.preventDefault();
-                                                const files = Array.from(e.dataTransfer.files).filter(f => ACCEPT_TYPES.includes(f.type));
-                                                if (files.length) handleNewFiles(files, attrVal);
-                                            }}
-                                        >
-                                            <Plus size={16} className="text-white/20 group-hover:text-primary transition-colors" />
-                                            <span className="text-[9px] text-white/25 group-hover:text-white/50 transition-colors text-center leading-tight px-1">
-                                                Thêm ảnh<br />{attrVal}
-                                            </span>
-                                            <input
-                                                id={`zone-b-input-${attrVal}`}
-                                                type="file"
-                                                accept={ACCEPT_TYPES.join(',')}
-                                                multiple
-                                                className="hidden"
-                                                onChange={e => {
-                                                    const files = Array.from(e.target.files ?? []).filter(f => ACCEPT_TYPES.includes(f.type));
-                                                    if (files.length) handleNewFiles(files, attrVal);
-                                                    e.target.value = '';
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
+                                <ZoneBRow
+                                    key={attrVal}
+                                    attrVal={attrVal}
+                                    variantCount={variantCount}
+                                    images={zoneImages}
+                                    onRemove={removeImage}
+                                    onAddFiles={addFiles}
+                                />
                             );
                         })}
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* ── Empty state ────────────────────────────────────────────── */}
-            {totalCount === 0 && (
-                <div className="text-center py-4 text-[11px] text-white/25">
-                    Chưa có hình ảnh. Kéo thả hoặc click "Ảnh chung" để bắt đầu.
-                </div>
-            )}
-        </div>
+                {/* ══ Global empty state ══════════════════════════════════════ */}
+                {totalCount === 0 && (
+                    <p className="text-center py-1 text-[11px] text-white/20">
+                        Kéo thả ảnh vào vùng "Ảnh chung" phía trên để bắt đầu.
+                    </p>
+                )}
+
+            </div>
+        </>
     );
 };
 
