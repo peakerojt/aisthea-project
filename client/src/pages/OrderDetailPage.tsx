@@ -18,7 +18,8 @@ import { OrderItemsTable } from '../components/order/OrderItemsTable';
 import { OrderPricingSummary } from '../components/order/OrderPricingSummary';
 import { OrderTimeline } from '../components/order/OrderTimeline';
 import { ReviewModal } from '../components/review/ReviewModal';
-import { RotateCcw, XCircle, ArrowLeft, PackageCheck, Loader2, MapPin } from 'lucide-react';
+import { RotateCcw, XCircle, ArrowLeft, PackageCheck, Loader2, MapPin, ShoppingCart } from 'lucide-react';
+import { addToCartApi } from '../services/cart.service';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -67,6 +68,7 @@ export const OrderDetailPage: React.FC = () => {
   // Confirm receipt dialog state
   const [confirmReceiptDialog, setConfirmReceiptDialog] = useState(false);
   const [receiptToastMsg, setReceiptToastMsg] = useState('');
+  const [buyAgainToastMsg, setBuyAgainToastMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const {
     data: order,
@@ -122,8 +124,39 @@ export const OrderDetailPage: React.FC = () => {
       setConfirmReceiptDialog(false);
     },
   });
+  // ── Buy Again mutation ──
+  // Adds all items from a past order back into cart simultaneously.
+  const buyAgainMutation = useMutation({
+    mutationFn: async () => {
+      if (!order?.items?.length) throw new Error('No items');
+      // Filter only items that have a known variantId; warn about the rest.
+      const itemsWithVariant = order.items.filter((it) => it.variantId);
+      if (itemsWithVariant.length === 0)
+        throw new Error('Không thể xác định sản phẩm để thêm vào giỏ.');
+      // Fire in parallel; if one fails it throws and triggers onError.
+      await Promise.all(
+        itemsWithVariant.map((it) => addToCartApi(it.variantId!, it.quantity)),
+      );
+    },
+    onSuccess: () => {
+      setBuyAgainToastMsg({
+        type: 'success',
+        text: `Đã thêm ${order?.items?.length ?? 0} sản phẩm vào giỏ hàng! 🛒`,
+      });
+      setTimeout(() => setBuyAgainToastMsg(null), 4000);
+      // Navigate directly to checkout so user can complete the order
+      navigate('/', { state: { initialView: 'STORE_CHECKOUT' } });
+    },
+    onError: (err: any) => {
+      setBuyAgainToastMsg({
+        type: 'error',
+        text: err?.response?.data?.message ?? err?.message ?? 'Không thể thêm vào giỏ hàng.',
+      });
+      setTimeout(() => setBuyAgainToastMsg(null), 5000);
+    },
+  });
 
-  const structuredError = error as ApiError | null;
+
 
   const canCancel = useMemo(() => {
     if (!order) return false;
@@ -146,6 +179,8 @@ export const OrderDetailPage: React.FC = () => {
   }, [order]);
 
   // ── Guest guard ──
+  const structuredError = error as ApiError | null;
+
   if (role === 'guest') {
     return (
       <div className="bg-bg-dark min-h-screen text-white flex items-center justify-center">
@@ -169,13 +204,26 @@ export const OrderDetailPage: React.FC = () => {
     <div className="bg-bg-dark min-h-screen text-white font-sans">
       <StoreHeader setView={() => navigate('/')} setCategory={() => undefined} />
 
-      {/* Toast notification */}
+      {/* Toast notification — confirm receipt */}
       {receiptToastMsg && (
         <div
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-medium shadow-[0_0_30px_rgba(16,185,129,0.2)] backdrop-blur-sm"
           style={{ transition: 'opacity 0.3s ease' }}
         >
           {receiptToastMsg}
+        </div>
+      )}
+
+      {/* Toast notification — buy again */}
+      {buyAgainToastMsg && (
+        <div
+          className={`fixed bottom-16 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm ${buyAgainToastMsg.type === 'success'
+            ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 shadow-[0_0_30px_rgba(245,158,11,0.2)]'
+            : 'bg-red-500/20 border border-red-500/40 text-red-300'
+            }`}
+          style={{ transition: 'opacity 0.3s ease' }}
+        >
+          {buyAgainToastMsg.text}
         </div>
       )}
 
@@ -398,6 +446,33 @@ export const OrderDetailPage: React.FC = () => {
                       Yêu cầu trả hàng
                     </button>
                   )}
+
+                  {/* ── Mua Lại (Buy Again) Button ── */}
+                  {/* Shown for delivered/cancelled/returned orders so customer can re-purchase */}
+                  {['delivered', 'cancelled', 'canceled', 'returned'].includes(
+                    (order.status || '').toLowerCase(),
+                  ) && (
+                      <button
+                        onClick={() => buyAgainMutation.mutate()}
+                        disabled={buyAgainMutation.isPending}
+                        className={`group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all ${buyAgainMutation.isPending
+                          ? 'bg-white/5 border-white/10 text-white/30 cursor-not-allowed'
+                          : 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/40 hover:border-amber-500/60 text-amber-400 hover:text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:shadow-[0_0_25px_rgba(245,158,11,0.25)]'
+                          }`}
+                      >
+                        {buyAgainMutation.isPending ? (
+                          <span className="flex items-center gap-1.5">
+                            <Loader2 size={13} className="animate-spin" />
+                            Đang thêm vào giỏ...
+                          </span>
+                        ) : (
+                          <>
+                            <ShoppingCart size={15} className="group-hover:scale-110 transition-transform" />
+                            Mua Lại
+                          </>
+                        )}
+                      </button>
+                    )}
 
                 </div>
 

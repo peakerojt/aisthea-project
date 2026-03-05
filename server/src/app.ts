@@ -22,6 +22,7 @@ import cartRoutes from './routes/cart.routes';
 import roleRoutes from './routes/role.routes';
 import permissionRoutes from './routes/permission.routes';
 import trackingRouter from './modules/tracking/tracking.route';
+import itemsRouter from './modules/items/items.route';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 import returnRoutes from './routes/return.routes';
 import refundRoutes from './routes/refund.routes';
@@ -74,6 +75,7 @@ export function createApp() {
 
   app.use('/api/orders', orderModuleRoutes);
   app.use('/api', trackingRouter);
+  app.use('/api/items', itemsRouter);
 
   app.use('/api/users', userRoutes);
 
