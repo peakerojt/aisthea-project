@@ -3,6 +3,7 @@ import { ViewState, CartItem, CategoryType } from '../types';
 import { StoreHeader } from '../components/StoreHeader';
 import { useAuth } from '../contexts/AuthContext';
 import { httpClient } from '../services/httpClient';
+import { CouponModal } from '../components/CouponModal';
 
 interface CheckoutProps {
     setView: (v: ViewState) => void;
@@ -10,8 +11,19 @@ interface CheckoutProps {
     cart: CartItem[];
 }
 
-// Remote API used for VN Locations (63 Provinces)
+// THÊM: Interface cho cấu trúc dữ liệu Voucher trả về từ Backend
+interface AppliedCoupon {
+    coupon: {
+        couponId: number;
+        code: string;
+        type: string;
+        value: number;
+    };
+    discountAmount: number;
+    message: string;
+}
 
+// Remote API used for VN Locations (63 Provinces)
 const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
     const defaultForm = {
         email: '',
@@ -33,6 +45,14 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
     const [error, setError] = useState('');
     const { user } = useAuth();
 
+    // THÊM: Các state quản lý Mã giảm giá (Voucher)
+    const [couponInput, setCouponInput] = useState('');
+    const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+    const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+    const [couponError, setCouponError] = useState('');
+    const [couponSuccessMsg, setCouponSuccessMsg] = useState('');
+    const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
+
     // Location API states
     const [provinces, setProvinces] = useState<any[]>([]);
     const [districts, setDistricts] = useState<any[]>([]);
@@ -41,6 +61,16 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
     const [selectedCityCode, setSelectedCityCode] = useState<string>(() => sessionStorage.getItem('checkoutCityCode') || '');
     const [selectedDistrictCode, setSelectedDistrictCode] = useState<string>(() => sessionStorage.getItem('checkoutDistrictCode') || '');
     const [selectedWardCode, setSelectedWardCode] = useState<string>(() => sessionStorage.getItem('checkoutWardCode') || '');
+
+    // THÊM: Shipping method state
+    const [selectedShippingMethod, setSelectedShippingMethod] = useState<'STANDARD' | 'EXPRESS'>('STANDARD');
+
+    // Mặc định tự động chọn 'STANDARD' khi user vừa chọn xong Tỉnh/Thành
+    useEffect(() => {
+        if (selectedCityCode) {
+            setSelectedShippingMethod('STANDARD');
+        }
+    }, [selectedCityCode]);
 
     // Persist to session storage
     useEffect(() => {
@@ -117,9 +147,79 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
         setFormData(prev => ({ ...prev, ward: ward ? ward.name : '' }));
     };
 
+    // Logic tính phí theo Vùng (Zone-Based Shipping)
+    const getZone = (cityCode: string) => {
+        if (!cityCode) return 0; // Chưa chọn
+        if (cityCode === "48") return 1; // Nội thành Đà Nẵng
+        if (["46", "49", "51"].includes(cityCode)) return 2; // Lân cận
+        return 3; // Toàn quốc
+    };
+
+    const getShippingZoneName = (zone: number) => {
+        if (zone === 1) return '(Giao nội thành Đà Nẵng)';
+        if (zone === 2) return '(Giao lân cận)';
+        if (zone === 3) return '(Giao toàn quốc)';
+        return '';
+    };
+
+    const calculateShippingFee = (method: 'STANDARD' | 'EXPRESS', zone: number, cartSubtotal: number) => {
+        if (zone === 0) return 0;
+
+        let fee = 0;
+        if (zone === 1) {
+            fee = method === 'STANDARD' ? 15000 : 30000;
+        } else if (zone === 2) {
+            fee = method === 'STANDARD' ? 25000 : 40000;
+        } else if (zone === 3) {
+            fee = method === 'STANDARD' ? 40000 : 70000;
+        }
+
+        // Đặc quyền Freeship
+        if (method === 'STANDARD' && cartSubtotal > 500000) {
+            fee = 0;
+        }
+
+        return fee;
+    };
+
+    // THÊM & CẬP NHẬT: Tính toán tổng tiền có tính cả Voucher & Shipping
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const shippingFee = subtotal > 200 ? 0 : 15; // Example threshold
-    const total = subtotal + shippingFee;
+    const zone = getZone(selectedCityCode);
+    const shippingFee = calculateShippingFee(selectedShippingMethod, zone, subtotal);
+    const discountValue = appliedCoupon ? appliedCoupon.discountAmount : 0;
+    const total = subtotal + shippingFee - discountValue;
+
+    // THÊM: Hàm xử lý gọi API áp dụng mã giảm giá
+    const handleApplyCoupon = async (codeToApply?: string) => {
+        const codeToUse = typeof codeToApply === 'string' ? codeToApply : couponInput;
+        if (!codeToUse.trim()) return;
+
+        setIsApplyingCoupon(true);
+        setCouponError('');
+        setCouponSuccessMsg('');
+
+        try {
+            const response = await httpClient.post('/api/coupons/validate', {
+                code: codeToUse.trim(),
+                cartSubtotal: subtotal
+            });
+
+            setAppliedCoupon(response.data);
+            setCouponSuccessMsg(response.data.message);
+            setCouponInput('');
+        } catch (err: any) {
+            setCouponError(err.response?.data?.error || 'Mã giảm giá không hợp lệ.');
+        } finally {
+            setIsApplyingCoupon(false);
+        }
+    };
+
+    // THÊM: Hàm Gỡ bỏ mã giảm giá
+    const handleRemoveCoupon = () => {
+        setAppliedCoupon(null);
+        setCouponError('');
+        setCouponSuccessMsg('');
+    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -137,33 +237,21 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
     };
 
     const validateForm = () => {
-        // Email
         if (!formData.email) return 'Vui lòng nhập Email.';
         if (!formData.email.includes('@')) return 'Email phải chứa định dạng @.';
         if (/\s/.test(formData.email)) return 'Email không được chứa khoảng trắng.';
-
-        // Full Name
         if (!formData.fullName) return 'Vui lòng nhập Họ và tên.';
         if (formData.fullName.length < 2) return 'Họ và tên phải có ít nhất 2 ký tự.';
         if (/[@#$]/.test(formData.fullName)) return 'Họ và tên không được chứa ký tự đặc biệt như @, #, $.';
-
-        // Phone
         if (!formData.phone) return 'Vui lòng nhập Số điện thoại.';
         if (!/^[0]\d{9}$/.test(formData.phone)) return 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0.';
-
-        // Address
         if (!formData.address) return 'Vui lòng nhập Địa chỉ cụ thể.';
         if (formData.address.length <= 5) return 'Địa chỉ phải có độ dài lớn hơn 5 ký tự.';
-
-        // Location DROPDOWNS
         if (!formData.city) return 'Vui lòng chọn Tỉnh thành.';
         if (!formData.district) return 'Vui lòng chọn Quận huyện.';
         if (!formData.ward) return 'Vui lòng chọn Phường xã.';
-
-        // Note
         if (formData.note && formData.note.length > 500) return 'Ghi chú không được vượt quá 500 ký tự.';
-
-        return null; // Valid
+        return null;
     };
 
     const handlePlaceOrder = async (e: React.FormEvent) => {
@@ -192,6 +280,7 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                 return;
             }
 
+            // CẬP NHẬT: Gửi thêm couponId & shippingMethod, shippingFee xuống Backend
             const response = await httpClient.post('/api/orders', {
                 paymentMethod: formData.paymentMethod,
                 customerName: formData.fullName,
@@ -201,15 +290,16 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                 shippingWard: formData.ward,
                 shippingAddressDetail: formData.address,
                 note: formData.note,
-                items: cart
+                items: cart,
+                couponCode: appliedCoupon ? appliedCoupon.coupon.code : undefined,
+                shippingMethod: selectedShippingMethod,
+                shippingFee: shippingFee,
             });
 
             const data = response.data;
 
-            // Store form data for the success screens
             sessionStorage.setItem('latestOrderData', JSON.stringify(formData));
 
-            // Redirect based on payment method
             if (formData.paymentMethod === 'VNPAY') {
                 try {
                     const vnpResponse = await httpClient.post('/api/vnpay/create_payment_url', {
@@ -220,7 +310,7 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                     });
                     if (vnpResponse.data && vnpResponse.data.vnpUrl) {
                         window.location.href = vnpResponse.data.vnpUrl;
-                        return; // Prevent setting loading to false too quickly before redirect
+                        return;
                     }
                 } catch (vnpErr) {
                     console.error('Failed to get VNPAY URL:', vnpErr);
@@ -232,7 +322,6 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
 
         } catch (err: any) {
             console.error("Order creation error:", err);
-            // Handle Axios errors cleanly
             const errorMessage = err.response?.data?.error || err.message || 'Đã xảy ra lỗi khi đặt hàng.';
             setError(errorMessage);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -243,17 +332,14 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
 
     return (
         <div className="bg-bg-dark text-white font-display overflow-x-hidden min-h-screen">
-            {/* Real Store Header injected here */}
             <StoreHeader setView={setView} setCategory={setCategory} transparent={false} />
 
-            {/* Added top padding because header is fixed */}
             <main className="w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-28 flex flex-col md:flex-row gap-12 lg:gap-20">
 
                 {/* Left Column: Forms */}
                 <div className="w-full md:w-3/5 lg:w-2/3">
                     <form onSubmit={handlePlaceOrder}>
 
-                        {/* Error Message Pushed to the TOP of the Form */}
                         {error && (
                             <div className="mb-8 p-4 bg-red-900/40 border border-red-500/50 rounded-sm text-red-100 text-sm flex items-start gap-2">
                                 <span className="material-symbols-outlined text-red-400 mt-[2px] text-lg">error</span>
@@ -317,7 +403,6 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                                 />
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    {/* City Dropdown */}
                                     <select
                                         name="city"
                                         value={selectedCityCode}
@@ -331,7 +416,6 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                                         ))}
                                     </select>
 
-                                    {/* District Dropdown */}
                                     <select
                                         name="district"
                                         value={selectedDistrictCode}
@@ -346,7 +430,6 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                                         ))}
                                     </select>
 
-                                    {/* Ward Dropdown */}
                                     <select
                                         name="ward"
                                         value={selectedWardCode}
@@ -372,6 +455,76 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                                     className="w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors resize-none"
                                 />
                                 <div className="text-right text-[10px] text-gray-500 mt-1 uppercase tracking-widest">{formData.note.length}/500</div>
+
+                                {/* THÊM: Khu vực Chọn Shipping Method (Radio Cards) */}
+                                <div className="mt-6 pt-4 border-t border-border-dark">
+                                    <h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-gray-300">Phương thức vận chuyển</h3>
+
+                                    {!selectedCityCode ? (
+                                        <div className="p-4 border border-dashed border-yellow-500/50 bg-yellow-500/10 rounded-sm">
+                                            <p className="text-yellow-500 text-sm font-medium text-center">Vui lòng chọn Tỉnh/Thành để xem phương thức vận chuyển</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {/* Standard Delivery */}
+                                            <div
+                                                onClick={() => setSelectedShippingMethod('STANDARD')}
+                                                className={`relative p-4 rounded-sm border cursor-pointer transition-all ${selectedShippingMethod === 'STANDARD'
+                                                        ? 'border-primary bg-primary/10'
+                                                        : 'border-border-dark bg-surface-dark hover:border-gray-500'
+                                                    }`}
+                                            >
+                                                {selectedShippingMethod === 'STANDARD' && (
+                                                    <div className="absolute top-2 right-2 text-primary">
+                                                        <span className="material-symbols-outlined text-xl">check_circle</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex flex-col h-full justify-between gap-2">
+                                                    <div>
+                                                        <h4 className="font-bold text-white text-base">Giao Tiêu Chuẩn</h4>
+                                                        <p className="text-xs text-gray-400 mt-1">Nhận hàng sau 3-4 ngày</p>
+                                                    </div>
+                                                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-dark/50">
+                                                        <span className={`text-sm font-bold ${calculateShippingFee('STANDARD', zone, subtotal) === 0 ? 'text-green-500' : 'text-white'}`}>
+                                                            {calculateShippingFee('STANDARD', zone, subtotal) === 0
+                                                                ? 'Miễn phí'
+                                                                : calculateShippingFee('STANDARD', zone, subtotal).toLocaleString('vi-VN') + ' ₫'}
+                                                        </span>
+                                                        {subtotal > 500000 && (
+                                                            <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Freeship</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Express Delivery */}
+                                            <div
+                                                onClick={() => setSelectedShippingMethod('EXPRESS')}
+                                                className={`relative p-4 rounded-sm border cursor-pointer transition-all ${selectedShippingMethod === 'EXPRESS'
+                                                        ? 'border-primary bg-primary/10'
+                                                        : 'border-border-dark bg-surface-dark hover:border-gray-500'
+                                                    }`}
+                                            >
+                                                {selectedShippingMethod === 'EXPRESS' && (
+                                                    <div className="absolute top-2 right-2 text-primary">
+                                                        <span className="material-symbols-outlined text-xl">check_circle</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex flex-col h-full justify-between gap-2">
+                                                    <div>
+                                                        <h4 className="font-bold text-white text-base">Giao Hoả Tốc</h4>
+                                                        <p className="text-xs text-gray-400 mt-1">{zone === 1 ? 'Nhận hàng trong ngày' : 'Nhận hàng sau 1-2 ngày'}</p>
+                                                    </div>
+                                                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-dark/50">
+                                                        <span className="text-sm font-bold text-white">
+                                                            {calculateShippingFee('EXPRESS', zone, subtotal).toLocaleString('vi-VN')} ₫
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -436,32 +589,77 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                                         <h3 className="text-sm font-bold truncate text-gray-200">{item.name}</h3>
                                         <p className="text-xs text-gray-500">{item.size} / {item.color}</p>
                                     </div>
-                                    <p className="text-sm font-medium whitespace-nowrap">${(item.price * item.quantity).toFixed(2)}</p>
+                                    <p className="text-sm font-medium whitespace-nowrap">{(item.price * item.quantity).toLocaleString('vi-VN')} ₫</p>
                                 </div>
                             ))}
                         </div>
 
+                        {/* THÊM: KHU VỰC NHẬP VÀ HIỂN THỊ MÃ GIẢM GIÁ */}
                         <div className="border-t border-border-dark pt-6 mb-6">
-                            <div className="flex gap-2">
-                                <input type="text" placeholder="Nhập mã giảm giá" className="flex-1 bg-transparent border border-border-dark rounded-sm px-3 text-sm placeholder:text-gray-600 focus:border-white focus:outline-none transition-colors" />
-                                <button className="px-4 text-xs font-bold uppercase bg-white/10 hover:bg-white/20 transition-colors rounded-sm text-white">Áp dụng</button>
-                            </div>
+                            {!appliedCoupon ? (
+                                <div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsCouponModalOpen(true)}
+                                        className="w-full flex items-center justify-between bg-surface-dark border border-primary/50 text-primary px-4 py-3 rounded-sm hover:bg-primary/10 transition-colors group shadow-[0_0_10px_rgba(255,0,0,0.1)]"
+                                    >
+                                        <span className="flex items-center gap-2 font-bold text-sm">
+                                            <span className="material-symbols-outlined text-xl">local_activity</span>
+                                            Chọn hoặc nhập mã giảm giá
+                                        </span>
+                                        <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">arrow_forward_ios</span>
+                                    </button>
+                                    {couponError && <p className="text-red-400 text-xs mt-2 animate-fade-in-up">{couponError}</p>}
+                                </div>
+                            ) : (
+                                <div className="bg-green-900/20 border border-green-500/30 p-3 rounded-sm animate-fade-in-up">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-green-400 text-sm font-bold flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-[16px]">local_offer</span>
+                                            {appliedCoupon.coupon.code}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={handleRemoveCoupon}
+                                            className="text-gray-400 hover:text-red-400 text-xs font-bold uppercase transition-colors"
+                                        >
+                                            Gỡ bỏ
+                                        </button>
+                                    </div>
+                                    {couponSuccessMsg && <p className="text-green-400/80 text-xs mt-1">{couponSuccessMsg}</p>}
+                                </div>
+                            )}
                         </div>
 
+                        {/* CẬP NHẬT: CHI TIẾT TẠM TÍNH */}
                         <div className="space-y-3 pt-6 border-t border-border-dark text-sm">
                             <div className="flex justify-between text-gray-400">
                                 <span>Tạm tính</span>
-                                <span className="text-white">${subtotal.toFixed(2)}</span>
+                                <span className="text-white">{subtotal.toLocaleString('vi-VN')} ₫</span>
                             </div>
-                            <div className="flex justify-between text-gray-400">
-                                <span>Phí vận chuyển</span>
-                                <span className="text-white">{shippingFee === 0 ? 'Miễn phí' : `$${shippingFee.toFixed(2)}`}</span>
+                            <div className="flex justify-between items-start text-gray-400">
+                                <div className="flex flex-col">
+                                    <span>Phí vận chuyển</span>
+                                    {selectedCityCode && (
+                                        <span className="text-[11px] text-gray-500 mt-0.5">{getShippingZoneName(zone)}</span>
+                                    )}
+                                </div>
+                                <span className={`text-right ${shippingFee === 0 && selectedCityCode ? 'text-green-500 font-bold' : 'text-white'}`}>
+                                    {!selectedCityCode ? '---' : (shippingFee === 0 ? 'Miễn phí' : `${shippingFee.toLocaleString('vi-VN')} ₫`)}
+                                </span>
                             </div>
+                            {/* Dòng hiển thị tiền giảm giá nếu có voucher */}
+                            {appliedCoupon && (
+                                <div className="flex justify-between text-green-400 font-medium animate-fade-in-up">
+                                    <span>Giảm giá ({appliedCoupon.coupon.code})</span>
+                                    <span>-{appliedCoupon.discountAmount.toLocaleString('vi-VN')} ₫</span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex justify-between items-center mt-6 pt-6 border-t border-border-dark">
                             <span className="text-base font-bold uppercase tracking-tighter">Tổng cộng</span>
-                            <span className="text-2xl font-black text-primary">${total.toFixed(2)}</span>
+                            <span className="text-2xl font-black text-primary">{total.toLocaleString('vi-VN')} ₫</span>
                         </div>
 
                         <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
@@ -479,6 +677,17 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                     </div>
                 </div>
             </main>
+
+            {/* THÊM: Coupon Modal component */}
+            <CouponModal
+                isOpen={isCouponModalOpen}
+                onClose={() => setIsCouponModalOpen(false)}
+                cartSubtotal={subtotal}
+                onApplyCoupon={(code) => {
+                    setIsCouponModalOpen(false);
+                    handleApplyCoupon(code);
+                }}
+            />
         </div>
     );
 };
