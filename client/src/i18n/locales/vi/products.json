@@ -173,6 +173,22 @@
             "loadingImages": "Đang tải hình ảnh...",
             "unsavedChanges": "Bạn có thay đổi chưa lưu. Bạn có muốn rời khỏi trang không?",
             "loadError": "Không thể tải sản phẩm"
+        },
+        "mediaManager": {
+            "title": "Quản lý hình ảnh",
+            "dropzone": "Kéo thả ảnh vào đây, hoặc nhấn để tải lên (Tối đa 5MB/ảnh)",
+            "primaryBadge": "Ảnh bìa",
+            "unassigned": "Ảnh chung",
+            "variantLink": "Gắn với phân loại (Màu sắc)",
+            "toastPrimarySuccess": "Đã cập nhật ảnh bìa thành công",
+            "toastUploadSuccess": "Tải lên {{count}} ảnh thành công.",
+            "deleteConfirm": "Xóa ảnh này?",
+            "uploading": "Đang tải lên...",
+            "errorFileTooLarge": "Ảnh vượt quá 5MB",
+            "errorInvalidType": "Định dạng không hợp lệ",
+            "reorderHint": "Kéo để sắp xếp thứ tự ảnh",
+            "hintPrimary": "Hover → click \"Ảnh bìa\" để đặt ảnh thumbnail chính",
+            "hintLink": "Hover → \"Gắn phân loại\" để liên kết biến thể"
         }
     }
 }

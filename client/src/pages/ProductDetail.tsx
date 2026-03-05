@@ -1,24 +1,9 @@
-import React, { useState, useEffect, useMemo, useContext } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Heart,
-  Share2,
-  ShoppingBag,
-  ArrowLeft,
-  ArrowRight,
-  Minus,
-  Plus,
-  ChevronDown,
-  Diamond,
-  CheckCircle2,
-  HelpCircle,
-  Zap,
-  Star,
-  Info
-} from 'lucide-react';
+import { Star } from 'lucide-react';
 import { ViewState, CartItem, CategoryType } from '../types';
 import { ProductImageGallery } from '../components/ProductImageGallery';
-import { fetchProductById, fetchProducts, Product as ApiProductType } from '../services/product.service';
+import { fetchProductById, fetchProducts, Product as ApiProductType, ProductVariant } from '../services/product.service';
 import { getCloudinaryProductCard } from '../utils/cloudinary';
 import { useProducts } from '../contexts/ProductContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,6 +13,7 @@ import { getReviewsByProduct } from "../services/review.service";
 import { getGuestCart, saveGuestCart } from '../services/cart.service';
 import { useToast } from '../contexts/ToastContext';
 import { useCart } from '../contexts/CartContext';
+import { ProductVariantSelector } from '../components/Product/ProductVariantSelector';
 
 interface ProductDetailProps {
   setView: (v: ViewState, id?: number) => void;
@@ -39,12 +25,16 @@ interface ProductDetailProps {
 }
 
 export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCategory, addToCart, cartCount, product: initialProduct, setSearchTerm }) => {
-  const [quantity, setQuantity] = useState(1);
   const [productDetails, setProductDetails] = useState<ApiProductType | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
   const [recentProducts, setRecentProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const carouselRef = React.useRef<HTMLDivElement>(null);
+
+  // Active variant resolved by ProductVariantSelector
+  const [activeVariant, setActiveVariant] = useState<ProductVariant | null>(null);
+  // Gallery image index to sync on color change
+  const [galleryIndex, setGalleryIndex] = useState(0);
 
   const { products } = useProducts();
   const { user } = useAuth();
@@ -56,10 +46,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     : initialProduct?.productId
       ? Number(initialProduct.productId)
       : null;
-
-  // Selection states
-  const [selectedSize, setSelectedSize] = useState<string>('');
-  const [selectedColor, setSelectedColor] = useState<string>('');
 
   // Review state 
   useEffect(() => {
@@ -159,23 +145,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
         const details = await fetchProductById(id);
         setProductDetails(details);
 
-        // Pre-select first variant if available (Logic của feature/cart-Truong)
-        if (details.variants && details.variants.length > 0) {
-          const defaultVariant = details.variants.find(v => v.isDefault) || details.variants[0];
-          const sizeAttr = defaultVariant.attributes?.find((a: any) => a.attributeName === 'Size' || a.attributeName === 'Kích thước') ||
-            defaultVariant.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Size' || a.value?.attribute?.name === 'Kích thước');
-          const colorAttr = defaultVariant.attributes?.find((a: any) => a.attributeName === 'Color' || a.attributeName === 'Màu sắc' || a.attributeName === 'Màu') ||
-            defaultVariant.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Color' || a.value?.attribute?.name === 'Màu sắc' || a.value?.attribute?.name === 'Màu');
-
-          if (sizeAttr) setSelectedSize(sizeAttr.attributeValue || sizeAttr.value?.value || sizeAttr.value);
-          else setSelectedSize('M');
-
-          if (colorAttr) setSelectedColor(colorAttr.attributeValue || colorAttr.value?.value || colorAttr.value);
-          else setSelectedColor('#111');
-        } else {
-          setSelectedSize('M');
-          setSelectedColor('#111');
-        }
+        // Related products
 
         // Fetch related products from same category - Up to 8 for carousel
         if (details.categoryId) {
@@ -262,62 +232,38 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     return combined.sort(() => 0.5 - Math.random());
   }, [products, productDetails, basicInfo, currentActiveId]);
 
-  const handleAddToCart = async () => {
-    // 1. Tìm variant đang được chọn (chung cho cả Guest và User)
-    const variants = productDetails?.variants || initialProduct?.variants || [];
-    const selectedVariant = variants.find((v: any) => {
-      const sizeAttr = v.attributes?.find((a: any) => a.attributeName === 'Size' || a.attributeName === 'Kích thước') ||
-        v.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Size' || a.value?.attribute?.name === 'Kích thước');
-      const colorAttr = v.attributes?.find((a: any) => a.attributeName === 'Color' || a.attributeName === 'Màu sắc' || a.attributeName === 'Màu') ||
-        v.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Color' || a.value?.attribute?.name === 'Màu sắc' || a.value?.attribute?.name === 'Màu');
-      const vSize = sizeAttr?.attributeValue || sizeAttr?.value?.value || sizeAttr?.value;
-      const vColor = colorAttr?.attributeValue || colorAttr?.value?.value || colorAttr?.value;
-      return vSize === selectedSize && vColor === selectedColor;
-    }) || variants.find((v: any) => v.isDefault) || variants[0];
+  // ── Add to cart (called by ProductVariantSelector) ───────────────────────
+  const handleAddToCart = useCallback(async (variant: ProductVariant, qty: number) => {
+    if (!variant?.variantId) return;
 
-    if (!selectedVariant?.variantId) {
-      showToast({ type: 'error', title: 'Chưa tải xong', subtitle: 'Vui lòng đợi hoặc chọn Size khác.', duration: 3000 });
-      return;
-    }
-
-    // 2. Kiểm tra đăng nhập
     if (!user) {
-      // Guest mode: lưu vào localStorage để merge sau khi đăng nhập
+      // Guest mode
       const guestItems = getGuestCart();
-      const existing = guestItems.find(i => i.variantId === selectedVariant.variantId);
+      const existing = guestItems.find(i => i.variantId === variant.variantId);
       if (existing) {
-        existing.quantity += quantity;
+        existing.quantity += qty;
       } else {
         guestItems.push({
-          variantId: selectedVariant.variantId,
-          quantity,
+          variantId: variant.variantId,
+          quantity: qty,
           productName: productDetails?.name || basicInfo.name,
-          price: Number(productDetails?.basePrice || selectedVariant.price || basicInfo.price),
+          price: Number(variant.price || productDetails?.basePrice || basicInfo.price),
           imageUrl: basicInfo.image || productDetails?.images?.[0]?.imageUrl || '',
-          stockQuantity: selectedVariant.stockQuantity ?? 99999,
+          stockQuantity: variant.stockQuantity ?? 99999,
         });
       }
       saveGuestCart(guestItems);
-      showCartToast(
-        productDetails?.name || basicInfo.name,
-        `Size ${selectedSize} · Đăng nhập để hoàn tất mua hàng`
-      );
+      showCartToast(productDetails?.name || basicInfo.name, 'Đăng nhập để hoàn tất mua hàng');
       return;
     }
 
-    // 3. Đã đăng nhập: gọi CartContext.addItem trực tiếp (không qua prop cũ)
     try {
-      await addItem(
-        selectedVariant.variantId,
-        quantity,
-        {
-          productName: productDetails?.name || basicInfo.name,
-          price: Number(productDetails?.basePrice || selectedVariant.price || basicInfo.price),
-          imageUrl: basicInfo.image || productDetails?.images?.[0]?.imageUrl || '',
-          stockQuantity: selectedVariant.stockQuantity,
-        }
-      );
-      // Toast success (CartContext.addItem đã có toast riêng, đây là backup)
+      await addItem(variant.variantId, qty, {
+        productName: productDetails?.name || basicInfo.name,
+        price: Number(variant.price || productDetails?.basePrice || basicInfo.price),
+        imageUrl: basicInfo.image || productDetails?.images?.[0]?.imageUrl || '',
+        stockQuantity: variant.stockQuantity,
+      });
     } catch (err: any) {
       const code = err?.response?.data?.code;
       if (code === 'INSUFFICIENT_STOCK') {
@@ -327,36 +273,24 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
         showToast({ type: 'error', title: 'Thêm thất bại', subtitle: 'Vui lòng thử lại.', duration: 3000 });
       }
     }
-  };
+  }, [user, productDetails, basicInfo, addItem, showToast, showCartToast]);
 
-  const getColorName = (val: string) => {
-    if (val.startsWith('#')) {
-      if (val === '#111') return 'Midnight Black';
-      if (val === '#4a0404') return 'Deep Burgundy';
-      if (val === '#2a2a2a') return 'Charcoal Grey';
-      return 'Selected Color';
-    }
-    return val;
-  }
+  // ── Variant change → sync gallery ────────────────────────────────────────
+  const handleVariantChange = useCallback((variant: ProductVariant | null) => {
+    setActiveVariant(variant);
+    if (!variant || !productDetails?.images?.length) return;
+    // Try to find an image associated with the primary attr value of this variant
+    const primaryAttrVal =
+      variant.attributes?.[0]?.attributeValue ||
+      variant.variantAttributes?.[0]?.value?.value;
+    if (!primaryAttrVal) return;
+    const idx = productDetails.images.findIndex(
+      img => (img as any).associatedAttributeValue === primaryAttrVal
+    );
+    if (idx >= 0) setGalleryIndex(idx);
+  }, [productDetails]);
 
-  const stockLevel = useMemo(() => {
-    const variants = productDetails?.variants || initialProduct?.variants || [];
-    const selectedVariant = variants.find((v: any) => {
-      const sizeAttr = v.attributes?.find((a: any) => a.attributeName === 'Size' || a.attributeName === 'Kích thước') ||
-        v.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Size' || a.value?.attribute?.name === 'Kích thước');
-      const colorAttr = v.attributes?.find((a: any) => a.attributeName === 'Color' || a.attributeName === 'Màu sắc' || a.attributeName === 'Màu') ||
-        v.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Color' || a.value?.attribute?.name === 'Màu sắc' || a.value?.attribute?.name === 'Màu');
-      const vSize = sizeAttr?.attributeValue || sizeAttr?.value?.value || sizeAttr?.value;
-      const vColor = colorAttr?.attributeValue || colorAttr?.value?.value || colorAttr?.value;
-      return vSize === selectedSize && vColor === selectedColor;
-    });
-
-    if (selectedVariant) {
-      return selectedVariant.stockQuantity ?? 15;
-    }
-
-    return variants.find((v: any) => v.isDefault)?.stockQuantity ?? 15;
-  }, [productDetails, initialProduct, selectedSize, selectedColor]);
+  const stockLevel = activeVariant?.stockQuantity ?? null;
 
   function detailsTrigger(p: any) {
     setProductDetails(null);
@@ -435,102 +369,23 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                   {productDetails?.name || basicInfo.name}
                 </h1>
 
-                <div className="flex items-center gap-6 pt-2">
-                  <span className="text-lg font-bold text-white tracking-tight">
-                    {new Intl.NumberFormat('vi-VN').format(productDetails?.basePrice || basicInfo.price)}đ
-                  </span>
-                  {stockLevel < 10 && (
-                    <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 text-red-500 text-[8px] font-bold tracking-wider uppercase border border-red-500/20">
-                      <span className="w-1 h-1 rounded-full bg-red-500 animate-pulse"></span>
-                      Only {stockLevel} left
-                    </span>
-                  )}
-                  {stockLevel >= 10 && (
-                    <span className="text-green-500 text-[8px] font-bold tracking-wider uppercase flex items-center gap-1.5">
-                      <span className="w-1 h-1 rounded-full bg-green-500"></span>
-                      In Stock <span className="text-white/40 font-medium tracking-normal normal-case ml-1">({stockLevel} sản phẩm)</span>
-                    </span>
-                  )}
-                </div>
+                {/* Price and stock are now driven by ProductVariantSelector below */}
 
                 <p className="text-gray-400 leading-relaxed text-xs max-w-lg">
                   {productDetails?.description || "Crafted from premium materials, this piece defines modern luxury. Features a tailored silhouette, refined hardware, and Aisthea's signature structural design."}
                 </p>
               </div>
 
-              <div className="flex flex-col gap-6 border-t border-border-dark/50 pt-6">
-                {/* Color Selection */}
-                <div>
-                  <span className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-500 mb-3 block">
-                    Select Color — <span className="text-white">{getColorName(selectedColor)}</span>
-                  </span>
-                  <div className="flex gap-3">
-                    {availableColors.map(color => (
-                      <button
-                        key={color}
-                        onClick={() => setSelectedColor(color)}
-                        className={`w-8 h-8 rounded-full border-2 transition-all duration-300 ${selectedColor === color ? 'border-white scale-110 shadow-xl shadow-white/10 ring-4 ring-white/5' : 'border-transparent hover:scale-105'}`}
-                        style={{ backgroundColor: color.startsWith('#') ? color : '#555' }}
-                        title={color}
-                      >
-                        {!color.startsWith('#') && <span className="text-[7px] font-bold text-white/40">{color.substring(0, 1)}</span>}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Size Selection */}
-                <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-500">
-                      Select Size — <span className="text-white">{selectedSize || 'None'}</span>
-                    </span>
-                    <button className="text-[8px] font-bold uppercase tracking-widest text-primary hover:underline underline-offset-4">Size Guide</button>
-                  </div>
-                  <div className="grid grid-cols-5 gap-2">
-                    {availableSizes.map(size => (
-                      <button
-                        key={size}
-                        onClick={() => setSelectedSize(size)}
-                        className={`h-10 border transition-all duration-300 rounded-sm text-[10px] font-black tracking-widest ${selectedSize === size ? 'border-white bg-white text-black' : 'border-border-dark text-gray-500 hover:border-white/50 hover:text-white'}`}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-4">
-                {/* Quantity Selector */}
-                <div className="h-12 w-full sm:w-32 border border-border-dark flex items-center justify-between px-3 bg-surface-dark/50 rounded-sm">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-white transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-sm">remove</span>
-                  </button>
-                  <span className="text-white font-black text-sm">{quantity}</span>
-                  <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-white transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-sm">add</span>
-                  </button>
-                </div>
-
-                {/* Add to Cart Button */}
-                <button
-                  onClick={handleAddToCart}
-                  disabled={!selectedSize}
-                  className={`flex-1 h-14 bg-primary hover:bg-red-600 text-white font-black text-sm tracking-[0.2em] uppercase rounded-sm flex items-center justify-center gap-4 transition-all active:scale-[0.98] shadow-lg shadow-primary/20 ${!selectedSize ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
-                >
-                  {selectedSize ? (
-                    <>Add to Bag <span className="w-px h-6 bg-white/20"></span> {new Intl.NumberFormat('vi-VN').format((productDetails?.basePrice || basicInfo.price) * quantity)}đ</>
-                  ) : (
-                    'Please Select Size'
-                  )}
-                </button>
+              {/* ── ProductVariantSelector (Pro Max) ──────────────────── */}
+              <div className="border-t border-border-dark/50 pt-6">
+                <ProductVariantSelector
+                  variants={productDetails?.variants || initialProduct?.variants || []}
+                  basePrice={Number(productDetails?.basePrice || basicInfo.price)}
+                  images={productDetails?.images as any}
+                  onVariantChange={handleVariantChange}
+                  onAddToCart={handleAddToCart}
+                  showQuantity={true}
+                />
               </div>
 
               {/* Stylist CTA */}
