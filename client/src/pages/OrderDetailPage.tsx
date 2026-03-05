@@ -19,7 +19,7 @@ import { OrderPricingSummary } from '../components/order/OrderPricingSummary';
 import { OrderTimeline } from '../components/order/OrderTimeline';
 import { ReviewModal } from '../components/review/ReviewModal';
 import { RotateCcw, XCircle, ArrowLeft, PackageCheck, Loader2, MapPin, ShoppingCart } from 'lucide-react';
-import { addToCartApi } from '../services/cart.service';
+import { useCart } from '../contexts/CartContext';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -61,6 +61,7 @@ export const OrderDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { role } = useAuth();
+  const { addItem: addItemToCart, fetchCart: refetchCart } = useCart();
 
   // Review modal state
   const [reviewItem, setReviewItem] = useState<OrderItem | null>(null);
@@ -125,27 +126,33 @@ export const OrderDetailPage: React.FC = () => {
     },
   });
   // ── Buy Again mutation ──
-  // Adds all items from a past order back into cart simultaneously.
+  // Adds all items from a past order back into cart via CartContext
+  // so that CartContext.dbItems stays in sync before navigating to Checkout.
   const buyAgainMutation = useMutation({
     mutationFn: async () => {
       if (!order?.items?.length) throw new Error('No items');
-      // Filter only items that have a known variantId; warn about the rest.
+      // Filter only items that have a known variantId.
       const itemsWithVariant = order.items.filter((it) => it.variantId);
       if (itemsWithVariant.length === 0)
         throw new Error('Không thể xác định sản phẩm để thêm vào giỏ.');
-      // Fire in parallel; if one fails it throws and triggers onError.
-      await Promise.all(
-        itemsWithVariant.map((it) => addToCartApi(it.variantId!, it.quantity)),
-      );
+      // Add items sequentially via CartContext to avoid race conditions on dbItems state.
+      for (const it of itemsWithVariant) {
+        await addItemToCart(it.variantId!, it.quantity);
+      }
+      // Ensure cart is fully synced from server before navigating.
+      await refetchCart();
     },
     onSuccess: () => {
+      const count = order?.items?.filter((it) => it.variantId).length ?? 0;
       setBuyAgainToastMsg({
         type: 'success',
-        text: `Đã thêm ${order?.items?.length ?? 0} sản phẩm vào giỏ hàng! 🛒`,
+        text: `Đã thêm ${count} sản phẩm vào giỏ hàng! 🛒 Đang chuyển tới thanh toán...`,
       });
-      setTimeout(() => setBuyAgainToastMsg(null), 4000);
-      // Navigate directly to checkout so user can complete the order
-      navigate('/', { state: { initialView: 'STORE_CHECKOUT' } });
+      // Short delay so user sees the toast, then navigate to Checkout.
+      setTimeout(() => {
+        setBuyAgainToastMsg(null);
+        navigate('/', { state: { initialView: 'STORE_CHECKOUT' } });
+      }, 900);
     },
     onError: (err: any) => {
       setBuyAgainToastMsg({

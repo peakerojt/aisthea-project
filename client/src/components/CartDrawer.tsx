@@ -7,6 +7,7 @@ import { CartItemResponse } from '../services/cart.service';
 interface CartDrawerProps {
     isOpen: boolean;
     onClose: () => void;
+    onCheckout: () => void;
 }
 
 /** Lấy tên thuộc tính variant (VD: "Màu: Đen, Size: M") */
@@ -22,7 +23,7 @@ function getImageUrl(item: CartItemResponse): string {
     return imgs?.[0]?.thumbnailUrl ?? imgs?.[0]?.imageUrl ?? '';
 }
 
-export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
+export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheckout }) => {
     const { t } = useTranslation('cart');
     const { items, totalItems, cartTotal, isLoading, removeItem, updateItem, clearCart, getStockStatus } = useCart();
     const drawerRef = useRef<HTMLDivElement>(null);
@@ -230,6 +231,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
 
                         {/* CTA */}
                         <button
+                            onClick={onCheckout}
                             className="w-full bg-primary hover:bg-red-700 text-white font-bold text-sm uppercase tracking-[0.15em] py-4 rounded-sm transition-all shadow-lg shadow-primary/20 cursor-pointer disabled:opacity-60"
                             disabled={isLoading}
                         >
