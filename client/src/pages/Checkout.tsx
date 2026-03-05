@@ -62,6 +62,16 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
     const [selectedDistrictCode, setSelectedDistrictCode] = useState<string>(() => sessionStorage.getItem('checkoutDistrictCode') || '');
     const [selectedWardCode, setSelectedWardCode] = useState<string>(() => sessionStorage.getItem('checkoutWardCode') || '');
 
+    // THÊM: Shipping method state
+    const [selectedShippingMethod, setSelectedShippingMethod] = useState<'STANDARD' | 'EXPRESS'>('STANDARD');
+
+    // Mặc định tự động chọn 'STANDARD' khi user vừa chọn xong Tỉnh/Thành
+    useEffect(() => {
+        if (selectedCityCode) {
+            setSelectedShippingMethod('STANDARD');
+        }
+    }, [selectedCityCode]);
+
     // Persist to session storage
     useEffect(() => {
         sessionStorage.setItem('checkoutFormData', JSON.stringify(formData));
@@ -137,9 +147,45 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
         setFormData(prev => ({ ...prev, ward: ward ? ward.name : '' }));
     };
 
-    // THÊM & CẬP NHẬT: Tính toán tổng tiền có tính cả Voucher
+    // Logic tính phí theo Vùng (Zone-Based Shipping)
+    const getZone = (cityCode: string) => {
+        if (!cityCode) return 0; // Chưa chọn
+        if (cityCode === "48") return 1; // Nội thành Đà Nẵng
+        if (["46", "49", "51"].includes(cityCode)) return 2; // Lân cận
+        return 3; // Toàn quốc
+    };
+
+    const getShippingZoneName = (zone: number) => {
+        if (zone === 1) return '(Giao nội thành Đà Nẵng)';
+        if (zone === 2) return '(Giao lân cận)';
+        if (zone === 3) return '(Giao toàn quốc)';
+        return '';
+    };
+
+    const calculateShippingFee = (method: 'STANDARD' | 'EXPRESS', zone: number, cartSubtotal: number) => {
+        if (zone === 0) return 0;
+
+        let fee = 0;
+        if (zone === 1) {
+            fee = method === 'STANDARD' ? 15000 : 30000;
+        } else if (zone === 2) {
+            fee = method === 'STANDARD' ? 25000 : 40000;
+        } else if (zone === 3) {
+            fee = method === 'STANDARD' ? 40000 : 70000;
+        }
+
+        // Đặc quyền Freeship
+        if (method === 'STANDARD' && cartSubtotal > 500000) {
+            fee = 0;
+        }
+
+        return fee;
+    };
+
+    // THÊM & CẬP NHẬT: Tính toán tổng tiền có tính cả Voucher & Shipping
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const shippingFee = subtotal > 200 ? 0 : 15; // Example threshold
+    const zone = getZone(selectedCityCode);
+    const shippingFee = calculateShippingFee(selectedShippingMethod, zone, subtotal);
     const discountValue = appliedCoupon ? appliedCoupon.discountAmount : 0;
     const total = subtotal + shippingFee - discountValue;
 
@@ -234,7 +280,7 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                 return;
             }
 
-            // CẬP NHẬT: Gửi thêm couponId xuống Backend
+            // CẬP NHẬT: Gửi thêm couponId & shippingMethod, shippingFee xuống Backend
             const response = await httpClient.post('/api/orders', {
                 paymentMethod: formData.paymentMethod,
                 customerName: formData.fullName,
@@ -246,6 +292,8 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                 note: formData.note,
                 items: cart,
                 couponCode: appliedCoupon ? appliedCoupon.coupon.code : undefined,
+                shippingMethod: selectedShippingMethod,
+                shippingFee: shippingFee,
             });
 
             const data = response.data;
@@ -407,6 +455,76 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                                     className="w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors resize-none"
                                 />
                                 <div className="text-right text-[10px] text-gray-500 mt-1 uppercase tracking-widest">{formData.note.length}/500</div>
+
+                                {/* THÊM: Khu vực Chọn Shipping Method (Radio Cards) */}
+                                <div className="mt-6 pt-4 border-t border-border-dark">
+                                    <h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-gray-300">Phương thức vận chuyển</h3>
+
+                                    {!selectedCityCode ? (
+                                        <div className="p-4 border border-dashed border-yellow-500/50 bg-yellow-500/10 rounded-sm">
+                                            <p className="text-yellow-500 text-sm font-medium text-center">Vui lòng chọn Tỉnh/Thành để xem phương thức vận chuyển</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {/* Standard Delivery */}
+                                            <div
+                                                onClick={() => setSelectedShippingMethod('STANDARD')}
+                                                className={`relative p-4 rounded-sm border cursor-pointer transition-all ${selectedShippingMethod === 'STANDARD'
+                                                        ? 'border-primary bg-primary/10'
+                                                        : 'border-border-dark bg-surface-dark hover:border-gray-500'
+                                                    }`}
+                                            >
+                                                {selectedShippingMethod === 'STANDARD' && (
+                                                    <div className="absolute top-2 right-2 text-primary">
+                                                        <span className="material-symbols-outlined text-xl">check_circle</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex flex-col h-full justify-between gap-2">
+                                                    <div>
+                                                        <h4 className="font-bold text-white text-base">Giao Tiêu Chuẩn</h4>
+                                                        <p className="text-xs text-gray-400 mt-1">Nhận hàng sau 3-4 ngày</p>
+                                                    </div>
+                                                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-dark/50">
+                                                        <span className={`text-sm font-bold ${calculateShippingFee('STANDARD', zone, subtotal) === 0 ? 'text-green-500' : 'text-white'}`}>
+                                                            {calculateShippingFee('STANDARD', zone, subtotal) === 0
+                                                                ? 'Miễn phí'
+                                                                : calculateShippingFee('STANDARD', zone, subtotal).toLocaleString('vi-VN') + ' ₫'}
+                                                        </span>
+                                                        {subtotal > 500000 && (
+                                                            <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Freeship</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Express Delivery */}
+                                            <div
+                                                onClick={() => setSelectedShippingMethod('EXPRESS')}
+                                                className={`relative p-4 rounded-sm border cursor-pointer transition-all ${selectedShippingMethod === 'EXPRESS'
+                                                        ? 'border-primary bg-primary/10'
+                                                        : 'border-border-dark bg-surface-dark hover:border-gray-500'
+                                                    }`}
+                                            >
+                                                {selectedShippingMethod === 'EXPRESS' && (
+                                                    <div className="absolute top-2 right-2 text-primary">
+                                                        <span className="material-symbols-outlined text-xl">check_circle</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex flex-col h-full justify-between gap-2">
+                                                    <div>
+                                                        <h4 className="font-bold text-white text-base">Giao Hoả Tốc</h4>
+                                                        <p className="text-xs text-gray-400 mt-1">{zone === 1 ? 'Nhận hàng trong ngày' : 'Nhận hàng sau 1-2 ngày'}</p>
+                                                    </div>
+                                                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-dark/50">
+                                                        <span className="text-sm font-bold text-white">
+                                                            {calculateShippingFee('EXPRESS', zone, subtotal).toLocaleString('vi-VN')} ₫
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -471,7 +589,7 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                                         <h3 className="text-sm font-bold truncate text-gray-200">{item.name}</h3>
                                         <p className="text-xs text-gray-500">{item.size} / {item.color}</p>
                                     </div>
-                                    <p className="text-sm font-medium whitespace-nowrap">${(item.price * item.quantity).toFixed(2)}</p>
+                                    <p className="text-sm font-medium whitespace-nowrap">{(item.price * item.quantity).toLocaleString('vi-VN')} ₫</p>
                                 </div>
                             ))}
                         </div>
@@ -517,24 +635,31 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                         <div className="space-y-3 pt-6 border-t border-border-dark text-sm">
                             <div className="flex justify-between text-gray-400">
                                 <span>Tạm tính</span>
-                                <span className="text-white">${subtotal.toFixed(2)}</span>
+                                <span className="text-white">{subtotal.toLocaleString('vi-VN')} ₫</span>
                             </div>
-                            <div className="flex justify-between text-gray-400">
-                                <span>Phí vận chuyển</span>
-                                <span className="text-white">{shippingFee === 0 ? 'Miễn phí' : `$${shippingFee.toFixed(2)}`}</span>
+                            <div className="flex justify-between items-start text-gray-400">
+                                <div className="flex flex-col">
+                                    <span>Phí vận chuyển</span>
+                                    {selectedCityCode && (
+                                        <span className="text-[11px] text-gray-500 mt-0.5">{getShippingZoneName(zone)}</span>
+                                    )}
+                                </div>
+                                <span className={`text-right ${shippingFee === 0 && selectedCityCode ? 'text-green-500 font-bold' : 'text-white'}`}>
+                                    {!selectedCityCode ? '---' : (shippingFee === 0 ? 'Miễn phí' : `${shippingFee.toLocaleString('vi-VN')} ₫`)}
+                                </span>
                             </div>
                             {/* Dòng hiển thị tiền giảm giá nếu có voucher */}
                             {appliedCoupon && (
                                 <div className="flex justify-between text-green-400 font-medium animate-fade-in-up">
                                     <span>Giảm giá ({appliedCoupon.coupon.code})</span>
-                                    <span>-${appliedCoupon.discountAmount.toFixed(2)}</span>
+                                    <span>-{appliedCoupon.discountAmount.toLocaleString('vi-VN')} ₫</span>
                                 </div>
                             )}
                         </div>
 
                         <div className="flex justify-between items-center mt-6 pt-6 border-t border-border-dark">
                             <span className="text-base font-bold uppercase tracking-tighter">Tổng cộng</span>
-                            <span className="text-2xl font-black text-primary">${total.toFixed(2)}</span>
+                            <span className="text-2xl font-black text-primary">{total.toLocaleString('vi-VN')} ₫</span>
                         </div>
 
                         <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
