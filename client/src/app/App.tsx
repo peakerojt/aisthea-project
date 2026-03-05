@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ViewState, CategoryType, CartItem } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -35,8 +35,9 @@ import { OAuthCallback } from '../pages/OAuthCallback';
 import { EmailVerification } from '../pages/EmailVerification';
 import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '../pages/auth/ResetPasswordPage';
-import { fetchCart, addToCartApi, updateCartItemApi, removeCartItemApi } from '../services/cart.service';
+import { fetchCartApi as fetchCart, addToCartApi, updateCartItemApi, removeCartItemApi, getGuestCart, saveGuestCart } from '../services/cart.service';
 import { getCloudinaryProductCard } from '../utils/cloudinary';
+import { useCart } from '../contexts/CartContext';
 
 const App: React.FC = () => {
   const { role } = useAuth();
@@ -138,65 +139,43 @@ const App: React.FC = () => {
     }
   }, [view, role]);
 
-  // Cart State
-  const [cart, setCart] = useState<CartItem[]>([]);
+  // Cart State (Now synced with CartContext)
+  const { items: contextItems, updateItem, removeItem: removeContextItem } = useCart();
   const { user } = useAuth();
 
-  const syncCart = async () => {
-    if (!user) {
-      setCart([]);
-      return;
-    }
-    try {
-      const dbCart = await fetchCart();
-      const mappedItems: CartItem[] = dbCart.items.map(item => ({
-        cartItemId: item.cartItemId,
-        id: item.cartItemId.toString(), // Luôn sử dụng cartItemId làm ID duy nhất ở frontend
-        productId: item.variant.product.productId.toString(),
-        variantId: item.variantId,
-        name: item.variant.product.name,
-        price: Number(item.variant.price),
-        image: getCloudinaryProductCard(item.variant.product.images[0]?.imageUrl || ''),
-        color: item.variant.variantAttributes.find(a => a.value.attribute.name === 'Color' || a.value.attribute.name === 'Màu' || a.value.attribute.name === 'Màu sắc')?.value.value || 'N/A',
-        size: item.variant.variantAttributes.find(a => a.value.attribute.name === 'Size' || a.value.attribute.name === 'Kích thước')?.value.value || 'N/A',
-        quantity: item.quantity,
-        ref: item.variant.sku
-      }));
-      setCart(mappedItems);
-    } catch (error) {
-      console.error('Failed to sync cart:', error);
-    }
-  };
-
-  useEffect(() => {
-    syncCart();
-  }, [user]);
+  // Map CartContext items to legacy App.tsx CartItem format
+  const cart: CartItem[] = useMemo(() => {
+    return contextItems.map((item: any) => ({
+      cartItemId: item.cartItemId, // Only exists for DB items
+      id: (item.cartItemId || item.variantId).toString(),
+      productId: item.variant?.product?.productId?.toString() || '',
+      variantId: item.variantId,
+      name: item.variant?.product?.name || item.productName || 'Sản phẩm',
+      price: Number(item.variant?.price || item.price || 0),
+      image: item.variant ? getCloudinaryProductCard(item.variant.product.images?.[0]?.imageUrl || '') : (item.imageUrl || ''),
+      color: item.variant?.variantAttributes?.find((a: any) => a.value.attribute.name === 'Color' || a.value.attribute.name === 'Màu' || a.value.attribute.name === 'Màu sắc')?.value.value || 'N/A',
+      size: item.variant?.variantAttributes?.find((a: any) => a.value.attribute.name === 'Size' || a.value.attribute.name === 'Kích thước')?.value.value || 'N/A',
+      quantity: item.quantity,
+      ref: item.variant?.sku || ''
+    }));
+  }, [contextItems]);
 
   const addToCart = async (item: CartItem) => {
-    if (!user) {
-      setView('AUTH_LOGIN');
-      return;
-    }
-    try {
-      if (item.variantId) {
-        await addToCartApi(item.variantId, item.quantity);
-        await syncCart();
-      } else {
-        console.error('Missing variantId for add to cart');
-      }
-    } catch (error) {
-      console.error('Add to cart failed:', error);
-    }
+    // Legacy addToCart is barely used now (ProductDetail has its own), but we keep it functional
+    console.warn("App.addToCart called. Consider using CartContext.addItem directly.");
   };
 
   const updateQuantity = async (itemId: string, delta: number) => {
     const item = cart.find(i => i.id === itemId);
-    if (!item || !item.cartItemId) return;
+    if (!item) return;
+
+    // DB item uses cartItemId, guest item uses variantId
+    const targetId = item.cartItemId || item.variantId;
+    if (!targetId) return;
 
     try {
       const newQty = Math.max(1, item.quantity + delta);
-      await updateCartItemApi(item.cartItemId, newQty);
-      await syncCart();
+      await updateItem(targetId, newQty);
     } catch (error) {
       console.error('Update quantity failed:', error);
     }
@@ -204,11 +183,13 @@ const App: React.FC = () => {
 
   const removeItem = async (itemId: string) => {
     const item = cart.find(i => i.id === itemId);
-    if (!item || !item.cartItemId) return;
+    if (!item) return;
+
+    const targetId = item.cartItemId || item.variantId;
+    if (!targetId) return;
 
     try {
-      await removeCartItemApi(item.cartItemId);
-      await syncCart();
+      await removeContextItem(targetId);
     } catch (error) {
       console.error('Remove item failed:', error);
     }

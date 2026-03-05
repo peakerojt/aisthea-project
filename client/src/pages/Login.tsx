@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { ViewState } from '../types';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext';
+import { getGuestCart } from '../services/cart.service';
 import { Eye, EyeOff } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,6 +23,7 @@ interface LoginProps {
 export const Login: React.FC<LoginProps> = ({ setView }) => {
   const [showPassword, setShowPassword] = useState(false);
   const { login, isLoading } = useAuth();
+  const { syncWithMerge } = useCart();
 
   // Check for banned reason in URL
   const queryParams = new URLSearchParams(window.location.search);
@@ -32,7 +35,7 @@ export const Login: React.FC<LoginProps> = ({ setView }) => {
     formState: { errors },
   } = useForm<LoginFormInputs>({
     resolver: zodResolver(loginSchema),
-    mode: 'onChange', // Enable onChange validation mode
+    mode: 'onChange',
     defaultValues: {
       email: '',
       password: '',
@@ -43,6 +46,19 @@ export const Login: React.FC<LoginProps> = ({ setView }) => {
     const user = await login(data.email, data.password);
 
     if (user) {
+      // ─── Hook: Gộp giỏ khách vãng lai sau khi đăng nhập thành công ────
+      // 1. Đọc giỏ hàng khách từ localStorage
+      const localItems = getGuestCart();
+
+      // 2. Nếu có sản phẩm → gọi merge API → xóa localStorage → cập nhật Context
+      //    Nếu không có → chỉ tải giỏ hàng từ DB (syncWithMerge xử lý cả 2 trường hợp)
+      try {
+        await syncWithMerge(localItems);
+      } catch {
+        // Lỗi merge không chặn việc đăng nhập
+      }
+
+      // 3. Điều hướng sau khi đăng nhập
       if (user.roles.includes('Admin')) {
         setView('ADMIN_DASHBOARD');
       } else {

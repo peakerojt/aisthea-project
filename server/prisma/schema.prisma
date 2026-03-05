@@ -28,6 +28,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   inventoryLogs InventoryLog[]
   orderReturns  OrderReturn[]
+  cart          Cart?        // 1-to-1: mỗi user có tối đa một giỏ hàng
 
   @@index([email, status], map: "IX_Users_Email_Status")
   @@index([phone], map: "IX_Users_Phone")
@@ -245,9 +246,11 @@ model ProductImage {
 
 model Cart {
   cartId    Int        @id(map: "PK__Carts__51BCD7B73EF6F31C") @default(autoincrement()) @map("CartId")
-  userId    Int?       @map("UserId")
+  userId    Int?       @unique(map: "UQ_Carts_UserId") @map("UserId")   // 1-to-1 với User
   sessionId String?    @map("SessionId") @db.NVarChar(100)
   createdAt DateTime?  @default(now(), map: "DF__Carts__CreatedAt__5AEE82B9") @map("CreatedAt")
+  updatedAt DateTime?  @default(now()) @updatedAt @map("UpdatedAt")
+  user      User?      @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Carts_Users")
   items     CartItem[]
 
   @@map("Carts")
@@ -258,9 +261,11 @@ model CartItem {
   cartId     Int            @map("CartId")
   variantId  Int            @map("VariantId")
   quantity   Int            @map("Quantity")
+  addedAt    DateTime?      @default(now()) @map("AddedAt")
   cart       Cart           @relation(fields: [cartId], references: [cartId], onDelete: Cascade, onUpdate: NoAction, map: "FK_CartItems_Carts")
   variant    ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_CartItems_Variants")
 
+  @@unique([cartId, variantId], map: "UQ_CartItems_Cart_Variant") // ngăn trùng lặp sản phẩm trong giỏ
   @@index([cartId], map: "IX_CartItems_CartId")
   @@map("CartItems")
 }

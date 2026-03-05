@@ -12,5 +12,9 @@
     "ROLE_UPDATED": "Cập nhật vai trò thành công.",
     "PERMISSIONS_UPDATED": "Cập nhật quyền hạn thành công.",
     "RECEIPT_CONFIRMED": "Xác nhận đã nhận hàng thành công!",
-    "REVIEW_CREATED": "Cảm ơn bạn đã đánh giá sản phẩm!"
+    "REVIEW_CREATED": "Cảm ơn bạn đã đánh giá sản phẩm!",
+    "CART_SYNCED": "Giỏ hàng đã được đồng bộ thành công!",
+    "CART_ITEM_ADDED": "Đã thêm vào giỏ hàng.",
+    "CART_ITEM_REMOVED": "Đã xóa sản phẩm khỏi giỏ hàng.",
+    "CART_CLEARED": "Đã xóa toàn bộ giỏ hàng."
 }

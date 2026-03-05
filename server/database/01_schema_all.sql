@@ -2683,3 +2683,150 @@ PRINT '==============================================';
 PRINT '  Review + OrderItem migration complete!';
 PRINT '==============================================';
 GO
+/* =============================================================
+   FILE: migrations/cart_persistent_merge.sql
+   Description: Persistent Cart & Cart Merging feature
+                - Carts.UserId becomes 1-to-1 with Users (unique + FK)
+                - Carts.UpdatedAt column added
+                - CartItems.AddedAt column added
+                - UQ_CartItems_Cart_Variant unique constraint
+   Date: 2026-03-05
+   Version: schema.prisma v3.2
+   ============================================================= */
+
+USE AISTHEA;
+GO
+
+PRINT '';
+PRINT 'Applying Persistent Cart & Cart Merging migration...';
+GO
+
+-- ============================================================
+-- 1. Carts: Them cot UpdatedAt
+-- ============================================================
+IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'Carts' AND COLUMN_NAME = 'UpdatedAt'
+)
+BEGIN
+    ALTER TABLE Carts
+        ADD UpdatedAt DATETIME2 NULL CONSTRAINT DF_Carts_UpdatedAt DEFAULT GETDATE();
+    PRINT '+ Added UpdatedAt column to Carts';
+END
+ELSE
+BEGIN
+    PRINT '! UpdatedAt already exists in Carts -- skipped';
+END
+GO
+
+-- ============================================================
+-- 2. Carts: Them FK Carts.UserId -> Users.UserId (ON DELETE CASCADE)
+-- ============================================================
+IF NOT EXISTS (
+    SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Carts_Users'
+)
+BEGIN
+    -- Xoa bon ghi orphan truoc khi them FK
+    DELETE FROM Carts
+    WHERE UserId IS NOT NULL
+      AND UserId NOT IN (SELECT UserId FROM Users);
+
+    ALTER TABLE Carts
+        ADD CONSTRAINT FK_Carts_Users
+        FOREIGN KEY (UserId) REFERENCES Users(UserId)
+        ON DELETE CASCADE
+        ON UPDATE NO ACTION;
+
+    PRINT '+ Added FK_Carts_Users (UserId -> Users.UserId, ON DELETE CASCADE)';
+END
+ELSE
+BEGIN
+    PRINT '! FK_Carts_Users already exists -- skipped';
+END
+GO
+
+-- ============================================================
+-- 3. Carts: Tao Filtered Unique Index UQ_Carts_UserId
+--    (1 gio hang / user, cho phep nhieu NULL cho guest sessions)
+-- ============================================================
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE object_id = OBJECT_ID('Carts') AND name = 'UQ_Carts_UserId'
+)
+BEGIN
+    -- Xu ly trung lap: giu lai gio moi nhat theo CartId
+    WITH CTE_Dupes AS (
+        SELECT CartId,
+               ROW_NUMBER() OVER (PARTITION BY UserId ORDER BY CartId DESC) AS rn
+        FROM Carts
+        WHERE UserId IS NOT NULL
+    )
+    DELETE FROM CTE_Dupes WHERE rn > 1;
+    PRINT '+ Cleaned up duplicate Carts per UserId';
+
+    -- Filtered Unique Index cho phep UserId = NULL
+    CREATE UNIQUE INDEX UQ_Carts_UserId
+        ON Carts (UserId)
+        WHERE UserId IS NOT NULL;
+
+    PRINT '+ Created UQ_Carts_UserId filtered unique index';
+END
+ELSE
+BEGIN
+    PRINT '! UQ_Carts_UserId already exists -- skipped';
+END
+GO
+
+-- ============================================================
+-- 4. CartItems: Them cot AddedAt
+-- ============================================================
+IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'CartItems' AND COLUMN_NAME = 'AddedAt'
+)
+BEGIN
+    ALTER TABLE CartItems
+        ADD AddedAt DATETIME2 NULL CONSTRAINT DF_CartItems_AddedAt DEFAULT GETDATE();
+    PRINT '+ Added AddedAt column to CartItems';
+END
+ELSE
+BEGIN
+    PRINT '! AddedAt already exists in CartItems -- skipped';
+END
+GO
+
+-- ============================================================
+-- 5. CartItems: Them Unique Constraint [CartId, VariantId]
+--    Ngan trung lap cung variant trong 1 gio hang
+-- ============================================================
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE object_id = OBJECT_ID('CartItems') AND name = 'UQ_CartItems_Cart_Variant'
+)
+BEGIN
+    -- Xu ly trung lap: giu ban ghi co CartItemId lon nhat
+    WITH CTE_Dupes AS (
+        SELECT CartItemId,
+               ROW_NUMBER() OVER (PARTITION BY CartId, VariantId ORDER BY CartItemId DESC) AS rn
+        FROM CartItems
+    )
+    DELETE FROM CTE_Dupes WHERE rn > 1;
+    PRINT '+ Cleaned up duplicate CartItems (same CartId + VariantId)';
+
+    ALTER TABLE CartItems
+        ADD CONSTRAINT UQ_CartItems_Cart_Variant
+        UNIQUE (CartId, VariantId);
+
+    PRINT '+ Created UQ_CartItems_Cart_Variant unique constraint';
+END
+ELSE
+BEGIN
+    PRINT '! UQ_CartItems_Cart_Variant already exists -- skipped';
+END
+GO
+
+PRINT '';
+PRINT '==============================================';
+PRINT '  Persistent Cart & Cart Merging migration complete!';
+PRINT '==============================================';
+GO
