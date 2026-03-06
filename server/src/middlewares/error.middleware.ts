@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { t } from '../i18n';
 import { resolveRequestLocale } from './locale.middleware';
+import { logger } from '../lib/logger';
 
 export class AppError extends Error {
   statusCode: number;
@@ -46,7 +47,7 @@ export function errorHandler(error: Error, req: Request, res: Response, _next: N
   if (error instanceof AppError) {
     const message = t(locale, error.messageKey, error.messageParams);
 
-    console.error('[AppError]', {
+    logger.error('[AppError]', {
       errorCode: error.errorCode,
       messageKey: error.messageKey,
       statusCode: error.statusCode,
@@ -61,7 +62,7 @@ export function errorHandler(error: Error, req: Request, res: Response, _next: N
     });
   }
 
-  console.error('[UnhandledError]', {
+  logger.error('[UnhandledError]', {
     message: error.message,
     stack: error.stack,
   });

@@ -299,14 +299,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
       try {
         const details = await fetchProductById(p.productId || p.id);
         setProductDetails(details);
-        if (details.variants && details.variants.length > 0) {
-          const defaultVariant = details.variants.find(v => v.isDefault) || details.variants[0];
-          const sizeAttr = defaultVariant.variantAttributes?.find(a => a.attribute?.name === 'Size');
-          const colorAttr = defaultVariant.variantAttributes?.find(a => a.attribute?.name === 'Color');
-          if (sizeAttr) setSelectedSize(sizeAttr.value);
-          if (colorAttr) setSelectedColor(colorAttr.value);
-          else setSelectedColor('#111');
-        }
         if (details.categoryId) {
           const related = await fetchProducts({ category: details.category?.name });
           setRelatedProducts(related.filter(item => item.productId !== (p.productId || p.id)).slice(0, 8));
