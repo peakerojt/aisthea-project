@@ -1,15 +1,15 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import { OrderTimeline } from '../OrderTimeline';
+import { describe, expect, it } from 'vitest';
+import { TrackingTimeline } from '../OrderTimeline';
 
-describe('OrderTimeline', () => {
+describe('TrackingTimeline', () => {
   it('render timeline', () => {
     render(
-      <OrderTimeline
+      <TrackingTimeline
         timeline={[
           { status: 'PENDING', timestamp: new Date().toISOString(), note: 'created' },
           { status: 'CONFIRMED', timestamp: new Date().toISOString(), note: 'ok' },
-        ] as any}
+        ]}
       />,
     );
 
@@ -17,7 +17,7 @@ describe('OrderTimeline', () => {
   });
 
   it('empty timeline state', () => {
-    render(<OrderTimeline timeline={[]} />);
+    render(<TrackingTimeline timeline={[]} />);
     expect(screen.getByText(/No timeline yet/i)).toBeInTheDocument();
   });
 });

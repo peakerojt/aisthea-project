@@ -117,3 +117,9 @@ export function getCloudinaryFullSize(cloudinaryUrl: string): string {
         sharpen: true,
     });
 }
+/**
+ * Alias for optimizeCloudinaryUrl to maintain backward compatibility
+ */
+export function getImageUrl(url: string, options?: CloudinaryOptions): string {
+    return optimizeCloudinaryUrl(url, options);
+}

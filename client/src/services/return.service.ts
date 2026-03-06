@@ -79,6 +79,24 @@ export const returnService = {
     );
     return (res as any).data ?? null;
   },
+
+  /**
+   * Customer: get details of a specific return request.
+   */
+  async detail(returnId: number): Promise<any> {
+    return api.get(`/api/returns/${returnId}`);
+  },
+
+  /**
+   * Customer: list my return requests.
+   */
+  async myReturns(page?: number, limit?: number): Promise<any> {
+    const query = new URLSearchParams();
+    if (page) query.append('page', page.toString());
+    if (limit) query.append('limit', limit.toString());
+    const qs = query.toString();
+    return api.get(`/api/returns/my${qs ? `?${qs}` : ''}`);
+  }
 };
 
 // ─── Admin ────────────────────────────────────────────────────────────────────

@@ -14,8 +14,8 @@ export const httpClient = axios.create({
 httpClient.interceptors.request.use((config) => {
   const token = typeof window !== 'undefined' ? window.localStorage.getItem('accessToken') : null;
   if (token) {
-    config.headers = config.headers ?? {};
-    config.headers.Authorization = `Bearer ${token}`;
+    (config.headers as any) = config.headers ?? {};
+    (config.headers as any).Authorization = `Bearer ${token}`;
   }
   return config;
 });

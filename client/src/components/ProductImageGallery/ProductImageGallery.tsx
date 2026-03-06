@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Share2, ZoomIn } from 'lucide-react';
 
-interface ProductImage {
+export interface ProductImage {
     imageId?: number;
     imageUrl: string;
     thumbnailUrl?: string;
