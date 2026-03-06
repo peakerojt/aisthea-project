@@ -72,7 +72,7 @@ export const VNPayReturn: React.FC = () => {
                         Tiếp tục mua hàng
                     </button>
                     <button
-                        onClick={() => navigate('/')} // Redirect to orders page, perhaps implement dedicated route
+                        onClick={() => navigate('/', { state: { initialView: 'STORE_MY_ORDERS' } })} // Redirect to orders page, perhaps implement dedicated route
                         className="px-8 h-12 border border-border-dark text-gray-300 font-bold text-xs uppercase tracking-widest hover:border-white hover:text-white transition-colors rounded-sm"
                     >
                         Quản lý đơn hàng
