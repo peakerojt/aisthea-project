@@ -23,8 +23,7 @@ export const productController = {
                 limit: q.limit ? Math.min(Number(q.limit), 100) : 20,
             };
             const result = await productService.getProducts(filters);
-            // Client's fetchProducts expects a plain Product[] array (not paginated envelope)
-            res.json(result.products);
+            res.json(result);
         } catch (err) {
             next(err);
         }

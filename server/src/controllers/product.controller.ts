@@ -13,7 +13,7 @@ import {
 
 export const getAllProducts = async (req: Request, res: Response) => {
     try {
-        const { category, brand, search, minPrice, maxPrice } = req.query;
+        const { category, brand, search, minPrice, maxPrice, page, limit, sort } = req.query;
 
         const filters = {
             categorySlug: category as string,
@@ -21,9 +21,12 @@ export const getAllProducts = async (req: Request, res: Response) => {
             search: search as string,
             minPrice: minPrice ? Number(minPrice) : undefined,
             maxPrice: maxPrice ? Number(maxPrice) : undefined,
+            page: page ? Number(page) : undefined,
+            limit: limit ? Number(limit) : undefined,
+            sort: sort as string,
         };
 
-        const products = await getProducts(filters);
+        const products = await getProducts(filters); // Resolves to { data, meta }
         res.json(products);
     } catch (error: any) {
         console.error('Get products error:', error);

@@ -122,8 +122,8 @@ export const adminReturnService = {
     returnId: number,
     action: 'APPROVE' | 'REJECT' | 'COMPLETE_REFUND',
     note?: string,
-  ): Promise<{ success: boolean; message: string }> {
-    return api.patch<{ success: boolean; message: string }>(
+  ): Promise<{ success: boolean; message: string; messageKey?: string; code?: string }> {
+    return api.patch<{ success: boolean; message: string; messageKey?: string; code?: string }>(
       `/api/returns/${returnId}/process`,
       { action, note },
     );

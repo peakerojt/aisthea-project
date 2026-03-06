@@ -21,8 +21,14 @@ export const validate =
                     message: issue.message,
                 }));
 
+                // Import logger properly at the top of the file - we'll do this in a sec or just inline require if simpler.
+                // Assuming `import { logger } from '../lib/logger'` will be added.
+                const { logger } = require('../lib/logger');
+                logger.warn(`[Validation Failed] ${req.method} ${req.originalUrl}`, { payload: req[source], issues });
+
                 return res.status(400).json({
                     success: false,
+                    statusCode: 400,
                     errorCode: 'VALIDATION_ERROR',
                     message: 'Request validation failed.',
                     details: issues,

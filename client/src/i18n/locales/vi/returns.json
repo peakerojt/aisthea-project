@@ -81,13 +81,13 @@
         "loadError": "Không thể tải danh sách hoàn trả.",
         "processError": "Không thể xử lý yêu cầu.",
         "fetchError": "Lỗi tải dữ liệu. Vui lòng thử lại.",
-        "approveSuccess": "Đã duyệt yêu cầu trả hàng ✅",
+        "approveSuccess": "Đã duyệt yêu cầu trả hàng",
         "approveError": "Không thể duyệt",
         "rejectSuccess": "Đã từ chối yêu cầu trả hàng",
         "rejectError": "Không thể từ chối",
-        "receivedSuccess": "Đã đánh dấu nhận hàng 📬",
+        "receivedSuccess": "Đã đánh dấu nhận hàng",
         "receivedError": "Không thể cập nhật",
-        "refundSuccess": "Đã hoàn tiền thành công 💰",
+        "refundSuccess": "Đã hoàn tiền thành công",
         "refundError": "Không thể hoàn tiền"
     },
     "detail": {
@@ -125,5 +125,12 @@
         "refundedNotice": "Đã hoàn tiền hoàn tất. Không cần hành động thêm.",
         "timelineTitle": "Lịch sử trạng thái",
         "transactionsTitle": "Giao dịch hoàn tiền"
+    },
+    "reasons": {
+        "DEFECTIVE": "Sản phẩm lỗi",
+        "WRONG_ITEM": "Giao sai hàng",
+        "SIZE_ISSUE": "Sai kích cỡ / Không vừa",
+        "CHANGED_MIND": "Đổi ý / Không còn nhu cầu",
+        "OTHER": "Lý do khác"
     }
 }

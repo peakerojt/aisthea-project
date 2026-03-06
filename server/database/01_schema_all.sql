@@ -231,7 +231,10 @@ BEGIN
         CartId INT IDENTITY(1,1) PRIMARY KEY,
         UserId INT NULL,
         SessionId NVARCHAR(100) NULL,
-        CreatedAt DATETIME2 DEFAULT GETDATE()
+        CreatedAt DATETIME2 DEFAULT GETDATE(),
+        UpdatedAt DATETIME2 DEFAULT GETDATE(),
+        CONSTRAINT FK_Carts_Users FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE,
+        CONSTRAINT UQ_Carts_UserId UNIQUE (UserId)
     );
     PRINT '✓ Created table: Carts';
 END
@@ -317,14 +320,40 @@ BEGIN
     PRINT '✓ Created table: AttributeValues';
 END
 
--- Bảng Orders (depends on Users)
+-- Bảng Coupons
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Coupons')
+BEGIN
+    CREATE TABLE Coupons (
+        CouponId INT IDENTITY(1,1) PRIMARY KEY,
+        Code NVARCHAR(50) NOT NULL UNIQUE,
+        Type NVARCHAR(20) NOT NULL,
+        Value DECIMAL(18,2) NOT NULL,
+        MaxDiscountAmount DECIMAL(18,2) NULL,
+        MinOrderValue DECIMAL(18,2) NOT NULL DEFAULT 0,
+        StartDate DATETIME2 NOT NULL,
+        EndDate DATETIME2 NOT NULL,
+        UsageLimit INT NOT NULL,
+        UsedCount INT NOT NULL DEFAULT 0,
+        UsagePerUser INT NOT NULL DEFAULT 1,
+        IsActive BIT NOT NULL DEFAULT 1,
+        CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+        UpdatedAt DATETIME2 NOT NULL DEFAULT GETDATE()
+    );
+    CREATE NONCLUSTERED INDEX IX_Coupons_Code ON Coupons (Code);
+    CREATE NONCLUSTERED INDEX IX_Coupons_IsActive ON Coupons (IsActive);
+    PRINT '✓ Created table: Coupons';
+END
+
+-- Bảng Orders (depends on Users, Coupons)
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Orders')
 BEGIN
     CREATE TABLE Orders (
         OrderId INT IDENTITY(1,1) PRIMARY KEY,
         UserId INT NULL,
+        OrderCode NVARCHAR(50) NULL UNIQUE,
         OrderNumber NVARCHAR(50) NOT NULL UNIQUE,
         CustomerName NVARCHAR(100) NOT NULL,
+        CustomerEmail NVARCHAR(100) NULL,
         CustomerPhone NVARCHAR(20) NOT NULL,
         ShippingCity NVARCHAR(50) NOT NULL,
         ShippingDistrict NVARCHAR(50) NOT NULL,
@@ -333,11 +362,16 @@ BEGIN
         TrackingNumber NVARCHAR(100) NULL,
         Carrier NVARCHAR(50) NULL,
         TotalAmount DECIMAL(18,2) NOT NULL,
+        DiscountAmount DECIMAL(18,2) NULL DEFAULT 0,
+        CouponId INT NULL,
         Status NVARCHAR(20) DEFAULT 'Pending',
         PaymentMethod NVARCHAR(50) DEFAULT 'COD',
         PaymentStatus NVARCHAR(20) DEFAULT 'Unpaid',
         CreatedAt DATETIME2 DEFAULT GETDATE(),
-        CONSTRAINT FK_Orders_Users FOREIGN KEY (UserId) REFERENCES Users(UserId)
+        UpdatedAt DATETIME2 DEFAULT GETDATE(),
+        Note NVARCHAR(500) NULL,
+        CONSTRAINT FK_Orders_Users FOREIGN KEY (UserId) REFERENCES Users(UserId),
+        CONSTRAINT FK_Orders_Coupons FOREIGN KEY (CouponId) REFERENCES Coupons(CouponId)
     );
     PRINT '✓ Created table: Orders';
 END
@@ -417,21 +451,6 @@ BEGIN
     PRINT '✓ Created table: ProductVariants';
 END
 
--- Bảng Reviews (depends on Products, Users)
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Reviews')
-BEGIN
-    CREATE TABLE Reviews (
-        ReviewId INT IDENTITY(1,1) PRIMARY KEY,
-        ProductId INT NOT NULL,
-        UserId INT NOT NULL,
-        Rating INT CHECK (Rating >= 1 AND Rating <= 5),
-        Comment NVARCHAR(500),
-        CreatedAt DATETIME2 DEFAULT GETDATE(),
-        CONSTRAINT FK_Reviews_Products FOREIGN KEY (ProductId) REFERENCES Products(ProductId) ON DELETE CASCADE,
-        CONSTRAINT FK_Reviews_Users FOREIGN KEY (UserId) REFERENCES Users(UserId)
-    );
-    PRINT '✓ Created table: Reviews';
-END
 
 GO
 
@@ -474,8 +493,10 @@ BEGIN
         CartId INT NOT NULL,
         VariantId INT NOT NULL,
         Quantity INT NOT NULL CHECK (Quantity > 0),
+        AddedAt DATETIME2 DEFAULT GETDATE(),
         CONSTRAINT FK_CartItems_Carts FOREIGN KEY (CartId) REFERENCES Carts(CartId) ON DELETE CASCADE,
-        CONSTRAINT FK_CartItems_Variants FOREIGN KEY (VariantId) REFERENCES ProductVariants(VariantId) ON DELETE CASCADE
+        CONSTRAINT FK_CartItems_Variants FOREIGN KEY (VariantId) REFERENCES ProductVariants(VariantId) ON DELETE CASCADE,
+        CONSTRAINT UQ_CartItems_Cart_Variant UNIQUE(CartId, VariantId)
     );
     PRINT '✓ Created table: CartItems';
 END
@@ -496,6 +517,131 @@ BEGIN
         CONSTRAINT FK_OrderItems_Variants FOREIGN KEY (VariantId) REFERENCES ProductVariants(VariantId) ON DELETE SET NULL
     );
     PRINT '✓ Created table: OrderItems';
+END
+
+-- Bảng Reviews (depends on Products, Users, OrderItems)
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Reviews')
+BEGIN
+    CREATE TABLE Reviews (
+        ReviewId INT IDENTITY(1,1) PRIMARY KEY,
+        ProductId INT NOT NULL,
+        UserId INT NOT NULL,
+        OrderItemId INT NULL UNIQUE,
+        Rating INT CHECK (Rating >= 1 AND Rating <= 5),
+        Comment NVARCHAR(1000),
+        Images NVARCHAR(MAX) DEFAULT '[]',
+        CreatedAt DATETIME2 DEFAULT GETDATE(),
+        CONSTRAINT FK_Reviews_Products FOREIGN KEY (ProductId) REFERENCES Products(ProductId) ON DELETE CASCADE,
+        CONSTRAINT FK_Reviews_Users FOREIGN KEY (UserId) REFERENCES Users(UserId),
+        CONSTRAINT FK_Reviews_OrderItems FOREIGN KEY (OrderItemId) REFERENCES OrderItems(OrderItemId)
+    );
+    PRINT '✓ Created table: Reviews';
+END
+
+-- Bảng Shipments (depends on Orders)
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Shipments')
+BEGIN
+    CREATE TABLE Shipments (
+        ShipmentId INT IDENTITY(1,1) PRIMARY KEY,
+        OrderId INT NOT NULL UNIQUE,
+        Carrier NVARCHAR(100) NULL,
+        TrackingNumber NVARCHAR(100) NULL,
+        Eta DATETIME2 NULL,
+        LastKnownLocation NVARCHAR(255) NULL,
+        CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+        UpdatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_Shipments_Orders FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) ON DELETE CASCADE
+    );
+    CREATE NONCLUSTERED INDEX IX_Shipments_TrackingNumber ON Shipments(TrackingNumber);
+    PRINT '✓ Created table: Shipments';
+END
+
+-- Bảng OrderReturns (depends on Orders, Users)
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'OrderReturns')
+BEGIN
+    CREATE TABLE OrderReturns (
+        ReturnId INT IDENTITY(1,1) PRIMARY KEY,
+        OrderId INT NOT NULL UNIQUE,
+        UserId INT NULL,
+        Reason NVARCHAR(500) NOT NULL,
+        ProofImages NVARCHAR(MAX) NOT NULL DEFAULT '[]',
+        Status NVARCHAR(30) NOT NULL DEFAULT 'PENDING_APPROVAL',
+        AdminNote NVARCHAR(500) NULL,
+        CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+        UpdatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_OrderReturns_Orders FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) ON DELETE CASCADE,
+        CONSTRAINT FK_OrderReturns_Users FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE SET NULL
+    );
+    CREATE NONCLUSTERED INDEX IX_OrderReturns_OrderId ON OrderReturns(OrderId);
+    CREATE NONCLUSTERED INDEX IX_OrderReturns_Status ON OrderReturns(Status);
+    CREATE NONCLUSTERED INDEX IX_OrderReturns_UserId ON OrderReturns(UserId);
+    PRINT '✓ Created table: OrderReturns';
+END
+
+-- Bảng Refunds (depends on Orders, Payments)
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Refunds')
+BEGIN
+    CREATE TABLE Refunds (
+        RefundId INT IDENTITY(1,1) PRIMARY KEY,
+        OrderId INT NOT NULL,
+        PaymentId INT NULL,
+        Amount DECIMAL(18,2) NOT NULL,
+        Type NVARCHAR(10) NOT NULL,
+        Method NVARCHAR(25) NOT NULL,
+        Status NVARCHAR(15) NOT NULL DEFAULT 'PENDING',
+        GatewayTransactionId NVARCHAR(100) NULL,
+        Reason NVARCHAR(500) NOT NULL,
+        GatewayError NVARCHAR(500) NULL,
+        CreatedBy INT NULL,
+        CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+        UpdatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_Refunds_Orders FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) ON DELETE CASCADE,
+        CONSTRAINT FK_Refunds_Payments FOREIGN KEY (PaymentId) REFERENCES Payments(PaymentId)
+    );
+    CREATE NONCLUSTERED INDEX IX_Refunds_OrderId ON Refunds(OrderId);
+    CREATE NONCLUSTERED INDEX IX_Refunds_Status ON Refunds(Status);
+    PRINT '✓ Created table: Refunds';
+END
+
+-- Bảng OrderStatusHistory (depends on Orders)
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'OrderStatusHistory')
+BEGIN
+    CREATE TABLE OrderStatusHistory (
+        OrderStatusHistoryId INT IDENTITY(1,1) PRIMARY KEY,
+        OrderId INT NOT NULL,
+        OldStatus NVARCHAR(20) NULL,
+        Status NVARCHAR(20) NOT NULL,
+        ChangedBy INT NULL,
+        Note NVARCHAR(500) NULL,
+        ChangedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_OrderStatusHistory_Orders FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) ON DELETE CASCADE
+    );
+    CREATE NONCLUSTERED INDEX IX_OrderStatusHistory_OrderId ON OrderStatusHistory(OrderId);
+    CREATE NONCLUSTERED INDEX IX_OrderStatusHistory_OrderId_ChangedAt ON OrderStatusHistory(OrderId, ChangedAt);
+    PRINT '✓ Created table: OrderStatusHistory';
+END
+
+-- Bảng InventoryLogs (depends on ProductVariants, Orders, Users)
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'InventoryLogs')
+BEGIN
+    CREATE TABLE InventoryLogs (
+        LogId INT IDENTITY(1,1) PRIMARY KEY,
+        VariantId INT NOT NULL,
+        OrderId INT NULL,
+        UserId INT NULL,
+        ChangeQuantity INT NOT NULL,
+        PreviousStock INT NOT NULL,
+        NewStock INT NOT NULL,
+        Reason NVARCHAR(30) NOT NULL,
+        Note NVARCHAR(500) NULL,
+        CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_InventoryLogs_Variants FOREIGN KEY (VariantId) REFERENCES ProductVariants(VariantId) ON DELETE CASCADE,
+        CONSTRAINT FK_InventoryLogs_Orders FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) ON DELETE SET NULL,
+        CONSTRAINT FK_InventoryLogs_Users FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE SET NULL
+    );
+    CREATE NONCLUSTERED INDEX IX_InventoryLogs_VariantId ON InventoryLogs(VariantId);
+    CREATE NONCLUSTERED INDEX IX_InventoryLogs_OrderId ON InventoryLogs(OrderId);
+    PRINT '✓ Created table: InventoryLogs';
 END
 
 GO
@@ -611,60 +757,7 @@ PRINT '✓ Category Image Support Ready!';
 PRINT '========================================';
 GO
 
-/* =============================================================
-   SCHEMA UPDATES - ORDER MANAGEMENT SYSTEM
-   Description: Add Note to Orders, add OrderStatusHistory table
-   Date: 2026-02-26
-   ============================================================= */
 
-PRINT '';
-PRINT 'Applying Order Management System updates...';
-GO
-
--- Add Note column to Orders if it doesn't exist
-IF NOT EXISTS (
-    SELECT 1
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_NAME = 'Orders'
-    AND COLUMN_NAME = 'Note'
-)
-BEGIN
-    ALTER TABLE Orders ADD Note NVARCHAR(500) NULL;
-    PRINT '✓ Added Note column to Orders table';
-END
-ELSE
-BEGIN
-    PRINT '⚠ Note column already exists in Orders';
-END
-GO
-
--- Create OrderStatusHistory table if it doesn't exist
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'OrderStatusHistory')
-BEGIN
-    CREATE TABLE OrderStatusHistory (
-        OrderStatusHistoryId INT IDENTITY(1,1) PRIMARY KEY,
-        OrderId              INT NOT NULL,
-        Status               NVARCHAR(20) NOT NULL,
-        ChangedAt            DATETIME2 NOT NULL DEFAULT GETDATE(),
-        CONSTRAINT FK_OrderStatusHistory_Orders
-            FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) ON DELETE CASCADE
-    );
-    CREATE INDEX IX_OrderStatusHistory_OrderId ON OrderStatusHistory(OrderId);
-    PRINT '✓ Created table: OrderStatusHistory';
-END
-ELSE
-BEGIN
-    PRINT '⚠ OrderStatusHistory table already exists';
-END
-GO
-
-PRINT '';
-PRINT '========================================';
-PRINT '✓ Order Management System Schema Ready!';
-PRINT '========================================';
-GO
-
-GO
 
 /* =============================================================
    FILE: rbac_migration.sql
@@ -718,227 +811,7 @@ PRINT 'RBAC migration complete.';
 
 GO
 
-/* =============================================================
-   FILE: 04_add_coupon_schema.sql
-   ============================================================= */
 
--- ═══════════════════════════════════════════════════════
--- AISTHEA Coupon & Discount System — Schema Migration
--- Run this script in SQL Server Management Studio (SSMS) 
--- targeting the AISTHEA database.
--- ═══════════════════════════════════════════════════════
-
-USE AISTHEA;
-GO
-
--- ── 1. Create Coupons table ──────────────────────────────
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Coupons' AND xtype='U')
-BEGIN
-  CREATE TABLE Coupons (
-    CouponId          INT           IDENTITY(1,1) PRIMARY KEY,
-    Code              NVARCHAR(50)  NOT NULL UNIQUE,
-    Type              NVARCHAR(20)  NOT NULL,     -- 'FIXED_AMOUNT' or 'PERCENTAGE'
-    Value             DECIMAL(18,2) NOT NULL,
-    MaxDiscountAmount DECIMAL(18,2) NULL,         -- Cap for PERCENTAGE type
-    MinOrderValue     DECIMAL(18,2) NOT NULL CONSTRAINT DF_Coupons_MinOrderValue DEFAULT 0,
-    StartDate         DATETIME2     NOT NULL,
-    EndDate           DATETIME2     NOT NULL,
-    UsageLimit        INT           NOT NULL,
-    UsedCount         INT           NOT NULL CONSTRAINT DF_Coupons_UsedCount DEFAULT 0,
-    UsagePerUser      INT           NOT NULL CONSTRAINT DF_Coupons_UsagePerUser DEFAULT 1,
-    IsActive          BIT           NOT NULL CONSTRAINT DF_Coupons_IsActive DEFAULT 1,
-    CreatedAt         DATETIME2     NOT NULL CONSTRAINT DF_Coupons_CreatedAt DEFAULT GETDATE(),
-    UpdatedAt         DATETIME2     NOT NULL CONSTRAINT DF_Coupons_UpdatedAt DEFAULT GETDATE()
-  );
-  PRINT '✅ Created Coupons table';
-END
-ELSE
-BEGIN
-  PRINT 'ℹ️ Coupons table already exists — skipping';
-END
-GO
-
--- ── 2. Add DiscountAmount to Orders ─────────────────────
-IF NOT EXISTS (
-  SELECT * FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_NAME = 'Orders' AND COLUMN_NAME = 'DiscountAmount'
-)
-BEGIN
-  ALTER TABLE Orders ADD DiscountAmount DECIMAL(18,2) NULL CONSTRAINT DF_Orders_DiscountAmount DEFAULT 0;
-  PRINT '✅ Added DiscountAmount to Orders';
-END
-ELSE
-BEGIN
-  PRINT 'ℹ️ DiscountAmount already exists in Orders — skipping';
-END
-GO
-
--- ── 3. Add CouponId to Orders ───────────────────────────
-IF NOT EXISTS (
-  SELECT * FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_NAME = 'Orders' AND COLUMN_NAME = 'CouponId'
-)
-BEGIN
-  ALTER TABLE Orders ADD CouponId INT NULL;
-  PRINT '✅ Added CouponId to Orders';
-END
-ELSE
-BEGIN
-  PRINT 'ℹ️ CouponId already exists in Orders — skipping';
-END
-GO
-
--- ── 4. Add FK: Orders.CouponId → Coupons.CouponId ───────
-IF NOT EXISTS (
-  SELECT * FROM sys.foreign_keys WHERE name = 'FK_Orders_Coupons'
-)
-BEGIN
-  ALTER TABLE Orders ADD CONSTRAINT FK_Orders_Coupons
-    FOREIGN KEY (CouponId) REFERENCES Coupons(CouponId);
-  PRINT '✅ Added FK_Orders_Coupons';
-END
-ELSE
-BEGIN
-  PRINT 'ℹ️ FK_Orders_Coupons already exists — skipping';
-END
-GO
-
--- ── 5. Indexes ───────────────────────────────────────────
-IF NOT EXISTS (
-  SELECT * FROM sys.indexes WHERE name = 'IX_Coupons_Code' AND object_id = OBJECT_ID('Coupons')
-)
-BEGIN
-  CREATE NONCLUSTERED INDEX IX_Coupons_Code ON Coupons (Code);
-  PRINT '✅ Created IX_Coupons_Code';
-END
-GO
-
-IF NOT EXISTS (
-  SELECT * FROM sys.indexes WHERE name = 'IX_Coupons_IsActive' AND object_id = OBJECT_ID('Coupons')
-)
-BEGIN
-  CREATE NONCLUSTERED INDEX IX_Coupons_IsActive ON Coupons (IsActive);
-  PRINT '✅ Created IX_Coupons_IsActive';
-END
-GO
-
-PRINT '🎉 Coupon schema migration complete!';
-GO
-
-GO
-
-/* =============================================================
-   FILE: migrations/add_order_status_history_audit_trail.sql
-   ============================================================= */
-
--- ─────────────────────────────────────────────────────────────────────────────
--- Migration: Add audit trail columns to OrderStatusHistory
--- Branch: feature/enhance-order-status-KYTT
--- Date: 2026-02-27
--- ─────────────────────────────────────────────────────────────────────────────
-
--- Add OldStatus column (nullable — null for first history entries)
-IF NOT EXISTS (
-  SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_NAME = 'OrderStatusHistory' AND COLUMN_NAME = 'OldStatus'
-)
-BEGIN
-  ALTER TABLE [dbo].[OrderStatusHistory]
-  ADD [OldStatus] NVARCHAR(20) NULL;
-  PRINT 'Added OldStatus column to OrderStatusHistory';
-END
-ELSE
-  PRINT 'OldStatus already exists — skipping';
-GO
-
--- Add ChangedBy column (nullable — references Users.UserId)
-IF NOT EXISTS (
-  SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_NAME = 'OrderStatusHistory' AND COLUMN_NAME = 'ChangedBy'
-)
-BEGIN
-  ALTER TABLE [dbo].[OrderStatusHistory]
-  ADD [ChangedBy] INT NULL;
-  PRINT 'Added ChangedBy column to OrderStatusHistory';
-END
-ELSE
-  PRINT 'ChangedBy already exists — skipping';
-GO
-
--- Add Note column (nullable — stores reason for cancellation / change)
-IF NOT EXISTS (
-  SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_NAME = 'OrderStatusHistory' AND COLUMN_NAME = 'Note'
-)
-BEGIN
-  ALTER TABLE [dbo].[OrderStatusHistory]
-  ADD [Note] NVARCHAR(500) NULL;
-  PRINT 'Added Note column to OrderStatusHistory';
-END
-ELSE
-  PRINT 'Note already exists — skipping';
-GO
-
-PRINT 'Migration complete.';
-
-GO
-
-/* =============================================================
-   FILE: migrations/20260301_add_inventory_logs/migration.sql
-   ============================================================= */
-
--- ============================================================
--- Migration: 20260301_add_inventory_logs
--- Purpose  : Add InventoryLogs table for stock audit trail
--- Reason values: CHECKOUT | RESTOCK | CANCELLED_RESTORE | MANUAL_ADJUST
--- ============================================================
-
-IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[InventoryLogs]') AND type = 'U')
-BEGIN
-    CREATE TABLE [dbo].[InventoryLogs] (
-        [LogId]          INT            NOT NULL IDENTITY(1,1),
-        [VariantId]      INT            NOT NULL,
-        [OrderId]        INT            NULL,
-        [UserId]         INT            NULL,
-        [ChangeQuantity] INT            NOT NULL,
-        [PreviousStock]  INT            NOT NULL,
-        [NewStock]       INT            NOT NULL,
-        [Reason]         NVARCHAR(30)   NOT NULL,
-        [Note]           NVARCHAR(500)  NULL,
-        [CreatedAt]      DATETIME2      NOT NULL DEFAULT GETDATE(),
-
-        CONSTRAINT [PK_InventoryLogs_LogId] PRIMARY KEY CLUSTERED ([LogId] ASC),
-
-        CONSTRAINT [FK_InventoryLogs_Variants]
-            FOREIGN KEY ([VariantId])
-            REFERENCES [dbo].[ProductVariants] ([VariantId])
-            ON DELETE CASCADE,
-
-        CONSTRAINT [FK_InventoryLogs_Orders]
-            FOREIGN KEY ([OrderId])
-            REFERENCES [dbo].[Orders] ([OrderId])
-            ON DELETE SET NULL,
-
-        CONSTRAINT [FK_InventoryLogs_Users]
-            FOREIGN KEY ([UserId])
-            REFERENCES [dbo].[Users] ([UserId])
-            ON DELETE SET NULL,
-    );
-
-    CREATE NONCLUSTERED INDEX [IX_InventoryLogs_VariantId]
-        ON [dbo].[InventoryLogs] ([VariantId] ASC);
-
-    CREATE NONCLUSTERED INDEX [IX_InventoryLogs_OrderId]
-        ON [dbo].[InventoryLogs] ([OrderId] ASC);
-
-    PRINT 'Table InventoryLogs created successfully.';
-END
-ELSE
-BEGIN
-    PRINT 'Table InventoryLogs already exists — skipping.';
-END
-
-GO
 
 /* =============================================================
    FILE: indexes/04_indexes.sql

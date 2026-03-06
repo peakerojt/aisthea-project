@@ -64,5 +64,20 @@
     "CART_NOT_FOUND": "Không tìm thấy giỏ hàng.",
     "CART_ITEM_NOT_FOUND": "Không tìm thấy sản phẩm trong giỏ hàng.",
     "VARIANT_OUT_OF_STOCK": "Sản phẩm đã hết hàng.",
-    "MERGE_FAILED": "Không thể đồng bộ giỏ hàng. Vui lòng thử lại."
+    "MERGE_FAILED": "Không thể đồng bộ giỏ hàng. Vui lòng thử lại.",
+    "OUT_OF_STOCK": "Sản phẩm không đủ số lượng yêu cầu.",
+    "INTERNAL_ERROR": "Lỗi hệ thống. Vui lòng thử lại sau.",
+    "VALIDATION_ERROR": "Lỗi xác thực dữ liệu yêu cầu. Vui lòng kiểm tra lại thông tin.",
+    "RATE_LIMIT_EXCEEDED": "Quá nhiều yêu cầu. Vui lòng thử lại sau.",
+    "AUTH_RATE_LIMIT_EXCEEDED": "Quá nhiều lần thử xác thực. Vui lòng thử lại sau 15 phút.",
+    "ACCOUNT_BANNED": "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.",
+    "PERMISSION_DENIED": "Bạn không có quyền thực hiện thao tác này.",
+    "FORBIDDEN_ROLE": "Truy cập bị từ chối. Bạn không có vai trò phù hợp.",
+    "EMAIL_EXISTS": "Email này đã được sử dụng.",
+    "INVALID_CREDENTIALS": "Email hoặc mật khẩu không chính xác.",
+    "EMAIL_NOT_VERIFIED": "Vui lòng xác thực email của bạn trước khi đăng nhập.",
+    "INVALID_TOKEN": "Mã xác thực không hợp lệ hoặc đã qua sử dụng.",
+    "TOKEN_EXPIRED": "Mã xác thực đã hết hạn.",
+    "MISSING_TOKEN": "Thiếu token để thực hiện yêu cầu.",
+    "NO_TOKEN": "Không tìm thấy token xác thực."
 }

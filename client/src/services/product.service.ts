@@ -107,8 +107,9 @@ export const fetchProducts = async (filters?: ProductFilters): Promise<Product[]
         if (filters?.minPrice) params.minPrice = filters.minPrice.toString();
         if (filters?.maxPrice) params.maxPrice = filters.maxPrice.toString();
 
-        const products = await api.get<Product[]>('/api/products', { params });
-        return products;
+        const response = await api.get<any>('/api/products', { params });
+        // The backend now returns { data: [...], meta: {...} }
+        return response.data || response;
     } catch (error) {
         console.error('Failed to fetch products:', error);
         throw error;

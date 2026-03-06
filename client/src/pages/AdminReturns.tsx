@@ -303,7 +303,8 @@ export const AdminReturns: React.FC = () => {
     ) => {
         try {
             const result = await adminReturnService.process(returnId, action, note);
-            setToast({ type: 'success', message: result.message });
+            const message = result.messageKey ? t(result.messageKey) : result.message;
+            setToast({ type: 'success', message });
             setSelectedReturn(null);
             await load();
         } catch (e: any) {

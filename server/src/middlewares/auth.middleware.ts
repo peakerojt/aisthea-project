@@ -111,6 +111,13 @@ export const requirePermission = (requiredPermissionCode: string) => {
             return res.status(401).json({ success: false, message: 'Unauthenticated access.' });
         }
 
+        // Bypass granular permission checks for Admin & Super Admin to avoid "Permission denied" bugs
+        const userRoles: string[] = req.user.roles || [];
+        if (userRoles.includes('Admin') || userRoles.includes('Super Admin')) {
+            req.user.permissions = ['*'];
+            return next();
+        }
+
         try {
             const permissions = await fetchUserPermissions(req.user.userId);
 
@@ -130,5 +137,30 @@ export const requirePermission = (requiredPermissionCode: string) => {
             logger.error('Permission check error', { error });
             return res.status(500).json({ success: false, message: 'Permission check error.' });
         }
+    };
+};
+
+/**
+ * Middleware factory for role-based checks.
+ * Usage: router.delete('/products/:id', authenticateToken, checkRole(['Admin', 'Super Admin']), handler)
+ */
+export const checkRole = (allowedRoles: string[]) => {
+    return (req: AuthRequest, res: Response, next: NextFunction) => {
+        if (!req.user?.userId) {
+            return res.status(401).json({ success: false, message: 'Unauthenticated access.' });
+        }
+
+        const userRoles: string[] = req.user.roles || [];
+        const hasRole = userRoles.some((role: string) => allowedRoles.includes(role));
+
+        if (!hasRole) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. You do not have the required role.',
+                code: 'FORBIDDEN_ROLE',
+            });
+        }
+
+        next();
     };
 };

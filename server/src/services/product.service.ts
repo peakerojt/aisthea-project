@@ -35,6 +35,9 @@ export const getProducts = async (filters?: {
     search?: string;
     minPrice?: number;
     maxPrice?: number;
+    page?: number;
+    limit?: number;
+    sort?: string;
 }) => {
     // Use optimized view instead of complex joins
     // Build WHERE clause dynamically
@@ -66,12 +69,40 @@ export const getProducts = async (filters?: {
     }
 
     const whereClause = conditions.join(' AND ');
-    const query = `SELECT * FROM vw_ProductCatalog WHERE ${whereClause} ORDER BY createdAt DESC`;
+
+    let orderByClause = 'createdAt DESC';
+    if (filters?.sort) {
+        const [sortField, sortDir] = filters.sort.split('_');
+        const direction = sortDir === 'asc' ? 'ASC' : 'DESC';
+        if (sortField === 'price') {
+            orderByClause = `minPrice ${direction}`;
+        } else if (sortField === 'name') {
+            orderByClause = `name ${direction}`;
+        } else if (sortField === 'createdAt') {
+            orderByClause = `createdAt ${direction}`;
+        }
+    }
+
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 20;
+    const offset = (page - 1) * limit;
+
+    const countQuery = `SELECT COUNT(*) as total FROM vw_ProductCatalog WHERE ${whereClause}`;
+    const totalResult: any[] = await prisma.$queryRawUnsafe(countQuery, ...params);
+    const total = Number(totalResult[0]?.total || 0);
+
+    const query = `
+        SELECT * FROM vw_ProductCatalog 
+        WHERE ${whereClause} 
+        ORDER BY ${orderByClause}
+        OFFSET ${offset} ROWS 
+        FETCH NEXT ${limit} ROWS ONLY
+    `;
 
     const products: any[] = await prisma.$queryRawUnsafe(query, ...params);
 
     // Transform data to match frontend expectations
-    return products.map(p => ({
+    const data = products.map(p => ({
         productId: p.productId,
         name: p.name,
         slug: p.slug,
@@ -98,6 +129,16 @@ export const getProducts = async (filters?: {
             stockQuantity: p.totalStock || 0
         }]
     }));
+
+    return {
+        data,
+        meta: {
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        },
+    };
 };
 
 export const searchProducts = async (searchTerm: string, maxResults: number = 50) => {

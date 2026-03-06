@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma';
 import { RegisterInput, LoginInput } from '../utils/schemas/auth.schema';
 import { createVerificationToken } from './verification.service';
+import { logger } from '../lib/logger';
 
 
 export const registerUser = async (input: RegisterInput) => {
@@ -85,20 +86,24 @@ export const loginUser = async (input: LoginInput) => {
     });
 
     if (!user || !user.passwordHash) {
+        logger.warn('Login failed: Invalid credentials', { email });
         throw new Error('Invalid email or password');
     }
 
     if (user.status === 'Pending') {
+        logger.warn('Login failed: Unverified email', { email });
         throw new Error('Please verify your email before logging in');
     }
 
     if (user.status === 'Banned') {
+        logger.warn('Login failed: Account banned', { email, userId: user.userId });
         throw new Error('Your account has been banned');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
+        logger.warn('Login failed: Invalid credentials', { email });
         throw new Error('Invalid email or password');
     }
 
@@ -129,6 +134,8 @@ export const loginUser = async (input: LoginInput) => {
         REFRESH_SECRET,
         { expiresIn: '7d' }
     );
+
+    logger.info('User login successful', { userId: user.userId, email: user.email, roles });
 
     return {
         user: {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ReturnItem {
   returnRequestItemId?: number;
@@ -13,15 +14,9 @@ interface ReturnItem {
   };
 }
 
-const REASON_MAP: Record<string, string> = {
-  DEFECTIVE: '🔧 Hàng lỗi',
-  WRONG_ITEM: '📦 Sai sản phẩm',
-  SIZE_ISSUE: '📏 Sai kích thước',
-  CHANGED_MIND: '💭 Đổi ý',
-  OTHER: '❓ Khác',
-};
-
 export function ReturnItemsTable({ items }: { items: ReturnItem[] }) {
+  const { t } = useTranslation('returns');
+
   if (!items.length)
     return <div className="text-sm italic text-gray-400 py-2">Không có sản phẩm.</div>;
 
@@ -74,7 +69,7 @@ export function ReturnItemsTable({ items }: { items: ReturnItem[] }) {
                   {subtotal ? subtotal.toLocaleString('vi-VN') + 'đ' : '—'}
                 </td>
                 <td className="px-4 py-3 text-gray-600 text-xs">
-                  {it.reason ? REASON_MAP[it.reason] ?? it.reason : '—'}
+                  {it.reason ? t(`reasons.${it.reason}`, it.reason) : '—'}
                 </td>
               </tr>
             );

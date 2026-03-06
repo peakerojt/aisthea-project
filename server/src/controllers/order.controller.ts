@@ -1,5 +1,7 @@
 import { Response } from 'express';
 import { prisma } from '../utils/prisma';
+import { findManyOrders } from '../modules/order/order.repository';
+import { updateOrderStatusAdmin } from '../modules/order/order.service';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { emitNewOrder, emitOrderStatusUpdated } from '../socket';
 import {
@@ -32,67 +34,25 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
   try {
     const {
       status,
-      page = '1',
-      pageSize = '15',
+      page,
+      pageSize,
       search,
       startDate,
       endDate,
+      sort,
     } = req.query;
 
-    const pageNum = parseInt(firstQueryValue(page) || '1', 10) || 1;
-    const size = Math.min(parseInt(firstQueryValue(pageSize) || '15', 10) || 15, 100);
-    const skip = (pageNum - 1) * size;
+    const filters = {
+      status: firstQueryValue(status),
+      search: firstQueryValue(search),
+      startDate: firstQueryValue(startDate),
+      endDate: firstQueryValue(endDate),
+      page: parseInt(firstQueryValue(page) || '1', 10) || 1,
+      limit: parseInt(firstQueryValue(pageSize) || '15', 10) || 15,
+      sort: firstQueryValue(sort),
+    };
 
-    const where: any = {};
-
-    const statusStr = firstQueryValue(status);
-    if (statusStr && statusStr !== 'ALL') {
-      where.status = statusStr;
-    }
-
-    const searchStr = firstQueryValue(search);
-    if (searchStr) {
-      where.OR = [
-        { customerName: { contains: searchStr } },
-        { customerPhone: { contains: searchStr } },
-        { orderNumber: { contains: searchStr } },
-      ];
-    }
-
-    const startDateStr = firstQueryValue(startDate);
-    const endDateStr = firstQueryValue(endDate);
-    if (startDateStr || endDateStr) {
-      where.createdAt = {};
-      if (startDateStr) where.createdAt.gte = new Date(startDateStr);
-      if (endDateStr) {
-        const end = new Date(endDateStr);
-        end.setHours(23, 59, 59, 999);
-        where.createdAt.lte = end;
-      }
-    }
-
-    const [orders, total] = await Promise.all([
-      prisma.order.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: size,
-        include: {
-          user: {
-            select: {
-              userId: true,
-              email: true,
-              fullName: true,
-              avatarUrl: true,
-            },
-          },
-          _count: {
-            select: { items: true },
-          },
-        },
-      }),
-      prisma.order.count({ where }),
-    ]);
+    const { data: orders, meta } = await findManyOrders(filters);
 
     const formatted = orders.map((order) => ({
       orderId: order.orderId,
@@ -116,13 +76,8 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
     }));
 
     res.json({
-      orders: formatted,
-      pagination: {
-        page: pageNum,
-        pageSize: size,
-        total,
-        totalPages: Math.ceil(total / size),
-      },
+      data: formatted,
+      meta,
     });
   } catch (error: any) {
     console.error('[getAllOrders] Error:', error?.message ?? error);
@@ -280,8 +235,12 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Invalid order ID' });
     }
 
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     const {
-      status: newStatus,
+      status,
       note,
       carrier,
       trackingNumber,
@@ -294,124 +253,31 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       estimatedDeliveryDate?: string;
     };
 
-    if (!newStatus) {
-      return res.status(400).json({ errorCode: ERROR_CODES.STATUS_REQUIRED });
-    }
-
-    const changedBy = req.user?.userId ?? null;
-
-    // 1. Fetch current order with items for stock restoration
-    const order = await prisma.order.findUnique({
-      where: { orderId },
-      include: {
-        items: {
-          select: { orderItemId: true, variantId: true, quantity: true },
-        },
-      },
+    const result = await updateOrderStatusAdmin(orderId.toString(), req.user, {
+      status,
+      note,
+      carrier,
+      trackingNumber,
+      estimatedDeliveryDate,
     });
-    if (!order) {
-      return res.status(404).json({ errorCode: ERROR_CODES.ORDER_NOT_FOUND });
-    }
-
-    const currentStatus = order.status ?? ORDER_STATUS.PENDING;
-
-    // 2. FSM validation
-    if (!isValidTransition(currentStatus, newStatus)) {
-      return res.status(400).json({
-        errorCode: ERROR_CODES.INVALID_STATUS_TRANSITION,
-        currentStatus,
-        requestedStatus: newStatus,
-        allowedTransitions: getValidNextStatuses(currentStatus),
-      });
-    }
-
-    // 3. Determine if inventory should be restored
-    const shouldRestoreInventory = INVENTORY_RESTORE_STATUSES.includes(newStatus as any);
-
-    // 4. Execute in a single Prisma transaction
-    await prisma.$transaction(async (tx) => {
-      if (shouldRestoreInventory) {
-        for (const item of order.items) {
-          if (item.variantId) {
-            await tx.productVariant.update({
-              where: { variantId: item.variantId },
-              data: { stockQuantity: { increment: item.quantity } },
-            });
-          }
-        }
-      }
-
-      // Build order update data (status + optional logistics)
-      const orderData: Record<string, any> = { status: newStatus };
-      if (note !== undefined) orderData.note = note;
-      if (carrier) orderData.carrier = carrier;
-      if (trackingNumber) orderData.trackingNumber = trackingNumber;
-
-      await tx.order.update({ where: { orderId }, data: orderData });
-
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId,
-          oldStatus: currentStatus,
-          status: newStatus,
-          changedBy,
-          note: note ?? null,
-        },
-      });
-
-      // Upsert Shipment when logistics info is provided
-      if (carrier || trackingNumber || estimatedDeliveryDate) {
-        const eta = estimatedDeliveryDate ? new Date(estimatedDeliveryDate) : undefined;
-        await tx.shipment.upsert({
-          where: { orderId },
-          update: { carrier: carrier ?? undefined, trackingNumber: trackingNumber ?? undefined, eta },
-          create: { orderId, carrier: carrier ?? null, trackingNumber: trackingNumber ?? null, eta },
-        });
-      }
-    });
-
-    // 5. Emit real-time socket update to the order room
-    try {
-      const latest = await prisma.order.findUnique({
-        where: { orderId },
-        include: {
-          statusHistory: { orderBy: { changedAt: 'asc' } },
-          shipment: true,
-          items: {
-            select: { orderItemId: true, productName: true, variantName: true, quantity: true, unitPrice: true },
-          },
-        },
-      });
-      if (latest) {
-        const timeline = (latest.statusHistory || []).map((h: any) => ({
-          status: h.status,
-          timestamp: h.changedAt,
-          note: h.note ?? null,
-        }));
-        emitOrderStatusUpdated({
-          orderId,
-          userId: latest.userId ?? undefined,
-          status: newStatus,
-          timeline,
-          carrier: carrier ?? latest.carrier ?? latest.shipment?.carrier ?? null,
-          trackingNumber: trackingNumber ?? latest.trackingNumber ?? latest.shipment?.trackingNumber ?? null,
-          estimatedDeliveryDate: latest.shipment?.eta ?? null,
-        });
-      }
-    } catch (socketErr: any) {
-      console.warn('[updateOrderStatus] Socket emit failed (non-critical):', socketErr.message);
-    }
 
     res.json({
       success: true,
       messageKey: SUCCESS_MESSAGES.ORDER_STATUS_UPDATED,
-      orderId,
-      previousStatus: currentStatus,
-      newStatus,
-      stockRestored: shouldRestoreInventory,
+      ...result,
     });
   } catch (error: any) {
     console.error('[updateOrderStatus] Error:', error);
+
+    // AppError mapping
+    if (error.status) {
+      res.status(error.status).json({
+        errorCode: error.code,
+        message: error.message,
+      });
+      return;
+    }
+
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 };
@@ -428,43 +294,17 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { status, page = '1', pageSize = '10', sort = 'createdAt_desc' } = req.query;
+    const { status, page, pageSize, sort } = req.query;
 
-    const pageNum = parseInt(firstQueryValue(page) || '1', 10) || 1;
-    const size = Math.min(parseInt(firstQueryValue(pageSize) || '10', 10) || 10, 50);
-    const skip = (pageNum - 1) * size;
+    const filters = {
+      userId,
+      status: firstQueryValue(status),
+      page: parseInt(firstQueryValue(page) || '1', 10) || 1,
+      limit: parseInt(firstQueryValue(pageSize) || '10', 10) || 10,
+      sort: firstQueryValue(sort) || 'createdAt_desc',
+    };
 
-    const where: any = { userId };
-    const statusStr = firstQueryValue(status);
-    if (statusStr) {
-      where.status = statusStr;
-    }
-
-    const sortStr = firstQueryValue(sort) || 'createdAt_desc';
-    const orderBy: any = {};
-    const [sortField, sortDir] = sortStr.split('_');
-    orderBy[sortField || 'createdAt'] = sortDir === 'asc' ? 'asc' : 'desc';
-
-    const [orders, total] = await Promise.all([
-      prisma.order.findMany({
-        where,
-        orderBy,
-        skip,
-        take: size,
-        select: {
-          orderId: true,
-          orderNumber: true,
-          status: true,
-          paymentStatus: true,
-          totalAmount: true,
-          createdAt: true,
-          trackingNumber: true,
-          carrier: true,
-          _count: { select: { items: true } },
-        },
-      }),
-      prisma.order.count({ where }),
-    ]);
+    const { data: orders, meta } = await findManyOrders(filters);
 
     const formattedOrders = orders.map((order) => ({
       orderId: order.orderId,
@@ -479,13 +319,8 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
     }));
 
     res.json({
-      orders: formattedOrders,
-      pagination: {
-        page: pageNum,
-        pageSize: size,
-        total,
-        totalPages: Math.ceil(total / size),
-      },
+      data: formattedOrders,
+      meta,
     });
   } catch (error: any) {
     console.error('Error fetching my orders:', error);

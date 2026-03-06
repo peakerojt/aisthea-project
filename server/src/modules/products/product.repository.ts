@@ -12,6 +12,7 @@ export interface ProductFilter {
     status?: string;
     page?: number;
     limit?: number;
+    sort?: string;
 }
 
 // ─── Repository ───────────────────────────────────────────────────────────────
@@ -19,7 +20,7 @@ export interface ProductFilter {
 export const productRepository = {
     // ── List / Search ──────────────────────────────────────────────────────────
     async findMany(filters: ProductFilter = {}) {
-        const { categorySlug, brandId, search, minPrice, maxPrice, status = 'Active', page = 1, limit = 20 } = filters;
+        const { categorySlug, brandId, search, minPrice, maxPrice, status = 'Active', page = 1, limit = 20, sort = 'createdAt_desc' } = filters;
         const skip = (page - 1) * limit;
 
         const where: Prisma.ProductWhereInput = {
@@ -46,12 +47,27 @@ export const productRepository = {
                 : {}),
         };
 
+        const orderBy: Prisma.ProductOrderByWithRelationInput = {};
+        const [sortField, sortDir] = sort.split('_');
+        const direction = sortDir === 'asc' ? 'asc' : 'desc';
+
+        if (sortField === 'price') {
+            orderBy.basePrice = direction;
+        } else if (sortField === 'name') {
+            orderBy.name = direction;
+        } else if (sortField === 'createdAt') {
+            orderBy.createdAt = direction;
+        } else {
+            // Default fallback
+            orderBy.createdAt = 'desc';
+        }
+
         const [products, total] = await Promise.all([
             prisma.product.findMany({
                 where,
                 skip,
                 take: limit,
-                orderBy: { createdAt: 'desc' },
+                orderBy,
                 include: {
                     category: { select: { categoryId: true, name: true, slug: true } },
                     brand: { select: { brandId: true, name: true } },
@@ -68,7 +84,15 @@ export const productRepository = {
             prisma.product.count({ where }),
         ]);
 
-        return { products, total, page, limit };
+        return {
+            data: products,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        };
     },
 
     // ── Single product (public detail view) ────────────────────────────────────
