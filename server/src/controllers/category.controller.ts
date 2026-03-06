@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { cloudinaryService } from '../services/cloudinary.service';
-import { upload } from '../middleware/upload.middleware';
+import { upload } from '../middlewares/upload.middleware';
 
 // ─── Vietnamese Slug Utility ────────────────────────────────────────────────
 

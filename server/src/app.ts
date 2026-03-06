@@ -80,13 +80,23 @@ export function createApp() {
   app.use('/api/categories', categoryModuleRoutes);
   app.use('/api/reviews', reviewModuleRoutes);
 
-  // ── Existing fully featured module routes ─────────────────────────────────────
+  // ── Order routes — IMPORTANT: legacy orderRoutes MUST come before orderModuleRoutes
+  // orderModuleRoutes has GET /:id which would shadow /admin, /my etc. if registered first
+  app.use('/api/orders', orderRoutes);  // Named paths: /admin, /my, /my/:id, POST /, PATCH /:id/status
+  // Order-scoped return handlers (POST/GET /api/orders/:id/return)
+  app.post('/api/orders/:id/return', authenticateToken, postReturnRequest);
+  app.get('/api/orders/:id/return', authenticateToken, getOrderReturn);
+  app.use('/api/orders', refundRoutes);
+  // orderModuleRoutes: GET /:id, PATCH /:id/cancel (catch-all after named routes)
   app.use('/api/orders', orderModuleRoutes);
+
   app.use('/api', trackingRouter);
   app.use('/api/items', itemsRouter);
-  app.use('/api', returnOrderRoutes);
+  // NOTE: return-order module handles /api/return-requests/* (create, my, admin/list, detail, etc.)
+  app.use('/api/return-requests', returnOrderRoutes);
 
   // ── Legacy routes (kept as-is, to be migrated per sprint) ────────────────────
+  // NOTE: importExportRoutes mounts /export, /export/template, /import sub-paths under /api/products
   app.use('/api/products', importExportRoutes);
   app.use('/api/inventory', inventoryRoutes);
   app.use('/api/dashboard', dashboardRoutes);
@@ -96,12 +106,6 @@ export function createApp() {
   app.use('/api/cart', cartRoutes);
   app.use('/api/roles', roleRoutes);
   app.use('/api/permissions', permissionRoutes);
-  app.use('/api/orders', orderRoutes);
-
-  // Return request inline handlers (legacy – kept until return module is migrated)
-  app.post('/api/orders/:id/return', authenticateToken, postReturnRequest);
-  app.get('/api/orders/:id/return', authenticateToken, getOrderReturn);
-  app.use('/api/orders', refundRoutes);
   app.use('/api/returns', returnRoutes);
 
   app.use('/api/users', userRoutes);

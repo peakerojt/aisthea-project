@@ -15,7 +15,7 @@ import {
     updateUserRole,
 } from '../controllers/user.controller';
 import { authenticateToken } from '../middlewares/auth.middleware';
-import { upload } from '../middleware/upload.middleware';
+import { upload } from '../middlewares/upload.middleware';
 
 const router = Router();
 

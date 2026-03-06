@@ -18,7 +18,7 @@ import {
     getProductImages,
     setPrimaryImage,
 } from '../controllers/productImage.controller';
-import { upload } from '../middleware/upload.middleware';
+import { upload } from '../middlewares/upload.middleware';
 
 const router = Router();
 
