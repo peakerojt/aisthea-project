@@ -9,7 +9,7 @@ export function MyOrdersPage() {
 
   useEffect(() => {
     getMyOrdersTracking()
-      .then(setOrders)
+      .then((res: any) => setOrders(res.data || res))
       .catch((err) => setError(err.message || 'Cannot load orders'))
       .finally(() => setLoading(false));
   }, []);

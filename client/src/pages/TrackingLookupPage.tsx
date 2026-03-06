@@ -55,7 +55,7 @@ export function TrackingLookupPage() {
         JSON.stringify({ orderCode: trimCode, contact: trimPhone }),
       );
 
-      navigate(`/tracking/${data.orderId}?orderCode=${encodeURIComponent(trimCode)}&phone=${encodeURIComponent(trimPhone)}`);
+      navigate(`/tracking/${(data as any).orderId}?orderCode=${encodeURIComponent(trimCode)}&phone=${encodeURIComponent(trimPhone)}`);
     } catch (err: any) {
       const code = err?.response?.data?.errorCode;
       setError(

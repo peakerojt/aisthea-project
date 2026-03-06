@@ -1,4 +1,4 @@
-import { httpClient } from './httpClient';
+import { api } from '../utils/api';
 
 export interface CreateReviewPayload {
     orderItemId: number;
@@ -20,17 +20,18 @@ export interface ReviewResponse {
 
 // GET /api/reviews/product/:productId — public
 export const getReviewsByProduct = async (productId: number) => {
-    const res = await httpClient.get<{ reviews: ReviewResponse[]; total: number }>(
+    const res = await api.get<{ success?: boolean; data: { reviews: ReviewResponse[]; total: number } }>(
         `/api/reviews/product/${productId}`
     );
-    return res.data;
+    // Backward compatibility for components expecting direct object or unwrapped data
+    return res.data || res;
 };
 
 // POST /api/reviews — requires auth cookie
 export const createReview = async (payload: CreateReviewPayload): Promise<ReviewResponse> => {
-    const res = await httpClient.post<{ success: boolean; review: ReviewResponse }>(
+    const res = await api.post<{ success: boolean; data: ReviewResponse }>(
         '/api/reviews',
         payload
     );
-    return res.data.review;
+    return res.data || (res as any).review || res;
 };

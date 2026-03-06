@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { httpClient } from '../services/httpClient';
+import { api } from '../utils/api';
 
 export interface CouponData {
     couponId: number;
@@ -40,10 +40,10 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
         setLoading(true);
         setError('');
         try {
-            const res = await httpClient.get('/api/coupons/available');
-            setCoupons(res.data.coupons || []);
+            const res = await api.get<any>('/api/coupons/available');
+            setCoupons(res.coupons || []);
         } catch (err: any) {
-            setError(err.response?.data?.error || 'Không thể tải danh sách mã giảm giá.');
+            setError(err.message || 'Không thể tải danh sách mã giảm giá.');
         } finally {
             setLoading(false);
         }
@@ -125,8 +125,8 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                             <div
                                 key={coupon.couponId}
                                 className={`flex bg-surface-dark border rounded-sm overflow-hidden transition-all duration-300 relative ${isEligible
-                                        ? 'border-primary/40 hover:border-primary shadow-[0_0_15px_rgba(255,0,0,0.05)]'
-                                        : 'border-border-dark opacity-60 grayscale-[0.8]'
+                                    ? 'border-primary/40 hover:border-primary shadow-[0_0_15px_rgba(255,0,0,0.05)]'
+                                    : 'border-border-dark opacity-60 grayscale-[0.8]'
                                     }`}
                             >
                                 {/* Left Decorator (Shopee/Lazada style edge) */}
@@ -159,8 +159,8 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                                             onClick={() => onApplyCoupon(coupon.code)}
                                             disabled={!isEligible}
                                             className={`px-3 py-1.5 text-xs font-bold rounded-sm uppercase tracking-wider shrink-0 transition-colors ${isEligible
-                                                    ? 'bg-primary text-white hover:bg-red-700'
-                                                    : 'bg-white/10 text-gray-500 cursor-not-allowed'
+                                                ? 'bg-primary text-white hover:bg-red-700'
+                                                : 'bg-white/10 text-gray-500 cursor-not-allowed'
                                                 }`}
                                         >
                                             Dùng ngay

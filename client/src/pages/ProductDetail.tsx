@@ -61,8 +61,9 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     const fetchReviews = async () => {
       try {
         const data = await getReviewsByProduct(productId);
-        console.log("Review API response:", data);
-        setReviews(data.reviews ?? []);
+        const resData = data as any;
+        const fetchedReviews = resData.reviews ?? resData.data?.reviews ?? [];
+        setReviews(fetchedReviews);
       } catch (err) {
         console.error("Error fetching reviews:", err);
       }

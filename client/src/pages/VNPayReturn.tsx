@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { httpClient } from '../services/httpClient';
+import { api } from '../utils/api';
 
 export const VNPayReturn: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -12,8 +12,7 @@ export const VNPayReturn: React.FC = () => {
         const verifyPayment = async () => {
             try {
                 // Call backend to verify signature
-                const response = await httpClient.get(`/api/vnpay/vnpay_return?${searchParams.toString()}`);
-                const data = response.data;
+                const data = await api.get<any>(`/api/vnpay/vnpay_return?${searchParams.toString()}`);
 
                 // If checksum succeeds and vnp_ResponseCode == 00
                 if (data.message === 'Success' && data.code === '00') {

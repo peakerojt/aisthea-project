@@ -48,8 +48,8 @@ export function useOrderTrackingRealtime(orderId?: number, userId?: number, enab
           pollingRef.current = setInterval(async () => {
             try {
               const { getOrderTracking } = await import('../services/tracking.service');
-              const latest = await getOrderTracking(orderId);
-              if (mounted) setTracking(latest);
+              const latest = await getOrderTracking(orderId) as any;
+              if (mounted) setTracking(latest.data || latest);
             } catch {
               // Ignore 401 while polling (public mode)
             }
