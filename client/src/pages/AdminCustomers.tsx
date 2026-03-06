@@ -14,6 +14,7 @@ import {
     ROLE_LABELS,
 } from '../services/user-admin.service';
 import { UserActionMenu } from '../components/features/UserActionMenu';
+import { getImageUrl } from '../utils/cloudinary';
 
 // ─── Toast ─────────────────────────────────────────────────────────────────────
 
@@ -505,7 +506,7 @@ export const AdminCustomers: React.FC = () => {
                                                     >
                                                         {user.avatarUrl ? (
                                                             <img
-                                                                src={user.avatarUrl}
+                                                                src={getImageUrl(user.avatarUrl)}
                                                                 alt={user.fullName}
                                                                 className="w-full h-full object-cover"
                                                             />

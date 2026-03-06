@@ -3,6 +3,7 @@ import { StoreHeader } from '../components/StoreHeader';
 import { ViewState, CategoryType } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { userService, UserProfile, Address, RecentOrder } from '../services/user.service';
+import { getImageUrl } from '../utils/cloudinary';
 
 interface StoreProfileProps {
   setView: (v: ViewState) => void;
@@ -133,7 +134,7 @@ export const StoreProfile: React.FC<StoreProfileProps> = ({ setView, setCategory
       const response = await userService.uploadAvatar(avatarPreview);
       await loadProfileData();
       setAvatarPreview(null);
-      alert(response.message || 'Avatar uploaded successfully to cloud storage!');
+      alert((response as any).message || 'Avatar uploaded successfully to cloud storage!');
     } catch (err: any) {
       alert(err.message || 'Failed to upload avatar');
     } finally {
@@ -259,7 +260,7 @@ export const StoreProfile: React.FC<StoreProfileProps> = ({ setView, setCategory
               <div className="relative group">
                 {profile.avatarUrl || avatarPreview ? (
                   <img
-                    src={avatarPreview || profile.avatarUrl!}
+                    src={avatarPreview || getImageUrl(profile.avatarUrl)}
                     alt="Avatar"
                     className="w-32 h-32 rounded-full object-cover border-4 border-white/10"
                   />
