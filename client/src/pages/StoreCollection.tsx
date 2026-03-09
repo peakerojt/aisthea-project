@@ -141,12 +141,13 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
       try {
         setLoading(true);
         setError(null);
-        const data = await api.get<ApiProduct[]>('/api/products', {
+        const responseData = await api.get<any>('/api/products', {
           params: { search: searchTerm }
         });
 
         // Transform API response to match component interface
-        const transformedProducts: Product[] = data.map((product: ApiProduct) => ({
+        const items = responseData.data || responseData;
+        const transformedProducts: Product[] = items.map((product: ApiProduct) => ({
           id: product.productId.toString(),
           name: product.name,
           price: (typeof product.basePrice === 'string' ? parseFloat(product.basePrice) : product.basePrice) || 0,

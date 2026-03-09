@@ -1,6 +1,7 @@
 import React from 'react';
 import { OrderDetail } from '../../services/orderApi';
 import { OrderStatusBadge, getStatusTone } from './OrderStatusBadge';
+import { formatVietnamTime } from '../../utils/formatDate';
 
 import { useTranslation } from 'react-i18next';
 
@@ -8,12 +9,7 @@ const formatCurrency = (value: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 
 const formatDateTime = (iso: string | null) => {
-  if (!iso) return '';
-  try {
-    return new Date(iso).toLocaleString('vi-VN');
-  } catch {
-    return iso;
-  }
+  return formatVietnamTime(iso);
 };
 
 export const OrderHeader: React.FC<{ order: OrderDetail }> = ({ order }) => {

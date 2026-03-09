@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminReturnService, returnService } from '../services/return.service';
+import { formatVietnamTime } from '../utils/formatDate';
 import { api } from '../utils/api';
 import { StatusBadge } from '../components/return/StatusBadge';
 import { ReturnItemsTable } from '../components/return/ReturnItemsTable';
@@ -63,10 +64,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
 
   // Modal states
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [showRefundModal, setShowRefundModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [refundMethod, setRefundMethod] = useState<'ORIGINAL_PAYMENT' | 'WALLET_CREDIT'>('ORIGINAL_PAYMENT');
-  const [refundAmount, setRefundAmount] = useState('');
 
   const query = useQuery({
     queryKey: ['admin-return-detail', returnId],
@@ -110,18 +108,10 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
     onError: (e: any) => onMutateError(e, t('feedback.rejectError')),
   });
 
-  const receivedMut = useMutation({
-    mutationFn: () => api.patch(`/api/returns/${returnId}/mark-received`),
-    onSuccess: () => onMutateSuccess(t('feedback.receivedSuccess')),
-    onError: (e: any) => onMutateError(e, t('feedback.receivedError')),
-  });
-
   const refundMut = useMutation({
     mutationFn: () => adminReturnService.process(returnId, 'COMPLETE_REFUND'),
     onSuccess: () => {
       onMutateSuccess(t('feedback.refundSuccess'));
-      setShowRefundModal(false);
-      setRefundAmount('');
     },
     onError: (e: any) => onMutateError(e, t('feedback.refundError')),
   });
@@ -182,65 +172,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
         </Modal>
       )}
 
-      {/* Refund modal */}
-      {showRefundModal && (
-        <Modal title={t('detail.refundModalTitle')} onClose={() => setShowRefundModal(false)}>
-          <p className="text-sm text-white/60 mb-4">
-            {t('detail.maxRefundAmount')}{' '}
-            <strong className="text-green-400">
-              {Number(detail.totalRefundAmount).toLocaleString('vi-VN')}đ
-            </strong>
-          </p>
 
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs text-white/50 mb-1">{t('detail.refundMethod')}</label>
-              <select
-                value={refundMethod}
-                onChange={(e) => setRefundMethod(e.target.value as any)}
-                className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-              >
-                <option value="ORIGINAL_PAYMENT" className="text-black bg-white">
-                  {t('detail.refundOriginal')}
-                </option>
-                <option value="WALLET_CREDIT" className="text-black bg-white">
-                  {t('detail.refundWallet')}
-                </option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs text-white/50 mb-1">
-                {t('detail.refundAmountLabel')}
-              </label>
-              <input
-                type="number"
-                value={refundAmount}
-                onChange={(e) => setRefundAmount(e.target.value)}
-                placeholder={`${Number(detail.totalRefundAmount).toLocaleString('vi-VN')}`}
-                className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-              />
-            </div>
-          </div>
-
-          <div className="mt-4 flex gap-2">
-            <button
-              disabled={refundMut.isPending}
-              onClick={() => refundMut.mutate()}
-              id="confirm-refund-btn"
-              className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-medium text-white hover:bg-green-500 disabled:opacity-40 transition-colors"
-            >
-              {refundMut.isPending ? t('detail.processing') : t('detail.confirmRefund')}
-            </button>
-            <button
-              onClick={() => setShowRefundModal(false)}
-              className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition-colors"
-            >
-              {t('detail.cancel')}
-            </button>
-          </div>
-        </Modal>
-      )}
 
       {/* Toast */}
       {toast && (
@@ -254,7 +186,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
             {t('detail.headerTitle', { id: detail.returnRequestId })}
           </h1>
           <p className="mt-0.5 text-sm text-white/50">
-            {t('detail.headerSubtitle', { orderId: detail.orderId, date: new Date(detail.createdAt).toLocaleString('vi-VN') })}
+            {t('detail.headerSubtitle', { orderId: detail.orderId, date: formatVietnamTime(detail.createdAt) })}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -309,44 +241,34 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
       <div className="rounded-xl border border-white/10 bg-white/5 p-4">
         <h2 className="font-semibold text-white mb-4 text-sm">{t('detail.actionsTitle')}</h2>
         <div className="flex flex-wrap gap-3">
-          {/* Approve — only from REQUESTED */}
+          {/* Approve — only from PENDING_APPROVAL */}
           <button
             id="approve-btn"
-            disabled={status !== 'REQUESTED' || actionDisabled(approveMut)}
+            disabled={status !== 'PENDING_APPROVAL' || actionDisabled(approveMut)}
             onClick={() => approveMut.mutate()}
             className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40 transition-colors"
           >
-            {approveMut.isPending ? '⏳' : '✅'} {t('detail.actionApprove')}
+            {t('detail.actionApprove')}
           </button>
 
-          {/* Reject — only from REQUESTED */}
+          {/* Reject — only from PENDING_APPROVAL */}
           <button
             id="reject-btn"
-            disabled={status !== 'REQUESTED'}
+            disabled={status !== 'PENDING_APPROVAL'}
             onClick={() => setShowRejectModal(true)}
             className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-40 transition-colors"
           >
-            ❌ {t('detail.actionReject')}
+            {t('detail.actionReject')}
           </button>
 
-          {/* Mark Received — only from APPROVED */}
-          <button
-            id="mark-received-btn"
-            disabled={status !== 'APPROVED' || actionDisabled(receivedMut)}
-            onClick={() => receivedMut.mutate()}
-            className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-40 transition-colors"
-          >
-            {receivedMut.isPending ? '⏳' : '📬'} {t('detail.actionReceived')}
-          </button>
-
-          {/* Refund — only from RECEIVED */}
+          {/* Refund — only from APPROVED */}
           <button
             id="refund-btn"
-            disabled={status !== 'RECEIVED'}
-            onClick={() => setShowRefundModal(true)}
+            disabled={status !== 'APPROVED' || refundMut.isPending}
+            onClick={() => refundMut.mutate()}
             className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-500 disabled:opacity-40 transition-colors"
           >
-            💰 {t('detail.actionRefund')}
+            {t('detail.actionRefund')}
           </button>
         </div>
 
@@ -355,7 +277,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
             {t('detail.rejectedNotice')}
           </p>
         )}
-        {status === 'REFUNDED' && (
+        {status === 'COMPLETED' && (
           <p className="mt-3 text-xs text-white/40">
             {t('detail.refundedNotice')}
           </p>

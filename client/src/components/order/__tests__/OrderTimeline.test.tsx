@@ -6,9 +6,9 @@ describe('OrderTimeline', () => {
   it('render timeline', () => {
     render(
       <OrderTimeline
-        timeline={[
-          { status: 'PENDING', timestamp: new Date().toISOString(), note: 'created' },
-          { status: 'CONFIRMED', timestamp: new Date().toISOString(), note: 'ok' },
+        history={[
+          { status: 'PENDING', changedAt: new Date().toISOString(), note: 'created' },
+          { status: 'CONFIRMED', changedAt: new Date().toISOString(), note: 'ok' },
         ] as any}
       />,
     );
@@ -17,7 +17,7 @@ describe('OrderTimeline', () => {
   });
 
   it('empty timeline state', () => {
-    render(<OrderTimeline timeline={[]} />);
+    render(<OrderTimeline history={[]} />);
     expect(screen.getByText(/No timeline yet/i)).toBeInTheDocument();
   });
 });

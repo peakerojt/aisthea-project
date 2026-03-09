@@ -1,7 +1,7 @@
 
 import { Router } from 'express';
 import { downloadTemplateHandler, exportProductsHandler, importProductsHandler } from '../controllers/importExport.controller';
-import { uploadExcel } from '../middleware/upload.middleware';
+import { uploadExcel } from '../middlewares/upload.middleware';
 
 const router = Router();
 

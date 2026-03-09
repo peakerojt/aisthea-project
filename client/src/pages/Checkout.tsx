@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ViewState, CartItem, CategoryType } from '../types';
 import { StoreHeader } from '../components/StoreHeader';
 import { useAuth } from '../contexts/AuthContext';
-import { httpClient } from '../services/httpClient';
+import { api } from '../utils/api';
 import { CouponModal } from '../components/CouponModal';
 
 interface CheckoutProps {
@@ -199,16 +199,16 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
         setCouponSuccessMsg('');
 
         try {
-            const response = await httpClient.post('/api/coupons/validate', {
+            const response = await api.post<any>('/api/coupons/validate', {
                 code: codeToUse.trim(),
                 cartSubtotal: subtotal
             });
 
-            setAppliedCoupon(response.data);
-            setCouponSuccessMsg(response.data.message);
+            setAppliedCoupon(response);
+            setCouponSuccessMsg(response.message);
             setCouponInput('');
         } catch (err: any) {
-            setCouponError(err.response?.data?.error || 'Mã giảm giá không hợp lệ.');
+            setCouponError(err.message || err.data?.error || 'Mã giảm giá không hợp lệ.');
         } finally {
             setIsApplyingCoupon(false);
         }
@@ -281,7 +281,7 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
             }
 
             // CẬP NHẬT: Gửi thêm couponId & shippingMethod, shippingFee xuống Backend
-            const response = await httpClient.post('/api/orders', {
+            const data = await api.post<any>('/api/orders', {
                 paymentMethod: formData.paymentMethod,
                 customerName: formData.fullName,
                 customerPhone: formData.phone,
@@ -290,26 +290,27 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                 shippingWard: formData.ward,
                 shippingAddressDetail: formData.address,
                 note: formData.note,
-                items: cart,
+                items: cart.map(item => ({
+                    variantId: item.variantId,
+                    quantity: item.quantity
+                })),
                 couponCode: appliedCoupon ? appliedCoupon.coupon.code : undefined,
                 shippingMethod: selectedShippingMethod,
                 shippingFee: shippingFee,
             });
 
-            const data = response.data;
-
             sessionStorage.setItem('latestOrderData', JSON.stringify(formData));
 
             if (formData.paymentMethod === 'VNPAY') {
                 try {
-                    const vnpResponse = await httpClient.post('/api/vnpay/create_payment_url', {
+                    const vnpResponse = await api.post<any>('/api/vnpay/create_payment_url', {
                         amount: Math.round(total),
                         orderId: data.orderId,
                         orderDescription: 'Thanh toan don hang ' + data.orderId,
                         orderType: 'other'
                     });
-                    if (vnpResponse.data && vnpResponse.data.vnpUrl) {
-                        window.location.href = vnpResponse.data.vnpUrl;
+                    if (vnpResponse && vnpResponse.vnpUrl) {
+                        window.location.href = vnpResponse.vnpUrl;
                         return;
                     }
                 } catch (vnpErr) {
@@ -322,7 +323,7 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
 
         } catch (err: any) {
             console.error("Order creation error:", err);
-            const errorMessage = err.response?.data?.error || err.message || 'Đã xảy ra lỗi khi đặt hàng.';
+            const errorMessage = err.message || err.data?.error || 'Đã xảy ra lỗi khi đặt hàng.';
             setError(errorMessage);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
@@ -470,8 +471,8 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                                             <div
                                                 onClick={() => setSelectedShippingMethod('STANDARD')}
                                                 className={`relative p-4 rounded-sm border cursor-pointer transition-all ${selectedShippingMethod === 'STANDARD'
-                                                        ? 'border-primary bg-primary/10'
-                                                        : 'border-border-dark bg-surface-dark hover:border-gray-500'
+                                                    ? 'border-primary bg-primary/10'
+                                                    : 'border-border-dark bg-surface-dark hover:border-gray-500'
                                                     }`}
                                             >
                                                 {selectedShippingMethod === 'STANDARD' && (
@@ -501,8 +502,8 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                                             <div
                                                 onClick={() => setSelectedShippingMethod('EXPRESS')}
                                                 className={`relative p-4 rounded-sm border cursor-pointer transition-all ${selectedShippingMethod === 'EXPRESS'
-                                                        ? 'border-primary bg-primary/10'
-                                                        : 'border-border-dark bg-surface-dark hover:border-gray-500'
+                                                    ? 'border-primary bg-primary/10'
+                                                    : 'border-border-dark bg-surface-dark hover:border-gray-500'
                                                     }`}
                                             >
                                                 {selectedShippingMethod === 'EXPRESS' && (

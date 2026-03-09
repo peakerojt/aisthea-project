@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import querystring from 'qs';
 import moment from 'moment';
 import { prisma } from '../utils/prisma';
+import { logger } from '../lib/logger';
 
 function sortObject(obj: any) {
     let sorted: any = {};
@@ -175,23 +176,28 @@ export const vnpayIpn = async (req: Request, res: Response) => {
                         }
                     });
 
+                    logger.info('VNPay payment successful', { orderId: order.orderId, transactionCode: vnp_Params['vnp_TransactionNo'] });
+
                     res.status(200).json({ RspCode: '00', Message: 'Confirm Success' });
                 } else {
-                    // that bai
                     await prisma.order.update({
                         where: { orderId: order.orderId },
                         data: {
                             paymentStatus: 'FAILED',
                         }
                     });
+
+                    logger.warn('VNPay payment failed reported by IPN', { orderId: order.orderId, rspCode });
+
                     res.status(200).json({ RspCode: '00', Message: 'Confirm Success' });
                 }
             }
         } else {
+            logger.error('VNPay IPN Checksum failed', { orderId, secureHash, signed });
             res.status(200).json({ RspCode: '97', Message: 'Checksum failed' });
         }
     } catch (err: any) {
-        console.error('IPN Error:', err);
+        logger.error('VNPay IPN Error', { error: err.message, stack: err.stack });
         res.status(200).json({ RspCode: '99', Message: 'Unknow error' });
     }
 };

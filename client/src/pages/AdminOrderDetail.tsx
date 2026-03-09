@@ -14,6 +14,7 @@ import { getStatusMeta, normalizeStatus } from '../config/orderStatus.config';
 import { AdminRefundDialog } from '../components/order/AdminRefundDialog';
 import { OrderFinancials } from '../components/order/OrderFinancials';
 import { adminRefundService, RefundRecord } from '../services/refund.service';
+import { getImageUrl } from '../utils/cloudinary';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design System (ui-ux-pro-max: luxury dark ecommerce admin)
@@ -368,7 +369,7 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
                                         <div className="flex items-center gap-3">
                                             {/* Avatar */}
                                             {order.user.avatarUrl ? (
-                                                <img src={order.user.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-white/10 shrink-0" />
+                                                <img src={getImageUrl(order.user.avatarUrl)} alt="" className="w-10 h-10 rounded-full object-cover border border-white/10 shrink-0" />
                                             ) : (
                                                 <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-sm font-black text-primary shrink-0">
                                                     {order.user.fullName?.charAt(0) ?? '?'}

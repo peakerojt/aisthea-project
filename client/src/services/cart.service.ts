@@ -1,4 +1,4 @@
-import { httpClient } from './httpClient';
+import { api } from '../utils/api';
 
 // ─── Kiểu dữ liệu phản hồi từ API ───────────────────────────────────────────
 
@@ -78,31 +78,31 @@ export const clearGuestCart = (): void => {
 // ─── API calls (user đã đăng nhập) ──────────────────────────────────────────
 
 export const fetchCartApi = async (): Promise<CartResponse> => {
-    const response = await httpClient.get<ApiCartResponse>('/api/cart');
-    return response.data.data;
+    const response = await api.get<ApiCartResponse>('/api/cart');
+    return response.data;
 };
 
 export const addToCartApi = async (variantId: number, quantity: number): Promise<CartResponse> => {
-    const response = await httpClient.post<ApiCartResponse>('/api/cart/add', { variantId, quantity });
-    return response.data.data;
+    const response = await api.post<ApiCartResponse>('/api/cart/add', { variantId, quantity });
+    return response.data;
 };
 
 export const updateCartItemApi = async (cartItemId: number, quantity: number): Promise<CartResponse> => {
-    const response = await httpClient.put<ApiCartResponse>('/api/cart/update', { cartItemId, quantity });
-    return response.data.data;
+    const response = await api.put<ApiCartResponse>('/api/cart/update', { cartItemId, quantity });
+    return response.data;
 };
 
 export const removeCartItemApi = async (cartItemId: number): Promise<CartResponse> => {
-    const response = await httpClient.delete<ApiCartResponse>(`/api/cart/item/${cartItemId}`);
-    return response.data.data;
+    const response = await api.delete<ApiCartResponse>(`/api/cart/item/${cartItemId}`);
+    return response.data;
 };
 
 export const mergeCartApi = async (items: { variantId: number; quantity: number }[]): Promise<CartResponse> => {
-    const response = await httpClient.post<ApiCartResponse>('/api/cart/merge', { items });
-    return response.data.data;
+    const response = await api.post<ApiCartResponse>('/api/cart/merge', { items });
+    return response.data;
 };
 
 export const clearCartApi = async (): Promise<CartResponse> => {
-    const response = await httpClient.delete<ApiCartResponse>('/api/cart/clear');
-    return response.data.data;
+    const response = await api.delete<ApiCartResponse>('/api/cart/clear');
+    return response.data;
 };

@@ -79,6 +79,20 @@ export const returnService = {
     );
     return (res as any).data ?? null;
   },
+
+  /**
+   * Get paginated returns for current customer
+   */
+  async myReturns(page = 1, limit = 8): Promise<any> {
+    return api.get(`/api/returns/my?page=${page}&limit=${limit}`);
+  },
+
+  /**
+   * Get return detail
+   */
+  async detail(returnId: number): Promise<any> {
+    return api.get(`/api/returns/${returnId}`);
+  },
 };
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
@@ -108,8 +122,8 @@ export const adminReturnService = {
     returnId: number,
     action: 'APPROVE' | 'REJECT' | 'COMPLETE_REFUND',
     note?: string,
-  ): Promise<{ success: boolean; message: string }> {
-    return api.patch<{ success: boolean; message: string }>(
+  ): Promise<{ success: boolean; message: string; messageKey?: string; code?: string }> {
+    return api.patch<{ success: boolean; message: string; messageKey?: string; code?: string }>(
       `/api/returns/${returnId}/process`,
       { action, note },
     );

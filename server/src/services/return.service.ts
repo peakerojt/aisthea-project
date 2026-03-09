@@ -172,7 +172,7 @@ export async function processReturn(
                 adminNote: note ?? null,
             },
         });
-        return { success: true, code: 'RETURN_APPROVED', message: 'Return request approved.' };
+        return { success: true, code: 'RETURN_APPROVED', messageKey: 'feedback.approveSuccess', message: 'Return request approved.' };
     }
 
     if (action === 'REJECT') {
@@ -198,7 +198,7 @@ export async function processReturn(
             });
         });
 
-        return { success: true, code: 'RETURN_REJECTED', message: 'Return request rejected.' };
+        return { success: true, code: 'RETURN_REJECTED', messageKey: 'feedback.rejectSuccess', message: 'Return request rejected.' };
     }
 
     if (action === 'COMPLETE_REFUND') {
@@ -270,6 +270,7 @@ export async function processReturn(
         return {
             success: true,
             code: 'REFUND_COMPLETED',
+            messageKey: 'feedback.refundSuccess',
             message: 'Refund confirmed and stock restored.',
         };
     }

@@ -4,6 +4,7 @@ import { CategoryType, ViewState } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { orderService, Order } from '../services/order.service';
 import { Search } from 'lucide-react';
+import { formatVietnamTime } from '../utils/formatDate';
 
 interface StoreMyOrdersProps {
   setView: (v: ViewState) => void;
@@ -134,7 +135,7 @@ export const StoreMyOrders: React.FC<StoreMyOrdersProps> = ({ setView, setCatego
                     <div className="flex-1">
                       <div className="flex items-center gap-3 flex-wrap">
                         <span className="font-mono text-sm text-white">#{o.orderNumber}</span>
-                        <span className="text-[10px] uppercase tracking-widest text-white/40">{o.createdAt ? new Date(o.createdAt).toLocaleString() : ''}</span>
+                        <span className="text-[10px] uppercase tracking-widest text-white/40">{o.createdAt ? formatVietnamTime(o.createdAt) : ''}</span>
                         <span className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-white/70">{o.status || 'Unknown'}</span>
                         <span className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-white/50">{o.paymentStatus || 'N/A'}</span>
                       </div>

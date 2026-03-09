@@ -4,13 +4,8 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma';
 import { RegisterInput, LoginInput } from '../utils/schemas/auth.schema';
 import { createVerificationToken } from './verification.service';
+import { logger } from '../lib/logger';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const REFRESH_SECRET = process.env.REFRESH_SECRET;
-
-if (!JWT_SECRET || !REFRESH_SECRET) {
-    throw new Error('Missing JWT_SECRET or REFRESH_SECRET environment variables');
-}
 
 export const registerUser = async (input: RegisterInput) => {
     const { email, password, fullName } = input;
@@ -91,20 +86,24 @@ export const loginUser = async (input: LoginInput) => {
     });
 
     if (!user || !user.passwordHash) {
+        logger.warn('Login failed: Invalid credentials', { email });
         throw new Error('Invalid email or password');
     }
 
     if (user.status === 'Pending') {
+        logger.warn('Login failed: Unverified email', { email });
         throw new Error('Please verify your email before logging in');
     }
 
     if (user.status === 'Banned') {
+        logger.warn('Login failed: Account banned', { email, userId: user.userId });
         throw new Error('Your account has been banned');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
+        logger.warn('Login failed: Invalid credentials', { email });
         throw new Error('Invalid email or password');
     }
 
@@ -117,6 +116,13 @@ export const loginUser = async (input: LoginInput) => {
         ),
     ];
 
+    const JWT_SECRET = process.env.JWT_SECRET;
+    const REFRESH_SECRET = process.env.REFRESH_SECRET;
+
+    if (!JWT_SECRET || !REFRESH_SECRET) {
+        throw new Error('Missing JWT_SECRET or REFRESH_SECRET environment variables');
+    }
+
     const accessToken = jwt.sign(
         { userId: user.userId, email: user.email, roles },
         JWT_SECRET,
@@ -128,6 +134,8 @@ export const loginUser = async (input: LoginInput) => {
         REFRESH_SECRET,
         { expiresIn: '7d' }
     );
+
+    logger.info('User login successful', { userId: user.userId, email: user.email, roles });
 
     return {
         user: {

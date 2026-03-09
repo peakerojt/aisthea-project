@@ -118,3 +118,95 @@ export async function updateOrderStatus(orderId: number, status: string): Promis
   });
   return result as OrderWithRelations;
 }
+
+export interface OrderFilter {
+  userId?: number;
+  status?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+  sort?: string;
+}
+
+export async function findManyOrders(filters: OrderFilter) {
+  const {
+    userId,
+    status,
+    search,
+    startDate,
+    endDate,
+    page = 1,
+    limit = 15,
+    sort = 'createdAt_desc',
+  } = filters;
+
+  const skip = (page - 1) * limit;
+  const size = Math.min(limit, 100);
+
+  const where: any = {};
+
+  if (userId !== undefined) {
+    where.userId = userId;
+  }
+
+  if (status && status !== 'ALL') {
+    where.status = status;
+  }
+
+  if (search) {
+    where.OR = [
+      { customerName: { contains: search } },
+      { customerPhone: { contains: search } },
+      { orderNumber: { contains: search } },
+    ];
+  }
+
+  if (startDate || endDate) {
+    where.createdAt = {};
+    if (startDate) where.createdAt.gte = new Date(startDate);
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      where.createdAt.lte = end;
+    }
+  }
+
+  const orderBy: any = {};
+  const [sortField, sortDir] = sort.split('_');
+  orderBy[sortField || 'createdAt'] = sortDir === 'asc' ? 'asc' : 'desc';
+
+  const [orders, total] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      orderBy,
+      skip,
+      take: size,
+      include: {
+        user: {
+          select: {
+            userId: true,
+            email: true,
+            fullName: true,
+            avatarUrl: true,
+          },
+        },
+        _count: {
+          select: { items: true },
+        },
+      },
+    }),
+    prisma.order.count({ where }),
+  ]);
+
+  return {
+    data: orders,
+    meta: {
+      total,
+      page,
+      limit: size,
+      totalPages: Math.ceil(total / size),
+    },
+  };
+}

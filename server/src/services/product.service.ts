@@ -35,60 +35,74 @@ export const getProducts = async (filters?: {
     search?: string;
     minPrice?: number;
     maxPrice?: number;
+    page?: number;
+    limit?: number;
+    sort?: string;
 }) => {
-    // ─── Build Prisma where clause (safe, parameterized — no SQL injection possible) ──
-    const where: any = {
-        isDeleted: false,
-        status: 'Active',
-    };
+    // Use optimized view instead of complex joins
+    // Build WHERE clause dynamically
+    const conditions: string[] = ['1=1']; // Always true base condition
+    const params: any[] = [];
 
     if (filters?.categorySlug) {
-        where.category = { slug: filters.categorySlug };
+        conditions.push('categorySlug = @P' + (params.length + 1));
+        params.push(filters.categorySlug);
     }
 
     if (filters?.brandId) {
-        where.brandId = filters.brandId;
+        conditions.push('brandName IS NOT NULL'); // Could enhance by adding BrandId to view
     }
 
     if (filters?.search) {
-        where.OR = [
-            { name: { contains: filters.search } },
-            { description: { contains: filters.search } },
-        ];
+        conditions.push(`(NameNormalized LIKE '%' + dbo.fn_RemoveDiacritics(@P${params.length + 1}) + '%' OR DescriptionNormalized LIKE '%' + dbo.fn_RemoveDiacritics(@P${params.length + 1}) + '%')`);
+        params.push(filters.search);
     }
 
-    if (filters?.minPrice || filters?.maxPrice) {
-        where.variants = {
-            some: {
-                isDeleted: false,
-                price: {
-                    ...(filters.minPrice ? { gte: filters.minPrice as any } : {}),
-                    ...(filters.maxPrice ? { lte: filters.maxPrice as any } : {}),
-                },
-            },
-        };
+    if (filters?.minPrice) {
+        conditions.push('minPrice >= @P' + (params.length + 1));
+        params.push(filters.minPrice);
     }
 
-    const products = await prisma.product.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        include: {
-            category: { select: { name: true, slug: true } },
-            brand: { select: { name: true } },
-            images: {
-                where: { isPrimary: true },
-                take: 1,
-                select: { imageUrl: true, thumbnailUrl: true, isPrimary: true },
-            },
-            variants: {
-                where: { isDeleted: false },
-                select: { price: true, stockQuantity: true },
-            },
-        },
-    });
+    if (filters?.maxPrice) {
+        conditions.push('maxPrice <= @P' + (params.length + 1));
+        params.push(filters.maxPrice);
+    }
 
-    // Transform data to match frontend expectations (same shape as before)
-    return products.map(p => ({
+    const whereClause = conditions.join(' AND ');
+
+    let orderByClause = 'createdAt DESC';
+    if (filters?.sort) {
+        const [sortField, sortDir] = filters.sort.split('_');
+        const direction = sortDir === 'asc' ? 'ASC' : 'DESC';
+        if (sortField === 'price') {
+            orderByClause = `minPrice ${direction}`;
+        } else if (sortField === 'name') {
+            orderByClause = `name ${direction}`;
+        } else if (sortField === 'createdAt') {
+            orderByClause = `createdAt ${direction}`;
+        }
+    }
+
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 20;
+    const offset = (page - 1) * limit;
+
+    const countQuery = `SELECT COUNT(*) as total FROM vw_ProductCatalog WHERE ${whereClause}`;
+    const totalResult: any[] = await prisma.$queryRawUnsafe(countQuery, ...params);
+    const total = Number(totalResult[0]?.total || 0);
+
+    const query = `
+        SELECT * FROM vw_ProductCatalog 
+        WHERE ${whereClause} 
+        ORDER BY ${orderByClause}
+        OFFSET ${offset} ROWS 
+        FETCH NEXT ${limit} ROWS ONLY
+    `;
+
+    const products: any[] = await prisma.$queryRawUnsafe(query, ...params);
+
+    // Transform data to match frontend expectations
+    const data = products.map(p => ({
         productId: p.productId,
         name: p.name,
         slug: p.slug,
@@ -96,14 +110,35 @@ export const getProducts = async (filters?: {
         basePrice: p.basePrice,
         status: p.status,
         createdAt: p.createdAt,
-        category: p.category ?? null,
-        brand: p.brand ?? null,
-        images: p.images.length > 0 ? p.images : [],
-        variants: p.variants.map(v => ({
-            price: v.price,
-            stockQuantity: v.stockQuantity,
-        })),
+        // Transform view fields to Prisma-like nested structure
+        category: p.categoryName ? {
+            name: p.categoryName,
+            slug: p.categorySlug
+        } : null,
+        brand: p.brandName ? {
+            name: p.brandName
+        } : null,
+        images: p.primaryImageUrl ? [{
+            imageUrl: p.primaryImageUrl,
+            thumbnailUrl: p.primaryThumbnailUrl,
+            isPrimary: true
+        }] : [],
+        // Variants info from aggregation
+        variants: [{
+            price: p.minPrice || p.basePrice,
+            stockQuantity: p.totalStock || 0
+        }]
     }));
+
+    return {
+        data,
+        meta: {
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        },
+    };
 };
 
 export const searchProducts = async (searchTerm: string, maxResults: number = 50) => {

@@ -9,7 +9,6 @@ import {
   OrderItem,
   OrderTimelineItem,
 } from '../services/orderApi';
-import { ApiError } from '../services/httpClient';
 import { StoreHeader } from '../components/StoreHeader';
 import { useAuth } from '../contexts/AuthContext';
 import { OrderHeader } from '../components/order/OrderHeader';
@@ -186,7 +185,7 @@ export const OrderDetailPage: React.FC = () => {
   }, [order]);
 
   // ── Guest guard ──
-  const structuredError = error as ApiError | null;
+  const errorMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
 
   if (role === 'guest') {
     return (
@@ -204,8 +203,8 @@ export const OrderDetailPage: React.FC = () => {
     );
   }
 
-  const isNotFound = structuredError?.status === 404 || structuredError?.code === 'NOT_FOUND';
-  const isForbidden = structuredError?.status === 403 || structuredError?.code === 'FORBIDDEN';
+  const isNotFound = errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('không tồn tại');
+  const isForbidden = errorMessage.includes('403') || errorMessage.includes('FORBIDDEN') || errorMessage.includes('banned');
 
   return (
     <div className="bg-bg-dark min-h-screen text-white font-sans">
@@ -363,7 +362,7 @@ export const OrderDetailPage: React.FC = () => {
             ) : (
               <div className="bg-surface-dark border border-red-500/20 rounded-sm p-6">
                 <p className="text-sm text-red-200 mb-4">
-                  Không thể tải chi tiết đơn hàng. {structuredError?.message}
+                  Không thể tải chi tiết đơn hàng. {errorMessage}
                 </p>
                 <button
                   onClick={() => refetch()}

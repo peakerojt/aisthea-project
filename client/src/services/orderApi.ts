@@ -1,4 +1,4 @@
-import { httpClient } from './httpClient';
+import { api } from '../utils/api';
 
 export type OrderStatus =
   | 'pending'
@@ -73,9 +73,9 @@ export interface ApiResponse<T> {
 }
 
 export async function fetchOrderDetail(id: string): Promise<OrderDetail> {
-  // getMyOrderDetail returns the order object directly (not wrapped in {success, data})
-  const response = await httpClient.get<OrderDetail>(`/api/orders/my/${id}`);
-  const raw = response.data as any;
+  // getMyOrderDetail returns the order object directly
+  const response = await api.get<OrderDetail>(`/api/orders/my/${id}`);
+  const raw = response as any;
   // Map backend field names (thumbnailUrl, variantName) → OrderItem canonical shape
   return {
     ...raw,
@@ -102,11 +102,11 @@ export async function fetchOrderDetail(id: string): Promise<OrderDetail> {
 }
 
 export async function cancelOrder(id: string): Promise<OrderDetail> {
-  const response = await httpClient.patch<ApiResponse<OrderDetail>>(`/api/orders/${id}/cancel`);
-  return response.data.data;
+  const response = await api.patch<ApiResponse<OrderDetail>>(`/api/orders/${id}/cancel`);
+  return ((response as any).data || response) as OrderDetail;
 }
 
 export async function confirmReceipt(id: string): Promise<{ success: boolean; newStatus: string }> {
-  const response = await httpClient.patch<{ success: boolean; newStatus: string }>(`/api/orders/${id}/confirm-receipt`);
-  return response.data;
+  const response = await api.patch<{ success: boolean; newStatus: string }>(`/api/orders/${id}/confirm-receipt`);
+  return response;
 }

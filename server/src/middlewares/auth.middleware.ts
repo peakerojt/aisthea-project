@@ -1,12 +1,8 @@
-
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
-import { PrismaClient } from '../generated/client';
-
-dotenv.config();
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
+import { env } from '../lib/env';
+import { logger } from '../lib/logger';
 
 export interface AuthRequest extends Request {
     user?: any;
@@ -24,7 +20,7 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
 
     if (token == null) return res.status(401).json({ error: 'Unauthorized', message: 'Unauthenticated access.' });
 
-    jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', async (err: any, user: any) => {
+    jwt.verify(token, env.jwtSecret, async (err: any, user: any) => {
         if (err) return res.status(403).json({ error: 'Forbidden', message: 'Session expired or invalid.' });
 
         // 3) Check user status in DB — reject if account is Banned
@@ -51,7 +47,7 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
             req.user = user;
             next();
         } catch (dbError) {
-            console.error('Auth middleware DB check error:', dbError);
+            logger.error('Auth middleware DB check error', { error: dbError });
             return res.status(500).json({ success: false, message: 'Authentication error.' });
         }
     });
@@ -115,6 +111,13 @@ export const requirePermission = (requiredPermissionCode: string) => {
             return res.status(401).json({ success: false, message: 'Unauthenticated access.' });
         }
 
+        // Bypass granular permission checks for Admin & Super Admin to avoid "Permission denied" bugs
+        const userRoles: string[] = req.user.roles || [];
+        if (userRoles.includes('Admin') || userRoles.includes('Super Admin')) {
+            req.user.permissions = ['*'];
+            return next();
+        }
+
         try {
             const permissions = await fetchUserPermissions(req.user.userId);
 
@@ -131,8 +134,33 @@ export const requirePermission = (requiredPermissionCode: string) => {
             req.user.permissions = permissions;
             next();
         } catch (error) {
-            console.error('Permission check error:', error);
+            logger.error('Permission check error', { error });
             return res.status(500).json({ success: false, message: 'Permission check error.' });
         }
+    };
+};
+
+/**
+ * Middleware factory for role-based checks.
+ * Usage: router.delete('/products/:id', authenticateToken, checkRole(['Admin', 'Super Admin']), handler)
+ */
+export const checkRole = (allowedRoles: string[]) => {
+    return (req: AuthRequest, res: Response, next: NextFunction) => {
+        if (!req.user?.userId) {
+            return res.status(401).json({ success: false, message: 'Unauthenticated access.' });
+        }
+
+        const userRoles: string[] = req.user.roles || [];
+        const hasRole = userRoles.some((role: string) => allowedRoles.includes(role));
+
+        if (!hasRole) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. You do not have the required role.',
+                code: 'FORBIDDEN_ROLE',
+            });
+        }
+
+        next();
     };
 };

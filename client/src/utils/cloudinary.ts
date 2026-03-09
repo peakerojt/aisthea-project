@@ -117,3 +117,8 @@ export function getCloudinaryFullSize(cloudinaryUrl: string): string {
         sharpen: true,
     });
 }
+
+/**
+ * Generic image url alias
+ */
+export const getImageUrl = optimizeCloudinaryUrl;
