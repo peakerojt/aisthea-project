@@ -290,7 +290,10 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                 shippingWard: formData.ward,
                 shippingAddressDetail: formData.address,
                 note: formData.note,
-                items: cart,
+                items: cart.map(item => ({
+                    variantId: item.variantId,
+                    quantity: item.quantity
+                })),
                 couponCode: appliedCoupon ? appliedCoupon.coupon.code : undefined,
                 shippingMethod: selectedShippingMethod,
                 shippingFee: shippingFee,

@@ -3,6 +3,7 @@ import { ShoppingBag, Package, Truck, CheckCircle2, XCircle, RotateCcw } from 'l
 import { TrackingTimelineItem } from '../../types/tracking';
 import { StatusBadge } from './StatusBadge';
 import { getStatusMeta, normalizeStatus } from '../../config/orderStatus.config';
+import { formatVietnamTime } from '../../utils/formatDate';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -39,14 +40,7 @@ const StatusDotIcon: React.FC<{ iconName: string; className?: string }> = ({ ico
 // ─────────────────────────────────────────────────────────────────────────────
 
 const formatDateTime = (iso: string): string => {
-  try {
-    return new Intl.DateTimeFormat('vi-VN', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
+  return formatVietnamTime(iso) || iso;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,7 +107,7 @@ export function TrackingTimeline({ timeline }: { timeline: TrackingTimelineItem[
         <li key={`${item.status}-${index}`} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <StatusBadge status={item.status} />
-            <time className="text-xs text-slate-500">{new Date(item.timestamp).toLocaleString()}</time>
+            <time className="text-xs text-slate-500">{formatVietnamTime(item.timestamp)}</time>
           </div>
           {item.note ? <p className="mt-2 text-sm text-slate-600">{item.note}</p> : null}
         </li>

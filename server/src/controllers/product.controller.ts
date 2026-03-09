@@ -10,6 +10,7 @@ import {
     updateProduct as updateProductService,
     smartDeleteProduct as smartDeleteProductService,
 } from '../services/product.service';
+import { logger } from '../lib/logger';
 
 export const getAllProducts = async (req: Request, res: Response) => {
     try {
@@ -29,8 +30,8 @@ export const getAllProducts = async (req: Request, res: Response) => {
         const products = await getProducts(filters); // Resolves to { data, meta }
         res.json(products);
     } catch (error: any) {
-        console.error('Get products error:', error);
-        res.status(500).json({ error: 'Internal Server Error', details: error.message });
+        logger.error('[getAllProducts] Failed', { message: error?.message, url: req.originalUrl });
+        res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 };
 
@@ -49,8 +50,8 @@ export const getProduct = async (req: Request, res: Response) => {
 
         res.json(product);
     } catch (error: any) {
-        console.error('Get product by ID error:', error);
-        res.status(500).json({ error: 'Internal Server Error', details: error.message });
+        logger.error('[getProduct] Failed', { message: error?.message, productId: req.params.id });
+        res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 };
 
@@ -96,13 +97,14 @@ export const createProduct = async (req: Request, res: Response) => {
             data: result,
         });
     } catch (error: any) {
-        console.error('Create product error:', error);
+        logger.error('[createProduct] Failed', { message: error?.message, errorCode: error?.code });
         // Slug uniqueness violation
         if (error.message?.includes('Unique constraint') || error.code === 'P2002') {
             return res.status(409).json({ error: 'SLUG_ALREADY_EXISTS', message: 'Product slug already exists. Please use a different name.' });
         }
         res.status(500).json({
-            error: 'INTERNAL_SERVER_ERROR',
+            success: false,
+            errorCode: 'INTERNAL_SERVER_ERROR',
             message: error.message || 'Server error. Please try again.',
         });
     }
@@ -116,8 +118,8 @@ export const getAllCategories = async (_req: Request, res: Response) => {
         const categories = await getCategories();
         res.json(categories);
     } catch (error: any) {
-        console.error('Get categories error:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        logger.error('[getAllCategories] Failed', { message: error?.message });
+        res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 };
 
@@ -129,8 +131,8 @@ export const getAllBrands = async (_req: Request, res: Response) => {
         const brands = await getBrands();
         res.json(brands);
     } catch (error: any) {
-        console.error('Get brands error:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        logger.error('[getAllBrands] Failed', { message: error?.message });
+        res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 };
 
@@ -148,7 +150,7 @@ export const getProductEdit = async (req: Request, res: Response) => {
 
         res.json(product);
     } catch (error: any) {
-        console.error('Get product for edit error:', error);
+        logger.error('[getProductEdit] Failed', { message: error?.message, productId: req.params.id });
         res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: error.message || 'Server error.' });
     }
 };
@@ -187,7 +189,7 @@ export const updateProduct = async (req: Request, res: Response) => {
 
         res.json({ success: true, code: 'PRODUCT_UPDATED', message: 'Product updated successfully.', data: result });
     } catch (error: any) {
-        console.error('Update product error:', error);
+        logger.error('[updateProduct] Failed', { message: error?.message, errorCode: error?.code, productId: req.params.id });
         if (error.code === 'P2002') {
             return res.status(409).json({ error: 'SLUG_OR_SKU_EXISTS', message: 'Slug or SKU already exists. Please use a different name.' });
         }
@@ -212,7 +214,7 @@ export const deleteProduct = async (req: Request, res: Response) => {
             message: result.message,
         });
     } catch (error: any) {
-        console.error('Smart delete product error:', error);
+        logger.error('[deleteProduct] Failed', { message: error?.message, productId: req.params.id });
         if (error.message?.includes('Không tìm thấy') || error.message?.includes('not found')) {
             return res.status(404).json({ error: 'PRODUCT_NOT_FOUND', message: 'Product not found.' });
         }

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminReturnService, returnService } from '../services/return.service';
+import { formatVietnamTime } from '../utils/formatDate';
 import { api } from '../utils/api';
 import { StatusBadge } from '../components/return/StatusBadge';
 import { ReturnItemsTable } from '../components/return/ReturnItemsTable';
@@ -185,7 +186,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
             {t('detail.headerTitle', { id: detail.returnRequestId })}
           </h1>
           <p className="mt-0.5 text-sm text-white/50">
-            {t('detail.headerSubtitle', { orderId: detail.orderId, date: new Date(detail.createdAt).toLocaleString('vi-VN') })}
+            {t('detail.headerSubtitle', { orderId: detail.orderId, date: formatVietnamTime(detail.createdAt) })}
           </p>
         </div>
         <div className="flex items-center gap-3">

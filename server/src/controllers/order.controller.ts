@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { findManyOrders } from '../modules/order/order.repository';
-import { updateOrderStatusAdmin } from '../modules/order/order.service';
+import { updateOrderStatusAdmin, createOrder as createOrderService } from '../modules/order/order.service';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { emitNewOrder, emitOrderStatusUpdated } from '../socket';
 import {
@@ -11,6 +11,7 @@ import {
   getValidNextStatuses,
 } from '../config/orderStatus.config';
 import { ERROR_CODES, SUCCESS_MESSAGES } from '../utils/constants/responseKeys';
+import { logger } from '../lib/logger';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -80,9 +81,8 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
       meta,
     });
   } catch (error: any) {
-    console.error('[getAllOrders] Error:', error?.message ?? error);
-    if (error?.code) console.error('[getAllOrders] Prisma code:', error.code, error.meta);
-    res.status(500).json({ error: 'Internal server error' });
+    logger.error('[getAllOrders] Failed', { message: error?.message, prismaCode: error?.code, meta: error?.meta, url: req.originalUrl });
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
   }
 };
 
@@ -136,7 +136,7 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
     });
 
     if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
+      return res.status(404).json({ success: false, errorCode: 'ORDER_NOT_FOUND', message: 'Order not found' });
     }
 
     const formatted = {
@@ -216,8 +216,8 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
 
     res.json(formatted);
   } catch (error: any) {
-    console.error('Error fetching admin order detail:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    logger.error('[getAdminOrderDetail] Failed', { message: error?.message, orderId: req.params.id, url: req.originalUrl });
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
   }
 };
 
@@ -267,18 +267,19 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       ...result,
     });
   } catch (error: any) {
-    console.error('[updateOrderStatus] Error:', error);
+    logger.error('[updateOrderStatus] Failed', { message: error?.message, orderId: req.params.id, url: req.originalUrl });
 
     // AppError mapping
     if (error.status) {
       res.status(error.status).json({
+        success: false,
         errorCode: error.code,
         message: error.message,
       });
       return;
     }
 
-    res.status(500).json({ error: 'Internal server error', details: error.message });
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
   }
 };
 
@@ -323,8 +324,8 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
       meta,
     });
   } catch (error: any) {
-    console.error('Error fetching my orders:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    logger.error('[getMyOrders] Failed', { message: error?.message, userId: req.user?.userId, url: req.originalUrl });
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
   }
 };
 
@@ -433,8 +434,8 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
 
     res.json(formattedOrder);
   } catch (error: any) {
-    console.error('Error fetching order detail:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    logger.error('[getMyOrderDetail] Failed', { message: error?.message, orderId: req.params.orderId, userId: req.user?.userId });
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
   }
 };
 
@@ -473,132 +474,80 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ errorCode: ERROR_CODES.CART_EMPTY });
     }
 
-    // --- SYNCHRONIZE CART ---
-    let cart = await prisma.cart.findFirst({ where: { userId } });
-    if (!cart) {
-      cart = await prisma.cart.create({ data: { userId } });
+    // Call service layer to create order
+    const currentUser = {
+      userId: req.user.userId,
+      roles: (req.user as any).roles || [],
+    };
+
+    const createOrderDto = {
+      items,
+      paymentMethod,
+      customerName: customerName || 'Khách hàng',
+      customerPhone: customerPhone || '0000000000',
+      shippingCity: shippingCity || 'Hà Nội',
+      shippingDistrict: shippingDistrict || 'Không xác định',
+      shippingWard: shippingWard || null,
+      shippingAddressDetail: shippingAddressDetail || 'Không xác định',
+      note: note || null,
+    };
+
+    const orderDetail = await createOrderService(currentUser, createOrderDto);
+    const orderId = Number(orderDetail.id);
+
+    // Clear user's cart items after successful order
+    const cart = await prisma.cart.findFirst({ where: { userId } });
+    if (cart) {
+      await prisma.cartItem.deleteMany({ where: { cartId: cart.cartId } });
     }
-
-    await prisma.cartItem.deleteMany({ where: { cartId: cart.cartId } });
-
-    for (const item of items) {
-      const productId = parseInt(item.id, 10);
-      if (isNaN(productId)) continue;
-
-      const variants = await prisma.productVariant.findMany({
-        where: { productId },
-        include: {
-          variantAttributes: {
-            include: { value: { include: { attribute: true } } },
-          },
-        },
-      });
-
-      if (variants.length === 0) continue;
-
-      let matchedVariant = null;
-
-      if (item.size || item.color) {
-        matchedVariant = variants.find((v) => {
-          let sizeMatch = !item.size;
-          let colorMatch = !item.color;
-          v.variantAttributes.forEach((va) => {
-            const attrName = va.value.attribute.name.toLowerCase();
-            const attrVal = va.value.value.toLowerCase();
-            if (attrName === 'size' && item.size && attrVal === item.size.toLowerCase()) sizeMatch = true;
-            if (attrName === 'color' && item.color && attrVal === item.color.toLowerCase()) colorMatch = true;
-          });
-          return sizeMatch && colorMatch;
-        });
-      }
-
-      if (!matchedVariant) {
-        matchedVariant = variants.find((v) => v.isDefault) || variants[0];
-      }
-
-      await prisma.cartItem.create({
-        data: {
-          cartId: cart.cartId,
-          variantId: matchedVariant.variantId,
-          quantity: item.quantity > 0 ? item.quantity : 1,
-        },
-      });
-    }
-    // --- END CART SYNCHRONIZATION ---
-
-    // Run the stored procedure to create the order
-    const result: any[] = await prisma.$queryRaw`
-      EXEC sp_Checkout 
-        @UserId = ${userId}, 
-        @PaymentMethod = ${paymentMethod},
-        @CustomerName = ${customerName || 'Khách hàng'},
-        @CustomerPhone = ${customerPhone || '0000000000'},
-        @ShippingCity = ${shippingCity || 'Hà Nội'},
-        @ShippingDistrict = ${shippingDistrict || 'Không xác định'},
-        @ShippingWard = ${shippingWard || null},
-        @ShippingAddressDetail = ${shippingAddressDetail || 'Không xác định'}
-    `;
-
-    if (!result || result.length === 0) {
-      throw new Error('Checkout execution returned no result.');
-    }
-
-    const row = result[0];
-    const orderId = row.OrderId || row.orderId;
 
     // ── Coupon application (post-SP, in a separate atomic transaction) ────────
     let discountAmount = 0;
 
     if (couponCode && typeof couponCode === 'string' && couponCode.trim()) {
       try {
-        // Calculate cart subtotal from items (server-side — never trust client)
-        const cartSubtotal = items.reduce((sum: number, item: any) => {
-          return sum + (Number(item.price) || 0) * (Number(item.quantity) || 1);
-        }, 0);
-
-        // Re-validate coupon inside a transaction for atomicity
-        await prisma.$transaction(async (tx) => {
-          const { validateCoupon } = await import('../services/coupon.service');
-          const { coupon, discountAmount: discount } = await validateCoupon(
-            couponCode.trim(),
-            userId,
-            cartSubtotal,
-            tx as any,
-          );
-
-          discountAmount = discount;
-
-          // 1. Deduct discount from order total
-          const currentOrder = await (tx.order as any).findUnique({
-            where: { orderId },
-            select: { totalAmount: true },
-          });
-          const newTotal = Math.max(0, Number(currentOrder.totalAmount) - discount);
-
-          await (tx.order as any).update({
-            where: { orderId },
-            data: {
-              totalAmount: newTotal,
-              discountAmount: discount,
-              couponId: coupon.couponId,
-            },
-          });
-
-          // 2. Atomically increment coupon usedCount
-          await (tx.coupon as any).update({
-            where: { couponId: coupon.couponId },
-            data: { usedCount: { increment: 1 } },
-          });
+        const currentOrder = await prisma.order.findUnique({
+          where: { orderId },
+          select: { totalAmount: true },
         });
+
+        if (currentOrder) {
+          const cartSubtotal = Number(currentOrder.totalAmount);
+
+          await prisma.$transaction(async (tx) => {
+            const { validateCoupon } = await import('../services/coupon.service');
+            const { coupon, discountAmount: discount } = await validateCoupon(
+              couponCode.trim(),
+              userId,
+              cartSubtotal,
+              tx as any,
+            );
+
+            discountAmount = discount;
+
+            const newTotal = Math.max(0, cartSubtotal - discount);
+
+            await (tx.order as any).update({
+              where: { orderId },
+              data: {
+                totalAmount: newTotal,
+                discountAmount: discount,
+                couponId: coupon.couponId,
+              },
+            });
+
+            await (tx.coupon as any).update({
+              where: { couponId: coupon.couponId },
+              data: { usedCount: { increment: 1 } },
+            });
+          });
+        }
       } catch (couponErr: any) {
-        // Coupon validation failed AFTER order was created — order is still valid
-        // but discount is not applied. Log the error and continue without coupon.
         console.warn('[createOrder] Coupon validation failed (order still created):', couponErr.message);
       }
     }
 
     // ── Emit real-time event to admin dashboard ───────────────────────────
-    // Fetch the final order total (may have been adjusted by coupon)
     try {
       const finalOrder = await prisma.order.findUnique({
         where: { orderId },
@@ -619,8 +568,11 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       message: 'Order created successfully',
     });
   } catch (error: any) {
-    console.error('Checkout Error:', error);
-    return res.status(500).json({ error: 'Checkout failed', details: error.message });
+    logger.error('[createOrder] Checkout failed', { message: error?.message, errorCode: error?.code, userId: req.user?.userId });
+    if (error.status) {
+      return res.status(error.status).json({ success: false, errorCode: error.code, message: error.message });
+    }
+    return res.status(500).json({ success: false, errorCode: 'CHECKOUT_FAILED', message: 'Checkout failed. Please try again.' });
   }
 };
 
@@ -690,7 +642,7 @@ export const confirmReceipt = async (req: AuthRequest, res: Response) => {
       newStatus: ORDER_STATUS.DELIVERED,
     });
   } catch (error: any) {
-    console.error('[confirmReceipt] Error:', error);
-    return res.status(500).json({ error: 'Internal server error', details: error.message });
+    logger.error('[confirmReceipt] Failed', { message: error?.message, orderId: req.params.id, userId: req.user?.userId });
+    return res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
   }
 };

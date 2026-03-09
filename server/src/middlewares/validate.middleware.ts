@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodSchema, ZodError } from 'zod';
+import { logger } from '../lib/logger';
 
 /**
  * Generic Zod request-validation middleware.
@@ -21,14 +22,11 @@ export const validate =
                     message: issue.message,
                 }));
 
-                // Import logger properly at the top of the file - we'll do this in a sec or just inline require if simpler.
-                // Assuming `import { logger } from '../lib/logger'` will be added.
-                const { logger } = require('../lib/logger');
                 logger.warn(`[Validation Failed] ${req.method} ${req.originalUrl}`, { payload: req[source], issues });
 
-                return res.status(400).json({
+                return res.status(422).json({
                     success: false,
-                    statusCode: 400,
+                    statusCode: 422,
                     errorCode: 'VALIDATION_ERROR',
                     message: 'Request validation failed.',
                     details: issues,
