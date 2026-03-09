@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
+import { logger } from '../lib/logger';
 
 // ─── Size ordering reference ──────────────────────────────────────────────────
 // Variants within each product group are sorted: color (A→Z) → size (S→M→L→XL)
@@ -25,7 +26,11 @@ function isSize(value: string): boolean {
 
 export const getInventory = async (req: Request, res: Response) => {
     try {
-        const { lowStock, search } = req.query as Record<string, string | undefined>;
+        const { lowStock, search, page: pageQ, pageSize: pageSizeQ } = req.query as Record<string, string | undefined>;
+
+        const page = Math.max(1, parseInt(pageQ ?? '1', 10) || 1);
+        const pageSize = Math.min(200, Math.max(1, parseInt(pageSizeQ ?? '50', 10) || 50));
+        const skip = (page - 1) * pageSize;
 
         const where: Record<string, any> = {
             isDeleted: false,
@@ -44,32 +49,38 @@ export const getInventory = async (req: Request, res: Response) => {
             ];
         }
 
-        const variants = await (prisma.productVariant.findMany as any)({
-            where,
-            include: {
-                product: {
-                    select: {
-                        productId: true,
-                        name: true,
-                        images: {
-                            where: { isPrimary: true },
-                            select: { thumbnailUrl: true, imageUrl: true },
-                            take: 1,
+        const [variants, total] = await Promise.all([
+            (prisma.productVariant.findMany as any)({
+                where,
+                include: {
+                    product: {
+                        select: {
+                            productId: true,
+                            name: true,
+                            images: {
+                                where: { isPrimary: true },
+                                select: { thumbnailUrl: true, imageUrl: true },
+                                take: 1,
+                            },
                         },
                     },
-                },
-                variantAttributes: {
-                    include: {
-                        value: {
-                            include: {
-                                attribute: { select: { name: true } },
+                    variantAttributes: {
+                        include: {
+                            value: {
+                                include: {
+                                    attribute: { select: { name: true } },
+                                },
                             },
                         },
                     },
                 },
-            },
-            orderBy: [{ product: { name: 'asc' } }],
-        });
+                orderBy: [{ product: { name: 'asc' } }],
+                skip,
+                take: pageSize,
+            }),
+            (prisma.productVariant.count as any)({ where }),
+        ]);
+
 
         // ── Shape + build consistent label ─────────────────────────────────
         const shaped = variants.map((v: any) => {
@@ -123,10 +134,19 @@ export const getInventory = async (req: Request, res: Response) => {
         // Strip internal sort keys before sending
         const result = shaped.map(({ _color, _sizeIdx, ...rest }: any) => rest);
 
-        res.json(result);
-    } catch (error: any) {
-        console.error('Get inventory error:', error);
-        res.status(500).json({ error: 'Lỗi máy chủ', details: error.message });
+        res.json({
+            data: result,
+            meta: {
+                total,
+                page,
+                pageSize,
+                totalPages: Math.ceil(total / pageSize),
+            },
+        });
+    } catch (error: unknown) {
+        logger.error('[inventoryController] getInventory failed', { error });
+        const e = error as { message?: string };
+        res.status(500).json({ error: 'Lỗi máy chủ', details: e.message });
     }
 };
 
@@ -202,12 +222,13 @@ export const bulkUpdateStock = async (req: Request, res: Response) => {
             message: `Đã cập nhật ${changes.length} biến thể thành công.`,
             updatedCount: changes.length,
         });
-    } catch (error: any) {
-        console.error('Bulk update stock error:', error);
-        if (error.code === 'P2025') {
+    } catch (error: unknown) {
+        logger.error('[inventoryController] bulkUpdateStock failed', { error });
+        const e = error as { code?: string; message?: string };
+        if (e.code === 'P2025') {
             return res.status(404).json({ error: 'Không tìm thấy một hoặc nhiều biến thể.' });
         }
-        res.status(500).json({ error: 'Lỗi máy chủ', details: error.message });
+        res.status(500).json({ error: 'Lỗi máy chủ', details: e.message });
     }
 };
 
@@ -290,9 +311,10 @@ export const getLowStockAlerts = async (req: Request, res: Response) => {
         });
 
         res.json({ totalLowStock, items });
-    } catch (error: any) {
-        console.error('Get low stock alerts error:', error);
-        res.status(500).json({ error: 'Lỗi máy chủ', details: error.message });
+    } catch (error: unknown) {
+        logger.error('[inventoryController] getLowStockAlerts failed', { error });
+        const e = error as { message?: string };
+        res.status(500).json({ error: 'Lỗi máy chủ', details: e.message });
     }
 };
 
@@ -346,9 +368,10 @@ export const getInventoryLogs = async (req: Request, res: Response) => {
             totalPages: Math.ceil(total / limit),
             items,
         });
-    } catch (error: any) {
-        console.error('Get inventory logs error:', error);
-        res.status(500).json({ error: 'Lỗi máy chủ', details: error.message });
+    } catch (error: unknown) {
+        logger.error('[inventoryController] getInventoryLogs failed', { error });
+        const e = error as { message?: string };
+        res.status(500).json({ error: 'Lỗi máy chủ', details: e.message });
     }
 };
 

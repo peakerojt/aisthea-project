@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { cloudinaryService } from '../services/cloudinary.service';
 import { upload } from '../middlewares/upload.middleware';
+import { logger } from '../lib/logger';
 
 // ─── Vietnamese Slug Utility ────────────────────────────────────────────────
 
@@ -136,9 +137,10 @@ export const getCategoriesTree = async (_req: Request, res: Response) => {
 
         const tree = buildTree(flat);
         res.json(tree);
-    } catch (error: any) {
-        console.error('Get categories tree error:', error);
-        res.status(500).json({ error: 'Server error', details: error.message });
+    } catch (error: unknown) {
+        logger.error('[categoryController] getCategoriesTree failed', { error });
+        const e = error as { message?: string };
+        res.status(500).json({ error: 'Server error', details: e.message });
     }
 };
 
@@ -156,9 +158,10 @@ export const getCategoriesFlat = async (_req: Request, res: Response) => {
             orderBy: [{ parentId: 'asc' }, { name: 'asc' }],
         });
         res.json(cats);
-    } catch (error: any) {
-        console.error('Get categories flat error:', error);
-        res.status(500).json({ error: 'Server error', details: error.message });
+    } catch (error: unknown) {
+        logger.error('[categoryController] getCategoriesFlat failed', { error });
+        const e = error as { message?: string };
+        res.status(500).json({ error: 'Server error', details: e.message });
     }
 };
 
@@ -189,12 +192,13 @@ export const createCategory = async (req: Request, res: Response) => {
             message: 'Category created successfully.',
             data: category,
         });
-    } catch (error: any) {
-        console.error('Create category error:', error);
-        if (error.code === 'P2002' || error.message?.includes('Unique constraint')) {
+    } catch (error: unknown) {
+        logger.error('[categoryController] createCategory failed', { error });
+        const e = error as { code?: string; message?: string };
+        if (e.code === 'P2002' || e.message?.includes('Unique constraint')) {
             return res.status(409).json({ error: 'Category slug already exists. Please use a different name.', code: 'DUPLICATE_SLUG' });
         }
-        res.status(500).json({ error: error.message || 'Server error.' });
+        res.status(500).json({ error: e.message || 'Server error.' });
     }
 };
 
@@ -240,15 +244,16 @@ export const updateCategory = async (req: Request, res: Response) => {
             message: 'Category updated successfully.',
             data: category,
         });
-    } catch (error: any) {
-        console.error('Update category error:', error);
-        if (error.code === 'P2025') {
+    } catch (error: unknown) {
+        logger.error('[categoryController] updateCategory failed', { error });
+        const e = error as { code?: string; message?: string };
+        if (e.code === 'P2025') {
             return res.status(404).json({ error: 'Category not found.', code: 'CATEGORY_NOT_FOUND' });
         }
-        if (error.code === 'P2002') {
+        if (e.code === 'P2002') {
             return res.status(409).json({ error: 'Category slug already exists. Please use a different name.', code: 'DUPLICATE_SLUG' });
         }
-        res.status(500).json({ error: error.message || 'Server error.' });
+        res.status(500).json({ error: e.message || 'Server error.' });
     }
 };
 
@@ -301,9 +306,10 @@ export const deleteCategory = async (req: Request, res: Response) => {
         await prisma.category.delete({ where: { categoryId: id } });
 
         res.json({ success: true, message: 'Category deleted successfully.' });
-    } catch (error: any) {
-        console.error('Delete category error:', error);
-        res.status(500).json({ error: error.message || 'Server error.' });
+    } catch (error: unknown) {
+        logger.error('[categoryController] deleteCategory failed', { error });
+        const e = error as { message?: string };
+        res.status(500).json({ error: e.message || 'Server error.' });
     }
 };
 
@@ -328,9 +334,10 @@ export const uploadCategoryImage = async (req: Request, res: Response) => {
             imageUrl: result.secureUrl,
             optimizedUrl: result.optimizedUrl,
         });
-    } catch (error: any) {
-        console.error('Upload category image error:', error);
-        res.status(500).json({ success: false, error: error.message || 'Image upload error.' });
+    } catch (error: unknown) {
+        logger.error('[categoryController] uploadCategoryImage failed', { error });
+        const e = error as { message?: string };
+        res.status(500).json({ success: false, error: e.message || 'Image upload error.' });
     }
 };
 

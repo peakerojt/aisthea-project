@@ -412,7 +412,7 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-16 bg-white/5 rounded overflow-hidden flex-shrink-0 border border-white/5">
-                            <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                            <img src={p.image} alt={p.name} loading="lazy" className="w-full h-full object-cover" />
                           </div>
                           <div>
                             <p className={`font-medium transition-colors ${isSelected ? 'text-primary' : 'text-white group-hover:text-primary'}`}>{p.name}</p>

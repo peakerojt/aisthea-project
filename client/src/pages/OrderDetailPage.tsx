@@ -446,7 +446,7 @@ export const OrderDetailPage: React.FC = () => {
                   {canReturn && (
                     <button
                       onClick={() => navigate(`/orders/${id}/return`)}
-                      className="group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all bg-violet-600/10 hover:bg-violet-600/20 text-violet-400 hover:text-violet-300 border-violet-500/30 hover:border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.1)] hover:shadow-[0_0_20px_rgba(139,92,246,0.2)]"
+                      className="group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all bg-cyan-600/10 hover:bg-cyan-600/20 text-cyan-400 hover:text-cyan-300 border-cyan-500/30 hover:border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_20px_rgba(6,182,212,0.2)]"
                     >
                       <RotateCcw size={15} className="group-hover:-rotate-45 transition-transform" />
                       Yêu cầu trả hàng

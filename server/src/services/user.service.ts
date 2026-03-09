@@ -1,5 +1,6 @@
 import { PrismaClient } from '../generated/client';
 import { cloudinaryService } from './cloudinary.service';
+import { logger } from '../lib/logger';
 
 const prisma = new PrismaClient();
 
@@ -114,7 +115,6 @@ export class UserService {
             select: { avatarUrl: true },
         });
 
-        // Delete old avatar from Cloudinary if exists
         if (currentUser?.avatarUrl && currentUser.avatarUrl.includes('cloudinary.com')) {
             try {
                 const publicId = cloudinaryService.extractPublicId(currentUser.avatarUrl);
@@ -122,7 +122,7 @@ export class UserService {
                     await cloudinaryService.deleteImage(publicId);
                 }
             } catch (error) {
-                console.warn('Failed to delete old avatar, continuing with upload:', error);
+                logger.warn('[userService] Failed to delete old avatar, continuing with upload', { error });
             }
         }
 
@@ -163,7 +163,7 @@ export class UserService {
                     await cloudinaryService.deleteImage(publicId);
                 }
             } catch (error) {
-                console.error('Failed to delete avatar from Cloudinary:', error);
+                logger.error('[userService] Failed to delete avatar from Cloudinary', { error });
                 // Continue with database deletion even if Cloudinary deletion fails
             }
         }

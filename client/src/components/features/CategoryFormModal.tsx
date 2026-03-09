@@ -104,7 +104,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
         try {
             const url = await uploadCategoryImage(file);
             setImageUrl(url);
-        } catch (e: any) {
+        } catch (e: unknown) {
             // silently fail—user can paste URL manually
             console.error('Upload failed', e);
         } finally {
@@ -280,10 +280,10 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                             onDrop={handleDrop}
                             onClick={() => !imageUrl && fileRef.current?.click()}
                             className={`relative border-2 border-dashed rounded-xl transition-all flex items-center justify-center overflow-hidden h-40 ${imageUrl
-                                    ? 'border-white/10 cursor-default'
-                                    : isDragOver
-                                        ? 'border-primary/60 bg-primary/5 cursor-pointer'
-                                        : 'border-white/10 hover:border-white/25 bg-white/[0.02] cursor-pointer'
+                                ? 'border-white/10 cursor-default'
+                                : isDragOver
+                                    ? 'border-primary/60 bg-primary/5 cursor-pointer'
+                                    : 'border-white/10 hover:border-white/25 bg-white/[0.02] cursor-pointer'
                                 }`}
                         >
                             <input

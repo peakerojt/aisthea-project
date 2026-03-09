@@ -35,24 +35,24 @@ export interface UpdateCategoryPayload extends CreateCategoryPayload {
 
 export const fetchCategoryTree = async (): Promise<CategoryNode[]> => {
     const res = await api.get<{ success: boolean; data: CategoryNode[] }>('/api/categories/tree');
-    return (res as any).data ?? res;
+    return (res as { data?: CategoryNode[] }).data ?? res as unknown as CategoryNode[];
 };
 
 export const fetchCategoryFlat = async (): Promise<CategoryFlat[]> => {
     const res = await api.get<{ success: boolean; data: CategoryFlat[] }>('/api/categories/flat');
-    return (res as any).data ?? res;
+    return (res as { data?: CategoryFlat[] }).data ?? res as unknown as CategoryFlat[];
 };
 
 export const createCategory = async (
     payload: CreateCategoryPayload
-): Promise<{ success: boolean; message: string; data: any }> => {
+): Promise<{ success: boolean; message: string; data: unknown }> => {
     return api.post('/api/categories', payload);
 };
 
 export const updateCategory = async (
     id: number,
     payload: UpdateCategoryPayload
-): Promise<{ success: boolean; message: string; data: any }> => {
+): Promise<{ success: boolean; message: string; data: unknown }> => {
     return api.put(`/api/categories/${id}`, payload);
 };
 

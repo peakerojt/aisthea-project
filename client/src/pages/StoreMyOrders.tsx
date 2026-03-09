@@ -37,8 +37,9 @@ export const StoreMyOrders: React.FC<StoreMyOrdersProps> = ({ setView, setCatego
     try {
       const res = await orderService.getMyOrders({ status: statusFilter || undefined, page: 1, pageSize: 20, sort: 'createdAt_desc' });
       setOrders(res.orders || []);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load orders');
+    } catch (e: unknown) {
+      const error = e as { message?: string };
+      setError(error?.message || 'Failed to load orders');
       setOrders([]);
     } finally {
       setIsLoading(false);

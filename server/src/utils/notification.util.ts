@@ -1,8 +1,10 @@
 /**
  * notification.util.ts
- * Mock notification service — logs to console in lieu of real email/SMS.
+ * Mock notification service — logs via Winston in lieu of real email/SMS.
  * In production: replace with nodemailer / SendGrid / SES calls.
  */
+
+import { logger } from '../lib/logger';
 
 export type ReturnEventType =
     | 'RETURN_REQUESTED'
@@ -37,19 +39,16 @@ export function notifyCustomer(event: ReturnEventType, payload: NotificationPayl
 
     const body = templates[event];
 
-    // Structured log (stdout) — replace with real email service below
-    console.log(
-        JSON.stringify({
-            type: 'NOTIFICATION',
-            event,
-            to: payload.customerEmail ?? 'unknown',
-            customerName: payload.customerName,
-            returnRequestId: payload.returnRequestId,
-            orderId: payload.orderId,
-            message: body,
-            timestamp: new Date().toISOString(),
-        }),
-    );
+    // Structured log (Winston) — replace with real email service below
+    logger.info('NOTIFICATION', {
+        type: 'NOTIFICATION',
+        event,
+        to: payload.customerEmail ?? 'unknown',
+        customerName: payload.customerName,
+        returnRequestId: payload.returnRequestId,
+        orderId: payload.orderId,
+        message: body,
+    });
 
     /*
      * Real email example (nodemailer — already installed):

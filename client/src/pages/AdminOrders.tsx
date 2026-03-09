@@ -48,8 +48,8 @@ export const getOrderStatusColor = (status: string | null | undefined) => {
       };
     case 'SHIPPING':
       return {
-        badge: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
-        dot: 'bg-violet-400',
+        badge: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+        dot: 'bg-cyan-400',
       };
     case 'COMPLETED':
       return {
@@ -133,8 +133,9 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ setView }) => {
       setOrders(res.orders);
       setTotalPages(res.pagination.totalPages);
       setTotal(res.pagination.total);
-    } catch (e: any) {
-      setError(e.message || t('page.loadError'));
+    } catch (e: unknown) {
+      const error = e as { message?: string };
+      setError(error.message || t('page.loadError'));
     } finally {
       setLoading(false);
     }

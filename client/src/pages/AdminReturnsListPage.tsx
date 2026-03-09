@@ -69,7 +69,7 @@ export const AdminReturnsListPage: React.FC<Props> = ({ setView, setReturnId }) 
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50"
             >
               {STATUSES.map((s) => (
                 <option key={s} value={s} className="text-black bg-white">
@@ -87,7 +87,7 @@ export const AdminReturnsListPage: React.FC<Props> = ({ setView, setReturnId }) 
               value={orderId}
               onChange={(e) => setOrderId(e.target.value)}
               placeholder={t('filters.orderIdPlaceholder')}
-              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
             />
           </div>
 
@@ -99,7 +99,7 @@ export const AdminReturnsListPage: React.FC<Props> = ({ setView, setReturnId }) 
               value={customerId}
               onChange={(e) => setCustomerId(e.target.value)}
               placeholder={t('filters.customerIdPlaceholder')}
-              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
             />
           </div>
 
@@ -110,7 +110,7 @@ export const AdminReturnsListPage: React.FC<Props> = ({ setView, setReturnId }) 
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50"
             />
           </div>
 
@@ -121,7 +121,7 @@ export const AdminReturnsListPage: React.FC<Props> = ({ setView, setReturnId }) 
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50"
             />
           </div>
         </div>
@@ -129,7 +129,7 @@ export const AdminReturnsListPage: React.FC<Props> = ({ setView, setReturnId }) 
         <div className="mt-3 flex gap-2">
           <button
             onClick={handleFilter}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
+            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 transition-colors"
           >
             {t('filters.apply')}
           </button>

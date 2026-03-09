@@ -2,10 +2,18 @@ import React, { useState } from 'react';
 import { StoreHeader } from '../components/StoreHeader';
 import { ViewState, CategoryType, CartItem } from '../types';
 
+interface StylistProduct {
+   id: string;
+   name: string;
+   category: string;
+   price: number;
+   image: string;
+}
+
 interface StoreStylistProps {
    setView: (v: ViewState) => void;
    setCategory: (c: CategoryType) => void;
-   onProductClick: (product: any) => void;
+   onProductClick: (product: StylistProduct) => void;
 }
 
 const STYLE_TRENDS = [

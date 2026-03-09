@@ -15,19 +15,36 @@ import { useToast } from '../contexts/ToastContext';
 import { useCart } from '../contexts/CartContext';
 import { ProductVariantSelector } from '../components/Product/ProductVariantSelector';
 
+interface ReviewItem {
+  reviewId: number;
+  rating: number;
+  comment: string;
+  user?: { fullName: string };
+}
+
 interface ProductDetailProps {
   setView: (v: ViewState, id?: number) => void;
   setCategory: (c: CategoryType) => void;
   addToCart: (item: CartItem) => void;
   cartCount: number;
-  product?: any;
+  product?: unknown;
   setSearchTerm: (term: string) => void;
 }
 
-export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCategory, addToCart, cartCount, product: initialProduct, setSearchTerm }) => {
+export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCategory, addToCart, cartCount, product, setSearchTerm }) => {
+  const initialProduct = product as Partial<ApiProductType> & {
+    productId?: number | string;
+    id?: number | string;
+    ref?: string;
+    img?: string;
+    image?: string;
+    price?: number;
+    category?: string | { name: string };
+  } | undefined;
+
   const [productDetails, setProductDetails] = useState<ApiProductType | null>(null);
-  const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
-  const [recentProducts, setRecentProducts] = useState<any[]>([]);
+  const [relatedProducts, setRelatedProducts] = useState<ApiProductType[]>([]);
+  const [recentProducts, setRecentProducts] = useState<ApiProductType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const carouselRef = React.useRef<HTMLDivElement>(null);
 
@@ -40,7 +57,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
   const { user } = useAuth();
   const { showToast, showCartToast } = useToast();
   const { addItem } = useCart();
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const productId = initialProduct?.id
     ? Number(initialProduct.id)
     : initialProduct?.productId
@@ -61,7 +78,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     const fetchReviews = async () => {
       try {
         const data = await getReviewsByProduct(productId);
-        const resData = data as any;
+        const resData = data as { reviews?: ReviewItem[], data?: { reviews?: ReviewItem[] } };
         const fetchedReviews = resData.reviews ?? resData.data?.reviews ?? [];
         setReviews(fetchedReviews);
       } catch (err) {
@@ -90,9 +107,12 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
   // Normalize product data
   const basicInfo = {
     ...initialProduct,
-    image: initialProduct.image || initialProduct.img || '',
-    ref: initialProduct.ref || `SKU-${Date.now()}`,
-    id: initialProduct.id || initialProduct.productId || `temp-${Date.now()}`
+    image: initialProduct?.image || initialProduct?.img || '',
+    ref: initialProduct?.ref || `SKU-${Date.now()}`,
+    id: initialProduct?.id || initialProduct?.productId || `temp-${Date.now()}`,
+    name: initialProduct?.name || 'Unknown Product',
+    price: initialProduct?.price || initialProduct?.basePrice || 0,
+    category: typeof initialProduct?.category === 'string' ? initialProduct.category : initialProduct?.category?.name || ''
   };
 
   const currentActiveId = useMemo(() => {
@@ -114,7 +134,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
         const stored = localStorage.getItem(storageKey);
 
         // Parse and ensure all items are strings
-        let recentIds: string[] = stored ? JSON.parse(stored).map((rid: any) => rid.toString()) : [];
+        let recentIds: string[] = stored ? JSON.parse(stored).map((rid: string | number) => rid.toString()) : [];
 
         // Add current ID to front (most recent), limit to 10
         recentIds = [id, ...recentIds.filter(rid => rid !== id)].slice(0, 10);
@@ -142,7 +162,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const id = parseInt(basicInfo.id);
+        const id = typeof basicInfo.id === 'string' ? parseInt(basicInfo.id) : (basicInfo.id as number);
         const details = await fetchProductById(id);
         setProductDetails(details);
 
@@ -178,9 +198,9 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     if (!productDetails?.variants) return ['XS', 'S', 'M', 'L', 'XL'];
     const sizes = new Set<string>();
     productDetails.variants.forEach(v => {
-      const attr = v.attributes?.find((a: any) => a.attributeName === 'Size' || a.attributeName === 'Kích thước') ||
-        v.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Size' || a.value?.attribute?.name === 'Kích thước');
-      if (attr) sizes.add(attr.attributeValue || attr.value?.value || attr.value);
+      const attr = v.attributes?.find((a: Record<string, unknown>) => a.attributeName === 'Size' || a.attributeName === 'Kích thước') ||
+        v.variantAttributes?.find((a: { value?: { attribute?: { name?: string }, value?: string } }) => a.value?.attribute?.name === 'Size' || a.value?.attribute?.name === 'Kích thước');
+      if (attr) sizes.add((attr as Record<string, unknown>).attributeValue as string || (attr as any).value?.value || (attr as any).value);
     });
     return sizes.size > 0 ? Array.from(sizes) : ['XS', 'S', 'M', 'L', 'XL'];
   }, [productDetails]);
@@ -189,9 +209,9 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     if (!productDetails?.variants) return ['#111', '#4a0404', '#2a2a2a'];
     const colors = new Set<string>();
     productDetails.variants.forEach(v => {
-      const attr = v.attributes?.find((a: any) => a.attributeName === 'Color' || a.attributeName === 'Màu sắc' || a.attributeName === 'Màu') ||
-        v.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Color' || a.value?.attribute?.name === 'Màu sắc' || a.value?.attribute?.name === 'Màu');
-      if (attr) colors.add(attr.attributeValue || attr.value?.value || attr.value);
+      const attr = v.attributes?.find((a: Record<string, unknown>) => a.attributeName === 'Color' || a.attributeName === 'Màu sắc' || a.attributeName === 'Màu') ||
+        v.variantAttributes?.find((a: { value?: { attribute?: { name?: string }, value?: string } }) => a.value?.attribute?.name === 'Color' || a.value?.attribute?.name === 'Màu sắc' || a.value?.attribute?.name === 'Màu');
+      if (attr) colors.add((attr as Record<string, unknown>).attributeValue as string || (attr as any).value?.value || (attr as any).value);
     });
     return colors.size > 0 ? Array.from(colors) : ['#111', '#4a0404', '#2a2a2a'];
   }, [productDetails]);
@@ -265,10 +285,11 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
         imageUrl: basicInfo.image || productDetails?.images?.[0]?.imageUrl || '',
         stockQuantity: variant.stockQuantity,
       });
-    } catch (err: any) {
-      const code = err?.response?.data?.code;
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { code?: string, available?: number } } };
+      const code = error.response?.data?.code;
       if (code === 'INSUFFICIENT_STOCK') {
-        const available = err?.response?.data?.available ?? 0;
+        const available = error.response?.data?.available ?? 0;
         showToast({ type: 'error', title: 'Không đủ hàng', subtitle: `Chỉ còn ${available} sản phẩm trong kho.`, duration: 3500 });
       } else {
         showToast({ type: 'error', title: 'Thêm thất bại', subtitle: 'Vui lòng thử lại.', duration: 3000 });
@@ -283,17 +304,17 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     // Try to find an image associated with the primary attr value of this variant
     const primaryAttrVal =
       variant.attributes?.[0]?.attributeValue ||
-      variant.variantAttributes?.[0]?.value?.value;
+      (variant.variantAttributes?.[0]?.value as { value?: string } | undefined)?.value;
     if (!primaryAttrVal) return;
     const idx = productDetails.images.findIndex(
-      img => (img as any).associatedAttributeValue === primaryAttrVal
+      img => (img as unknown as Record<string, unknown>).associatedAttributeValue === primaryAttrVal
     );
     if (idx >= 0) setGalleryIndex(idx);
   }, [productDetails]);
 
   const stockLevel = activeVariant?.stockQuantity ?? null;
 
-  function detailsTrigger(p: any) {
+  function detailsTrigger(p: { productId?: number, id?: number }) {
     setProductDetails(null);
     setIsLoading(true);
     const loadData = async () => {
@@ -374,7 +395,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                 <ProductVariantSelector
                   variants={productDetails?.variants || initialProduct?.variants || []}
                   basePrice={Number(productDetails?.basePrice || basicInfo.price)}
-                  images={productDetails?.images as any}
+                  images={productDetails?.images as unknown as { imageUrl: string }[]}
                   onVariantChange={handleVariantChange}
                   onAddToCart={handleAddToCart}
                   showQuantity={true}

@@ -134,7 +134,7 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
     return (
         <div className={`relative ${className}`}>
             {/* Main Image Display */}
-            <div className="relative aspect-square bg-black rounded-lg overflow-hidden group">
+            <div className="relative aspect-square bg-black rounded-sm overflow-hidden group">
                 {/* Loading Skeleton */}
                 {isLoading && (
                     <div className="absolute inset-0 bg-gradient-to-r from-black via-gray-900 to-black animate-pulse" />
@@ -211,9 +211,9 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                         <div key={image.imageId} className="flex flex-col items-center gap-3 flex-shrink-0">
                             <button
                                 onClick={() => setCurrentIndex(index)}
-                                className={`w-20 h-24 sm:w-24 sm:h-28 lg:w-28 lg:h-32 rounded-lg overflow-hidden border-2 transition-all duration-200 cursor-pointer ${index === currentIndex
-                                    ? 'border-primary scale-105 shadow-xl shadow-primary/40'
-                                    : 'border-border-dark hover:border-white/40'
+                                className={`w-20 h-24 sm:w-24 sm:h-28 lg:w-28 lg:h-32 rounded-sm overflow-hidden border-2 transition-all duration-200 cursor-pointer ${index === currentIndex
+                                    ? 'border-primary opacity-100'
+                                    : 'border-white/10 opacity-50 hover:opacity-100 hover:border-white/30'
                                     }`}
                             >
                                 <img

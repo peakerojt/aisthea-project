@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Logo } from './Logo';
 import { ViewState, CategoryType } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchProducts } from '../services/product.service';
+import { fetchProducts, Product } from '../services/product.service';
 import { getCloudinaryProductCard } from '../utils/cloudinary';
 
 interface StoreHeaderProps {
@@ -11,7 +11,7 @@ interface StoreHeaderProps {
   transparent?: boolean;
   searchTerm?: string;
   setSearchTerm?: (term: string) => void;
-  onProductClick?: (product: any) => void;
+  onProductClick?: (product: Product) => void;
   cartCount?: number;
 }
 
@@ -23,7 +23,7 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, 
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchTermLocal, setSearchTermLocal] = useState(searchTerm);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const searchRef = React.useRef<HTMLDivElement>(null);
 

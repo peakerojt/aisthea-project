@@ -113,7 +113,7 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                                     </td>
                                     <td className="px-4 py-3">
                                         {r.gatewayTransactionId ? (
-                                            <span className="font-mono text-violet-400 text-[11px] truncate max-w-[140px] block">
+                                            <span className="font-mono text-cyan-400 text-[11px] truncate max-w-[140px] block">
                                                 {r.gatewayTransactionId}
                                             </span>
                                         ) : (

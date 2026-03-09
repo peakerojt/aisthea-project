@@ -78,7 +78,7 @@ class ApiClient {
     /**
      * POST request
      */
-    async post<T>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> {
+    async post<T>(endpoint: string, data?: unknown, options?: FetchOptions): Promise<T> {
         return this.request<T>(endpoint, {
             ...options,
             method: 'POST',
@@ -89,7 +89,7 @@ class ApiClient {
     /**
      * PUT request
      */
-    async put<T>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> {
+    async put<T>(endpoint: string, data?: unknown, options?: FetchOptions): Promise<T> {
         return this.request<T>(endpoint, {
             ...options,
             method: 'PUT',
@@ -100,7 +100,7 @@ class ApiClient {
     /**
      * PATCH request
      */
-    async patch<T>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> {
+    async patch<T>(endpoint: string, data?: unknown, options?: FetchOptions): Promise<T> {
         return this.request<T>(endpoint, {
             ...options,
             method: 'PATCH',

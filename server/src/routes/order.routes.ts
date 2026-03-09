@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middlewares/auth.middleware';
+import { authenticateToken, checkRole } from '../middlewares/auth.middleware';
 import {
     getMyOrders,
     getMyOrderDetail,
@@ -21,9 +21,10 @@ router.post('/', authenticateToken, createOrder);
 router.patch('/:id/confirm-receipt', authenticateToken, confirmReceipt);
 
 // ── Admin Routes ─────────────────────────────────────────────────────────────
+const adminGuard = [authenticateToken, checkRole(['Admin', 'Super Admin'])];
 // NOTE: /admin must come BEFORE /:id to avoid route collisions
-router.get('/admin', authenticateToken, getAllOrders);
-router.get('/admin/:id', authenticateToken, getAdminOrderDetail);
-router.patch('/:id/status', authenticateToken, updateOrderStatus);
+router.get('/admin', ...adminGuard, getAllOrders);
+router.get('/admin/:id', ...adminGuard, getAdminOrderDetail);
+router.patch('/:id/status', ...adminGuard, updateOrderStatus);
 
 export default router;

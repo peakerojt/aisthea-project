@@ -2,6 +2,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy, Profile, VerifyCallback } from 'passport-google-oauth20';
 import { prisma } from '../utils/prisma';
 import { upsertUserLogin } from '../services/auth.service';
+import { logger } from '../lib/logger';
 
 export const configureGoogleStrategy = () => {
     const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -11,7 +12,7 @@ export const configureGoogleStrategy = () => {
 
 
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-        console.warn('⚠️  Google OAuth credentials not configured. Google login will not be available.');
+        logger.warn('Google OAuth credentials not configured. Google login will not be available.');
         return;
     }
 
@@ -68,7 +69,7 @@ export const configureGoogleStrategy = () => {
                                     fullName,
                                     googleId,
                                     avatarUrl,
-                                    passwordHash: null, // No password for Google auth
+                                    passwordHash: null,
                                     status: 'Active',
                                 },
                                 include: {
@@ -131,10 +132,10 @@ export const configureGoogleStrategy = () => {
                         email
                     );
 
-                    console.log(`Google OAuth successful for user: ${email}`);
+                    logger.info('Google OAuth successful', { email });
                     return done(null, user);
                 } catch (error) {
-                    console.error('Google OAuth error:', error);
+                    logger.error('Google OAuth error', { error });
                     return done(error as Error, undefined);
                 }
             }

@@ -190,5 +190,19 @@
             "hintPrimary": "Hover → click \"Ảnh bìa\" để đặt ảnh thumbnail chính",
             "hintLink": "Hover → \"Gắn phân loại\" để liên kết biến thể"
         }
+    },
+    "variantSelector": {
+        "priceFrom": "Từ {{min}}đ — {{max}}đ",
+        "onlyNLeft": "Chỉ còn {{count}} sản phẩm",
+        "inStock": "Còn hàng",
+        "pleaseSelect": "Vui lòng chọn",
+        "sizeGuide": "Hướng dẫn chọn size",
+        "outOfStockSubtitle": "Phân loại này hiện đã",
+        "outOfStockHighlight": "hết hàng",
+        "outOfStockDesc": ". Vui lòng chọn phân loại khác hoặc quay lại sau.",
+        "addToCart": "Thêm vào giỏ hàng",
+        "outOfStockBtn": "Hết hàng",
+        "unselectedBtn": "Vui lòng chọn phân loại hàng",
+        "outOfStockIcon": " — Hết hàng"
     }
 }

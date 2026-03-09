@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../utils/api';
 
 export interface CouponData {
@@ -24,6 +25,7 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [inputCode, setInputCode] = useState('');
+    const { t } = useTranslation('errors');
 
     useEffect(() => {
         if (isOpen) {
@@ -40,10 +42,10 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
         setLoading(true);
         setError('');
         try {
-            const res = await api.get<any>('/api/coupons/available');
+            const res = await api.get<{ coupons: CouponData[] }>('/api/coupons/available');
             setCoupons(res.coupons || []);
-        } catch (err: any) {
-            setError(err.message || 'Không thể tải danh sách mã giảm giá.');
+        } catch (err: unknown) {
+            setError((err as Error).message || t('FETCH_COUPONS_FAILED'));
         } finally {
             setLoading(false);
         }
@@ -64,10 +66,10 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
             {/* Click outside to close (Optional but good UX) */}
             <div className="absolute inset-0" onClick={onClose}></div>
 
-            <div className="relative bg-surface-dark w-full max-w-md rounded-md shadow-2xl overflow-hidden flex flex-col max-h-[85vh] border border-border-dark animate-slide-up">
+            <div className="relative bg-surface-dark w-full max-w-md rounded-md shadow-2xl overflow-hidden flex flex-col max-h-[85vh] border border-white/15 animate-slide-up">
 
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-border-dark bg-white/5">
+                <div className="flex items-center justify-between p-4 border-b border-white/15 bg-white/5">
                     <h2 className="text-lg font-bold uppercase tracking-wide text-white">Kho Voucher</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-1">
                         <span className="material-symbols-outlined">close</span>
@@ -75,14 +77,14 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                 </div>
 
                 {/* Input Manual Code */}
-                <div className="p-4 border-b border-border-dark bg-bg-dark">
+                <div className="p-4 border-b border-white/15 bg-bg-dark">
                     <div className="flex gap-2">
                         <input
                             type="text"
                             placeholder="Nhập mã giảm giá..."
                             value={inputCode}
                             onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-                            className="flex-1 bg-surface-dark border border-border-dark rounded-sm px-3 py-2 text-sm focus:border-white focus:outline-none transition-colors text-white uppercase placeholder:normal-case"
+                            className="flex-1 bg-surface-dark border border-white/15 rounded-sm px-3 py-2 text-sm focus:border-white focus:outline-none transition-colors text-white uppercase placeholder:normal-case"
                         />
                         <button
                             onClick={handleApplyText}
@@ -126,11 +128,11 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                                 key={coupon.couponId}
                                 className={`flex bg-surface-dark border rounded-sm overflow-hidden transition-all duration-300 relative ${isEligible
                                     ? 'border-primary/40 hover:border-primary shadow-[0_0_15px_rgba(255,0,0,0.05)]'
-                                    : 'border-border-dark opacity-60 grayscale-[0.8]'
+                                    : 'border-white/15 opacity-60 grayscale-[0.8]'
                                     }`}
                             >
                                 {/* Left Decorator (Shopee/Lazada style edge) */}
-                                <div className={`w-28 flex flex-col items-center justify-center p-3 shrink-0 border-r border-dashed border-border-dark relative ${isEligible ? 'bg-primary/10 text-primary' : 'bg-white/5 text-gray-400'
+                                <div className={`w-28 flex flex-col items-center justify-center p-3 shrink-0 border-r border-dashed border-white/15 relative ${isEligible ? 'bg-primary/10 text-primary' : 'bg-white/5 text-gray-400'
                                     }`}>
                                     <span className="material-symbols-outlined text-3xl mb-1">local_offer</span>
                                     <span className="font-bold text-[10px] text-center uppercase tracking-wider block leading-tight">
@@ -138,9 +140,9 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                                     </span>
 
                                     {/* Top cutout */}
-                                    <div className="w-4 h-4 rounded-full bg-bg-dark absolute -top-2 -right-2 border-b border-l border-border-dark rotate-45"></div>
+                                    <div className="w-4 h-4 rounded-full bg-bg-dark absolute -top-2 -right-2 border-b border-l border-white/15 rotate-45"></div>
                                     {/* Bottom cutout */}
-                                    <div className="w-4 h-4 rounded-full bg-bg-dark absolute -bottom-2 -right-2 border-t border-l border-border-dark -rotate-45"></div>
+                                    <div className="w-4 h-4 rounded-full bg-bg-dark absolute -bottom-2 -right-2 border-t border-l border-white/15 -rotate-45"></div>
                                 </div>
 
                                 {/* Right Content */}

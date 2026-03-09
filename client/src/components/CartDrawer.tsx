@@ -102,8 +102,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheck
                 ) : dbItems.length === 0 ? (
                     /* Giỏ trống */
                     <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
-                        <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center">
-                            <ShoppingCart size={36} className="text-gray-600" />
+                        <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center">
+                            <ShoppingCart size={36} className="text-gray-400" />
                         </div>
                         <p className="text-white font-semibold text-lg">{t('empty.title')}</p>
                         <p className="text-gray-500 text-sm text-center">{t('empty.subtitle')}</p>
@@ -126,12 +126,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheck
                             return (
                                 <div
                                     key={item.cartItemId}
-                                    className="group flex gap-3 p-3 rounded-lg bg-white/[0.03] border border-white/[0.07] hover:border-white/[0.15] hover:bg-white/[0.06] transition-all duration-200"
+                                    className="group flex gap-3 p-3 rounded-sm bg-white/[0.05] border border-white/10 hover:border-white/30 hover:bg-white/10 transition-all duration-200"
                                 >
                                     {/* Ảnh */}
-                                    <div className="relative w-16 h-20 flex-shrink-0 rounded-md overflow-hidden bg-white/5">
+                                    <div className="relative w-16 h-20 flex-shrink-0 rounded-none overflow-hidden bg-white/10">
                                         {imgUrl ? (
-                                            <img src={imgUrl} alt={item.variant.product.name} className="w-full h-full object-cover" />
+                                            <img src={imgUrl} alt={item.variant.product.name} loading="lazy" className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
                                                 <ShoppingBag size={20} className="text-gray-600" />
@@ -232,7 +232,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheck
                         {/* CTA */}
                         <button
                             onClick={onCheckout}
-                            className="w-full bg-primary hover:bg-red-700 text-white font-bold text-sm uppercase tracking-[0.15em] py-4 rounded-sm transition-all shadow-lg shadow-primary/20 cursor-pointer disabled:opacity-60"
+                            className="w-full bg-primary hover:bg-red-700 text-white font-bold text-sm uppercase tracking-[0.15em] py-4 rounded-sm transition-all cursor-pointer disabled:opacity-60"
                             disabled={isLoading}
                         >
                             {t('actions.checkout')}

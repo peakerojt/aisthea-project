@@ -553,8 +553,9 @@ export const AdminEditProduct: React.FC<Props> = ({ setView, productId }) => {
             await refreshProducts();
             setFormDirty(false);
             setTimeout(() => setView('ADMIN_PRODUCTS'), 1800);
-        } catch (err: any) {
-            showToast('error', err.message || t('editor.feedback.createError'));
+        } catch (err: unknown) {
+            const error = err as { message?: string };
+            showToast('error', error.message || t('editor.feedback.createError'));
         } finally {
             setSaving(false);
         }

@@ -9,6 +9,7 @@
 
 import { Request, Response } from 'express';
 import { initiateRefund, getRefundsForOrder, RefundError } from '../services/refund.service';
+import { logger } from '../lib/logger';
 
 // ─── POST /api/orders/:id/refunds ─────────────────────────────────────────────
 
@@ -57,11 +58,11 @@ export async function postInitiateRefund(req: Request, res: Response): Promise<v
             message: 'Refund sent to payment gateway successfully.',
             data: refund,
         });
-    } catch (err: any) {
+    } catch (err: unknown) {
         if (err instanceof RefundError) {
             res.status(err.status).json({ success: false, code: err.code, message: err.message });
         } else {
-            console.error('[refund.controller] unexpected error:', err);
+            logger.error('[refundController] postInitiateRefund failed', { err });
             res.status(500).json({ success: false, code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error.' });
         }
     }
@@ -80,8 +81,8 @@ export async function getOrderRefunds(req: Request, res: Response): Promise<void
     try {
         const refunds = await getRefundsForOrder(orderId);
         res.json({ success: true, data: refunds });
-    } catch (err: any) {
-        console.error('[refund.controller] getOrderRefunds error:', err);
+    } catch (err) {
+        logger.error('[refundController] getOrderRefunds failed', { err });
         res.status(500).json({ success: false, code: 'FETCH_REFUND_HISTORY_FAILED', message: 'Failed to load refund history.' });
     }
 }

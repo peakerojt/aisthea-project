@@ -7,6 +7,7 @@ import {
   refundSchema,
   rejectSchema,
 } from '../validators/return-request.validator';
+import { logger } from '../../../lib/logger';
 
 const service = new ReturnRequestService();
 
@@ -37,23 +38,21 @@ const getRole = (req: any): string => {
 const canViewReturn = (role: string) => role === 'admin' || role === 'support';
 
 export class ReturnRequestController {
-  create = async (req: any, res: Response) => {
+  create = async (req: Request, res: Response) => {
     try {
-      const userId = Number(req.user?.userId);
+      const userId = Number((req as Request & { user?: { userId?: number } }).user?.userId);
       if (!userId) return sendError(res, 'UNAUTHORIZED', 'Unauthorized', 401);
-
-      // DEBUG: log body để trace 400
-      console.log('[ReturnRequest.create] userId:', userId, 'body:', JSON.stringify(req.body));
 
       const body = parseOrError(createReturnRequestSchema, req.body);
       const created = await service.createReturnRequest(userId, body);
       return sendSuccess(res, created, 201);
-    } catch (error: any) {
-      console.error('[ReturnRequest.create] ERROR:', error.code, error.message);
+    } catch (error: unknown) {
+      const e = error as { code?: string; message?: string; status?: number };
+      logger.error('[returnRequestController] create failed', { code: e.code, message: e.message });
       if (error instanceof ServiceError) {
         return sendError(res, error.code, error.message, error.status);
       }
-      return sendError(res, 'CREATE_RETURN_REQUEST_FAILED', error.message || 'Unexpected error', 500);
+      return sendError(res, 'CREATE_RETURN_REQUEST_FAILED', e.message || 'Unexpected error', 500);
     }
   };
 

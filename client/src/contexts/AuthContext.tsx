@@ -18,7 +18,7 @@ interface AuthContextType {
   role: UserRole;
   permissions: string[];
   login: (email: string, password: string) => Promise<User | null>;
-  register: (data: any) => Promise<User | null>;
+  register: (data: Parameters<typeof authService.register>[0]) => Promise<User | null>;
   logout: () => Promise<void>;
   isLoading: boolean;
   initializeAuth: () => Promise<void>;
@@ -65,9 +65,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setRole('guest');
         setPermissions([]);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Cleanly handle expected auth errors (e.g. 401 Unauthorized for guests)
-      const errorMessage = error?.message || '';
+      const errObj = error as { message?: string };
+      const errorMessage = errObj?.message || '';
       const isExpectedError =
         errorMessage.includes('No authentication token found') ||
         errorMessage.includes('User not found') ||
@@ -115,8 +116,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     try {
       const response = await authService.login({ email, password });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { user: userData, accessToken } = response as any;
+      const { user: userData } = response as { user: { userId: string; fullName: string; email: string; roles: string[]; permissions?: string[] } };
 
       const mappedUser: User = {
         id: userData.userId,
@@ -142,14 +142,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const register = async (data: any): Promise<User | null> => {
+  const register = async (data: Parameters<typeof authService.register>[0]): Promise<User | null> => {
     setIsLoading(true);
     try {
       // Backend now returns login data (user + tokens) on register
       const response = await authService.register(data);
       // The response structure might be slightly different depending on how strictly authService is typed,
       // but commonly it returns AxiosResponse which has .data
-      const responseData = (response as any).data || response;
+      const responseData = (response as { data?: { user: { userId: string; fullName: string; email: string; roles?: string[]; permissions?: string[] } } }).data || response as { user: { userId: string; fullName: string; email: string; roles?: string[]; permissions?: string[] } };
 
       const { user: userData } = responseData;
 

@@ -12,6 +12,7 @@ import {
     listReturns,
     getReturnForOrder,
 } from '../services/return.service';
+import { logger } from '../lib/logger';
 
 type ProcessAction = 'APPROVE' | 'REJECT' | 'COMPLETE_REFUND';
 
@@ -23,7 +24,7 @@ const sendError = (res: Response, error: ReturnError | Error) => {
             message: error.message,
         });
     }
-    console.error('[ReturnController] Unexpected error:', error);
+    logger.error('[returnController] Unexpected error', { error });
     return res.status(500).json({
         success: false,
         code: 'INTERNAL_SERVER_ERROR',

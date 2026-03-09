@@ -24,7 +24,7 @@ const VNDTooltip = ({ active, payload, label }: any) => {
     const { t } = useTranslation('analytics');
     if (!active || !payload?.length) return null;
     return (
-        <div className="bg-[#1a1a2e] border border-white/10 rounded-lg px-3 py-2 shadow-xl text-xs">
+        <div className="bg-[#1a1a2e] border border-white/10 rounded-sm px-3 py-2 shadow-xl text-xs">
             <p className="text-white/40 font-medium mb-1">{label}</p>
             {payload.map((p: any) => (
                 <p key={p.name} className="font-bold" style={{ color: p.color ?? '#e11d48' }}>
@@ -42,7 +42,7 @@ const VNDTooltip = ({ active, payload, label }: any) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SkeletonChart: React.FC<{ height?: string }> = ({ height = 'h-64' }) => (
-    <div className={`w-full ${height} bg-white/5 rounded-lg animate-pulse flex items-end gap-1 px-4 pb-4`}>
+    <div className={`w-full ${height} bg-white/5 rounded-sm animate-pulse flex items-end gap-1 px-4 pb-4`}>
         {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="flex-1 rounded-sm bg-white/10"
                 style={{ height: `${25 + Math.random() * 55}%` }} />
@@ -77,13 +77,13 @@ const KPICard: React.FC<KPICardProps> = ({ label, value, sub, icon: Icon, positi
     <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-surface-dark border border-white/5 p-5 rounded-lg relative overflow-hidden group hover:border-white/10 transition-all"
+        className="bg-surface-dark border border-white/15 p-5 rounded-sm relative overflow-hidden group hover:border-white/10 transition-all"
     >
         <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-5 group-hover:opacity-10 transition-opacity ${accentColor.replace('text-', 'bg-')}`} />
         <div className="relative z-10">
             <div className="flex items-start justify-between mb-3">
                 <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{label}</p>
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accentColor.replace('text-', 'bg-')}/10 border ${accentColor.replace('text-', 'border-')}/20`}>
+                <div className={`w-8 h-8 rounded-sm flex items-center justify-center ${accentColor.replace('text-', 'bg-')}/10 border ${accentColor.replace('text-', 'border-')}/20`}>
                     <Icon className={`w-4 h-4 ${accentColor}`} />
                 </div>
             </div>
@@ -115,7 +115,7 @@ const AIInsightsCard: React.FC = () => {
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="relative rounded-xl border border-indigo-500/30 bg-[#0d0f1e] overflow-hidden"
+            className="relative rounded-sm border border-sky-500/30 bg-[#0d0f1e] overflow-hidden"
             style={{
                 boxShadow: '0 0 28px rgba(99,102,241,0.30), 0 0 8px rgba(99,102,241,0.15) inset',
             }}
@@ -133,12 +133,12 @@ const AIInsightsCard: React.FC = () => {
 
             <div className="relative z-10 flex items-start gap-4 px-6 py-4">
                 {/* Icon */}
-                <div className="shrink-0 mt-0.5 w-9 h-9 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-indigo-400" />
+                <div className="shrink-0 mt-0.5 w-9 h-9 rounded-sm bg-sky-500/15 border border-sky-500/30 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-sky-400" />
                 </div>
 
                 <div>
-                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.18em] mb-1">
+                    <p className="text-[10px] font-bold text-sky-400 uppercase tracking-[0.18em] mb-1">
                         {t('aiInsights.badge', { defaultValue: 'AI Insights ✦ Beta' })}
                     </p>
                     <p className="text-sm text-white/80 leading-relaxed font-medium">
@@ -147,8 +147,8 @@ const AIInsightsCard: React.FC = () => {
                 </div>
 
                 {/* Live badge */}
-                <div className="ml-auto shrink-0 flex items-center gap-1.5 text-[10px] font-bold text-indigo-400 border border-indigo-500/30 rounded-full px-2.5 py-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                <div className="ml-auto shrink-0 flex items-center gap-1.5 text-[10px] font-bold text-sky-400 border border-sky-500/30 rounded-full px-2.5 py-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
                     {t('aiInsights.live', { defaultValue: 'LIVE' })}
                 </div>
             </div>
@@ -181,7 +181,7 @@ const RetentionChart: React.FC<RetentionChartProps> = ({ newCustomers, returning
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 }}
-            className="bg-surface-dark border border-white/5 rounded-lg p-6 flex flex-col"
+            className="bg-surface-dark border border-white/15 rounded-sm p-6 flex flex-col"
         >
             <div className="mb-5">
                 <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
@@ -243,7 +243,7 @@ const RetentionChart: React.FC<RetentionChartProps> = ({ newCustomers, returning
                     {/* Legend rows */}
                     <div className="grid grid-cols-2 gap-3">
                         {chartData.map((item, i) => (
-                            <div key={item.name} className="flex flex-col gap-0.5 bg-white/[0.03] rounded-lg p-3 border border-white/5">
+                            <div key={item.name} className="flex flex-col gap-0.5 bg-white/[0.03] rounded-sm p-3 border border-white/15">
                                 <div className="flex items-center gap-2">
                                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: RETENTION_COLORS[i] }} />
                                     <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">{item.name}</span>
@@ -302,7 +302,7 @@ export const AdminAnalytics: React.FC = () => {
         <div className="p-6 xl:p-8 max-w-[1600px] mx-auto space-y-6 animate-fade-in">
 
             {/* ── Header ──────────────────────────────────────────────────────── */}
-            <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-white/5">
+            <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-white/15">
                 <div>
                     <p className="text-xs font-bold text-primary tracking-[0.2em] uppercase mb-1.5">
                         {t('page.subtitle')}
@@ -314,7 +314,7 @@ export const AdminAnalytics: React.FC = () => {
 
                 <div className="flex flex-wrap items-center gap-3">
                     {/* Date range inputs */}
-                    <div className="flex items-center gap-2 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2 bg-white/[0.04] border border-white/10 rounded-sm px-3 py-2">
                         <Calendar className="w-4 h-4 text-white/30 shrink-0" />
                         <input
                             type="date"
@@ -340,7 +340,7 @@ export const AdminAnalytics: React.FC = () => {
                     <button
                         onClick={handleExport}
                         disabled={!data}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 hover:border-white/20 rounded-lg text-xs font-bold text-white/70 hover:text-white transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 hover:border-white/20 rounded-sm text-xs font-bold text-white/70 hover:text-white transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                         <Download className="w-4 h-4" />
                         {t('page.exportCSV')}
@@ -353,7 +353,7 @@ export const AdminAnalytics: React.FC = () => {
 
             {/* ── Error ────────────────────────────────────────────────────────── */}
             {error && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
+                <div className="bg-red-500/10 border border-red-500/20 rounded-sm px-4 py-3 text-sm text-red-400">
                     ⚠ {error}
                 </div>
             )}
@@ -390,7 +390,7 @@ export const AdminAnalytics: React.FC = () => {
                     sub={t('kpi.topCustomersSub')}
                     positive={null}
                     icon={Users}
-                    accentColor="text-purple-400"
+                    accentColor="text-teal-400"
                 />
             </div>
 
@@ -400,7 +400,7 @@ export const AdminAnalytics: React.FC = () => {
                 {/* Chart 1: Revenue by Category (BarChart) */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                    className="lg:col-span-5 bg-surface-dark border border-white/5 rounded-lg p-6 flex flex-col"
+                    className="lg:col-span-5 bg-surface-dark border border-white/15 rounded-sm p-6 flex flex-col"
                 >
                     <div className="mb-5">
                         <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
@@ -450,7 +450,7 @@ export const AdminAnalytics: React.FC = () => {
                 {/* Chart 2: Order Status Funnel (PieChart) */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                    className="lg:col-span-4 bg-surface-dark border border-white/5 rounded-lg p-6 flex flex-col"
+                    className="lg:col-span-4 bg-surface-dark border border-white/15 rounded-sm p-6 flex flex-col"
                 >
                     <div className="mb-5">
                         <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
@@ -515,7 +515,7 @@ export const AdminAnalytics: React.FC = () => {
             {/* ── Chart Row 2: Composed Chart (Revenue + Orders) ───────────────── */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                className="bg-surface-dark border border-white/5 rounded-lg p-6"
+                className="bg-surface-dark border border-white/15 rounded-sm p-6"
             >
                 <div className="mb-5">
                     <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
@@ -575,14 +575,14 @@ export const AdminAnalytics: React.FC = () => {
             </motion.div>
 
             {/* ── Data Tables Row ──────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-[7fr_5fr] gap-5">
 
                 {/* Table 1: Top Customers */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-                    className="bg-surface-dark border border-white/5 rounded-lg overflow-hidden"
+                    className="bg-surface-dark border border-white/15 rounded-sm overflow-hidden"
                 >
-                    <div className="px-6 py-4 border-b border-white/5">
+                    <div className="px-6 py-4 border-b border-white/15">
                         <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                             {t('tables.topCustomersTitle')}
@@ -591,7 +591,7 @@ export const AdminAnalytics: React.FC = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full text-xs">
                             <thead>
-                                <tr className="border-b border-white/5">
+                                <tr className="border-b border-white/15">
                                     <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">#</th>
                                     <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">{t('tables.topCustomersName')}</th>
                                     <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">{t('tables.topCustomersSpent')}</th>
@@ -632,9 +632,9 @@ export const AdminAnalytics: React.FC = () => {
                 {/* Table 2: Most Cancelled Products */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-                    className="bg-surface-dark border border-white/5 rounded-lg overflow-hidden"
+                    className="bg-surface-dark border border-white/15 rounded-sm overflow-hidden"
                 >
-                    <div className="px-6 py-4 border-b border-white/5">
+                    <div className="px-6 py-4 border-b border-white/15">
                         <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
                             {t('tables.cancelledTitle')}
@@ -644,7 +644,7 @@ export const AdminAnalytics: React.FC = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full text-xs">
                             <thead>
-                                <tr className="border-b border-white/5">
+                                <tr className="border-b border-white/15">
                                     <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">#</th>
                                     <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">{t('tables.cancelledProduct')}</th>
                                     <th className="px-4 py-3 text-center font-semibold text-white/30 uppercase tracking-widest">{t('tables.cancelledCount')}</th>

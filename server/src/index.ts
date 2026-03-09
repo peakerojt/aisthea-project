@@ -2,6 +2,7 @@ import os from 'os';
 import http from 'http';
 import dotenv from 'dotenv';
 import { createApp } from './app';
+import { logger } from './lib/logger';
 import { initSocket } from './socket';
 import { initI18n } from './i18n';
 
@@ -30,13 +31,13 @@ async function bootstrap() {
 
   server.listen(PORT, '0.0.0.0', () => {
     const localIp = getLocalIp();
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Local:   http://localhost:${PORT}/`);
-    console.log(`Network: http://${localIp}:${PORT}/`);
+    logger.info(`Server running on port ${PORT}`);
+    logger.info(`Local:   http://localhost:${PORT}/`);
+    logger.info(`Network: http://${localIp}:${PORT}/`);
   });
 }
 
 bootstrap().catch((error) => {
-  console.error('Failed to bootstrap server', error);
+  logger.error('Failed to bootstrap server', { error });
   process.exit(1);
 });

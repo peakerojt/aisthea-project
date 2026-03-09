@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { cloudinaryService, ProductVariantUploadOptions } from '../services/cloudinary.service';
 import { prisma } from '../utils/prisma';
+import { logger } from '../lib/logger';
 
 /**
  * Upload single product image
@@ -59,9 +60,10 @@ export const uploadSingleProductImage = async (req: Request, res: Response) => {
                 height: result.height,
             },
         });
-    } catch (error: any) {
-        console.error('Upload product image error:', error);
-        return res.status(500).json({ success: false, error: error.message || 'Failed to upload image' });
+    } catch (error: unknown) {
+        logger.error('[productImageController] uploadSingleProductImage failed', { error });
+        const e = error as { message?: string };
+        return res.status(500).json({ success: false, error: e.message || 'Failed to upload image' });
     }
 };
 
@@ -159,9 +161,10 @@ export const bulkUploadProductImages = async (req: Request, res: Response) => {
                 },
             },
         });
-    } catch (error: any) {
-        console.error('Bulk upload product images error:', error);
-        return res.status(500).json({ success: false, error: error.message || 'Failed to upload images' });
+    } catch (error: unknown) {
+        logger.error('[productImageController] bulkUploadProductImages failed', { error });
+        const e = error as { message?: string };
+        return res.status(500).json({ success: false, error: e.message || 'Failed to upload images' });
     }
 };
 
@@ -234,9 +237,10 @@ export const uploadMultipleProductImages = async (req: Request, res: Response) =
                 },
             },
         });
-    } catch (error: any) {
-        console.error('Batch upload product images error:', error);
-        return res.status(500).json({ success: false, error: error.message || 'Failed to upload images' });
+    } catch (error: unknown) {
+        logger.error('[productImageController] uploadMultipleProductImages failed', { error });
+        const e = error as { message?: string };
+        return res.status(500).json({ success: false, error: e.message || 'Failed to upload images' });
     }
 };
 
@@ -284,9 +288,10 @@ export const setPrimaryImage = async (req: Request, res: Response) => {
             message: 'Đã cập nhật ảnh bìa thành công',
             data: updatedImage,
         });
-    } catch (error: any) {
-        console.error('Set primary image error:', error);
-        return res.status(500).json({ success: false, error: error.message || 'Failed to set primary image' });
+    } catch (error: unknown) {
+        logger.error('[productImageController] setPrimaryImage failed', { error });
+        const e = error as { message?: string };
+        return res.status(500).json({ success: false, error: e.message || 'Failed to set primary image' });
     }
 };
 
@@ -315,9 +320,10 @@ export const deleteProductImage = async (req: Request, res: Response) => {
         await prisma.productImage.delete({ where: { imageId } });
 
         return res.json({ success: true, message: 'Image deleted successfully' });
-    } catch (error: any) {
-        console.error('Delete product image error:', error);
-        return res.status(500).json({ success: false, error: error.message || 'Failed to delete image' });
+    } catch (error: unknown) {
+        logger.error('[productImageController] deleteProductImage failed', { error });
+        const e = error as { message?: string };
+        return res.status(500).json({ success: false, error: e.message || 'Failed to delete image' });
     }
 };
 
@@ -341,8 +347,9 @@ export const getProductImages = async (req: Request, res: Response) => {
         });
 
         return res.json({ success: true, data: images });
-    } catch (error: any) {
-        console.error('Get product images error:', error);
-        return res.status(500).json({ success: false, error: error.message || 'Failed to fetch images' });
+    } catch (error: unknown) {
+        logger.error('[productImageController] getProductImages failed', { error });
+        const e = error as { message?: string };
+        return res.status(500).json({ success: false, error: e.message || 'Failed to fetch images' });
     }
 };

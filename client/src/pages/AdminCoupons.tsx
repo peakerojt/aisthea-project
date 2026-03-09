@@ -182,8 +182,9 @@ const CouponDialog: React.FC<CouponDialogProps> = ({ coupon, onClose, onSaved, s
             }
             onSaved();
             onClose();
-        } catch (err: any) {
-            const msg = err?.response?.data?.error ?? err?.message ?? 'Có lỗi xảy ra.';
+        } catch (err: unknown) {
+            const error = err as { response?: { data?: { error?: string } }, message?: string };
+            const msg = error?.response?.data?.error ?? error?.message ?? 'Có lỗi xảy ra.';
             setToast({ message: msg, type: 'error' });
         } finally {
             setSaving(false);
@@ -532,8 +533,9 @@ export const AdminCoupons: React.FC = () => {
             setCoupons(filtered);
             setTotalPages(resp.pagination.totalPages);
             setTotal(resp.pagination.total);
-        } catch (err: any) {
-            setError(err.message ?? t('coupons:feedback.loadError'));
+        } catch (err: unknown) {
+            const error = err as { message?: string };
+            setError(error.message ?? t('coupons:feedback.loadError'));
         } finally {
             setLoading(false);
         }
@@ -573,8 +575,9 @@ export const AdminCoupons: React.FC = () => {
             setToast({ message: t('coupons:feedback.deleteSuccess', { code: deleteTarget.code }), type: 'success' });
             setDeleteTarget(null);
             await loadCoupons();
-        } catch (err: any) {
-            setToast({ message: err.message ?? 'Có lỗi xảy ra.', type: 'error' });
+        } catch (err: unknown) {
+            const error = err as { message?: string };
+            setToast({ message: error.message ?? 'Có lỗi xảy ra.', type: 'error' });
         } finally {
             setDeleting(false);
         }

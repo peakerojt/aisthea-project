@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { validateCoupon, CouponError } from '../services/coupon.service';
 import { AuthRequest } from '../middlewares/auth.middleware';
+import { logger } from '../lib/logger';
 
 // ─── Helper ────────────────────────────────────────────────────────────────────
 
@@ -9,7 +10,7 @@ function handleError(res: Response, err: unknown) {
     if (err instanceof CouponError) {
         return res.status(err.status).json({ error: err.message, code: err.code });
     }
-    console.error('[coupon.controller]', err);
+    logger.error('[couponController]', { err });
     return res.status(500).json({ error: 'Lỗi máy chủ nội bộ.' });
 }
 
@@ -144,14 +145,11 @@ export const getAvailableCoupons = async (req: AuthRequest, res: Response) => {
                 isActive: true,
                 startDate: { lte: now },
                 endDate: { gte: now },
-                // Notice: For Prisma, comparing columns directly like usedCount < usageLimit 
-                // requires raw query or Prisma Client extensions, but we can do a standard
-                // filter if usageLimit is largely sufficient, or we just fetch and filter in memory
-                // since coupon lists are usually small.
             },
-            // Order by value descending (highest discount first)
-            // Note: Prisma doesn't sort well by calculated fields (if percentage vs fixed),
-            // so we sort in memory for robust handling.
+            // Hard cap: coupon lists are small by design; 100 is a safe upper bound.
+            // In-memory filter below further narrows this to only usable coupons.
+            take: 100,
+            orderBy: { endDate: 'asc' },
         });
 
         // Filter out coupons where usedCount >= usageLimit

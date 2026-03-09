@@ -90,6 +90,6 @@ export const adminRefundService = {
      */
     async list(orderId: number): Promise<RefundRecord[]> {
         const res = await api.get<RefundListResponse>(`/api/orders/${orderId}/refunds`);
-        return (res as any).data ?? [];
+        return (res as { data?: RefundRecord[] }).data ?? [];
     },
 };

@@ -1,5 +1,6 @@
 import cloudinary from '../config/cloudinary.config';
 import { UploadApiResponse } from 'cloudinary';
+import { logger } from '../lib/logger';
 
 /**
  * Result from Cloudinary upload operation
@@ -16,7 +17,7 @@ export interface CloudinaryUploadResult {
 
 export interface UploadOptions {
     folder?: string;          // Folder path in Cloudinary
-    transformation?: any;     // Cloudinary transformation options
+    transformation?: Record<string, unknown>;     // Cloudinary transformation options
     maxSizeBytes?: number;    // Maximum file size (default: 5MB)
     allowedFormats?: string[]; // Allowed image formats
 }
@@ -90,15 +91,16 @@ class CloudinaryService {
             );
 
             return this.formatUploadResult(uploadResult);
-        } catch (error: any) {
-            console.error('Cloudinary upload error:', error);
-            if (error.http_code === 400) {
+        } catch (error: unknown) {
+            logger.error('[cloudinaryService] uploadBase64 failed', { error });
+            const e = error as { http_code?: number; message?: string };
+            if (e.http_code === 400) {
                 throw new Error(`Invalid image format. Allowed formats: ${this.DEFAULT_FORMATS.join(', ')}`);
             }
-            if (error.http_code === 401) {
+            if (e.http_code === 401) {
                 throw new Error('Cloudinary authentication failed. Please check your credentials.');
             }
-            throw new Error(error.message || 'Failed to upload image to Cloudinary');
+            throw new Error(e.message || 'Failed to upload image to Cloudinary');
         }
     }
 
@@ -235,9 +237,10 @@ class CloudinaryService {
                 height: uploadResult.height,
                 bytes: uploadResult.bytes,
             };
-        } catch (error: any) {
-            console.error('Product variant image upload error:', error);
-            throw new Error(error.message || 'Failed to upload product variant image');
+        } catch (error: unknown) {
+            logger.error('[cloudinaryService] uploadProductVariantImage failed', { error });
+            const e = error as { message?: string };
+            throw new Error(e.message || 'Failed to upload product variant image');
         }
     }
 
@@ -297,7 +300,7 @@ class CloudinaryService {
             dpr?: string;
         }
     ): string {
-        const transformations: any = {};
+        const transformations: Record<string, unknown> = {};
         if (options.width) transformations.width = options.width;
         if (options.height) transformations.height = options.height;
         if (options.crop) transformations.crop = options.crop;
@@ -332,8 +335,8 @@ class CloudinaryService {
     async deleteImage(publicId: string): Promise<void> {
         try {
             await cloudinary.uploader.destroy(publicId);
-        } catch (error: any) {
-            console.error('Cloudinary delete error:', error);
+        } catch (error) {
+            logger.error('[cloudinaryService] deleteImage failed', { error });
             throw new Error('Failed to delete image from Cloudinary');
         }
     }
@@ -351,7 +354,7 @@ class CloudinaryService {
             const pathAfterVersion = urlParts.slice(uploadIndex + 2).join('/');
             return pathAfterVersion.replace(/\.[^/.]+$/, '');
         } catch {
-            console.error('Failed to extract publicId from URL:', cloudinaryUrl);
+            logger.warn('[cloudinaryService] Failed to extract publicId from URL', { cloudinaryUrl });
             return null;
         }
     }

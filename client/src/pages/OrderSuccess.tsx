@@ -54,7 +54,7 @@ const OrderSuccess: React.FC<OrderSuccessProps> = ({ setView }) => {
                 </div>
 
                 {/* Info Blocks */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10 mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-[2fr_3fr] gap-x-12 gap-y-10 mb-12">
                     <div className="space-y-6">
                         <div>
                             <h3 className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">Thông tin mua hàng</h3>

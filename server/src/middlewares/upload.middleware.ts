@@ -5,16 +5,17 @@ import multer from 'multer';
  * Files are stored in memory as Buffer for easy base64 conversion
  */
 
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
 // Configure multer to store files in memory
 const storage = multer.memoryStorage();
 
-// File filter to only accept images
+// File filter to only accept specific image types (not generic image/*)
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-    // Accept only image files
-    if (file.mimetype.startsWith('image/')) {
+    if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('Only image files are allowed'));
+        cb(new Error(`Only image files are allowed (jpeg, png, webp, gif). Received: ${file.mimetype}`));
     }
 };
 

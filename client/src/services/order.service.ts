@@ -188,7 +188,7 @@ export const orderService = {
     if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
     if (params?.sort) queryParams.append('sort', params.sort);
     const query = queryParams.toString();
-    const response = await api.get<any>(`/api/orders/my${query ? `?${query}` : ''}`);
+    const response = await api.get<{ data: MyOrdersResponse['orders']; meta?: MyOrdersResponse['pagination'] }>(`/api/orders/my${query ? `?${query}` : ''}`);
     return {
       orders: response.data || [],
       pagination: response.meta || { page: 1, pageSize: 20, total: 0, totalPages: 1 },
@@ -228,7 +228,7 @@ export const adminOrderService = {
     if (params?.startDate) q.append('startDate', params.startDate);
     if (params?.endDate) q.append('endDate', params.endDate);
     const query = q.toString();
-    const response = await api.get<any>(`/api/orders/admin${query ? `?${query}` : ''}`);
+    const response = await api.get<{ data: AdminOrder[]; meta?: AdminOrdersResponse['pagination'] }>(`/api/orders/admin${query ? `?${query}` : ''}`);
     return {
       orders: response.data || [],
       pagination: response.meta || { page: 1, pageSize: 20, total: 0, totalPages: 1 },

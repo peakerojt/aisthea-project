@@ -1,6 +1,7 @@
 
 import { Request, Response } from 'express';
 import { generateTemplate, exportProducts, importProducts } from '../services/importExport.service';
+import { logger } from '../lib/logger';
 
 /**
  * GET /api/products/export/template
@@ -13,8 +14,8 @@ export const downloadTemplateHandler = async (_req: Request, res: Response) => {
         res.setHeader('Content-Disposition', 'attachment; filename="template_san_pham.xlsx"');
         res.setHeader('Content-Length', buffer.length);
         res.send(buffer);
-    } catch (error: any) {
-        console.error('[Template] Error:', error);
+    } catch (error) {
+        logger.error('[importExportController] downloadTemplateHandler failed', { error });
         res.status(500).json({ error: 'Không thể tạo file template. Vui lòng thử lại.' });
     }
 };
@@ -31,8 +32,8 @@ export const exportProductsHandler = async (_req: Request, res: Response) => {
         res.setHeader('Content-Disposition', `attachment; filename="san_pham_${timestamp}.xlsx"`);
         res.setHeader('Content-Length', buffer.length);
         res.send(buffer);
-    } catch (error: any) {
-        console.error('[Export] Error:', error);
+    } catch (error) {
+        logger.error('[importExportController] exportProductsHandler failed', { error });
         res.status(500).json({ error: 'Không thể xuất sản phẩm. Vui lòng thử lại.' });
     }
 };
@@ -50,8 +51,8 @@ export const importProductsHandler = async (req: Request, res: Response) => {
 
         const report = await importProducts(req.file.buffer);
         res.json(report);
-    } catch (error: any) {
-        console.error('[Import] Error:', error);
+    } catch (error) {
+        logger.error('[importExportController] importProductsHandler failed', { error });
         res.status(500).json({ error: 'Lỗi xử lý file nhập. Vui lòng kiểm tra định dạng file.' });
     }
 };

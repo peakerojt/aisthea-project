@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../../middlewares/auth.middleware';
 import { orderIdParamSchema } from './order.validator';
 import { AppError, cancelOrderForUser, getOrderDetailForUser } from './order.service';
+import { logger } from '../../lib/logger';
 
 const sendError = (res: Response, error: AppError | Error) => {
   if (error instanceof AppError) {
@@ -12,7 +13,7 @@ const sendError = (res: Response, error: AppError | Error) => {
     });
   }
 
-  console.error('Unexpected error while handling order request:', error);
+  logger.error('[orderController] Unexpected error', { error });
   return res.status(500).json({
     success: false,
     code: 'INTERNAL_SERVER_ERROR',

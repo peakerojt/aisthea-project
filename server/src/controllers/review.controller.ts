@@ -3,6 +3,7 @@ import { prisma } from '../utils/prisma';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { ERROR_CODES, SUCCESS_MESSAGES } from '../utils/constants/responseKeys';
 import { ORDER_STATUS } from '../config/orderStatus.config';
+import { logger } from '../lib/logger';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CREATE REVIEW (Secure)
@@ -111,9 +112,10 @@ export const createReview = async (req: AuthRequest, res: Response) => {
                 images: JSON.parse(review.images ?? '[]'),
             },
         });
-    } catch (error: any) {
-        console.error('[createReview] Error:', error);
-        return res.status(500).json({ error: 'Failed to create review', details: error.message });
+    } catch (error: unknown) {
+        logger.error('[reviewController] createReview failed', { error });
+        const e = error as { message?: string };
+        return res.status(500).json({ error: 'Failed to create review', details: e.message });
     }
 };
 
@@ -124,20 +126,24 @@ export const createReview = async (req: AuthRequest, res: Response) => {
 export const getReviewsByProduct = async (req: AuthRequest, res: Response) => {
     try {
         const { productId } = req.params;
+        const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
+        const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? '50'), 10) || 50));
+        const skip = (page - 1) * limit;
 
-        const reviews = await prisma.review.findMany({
-            where: {
-                productId: Number(productId),
-            },
-            include: {
-                user: {
-                    select: { userId: true, fullName: true, avatarUrl: true },
+        const [reviews, total] = await Promise.all([
+            prisma.review.findMany({
+                where: { productId: Number(productId) },
+                include: {
+                    user: {
+                        select: { userId: true, fullName: true, avatarUrl: true },
+                    },
                 },
-            },
-            orderBy: {
-                createdAt: 'desc',
-            },
-        });
+                orderBy: { createdAt: 'desc' },
+                take: limit,
+                skip,
+            }),
+            prisma.review.count({ where: { productId: Number(productId) } }),
+        ]);
 
         const formatted = reviews.map((r) => ({
             reviewId: r.reviewId,
@@ -148,9 +154,17 @@ export const getReviewsByProduct = async (req: AuthRequest, res: Response) => {
             user: r.user,
         }));
 
-        return res.json({ reviews: formatted, total: formatted.length });
-    } catch (error: any) {
-        console.error('[getReviewsByProduct] Error:', error);
+        return res.json({
+            reviews: formatted,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        });
+    } catch (error) {
+        logger.error('[reviewController] getReviewsByProduct failed', { error });
         return res.status(500).json({ error: 'Failed to fetch reviews' });
     }
 };

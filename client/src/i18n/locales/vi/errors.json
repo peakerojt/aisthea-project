@@ -79,5 +79,8 @@
     "INVALID_TOKEN": "Mã xác thực không hợp lệ hoặc đã qua sử dụng.",
     "TOKEN_EXPIRED": "Mã xác thực đã hết hạn.",
     "MISSING_TOKEN": "Thiếu token để thực hiện yêu cầu.",
-    "NO_TOKEN": "Không tìm thấy token xác thực."
+    "NO_TOKEN": "Không tìm thấy token xác thực.",
+    "UNKNOWN_ERROR": "Lỗi không xác định.",
+    "NETWORK_ERROR": "Lỗi kết nối đến máy chủ.",
+    "FETCH_COUPONS_FAILED": "Không thể tải danh sách mã giảm giá."
 }

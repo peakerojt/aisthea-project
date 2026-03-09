@@ -24,13 +24,13 @@ router.post('/register', authRateLimiter, validate(registerSchema), authControll
 router.post('/login', authRateLimiter, validate(loginSchema), authController.login);
 
 /** POST /api/auth/verify-email */
-router.post('/verify-email', validate(verifyEmailSchema), authController.verifyEmail);
+router.post('/verify-email', authRateLimiter, validate(verifyEmailSchema), authController.verifyEmail);
 
 /** POST /api/auth/resend-verification */
-router.post('/resend-verification', validate(resendVerificationSchema), authController.resendVerification);
+router.post('/resend-verification', authRateLimiter, validate(resendVerificationSchema), authController.resendVerification);
 
 /** POST /api/auth/forgot-password */
-router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
+router.post('/forgot-password', authRateLimiter, validate(forgotPasswordSchema), authController.forgotPassword);
 
 /** GET /api/auth/reset-password — validates token from email link & sets cookie */
 router.get('/reset-password', authController.passwordResetInit);

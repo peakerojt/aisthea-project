@@ -70,9 +70,10 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ setView })
 
             setStatus('success');
             setMessage(data.message);
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const error = err as { message?: string };
             setStatus('error');
-            setMessage(err.message);
+            setMessage(error.message || 'An error occurred');
         }
     };
 

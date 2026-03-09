@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { cartService } from '../services/cart.service';
 import { AuthRequest } from '../middlewares/auth.middleware';
+import { logger } from '../lib/logger';
 
 export class CartController {
     // GET /api/cart — Lấy giỏ hàng của user
@@ -9,8 +10,8 @@ export class CartController {
             const userId = req.user.userId;
             const cart = await cartService.getCart(userId);
             res.json({ success: true, data: cart });
-        } catch (error: any) {
-            console.error('[Cart] Lỗi khi lấy giỏ hàng:', error);
+        } catch (error) {
+            logger.error('[cartController] getCart failed', { error });
             res.status(500).json({ success: false, code: 'INTERNAL_SERVER_ERROR', message: 'Lỗi khi lấy giỏ hàng.' });
         }
     }
@@ -27,14 +28,15 @@ export class CartController {
 
             const cart = await cartService.upsertCartItem(userId, Number(variantId), Number(quantity));
             res.json({ success: true, code: 'CART_ITEM_ADDED', data: cart });
-        } catch (error: any) {
-            if (error?.code === 'INSUFFICIENT_STOCK') {
-                return res.status(409).json({ success: false, code: error.code, available: error.available, message: error.message });
+        } catch (error: unknown) {
+            const e = error as { code?: string; available?: number; message?: string };
+            if (e?.code === 'INSUFFICIENT_STOCK') {
+                return res.status(409).json({ success: false, code: e.code, available: e.available, message: e.message });
             }
-            if (error?.code === 'VARIANT_NOT_FOUND') {
-                return res.status(404).json({ success: false, code: error.code, message: error.message });
+            if (e?.code === 'VARIANT_NOT_FOUND') {
+                return res.status(404).json({ success: false, code: e.code, message: e.message });
             }
-            console.error('[Cart] Lỗi thêm vào giỏ:', error);
+            logger.error('[cartController] addToCart failed', { error });
             res.status(500).json({ success: false, code: 'INTERNAL_SERVER_ERROR', message: 'Lỗi khi thêm sản phẩm vào giỏ hàng.' });
         }
     }
@@ -51,14 +53,15 @@ export class CartController {
 
             const cart = await cartService.updateCartItemQuantity(userId, Number(cartItemId), Number(quantity));
             res.json({ success: true, data: cart });
-        } catch (error: any) {
-            if (error?.code === 'CART_ITEM_NOT_FOUND') {
-                return res.status(404).json({ success: false, code: error.code, message: error.message });
+        } catch (error: unknown) {
+            const e = error as { code?: string; available?: number; message?: string };
+            if (e?.code === 'CART_ITEM_NOT_FOUND') {
+                return res.status(404).json({ success: false, code: e.code, message: e.message });
             }
-            if (error?.code === 'INSUFFICIENT_STOCK') {
-                return res.status(409).json({ success: false, code: error.code, available: error.available, message: error.message });
+            if (e?.code === 'INSUFFICIENT_STOCK') {
+                return res.status(409).json({ success: false, code: e.code, available: e.available, message: e.message });
             }
-            console.error('[Cart] Lỗi cập nhật giỏ hàng:', error);
+            logger.error('[cartController] updateCartItem failed', { error });
             res.status(500).json({ success: false, code: 'INTERNAL_SERVER_ERROR', message: 'Lỗi khi cập nhật giỏ hàng.' });
         }
     }
@@ -75,11 +78,12 @@ export class CartController {
 
             const cart = await cartService.removeCartItem(userId, cartItemId);
             res.json({ success: true, data: cart });
-        } catch (error: any) {
-            if (error?.code === 'CART_ITEM_NOT_FOUND') {
-                return res.status(404).json({ success: false, code: error.code, message: error.message });
+        } catch (error: unknown) {
+            const e = error as { code?: string; message?: string };
+            if (e?.code === 'CART_ITEM_NOT_FOUND') {
+                return res.status(404).json({ success: false, code: e.code, message: e.message });
             }
-            console.error('[Cart] Lỗi xoá sản phẩm:', error);
+            logger.error('[cartController] removeCartItem failed', { error });
             res.status(500).json({ success: false, code: 'INTERNAL_SERVER_ERROR', message: 'Lỗi khi xoá sản phẩm.' });
         }
     }
@@ -90,8 +94,8 @@ export class CartController {
             const userId = req.user.userId;
             const cart = await cartService.clearCart(userId);
             res.json({ success: true, code: 'CART_CLEARED', data: cart });
-        } catch (error: any) {
-            console.error('[Cart] Lỗi xoá giỏ hàng:', error);
+        } catch (error) {
+            logger.error('[cartController] clearCart failed', { error });
             res.status(500).json({ success: false, code: 'INTERNAL_SERVER_ERROR', message: 'Lỗi khi xoá giỏ hàng.' });
         }
     }
@@ -108,8 +112,8 @@ export class CartController {
 
             const cart = await cartService.mergeCart(userId, items);
             res.json({ success: true, code: 'CART_SYNCED', data: cart });
-        } catch (error: any) {
-            console.error('[Cart] Lỗi gộp giỏ hàng:', error);
+        } catch (error) {
+            logger.error('[cartController] mergeCart failed', { error });
             res.status(500).json({ success: false, code: 'MERGE_FAILED', message: 'Không thể gộp giỏ hàng.' });
         }
     }

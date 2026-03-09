@@ -54,9 +54,9 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
     const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
 
     // Location API states
-    const [provinces, setProvinces] = useState<any[]>([]);
-    const [districts, setDistricts] = useState<any[]>([]);
-    const [wards, setWards] = useState<any[]>([]);
+    const [provinces, setProvinces] = useState<{ code: string, name: string }[]>([]);
+    const [districts, setDistricts] = useState<{ code: string, name: string }[]>([]);
+    const [wards, setWards] = useState<{ code: string, name: string }[]>([]);
 
     const [selectedCityCode, setSelectedCityCode] = useState<string>(() => sessionStorage.getItem('checkoutCityCode') || '');
     const [selectedDistrictCode, setSelectedDistrictCode] = useState<string>(() => sessionStorage.getItem('checkoutDistrictCode') || '');
@@ -199,7 +199,7 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
         setCouponSuccessMsg('');
 
         try {
-            const response = await api.post<any>('/api/coupons/validate', {
+            const response = await api.post<AppliedCoupon>('/api/coupons/validate', {
                 code: codeToUse.trim(),
                 cartSubtotal: subtotal
             });
@@ -207,8 +207,9 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
             setAppliedCoupon(response);
             setCouponSuccessMsg(response.message);
             setCouponInput('');
-        } catch (err: any) {
-            setCouponError(err.message || err.data?.error || 'Mã giảm giá không hợp lệ.');
+        } catch (err: unknown) {
+            const error = err as { message?: string; data?: { error?: string } };
+            setCouponError(error.message || error.data?.error || 'Mã giảm giá không hợp lệ.');
         } finally {
             setIsApplyingCoupon(false);
         }
@@ -281,7 +282,7 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
             }
 
             // CẬP NHẬT: Gửi thêm couponId & shippingMethod, shippingFee xuống Backend
-            const data = await api.post<any>('/api/orders', {
+            const data = await api.post<{ orderId: number }>('/api/orders', {
                 paymentMethod: formData.paymentMethod,
                 customerName: formData.fullName,
                 customerPhone: formData.phone,
@@ -303,7 +304,7 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
 
             if (formData.paymentMethod === 'VNPAY') {
                 try {
-                    const vnpResponse = await api.post<any>('/api/vnpay/create_payment_url', {
+                    const vnpResponse = await api.post<{ vnpUrl: string }>('/api/vnpay/create_payment_url', {
                         amount: Math.round(total),
                         orderId: data.orderId,
                         orderDescription: 'Thanh toan don hang ' + data.orderId,
@@ -321,9 +322,10 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                 setView('STORE_ORDER_SUCCESS');
             }
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Order creation error:", err);
-            const errorMessage = err.message || err.data?.error || 'Đã xảy ra lỗi khi đặt hàng.';
+            const error = err as { message?: string; data?: { error?: string } };
+            const errorMessage = error.message || error.data?.error || 'Đã xảy ra lỗi khi đặt hàng.';
             setError(errorMessage);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {

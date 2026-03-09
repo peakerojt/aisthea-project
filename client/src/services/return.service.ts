@@ -77,20 +77,20 @@ export const returnService = {
     const res = await api.get<{ success: boolean; data: OrderReturn | null }>(
       `/api/orders/${orderId}/return`,
     );
-    return (res as any).data ?? null;
+    return (res as { data?: OrderReturn }).data ?? null;
   },
 
   /**
    * Get paginated returns for current customer
    */
-  async myReturns(page = 1, limit = 8): Promise<any> {
+  async myReturns(page = 1, limit = 8): Promise<unknown> {
     return api.get(`/api/returns/my?page=${page}&limit=${limit}`);
   },
 
   /**
    * Get return detail
    */
-  async detail(returnId: number): Promise<any> {
+  async detail(returnId: number): Promise<unknown> {
     return api.get(`/api/returns/${returnId}`);
   },
 };
@@ -147,7 +147,7 @@ export const adminReturnService = {
     // Fallback to sending a patch just in case
     return api.patch(`/api/returns/${returnId}/mark-received`);
   },
-  async adminRefund(returnId: number, payload: any) {
+  async adminRefund(returnId: number, payload: Record<string, unknown>) {
     // Pass note as payload JSON if needed or just COMPLET_REFUND
     return this.process(returnId, 'COMPLETE_REFUND');
   }

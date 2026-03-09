@@ -1,56 +1,74 @@
 import dotenv from 'dotenv';
+import { z } from 'zod';
+import { logger } from './logger';
+
 dotenv.config();
 
-function required(key: string): string {
-    const value = process.env[key];
-    if (!value) {
-        throw new Error(`[env] Missing required environment variable: ${key}`);
-    }
-    return value;
-}
-
-function optional(key: string, fallback: string): string {
-    return process.env[key] ?? fallback;
-}
-
-/**
- * Typed, validated environment configuration.
- * Throws at startup if a required variable is missing.
- */
-export const env = {
-    nodeEnv: optional('NODE_ENV', 'development'),
-    port: parseInt(optional('PORT', '5000'), 10),
+const envSchema = z.object({
+    NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+    PORT: z.string().default('5000').transform((val) => parseInt(val, 10)),
 
     // Database / Prisma
-    databaseUrl: required('DATABASE_URL'),
+    DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
 
     // JWT
-    jwtSecret: required('JWT_SECRET'),
-    refreshSecret: required('REFRESH_SECRET'),
-    jwtExpiresIn: optional('JWT_EXPIRES_IN', '15m'),
-    refreshExpiresIn: optional('REFRESH_EXPIRES_IN', '7d'),
+    JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters long'),
+    REFRESH_SECRET: z.string().min(32, 'REFRESH_SECRET must be at least 32 characters long'),
+    JWT_EXPIRES_IN: z.string().default('15m'),
+    REFRESH_EXPIRES_IN: z.string().default('7d'),
 
     // Client
-    clientUrl: optional('CLIENT_URL', 'http://localhost:3000'),
+    CLIENT_URL: z.string().default('http://localhost:3000'),
 
     // Cloudinary
-    cloudinaryCloudName: optional('CLOUDINARY_CLOUD_NAME', ''),
-    cloudinaryApiKey: optional('CLOUDINARY_API_KEY', ''),
-    cloudinaryApiSecret: optional('CLOUDINARY_API_SECRET', ''),
+    CLOUDINARY_CLOUD_NAME: z.string().optional().default(''),
+    CLOUDINARY_API_KEY: z.string().optional().default(''),
+    CLOUDINARY_API_SECRET: z.string().optional().default(''),
 
     // VNPay
-    vnpayTmnCode: optional('VNP_TMN_CODE', ''),
-    vnpayHashSecret: optional('VNP_HASH_SECRET', ''),
-    vnpayUrl: optional('VNP_URL', ''),
-    vnpayReturnUrl: optional('VNP_RETURN_URL', ''),
+    VNP_TMN_CODE: z.string().optional().default(''),
+    VNP_HASH_SECRET: z.string().optional().default(''),
+    VNP_URL: z.string().optional().default(''),
+    VNP_RETURN_URL: z.string().optional().default(''),
 
     // Google OAuth
-    googleClientId: optional('GOOGLE_CLIENT_ID', ''),
-    googleClientSecret: optional('GOOGLE_CLIENT_SECRET', ''),
-    googleCallbackUrl: optional('GOOGLE_CALLBACK_URL', ''),
+    GOOGLE_CLIENT_ID: z.string().optional().default(''),
+    GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
+    GOOGLE_CALLBACK_URL: z.string().optional().default(''),
 
     // Email
-    emailUser: optional('EMAIL_USER', ''),
-    emailPass: optional('EMAIL_PASS', ''),
-    emailFrom: optional('EMAIL_FROM', ''),
+    EMAIL_USER: z.string().optional().default(''),
+    EMAIL_PASS: z.string().optional().default(''),
+    EMAIL_FROM: z.string().optional().default(''),
+});
+
+const _parsedEnv = envSchema.safeParse(process.env);
+
+if (!_parsedEnv.success) {
+    logger.error('❌ Invalid environment variables', { errors: _parsedEnv.error.format() });
+    throw new Error('Invalid environment variables');
+}
+
+export const env = {
+    nodeEnv: _parsedEnv.data.NODE_ENV,
+    port: _parsedEnv.data.PORT,
+    databaseUrl: _parsedEnv.data.DATABASE_URL,
+    jwtSecret: _parsedEnv.data.JWT_SECRET,
+    refreshSecret: _parsedEnv.data.REFRESH_SECRET,
+    jwtExpiresIn: _parsedEnv.data.JWT_EXPIRES_IN,
+    refreshExpiresIn: _parsedEnv.data.REFRESH_EXPIRES_IN,
+    clientUrl: _parsedEnv.data.CLIENT_URL,
+    cloudinaryCloudName: _parsedEnv.data.CLOUDINARY_CLOUD_NAME,
+    cloudinaryApiKey: _parsedEnv.data.CLOUDINARY_API_KEY,
+    cloudinaryApiSecret: _parsedEnv.data.CLOUDINARY_API_SECRET,
+    vnpayTmnCode: _parsedEnv.data.VNP_TMN_CODE,
+    vnpayHashSecret: _parsedEnv.data.VNP_HASH_SECRET,
+    vnpayUrl: _parsedEnv.data.VNP_URL,
+    vnpayReturnUrl: _parsedEnv.data.VNP_RETURN_URL,
+    googleClientId: _parsedEnv.data.GOOGLE_CLIENT_ID,
+    googleClientSecret: _parsedEnv.data.GOOGLE_CLIENT_SECRET,
+    googleCallbackUrl: _parsedEnv.data.GOOGLE_CALLBACK_URL,
+    emailUser: _parsedEnv.data.EMAIL_USER,
+    emailPass: _parsedEnv.data.EMAIL_PASS,
+    emailFrom: _parsedEnv.data.EMAIL_FROM,
 } as const;

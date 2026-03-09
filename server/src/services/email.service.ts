@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { logger } from '../lib/logger';
 
 const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
@@ -109,7 +110,7 @@ export const sendVerificationEmail = async (email: string, code: string, fullNam
 
         return true;
     } catch (error) {
-        console.error('Error sending verification email:', error);
+        logger.error('[emailService] Failed to send verification email', { error });
         throw new Error('Failed to send verification email');
     }
 }
@@ -209,7 +210,7 @@ export const sendPasswordResetEmail = async (email: string, token: string, fullN
         await transporter.sendMail(mailOptions);
         return true;
     } catch (error) {
-        console.error('Error sending password reset email:', error);
+        logger.error('[emailService] Failed to send password reset email', { error });
         throw new Error('Failed to send password reset email');
     }
 };
@@ -220,10 +221,10 @@ export const sendPasswordResetEmail = async (email: string, token: string, fullN
 export const verifyEmailConnection = async () => {
     try {
         await transporter.verify();
-        console.log('✓ SMTP connection verified');
+        logger.info('[emailService] SMTP connection verified');
         return true;
     } catch (error) {
-        console.error('✗ SMTP connection failed:', error);
+        logger.error('[emailService] SMTP connection failed', { error });
         return false;
     }
 };

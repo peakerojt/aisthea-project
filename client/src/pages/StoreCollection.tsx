@@ -28,7 +28,7 @@ interface StoreCollectionProps {
   category?: CategoryType;
   setCategory: (c: CategoryType) => void;
   collection?: string;
-  onProductClick: (product: any) => void;
+  onProductClick: (product: Product | import('../services/product.service').Product) => void;
   searchTerm?: string;
   setSearchTerm: (term: string) => void;
 }
@@ -69,7 +69,7 @@ const CATEGORY_MAPPING: Record<string, Record<string, string[]>> = {
 };
 
 // ProductGridCard — handles per-card image loading state + fade-in
-const ProductGridCard: React.FC<{ product: Product; onProductClick: (p: any) => void; index: number }> = ({ product, onProductClick, index }) => {
+const ProductGridCard: React.FC<{ product: Product; onProductClick: (p: Product) => void; index: number }> = ({ product, onProductClick, index }) => {
   const [imgLoaded, setImgLoaded] = React.useState(false);
   const isAboveFold = index < 4; // First row — already preloaded
 

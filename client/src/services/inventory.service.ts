@@ -65,10 +65,15 @@ export interface InventoryLogsResponse {
 export const fetchInventory = async (
     filters?: InventoryFilters
 ): Promise<InventoryVariant[]> => {
-    const params: Record<string, string> = {};
+    const params: Record<string, string> = {
+        pageSize: '200' // Request maximum allowed by backend
+    };
     if (filters?.lowStock) params.lowStock = 'true';
     if (filters?.search && filters.search.trim() !== '') params.search = filters.search.trim();
-    return api.get<InventoryVariant[]>('/api/inventory', { params });
+
+    // Backend getInventory now returns { data, meta } due to BE-3
+    const res = await api.get<{ data: InventoryVariant[], meta: unknown }>('/api/inventory', { params });
+    return res.data;
 };
 
 export const bulkUpdateStock = async (

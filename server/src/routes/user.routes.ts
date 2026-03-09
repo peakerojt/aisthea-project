@@ -16,6 +16,8 @@ import {
 } from '../controllers/user.controller';
 import { authenticateToken } from '../middlewares/auth.middleware';
 import { upload } from '../middlewares/upload.middleware';
+import { validate } from '../middlewares/validate.middleware';
+import { updateProfileSchema, addressSchema } from '../utils/schemas/user.validator';
 
 const router = Router();
 
@@ -24,7 +26,7 @@ router.use(authenticateToken);
 
 // Profile routes
 router.get('/profile', getProfile);
-router.put('/profile', updateProfile);
+router.put('/profile', validate(updateProfileSchema), updateProfile);
 
 // Avatar routes - supports both file upload and base64 JSON
 router.post('/avatar', upload.single('file'), uploadAvatar);
@@ -32,8 +34,8 @@ router.delete('/avatar', deleteAvatar);
 
 // Address routes
 router.get('/addresses', getAddresses);
-router.post('/addresses', createAddress);
-router.put('/addresses/:id', updateAddress);
+router.post('/addresses', validate(addressSchema), createAddress);
+router.put('/addresses/:id', validate(addressSchema), updateAddress);
 router.delete('/addresses/:id', deleteAddress);
 router.put('/addresses/:id/default', setDefaultAddress);
 

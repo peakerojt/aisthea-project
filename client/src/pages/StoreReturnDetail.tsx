@@ -16,13 +16,31 @@ export const StoreReturnDetail: React.FC<Props> = ({ returnId, setView }) => {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['return-detail', returnId],
     queryFn: async () => {
-      const res = await returnService.detail(returnId);
-      return res.data?.data ?? res.data;
+      const res = await returnService.detail(returnId) as { data?: { data?: unknown } | unknown };
+      const dataObj = res.data as { data?: unknown } | undefined;
+      return dataObj?.data ?? res.data;
     },
     enabled: Number.isFinite(returnId) && returnId > 0,
   });
 
-  const rr = data?.data ?? data;
+  type ReturnItemType = Parameters<typeof ReturnItemsTable>[0]['items'][0];
+  type LogType = Parameters<typeof ReturnTimeline>[0]['logs'][0];
+
+  interface ReturnRequestDetail {
+    returnRequestId: number;
+    orderId: number;
+    status: string;
+    reason: string;
+    totalRefundAmount: string | number;
+    createdAt: string;
+    note?: string;
+    items?: ReturnItemType[];
+    attachments?: { attachmentId?: number; fileUrl: string }[];
+    statusLogs?: LogType[];
+    refundTransactions?: { transactionId: number; amount: number; method: string; status: string; transactionRef?: string }[];
+  }
+
+  const rr = data as ReturnRequestDetail | undefined;
 
   if (isLoading) {
     return (
@@ -38,7 +56,7 @@ export const StoreReturnDetail: React.FC<Props> = ({ returnId, setView }) => {
     return (
       <div className="p-6 space-y-4">
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-300">
-          <p>{(error as any)?.message ?? 'Không tìm thấy return request.'}</p>
+          <p>{(error as { message?: string })?.message ?? 'Không tìm thấy return request.'}</p>
           <button
             onClick={() => refetch()}
             className="mt-2 text-sm underline hover:text-red-200"
@@ -111,7 +129,7 @@ export const StoreReturnDetail: React.FC<Props> = ({ returnId, setView }) => {
         <div>
           <h2 className="mb-3 font-semibold text-white">Ảnh minh chứng</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {rr.attachments.map((att: any, idx: number) => (
+            {rr.attachments.map((att: { attachmentId?: number; fileUrl: string }, idx: number) => (
               <a
                 key={att.attachmentId ?? idx}
                 href={att.fileUrl}
@@ -147,7 +165,7 @@ export const StoreReturnDetail: React.FC<Props> = ({ returnId, setView }) => {
         <div>
           <h2 className="mb-3 font-semibold text-white">Thông tin hoàn tiền</h2>
           <div className="space-y-3">
-            {rr.refundTransactions.map((t: any) => (
+            {rr.refundTransactions.map((t: { transactionId: number; amount: number; method: string; status: string; transactionRef?: string }) => (
               <div
                 key={t.transactionId}
                 className="rounded-xl border border-green-500/20 bg-green-500/10 p-4"

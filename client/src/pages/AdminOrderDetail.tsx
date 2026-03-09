@@ -218,7 +218,7 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
                             {(['Paid', 'PAID', 'Partially_Refunded', 'PARTIALLY_REFUNDED'].includes(order.paymentStatus ?? '')) && (
                                 <button
                                     onClick={() => setShowRefundDialog(true)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/25 text-violet-400 hover:bg-violet-500/20 transition-all text-[11px] font-bold uppercase tracking-wider cursor-pointer"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 hover:bg-cyan-500/20 transition-all text-[11px] font-bold uppercase tracking-wider cursor-pointer"
                                 >
                                     <RotateCcw size={11} />
                                     Hoàn tiền
@@ -268,7 +268,7 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
                                             {/* Product image */}
                                             <div className="w-[72px] h-[90px] rounded-xl overflow-hidden shrink-0 bg-white/[0.04] border border-white/[0.07] relative">
                                                 {item.image ? (
-                                                    <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
+                                                    <img src={item.image} alt={item.productName} loading="lazy" className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center">
                                                         <Package size={22} className="text-white/15" />
@@ -369,7 +369,7 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
                                         <div className="flex items-center gap-3">
                                             {/* Avatar */}
                                             {order.user.avatarUrl ? (
-                                                <img src={getImageUrl(order.user.avatarUrl)} alt="" className="w-10 h-10 rounded-full object-cover border border-white/10 shrink-0" />
+                                                <img src={getImageUrl(order.user.avatarUrl)} alt="" loading="lazy" className="w-10 h-10 rounded-full object-cover border border-white/10 shrink-0" />
                                             ) : (
                                                 <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-sm font-black text-primary shrink-0">
                                                     {order.user.fullName?.charAt(0) ?? '?'}
@@ -408,10 +408,10 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
                                     </div>
                                     {order.trackingNumber && (
                                         <div className="flex items-center gap-2 pt-1">
-                                            <Truck size={12} className="text-violet-400 shrink-0" />
+                                            <Truck size={12} className="text-cyan-400 shrink-0" />
                                             <div>
                                                 <p className="text-[10px] text-white/35 uppercase tracking-wider">{order.carrier ?? 'Tracking'}</p>
-                                                <p className="text-[12px] text-violet-400 font-mono font-semibold">{order.trackingNumber}</p>
+                                                <p className="text-[12px] text-cyan-400 font-mono font-semibold">{order.trackingNumber}</p>
                                             </div>
                                         </div>
                                     )}

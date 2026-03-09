@@ -237,14 +237,14 @@ const ShippingDialog: React.FC<ShippingDialogProps> = ({ loading, onClose, onCon
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-            <div className="relative w-full max-w-md bg-[#111114] border border-violet-500/20 rounded-2xl shadow-2xl overflow-hidden">
-                <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-violet-500 to-transparent" />
+            <div className="relative w-full max-w-md bg-[#111114] border border-cyan-500/20 rounded-2xl shadow-2xl overflow-hidden">
+                <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-cyan-500 to-transparent" />
 
                 <div className="p-6 space-y-5">
                     {/* Header */}
                     <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-xl border border-violet-500/30 bg-violet-500/10 flex items-center justify-center shrink-0">
-                            <Truck size={18} className="text-violet-400" />
+                        <div className="w-10 h-10 rounded-xl border border-cyan-500/30 bg-cyan-500/10 flex items-center justify-center shrink-0">
+                            <Truck size={18} className="text-cyan-400" />
                         </div>
                         <div>
                             <h3 className="text-base font-bold text-white">Bắt đầu giao hàng</h3>
@@ -264,7 +264,7 @@ const ShippingDialog: React.FC<ShippingDialogProps> = ({ loading, onClose, onCon
                             value={carrier}
                             onChange={e => setCarrier(e.target.value)}
                             placeholder="Ví dụ: Giao Hàng Tiết Kiệm"
-                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all"
+                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
                         />
                         {/* Quick-pick chips */}
                         <div className="flex flex-wrap gap-1.5 mt-2">
@@ -274,8 +274,8 @@ const ShippingDialog: React.FC<ShippingDialogProps> = ({ loading, onClose, onCon
                                     type="button"
                                     onClick={() => setCarrier(c)}
                                     className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all cursor-pointer ${carrier === c
-                                            ? 'border-violet-500/50 bg-violet-500/15 text-violet-300'
-                                            : 'border-white/10 bg-white/[0.03] text-white/50 hover:text-white/80 hover:border-white/20'
+                                        ? 'border-cyan-500/50 bg-cyan-500/15 text-cyan-300'
+                                        : 'border-white/10 bg-white/[0.03] text-white/50 hover:text-white/80 hover:border-white/20'
                                         }`}
                                 >
                                     {c}
@@ -288,7 +288,7 @@ const ShippingDialog: React.FC<ShippingDialogProps> = ({ loading, onClose, onCon
                     <div>
                         <label className="block text-[11px] font-bold uppercase tracking-widest text-white/40 mb-2">
                             <span className="flex items-center gap-1.5">
-                                <MapPin size={10} className="text-violet-400" />
+                                <MapPin size={10} className="text-cyan-400" />
                                 Mã vận đơn
                             </span>
                         </label>
@@ -297,7 +297,7 @@ const ShippingDialog: React.FC<ShippingDialogProps> = ({ loading, onClose, onCon
                             value={trackingNumber}
                             onChange={e => setTracking(e.target.value)}
                             placeholder="Ví dụ: GHTK-123456789"
-                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder-white/25 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all"
+                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder-white/25 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
                         />
                     </div>
 
@@ -315,7 +315,7 @@ const ShippingDialog: React.FC<ShippingDialogProps> = ({ loading, onClose, onCon
                             type="button"
                             onClick={() => onConfirm(carrier.trim(), trackingNumber.trim())}
                             disabled={loading}
-                            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all cursor-pointer disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg bg-violet-600 hover:bg-violet-500 shadow-violet-900/30"
+                            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all cursor-pointer disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg bg-cyan-600 hover:bg-cyan-500 shadow-cyan-900/30"
                         >
                             {loading ? <Loader2 size={14} className="animate-spin" /> : <Truck size={14} />}
                             {loading ? 'Đang xử lý...' : 'Bắt đầu giao hàng'}
@@ -380,15 +380,16 @@ export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
                 ...(logistics?.trackingNumber ? { trackingNumber: logistics.trackingNumber } : {}),
             });
             setDialog({ type: 'none' });
-            const messageKey = (res as any)?.messageKey || 'ORDER_STATUS_UPDATED';
+            const messageKey = (res as { messageKey?: string })?.messageKey || 'ORDER_STATUS_UPDATED';
             onStatusUpdated(messageKey);
-        } catch (err: any) {
-            const errorCode = err?.response?.data?.errorCode;
+        } catch (err: unknown) {
+            const errorResponse = err as { response?: { data?: { errorCode?: string; message?: string; error?: string } }; message?: string };
+            const errorCode = errorResponse?.response?.data?.errorCode;
             const msg = errorCode
                 ? t(errorCode, { defaultValue: errorCode })
-                : (err?.response?.data?.message
-                    || err?.response?.data?.error
-                    || err?.message
+                : (errorResponse?.response?.data?.message
+                    || errorResponse?.response?.data?.error
+                    || errorResponse?.message
                     || t('INTERNAL_SERVER_ERROR'));
             onError(msg);
             setDialog({ type: 'none' });

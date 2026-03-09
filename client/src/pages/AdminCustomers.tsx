@@ -35,12 +35,12 @@ function getInitials(name: string): string {
 }
 
 const AVATAR_COLORS = [
-    'bg-violet-600',
+    'bg-cyan-600',
     'bg-blue-600',
     'bg-emerald-600',
     'bg-amber-600',
     'bg-rose-600',
-    'bg-indigo-600',
+    'bg-sky-600',
     'bg-teal-600',
 ];
 
@@ -53,7 +53,7 @@ function getAvatarColor(userId: number): string {
 function RoleBadge({ roleName }: { roleName: string }) {
     const { t } = useTranslation(['customers']);
     const styles: Record<string, string> = {
-        Admin: 'bg-purple-500/15 text-purple-300 border-purple-500/25',
+        Admin: 'bg-teal-500/15 text-teal-300 border-teal-500/25',
         Customer: 'bg-blue-500/15 text-blue-300 border-blue-500/25',
         Staff: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
     };
@@ -310,8 +310,8 @@ export const AdminCustomers: React.FC = () => {
                         {/* Header */}
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-                                    <ShieldCheck size={16} className="text-purple-400" />
+                                <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+                                    <ShieldCheck size={16} className="text-teal-400" />
                                 </div>
                                 <div>
                                     <h3 className="text-sm font-bold text-white">{t('role.title')}</h3>
@@ -339,7 +339,7 @@ export const AdminCustomers: React.FC = () => {
                                         }`}
                                 >
                                     <span>{t(`role.labels.${r.roleName.toLowerCase()}`, { defaultValue: getRoleLabel(r.roleName) })}</span>
-                                    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${r.roleName === 'Admin' ? 'bg-purple-500/20 text-purple-300' :
+                                    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${r.roleName === 'Admin' ? 'bg-teal-500/20 text-teal-300' :
                                         r.roleName === 'Customer' ? 'bg-blue-500/20 text-blue-300' :
                                             'bg-amber-500/20 text-amber-300'
                                         }`}>

@@ -17,7 +17,7 @@ const CARRIER_COLORS: Record<string, { bg: string; text: string; label: string }
 const FEATURES = [
   { icon: ShieldCheck, color: 'text-emerald-400', label: 'Tra cứu bảo mật' },
   { icon: Package, color: 'text-blue-400', label: 'Cập nhật thời gian thực' },
-  { icon: Search, color: 'text-violet-400', label: 'Xem lộ trình chi tiết' },
+  { icon: Search, color: 'text-cyan-400', label: 'Xem lộ trình chi tiết' },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -56,12 +56,13 @@ export function TrackingLookupPage() {
       );
 
       navigate(`/tracking/${(data as any).orderId}?orderCode=${encodeURIComponent(trimCode)}&phone=${encodeURIComponent(trimPhone)}`);
-    } catch (err: any) {
-      const code = err?.response?.data?.errorCode;
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { errorCode?: string } }, message?: string };
+      const code = error?.response?.data?.errorCode;
       setError(
         code === 'TRACKING_NOT_FOUND'
           ? 'Không tìm thấy đơn hàng. Vui lòng kiểm tra lại Mã đơn và Số điện thoại.'
-          : err.message || 'Tra cứu thất bại. Vui lòng thử lại.',
+          : error.message || 'Tra cứu thất bại. Vui lòng thử lại.',
       );
     } finally {
       setLoading(false);

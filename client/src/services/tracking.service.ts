@@ -10,7 +10,7 @@ export async function publicTracking(orderCode: string, contact: string) {
 }
 
 export async function getMyOrdersTracking() {
-  const response = await api.get<{ success: boolean; data: any[] }>('/api/orders/my');
+  const response = await api.get<{ success: boolean; data: unknown[] }>('/api/orders/my');
   return response.data || response;
 }
 

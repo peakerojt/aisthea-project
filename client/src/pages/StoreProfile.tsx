@@ -148,8 +148,8 @@ export const StoreProfile: React.FC<StoreProfileProps> = ({ setView, setCategory
     try {
       await userService.deleteAvatar();
       await loadProfileData();
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete avatar');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to delete avatar');
     }
   };
 
@@ -189,8 +189,8 @@ export const StoreProfile: React.FC<StoreProfileProps> = ({ setView, setCategory
       }
       await loadProfileData();
       setShowAddressForm(false);
-    } catch (err: any) {
-      alert(err.message || 'Failed to save address');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to save address');
     }
   };
 
@@ -200,8 +200,8 @@ export const StoreProfile: React.FC<StoreProfileProps> = ({ setView, setCategory
     try {
       await userService.deleteAddress(addressId);
       await loadProfileData();
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete address');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to delete address');
     }
   };
 
@@ -209,8 +209,8 @@ export const StoreProfile: React.FC<StoreProfileProps> = ({ setView, setCategory
     try {
       await userService.setDefaultAddress(addressId);
       await loadProfileData();
-    } catch (err: any) {
-      alert(err.message || 'Failed to set default address');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to set default address');
     }
   };
 
@@ -448,24 +448,24 @@ export const StoreProfile: React.FC<StoreProfileProps> = ({ setView, setCategory
               {showAddressForm ? (
                 <div className="bg-black/20 p-6 rounded mb-6 border border-white/5">
                   <h4 className="text-sm font-bold uppercase tracking-widest mb-4">{editingAddressId ? 'Edit Address' : 'Add New Address'}</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <div className="md:col-span-6">
                       <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">Recipient Name</label>
                       <input type="text" value={addressForm.recipientName} onChange={(e) => setAddressForm({ ...addressForm, recipientName: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
                     </div>
-                    <div>
+                    <div className="md:col-span-6">
                       <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">Phone</label>
                       <input type="tel" value={addressForm.phone} onChange={(e) => setAddressForm({ ...addressForm, phone: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
                     </div>
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-8">
                       <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">Address Line</label>
                       <input type="text" value={addressForm.addressLine} onChange={(e) => setAddressForm({ ...addressForm, addressLine: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
                     </div>
-                    <div>
+                    <div className="md:col-span-4">
                       <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">City</label>
                       <input type="text" value={addressForm.city} onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
                     </div>
-                    <div>
+                    <div className="md:col-span-12">
                       <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">District</label>
                       <input type="text" value={addressForm.district} onChange={(e) => setAddressForm({ ...addressForm, district: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
                     </div>

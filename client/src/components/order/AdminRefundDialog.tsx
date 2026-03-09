@@ -101,7 +101,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
         if (!parsed.success) {
             const fieldErrors: Record<string, string> = {};
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (parsed.error.issues as any[]).forEach((e: any) => {
+            (parsed.error.issues as { path?: string[]; message: string }[]).forEach((e) => {
                 const field = String(e.path?.[0] ?? 'amount');
                 fieldErrors[field] = t(e.message);
             });
@@ -124,12 +124,12 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                     onClose();
                 }, 1500);
             } else {
-                throw new Error((res as any).message ?? 'Lỗi không xác định.');
+                throw new Error((res as { message?: string }).message ?? t('refund.errors.unknownError'));
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             setToast({
                 type: 'error',
-                msg: err?.message ?? t('refund.errors.invalidAmountOrExceeds'),
+                msg: (err as Error)?.message ?? t('refund.errors.invalidAmountOrExceeds'),
             });
         } finally {
             setSubmitting(false);
@@ -150,13 +150,13 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
 
             {/* Panel */}
             <div
-                className="relative z-10 w-full max-w-lg bg-[#0E0E12] border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden"
+                className="relative z-10 w-full max-w-lg bg-[#0E0E12] border border-white/[0.08] rounded-sm shadow-2xl overflow-hidden"
                 onClick={e => e.stopPropagation()}
             >
                 {/* ── Header ─────────────────────────────────────────────────── */}
                 <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/[0.06]">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-sm bg-primary/10 border border-primary/20 flex items-center justify-center">
                             <BadgeDollarSign size={17} className="text-primary" />
                         </div>
                         <div>
@@ -168,7 +168,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                     </div>
                     <button
                         onClick={onClose}
-                        className="w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:border-white/20 transition-all cursor-pointer"
+                        className="w-8 h-8 rounded-sm border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:border-white/20 transition-all cursor-pointer"
                     >
                         <X size={14} />
                     </button>
@@ -183,7 +183,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                             { label: t('refund.stats.totalRefunded'), value: formatVND(totalRefunded), color: 'text-amber-400' },
                             { label: t('refund.stats.maxRefundable'), value: formatVND(maxRefundable), color: 'text-emerald-400' },
                         ].map(({ label, value, color }) => (
-                            <div key={label} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 text-center">
+                            <div key={label} className="bg-white/[0.03] border border-white/[0.06] rounded-sm p-3 text-center">
                                 <p className="text-[9px] uppercase tracking-wider text-white/35 mb-1">{label}</p>
                                 <p className={`text-[13px] font-bold ${color}`}>{value}</p>
                             </div>
@@ -192,7 +192,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
 
                     {/* Guard: nothing to refund */}
                     {maxRefundable <= 0 && (
-                        <div className="flex items-center gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                        <div className="flex items-center gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-sm">
                             <AlertTriangle size={15} className="text-amber-400 shrink-0" />
                             <p className="text-[12px] text-amber-300">
                                 {t('refund.stats.alreadyFullyRefunded')}
@@ -212,7 +212,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                                         <button
                                             key={type}
                                             onClick={() => setRefundType(type)}
-                                            className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-[12px] font-semibold transition-all cursor-pointer ${refundType === type
+                                            className={`flex items-center gap-2 px-4 py-3 rounded-sm border text-[12px] font-semibold transition-all cursor-pointer ${refundType === type
                                                 ? 'bg-primary/10 border-primary/40 text-primary'
                                                 : 'bg-white/[0.03] border-white/[0.07] text-white/50 hover:border-white/15'
                                                 }`}
@@ -239,7 +239,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                                             max={maxRefundable}
                                             value={amountInput}
                                             onChange={e => handleAmountChange(e.target.value)}
-                                            className="w-full bg-white/[0.04] border border-white/[0.1] text-white text-sm font-mono px-4 py-3 rounded-xl focus:outline-none focus:border-primary/40 transition-colors placeholder-white/20 pr-16"
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] text-white text-sm font-mono px-4 py-3 rounded-sm focus:outline-none focus:border-primary/40 transition-colors placeholder-white/20 pr-16"
                                             placeholder="0"
                                         />
                                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 text-[11px] font-bold">₫</span>
@@ -260,7 +260,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                                     <select
                                         value={method}
                                         onChange={e => setMethod(e.target.value as RefundMethod)}
-                                        className="w-full appearance-none bg-white/[0.04] border border-white/[0.1] text-white text-[13px] px-4 py-3 rounded-xl focus:outline-none focus:border-primary/40 transition-colors cursor-pointer pr-10"
+                                        className="w-full appearance-none bg-white/[0.04] border border-white/[0.1] text-white text-[13px] px-4 py-3 rounded-sm focus:outline-none focus:border-primary/40 transition-colors cursor-pointer pr-10"
                                     >
                                         {REFUND_METHODS.map((val) => (
                                             <option key={val} value={val} className="bg-[#0E0E12] text-white">
@@ -285,7 +285,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                                     rows={3}
                                     maxLength={500}
                                     placeholder={t('refund.form.reasonPlaceholder')}
-                                    className="w-full bg-white/[0.04] border border-white/[0.1] text-white text-[13px] px-4 py-3 rounded-xl focus:outline-none focus:border-primary/40 transition-colors placeholder-white/20 resize-none"
+                                    className="w-full bg-white/[0.04] border border-white/[0.1] text-white text-[13px] px-4 py-3 rounded-sm focus:outline-none focus:border-primary/40 transition-colors placeholder-white/20 resize-none"
                                 />
                                 <div className="flex items-center justify-between">
                                     {errors.reason
@@ -297,7 +297,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
 
                             {/* ── Toast inline ─────────────────────────────────────── */}
                             {toast && (
-                                <div className={`flex items-center gap-3 p-3 rounded-xl border text-[12px] ${toast.type === 'success'
+                                <div className={`flex items-center gap-3 p-3 rounded-sm border text-[12px] ${toast.type === 'success'
                                     ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
                                     : 'bg-red-500/10 border-red-500/20 text-red-300'
                                     }`}>
@@ -316,7 +316,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                     <button
                         onClick={onClose}
                         disabled={submitting}
-                        className="flex-1 px-4 py-3 rounded-xl border border-white/[0.1] text-white/50 hover:text-white hover:border-white/20 text-[12px] font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
+                        className="flex-1 px-4 py-3 rounded-sm border border-white/[0.1] text-white/50 hover:text-white hover:border-white/20 text-[12px] font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
                     >
                         {t('refund.form.cancel')}
                     </button>
@@ -324,7 +324,7 @@ export const AdminRefundDialog: React.FC<AdminRefundDialogProps> = ({
                         <button
                             onClick={handleSubmit}
                             disabled={submitting || confirmAmount <= 0}
-                            className="flex-1 px-4 py-3 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-[12px] font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="flex-1 px-4 py-3 rounded-sm bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-[12px] font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                             {submitting ? (
                                 <><Loader2 size={13} className="animate-spin" />{t('refund.form.submitting')}</>

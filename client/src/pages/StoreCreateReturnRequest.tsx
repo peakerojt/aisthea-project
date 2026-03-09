@@ -42,7 +42,7 @@ interface Props {
 function Toast({ msg, type }: { msg: string; type: 'error' | 'success' }) {
   return (
     <div
-      className={`flex items-start gap-3 rounded-xl border p-4 ${type === 'error'
+      className={`flex items-start gap-3 rounded-sm border p-4 ${type === 'error'
         ? 'border-red-500/30 bg-red-500/10 text-red-300'
         : 'border-green-500/30 bg-green-500/10 text-green-300'
         }`}
@@ -94,7 +94,7 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
     if (order?.items) {
       setValue(
         'items',
-        order.items.map((it: any) => ({
+        order.items.map((it: { orderItemId: number; quantity: number }) => ({
           orderItemId: it.orderItemId,
           quantity: 1,
           selected: false,
@@ -106,7 +106,7 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
   }, [order, setValue]);
 
   const mutation = useMutation({
-    mutationFn: (payload: any) => returnService.request(payload.orderId, payload.reason, payload.attachments ?? []),
+    mutationFn: (payload: { orderId: number; reason: string; note?: string; items: { orderItemId: number; quantity: number; reason?: string }[]; attachments?: string[] }) => returnService.request(payload.orderId, payload.reason, payload.attachments ?? []),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['my-returns'] });
       const newId = res?.returnId;
@@ -117,9 +117,10 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
         setView('STORE_MY_RETURNS');
       }
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
+      const error = err as { response?: { data?: { error?: { message?: string } } }, message?: string };
       setSubmitError(
-        err?.response?.data?.error?.message ?? err?.message ?? 'Lỗi không xác định',
+        error?.response?.data?.error?.message ?? error?.message ?? 'Lỗi không xác định',
       );
     },
   });
@@ -175,7 +176,7 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
   if (!user) {
     return (
       <div className="p-6">
-        <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
+        <div className="rounded-sm border border-white/10 bg-white/5 p-6 text-center text-white/70">
           Vui lòng đăng nhập.
         </div>
       </div>
@@ -211,7 +212,7 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
         </div>
         <button
           onClick={() => setView('STORE_MY_ORDERS')}
-          className="rounded-lg border border-white/20 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
+          className="rounded-sm border border-white/20 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
         >
           ← Quay lại
         </button>
@@ -220,13 +221,13 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
         {/* Reason */}
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+        <div className="rounded-sm border border-white/10 bg-white/5 p-4 space-y-3">
           <label className="block text-sm font-semibold text-white/90">
             Lý do trả hàng <span className="text-red-400">*</span>
           </label>
           <select
             {...register('reason')}
-            className="w-full appearance-none rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            className="w-full appearance-none rounded-sm border border-white/20 bg-white/10 px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50"
           >
             {REASON_KEYS.map((value) => (
               <option key={value} value={value} className="text-black bg-white">
@@ -237,19 +238,19 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
         </div>
 
         {/* Items */}
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+        <div className="rounded-sm border border-white/10 bg-white/5 p-4 space-y-3">
           <label className="block text-sm font-semibold text-white/90">
             Chọn sản phẩm trả <span className="text-red-400">*</span>
           </label>
           <div className="space-y-2">
             {fields.map((field, idx) => {
-              const orderItem = order.items.find((i: any) => i.orderItemId === field.orderItemId);
+              const orderItem = order.items.find((i: { orderItemId: number; productName?: string; variantName?: string; unitPrice?: number | string; quantity?: number | string }) => i.orderItemId === field.orderItemId);
               const isSelected = watchedItems?.[idx]?.selected;
               return (
                 <div
                   key={field.id}
-                  className={`rounded-lg border transition-all duration-150 ${isSelected
-                    ? 'border-indigo-500/60 bg-indigo-500/10'
+                  className={`rounded-sm border transition-all duration-150 ${isSelected
+                    ? 'border-sky-500/60 bg-sky-500/10'
                     : 'border-white/10 bg-white/5 hover:bg-white/10'
                     } p-3`}
                 >
@@ -263,7 +264,7 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
                           id={`item-check-${idx}`}
                           checked={f.value ?? false}
                           onChange={f.onChange}
-                          className="mt-1 h-4 w-4 rounded accent-indigo-500"
+                          className="mt-1 h-4 w-4 rounded accent-sky-500"
                         />
                       )}
                     />
@@ -290,7 +291,7 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
                           min={1}
                           max={orderItem?.quantity ?? 999}
                           {...register(`items.${idx}.quantity`, { valueAsNumber: true })}
-                          className="w-16 rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-sm text-white text-center focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-16 rounded-sm border border-white/20 bg-white/10 px-2 py-1 text-sm text-white text-center focus:outline-none focus:ring-1 focus:ring-sky-500"
                         />
                       </div>
                     )}
@@ -308,7 +309,7 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
         </div>
 
         {/* Note */}
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+        <div className="rounded-sm border border-white/10 bg-white/5 p-4 space-y-2">
           <label className="block text-sm font-semibold text-white/90">
             Ghi chú (tùy chọn)
           </label>
@@ -316,13 +317,13 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
             {...register('note')}
             rows={3}
             placeholder="Mô tả vấn đề chi tiết..."
-            className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none"
+            className="w-full rounded-sm border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-sky-500/50 resize-none"
           />
           {errors.note && <p className="text-xs text-red-400">{errors.note.message}</p>}
         </div>
 
         {/* Attachments */}
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+        <div className="rounded-sm border border-white/10 bg-white/5 p-4 space-y-3">
           <div>
             <label className="block text-sm font-semibold text-white/90">
               Ảnh minh chứng (tùy chọn, tối đa 5)
@@ -341,7 +342,7 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
                 if (attachmentError) setAttachmentError('');
               }}
               placeholder="https://..."
-              className="flex-1 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              className="flex-1 rounded-sm border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -353,7 +354,7 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
               type="button"
               onClick={addAttachment}
               disabled={(watchedAttachments?.length ?? 0) >= 5 || !attachmentInput.trim()}
-              className="rounded-lg bg-white/10 px-3 py-2 text-sm text-white hover:bg-white/20 disabled:opacity-40 transition-colors"
+              className="rounded-sm bg-white/10 px-3 py-2 text-sm text-white hover:bg-white/20 disabled:opacity-40 transition-colors"
             >
               + Thêm
             </button>
@@ -365,7 +366,7 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
               {watchedAttachments?.map((url, idx) => (
                 <div
                   key={idx}
-                  className="relative rounded-lg overflow-hidden border border-white/10 bg-white/5 aspect-video flex items-center justify-center"
+                  className="relative rounded-sm overflow-hidden border border-white/10 bg-white/5 aspect-video flex items-center justify-center"
                 >
                   <img
                     src={url}
@@ -401,7 +402,7 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
             type="submit"
             disabled={mutation.isPending}
             id="submit-return-form"
-            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-60 transition-colors"
+            className="flex items-center gap-2 rounded-sm bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60 transition-colors"
           >
             {mutation.isPending ? (
               <>
@@ -414,7 +415,7 @@ export const StoreCreateReturnRequest: React.FC<Props> = ({ setView, orderIdForR
           <button
             type="button"
             onClick={() => setView('STORE_MY_ORDERS')}
-            className="rounded-xl border border-white/20 px-5 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors"
+            className="rounded-sm border border-white/20 px-5 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors"
           >
             Hủy
           </button>

@@ -41,6 +41,8 @@ export const trackingRepository = {
     const orders = await prisma.order.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      // Cap at 50 most recent orders — sufficient for a tracking view.
+      take: 50,
       include: {
         items: { orderBy: { orderItemId: 'asc' } },
       },

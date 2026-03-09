@@ -8,6 +8,7 @@ import {
   ArrowLeft, Wifi, WifiOff, Box, AlertTriangle, Search,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { TrackingData } from '../types/tracking';
 
 // ─── Status configuration ─────────────────────────────────────────────────────────
 type StepId = 'PENDING' | 'PACKING' | 'SHIPPING' | 'DELIVERED';
@@ -61,8 +62,8 @@ const STATUS_ICON: Record<string, typeof Clock> = {
 const STATUS_COLOR: Record<string, string> = {
   PENDING: 'text-amber-400  bg-amber-400/10  border-amber-400/30',
   CONFIRMED: 'text-blue-400   bg-blue-400/10   border-blue-400/30',
-  PACKING: 'text-violet-400 bg-violet-400/10 border-violet-400/30',
-  PROCESSING: 'text-violet-400 bg-violet-400/10 border-violet-400/30',
+  PACKING: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30',
+  PROCESSING: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30',
   SHIPPING: 'text-sky-400    bg-sky-400/10    border-sky-400/30',
   SHIPPED: 'text-sky-400    bg-sky-400/10    border-sky-400/30',
   OUT_FOR_DELIVERY: 'text-sky-400    bg-sky-400/10    border-sky-400/30',
@@ -100,7 +101,7 @@ function formatDateShort(ts?: string | Date | null) {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-function HorizontalStepper({ status, t }: { status: string; t: any }) {
+function HorizontalStepper({ status, t }: { status: string; t: (k: string, opts?: { defaultValue?: string }) => string }) {
   const currentStep = STATUS_TO_STEP[status] ?? 0;
   const isCancelled = currentStep === -1;
 
@@ -148,7 +149,7 @@ function HorizontalStepper({ status, t }: { status: string; t: any }) {
   );
 }
 
-function TimelineItem({ item, isFirst, t }: { item: any; isFirst: boolean; t: any }) {
+function TimelineItem({ item, isFirst, t }: { item: { status: string; timestamp: string; location?: string; note?: string }; isFirst: boolean; t: (k: string, opts?: { defaultValue?: string }) => string }) {
   const Icon = STATUS_ICON[item.status.toUpperCase()] ?? STATUS_ICON[item.status] ?? Package;
   const color = STATUS_COLOR[item.status.toUpperCase()] ?? STATUS_COLOR[item.status] ?? 'text-slate-400 bg-slate-400/10 border-slate-400/30';
 
@@ -229,20 +230,21 @@ export function TrackingDetailPage() {
 
     (async () => {
       try {
-        let data: any;
+        let data: TrackingData;
         if (isPublicMode && publicLookup) {
-          data = await publicTracking(publicLookup.orderCode, publicLookup.contact);
+          data = await publicTracking(publicLookup.orderCode, publicLookup.contact) as TrackingData;
         } else {
-          data = await getOrderTracking(orderId);
+          data = await getOrderTracking(orderId) as TrackingData;
         }
         if (mounted) setTracking(data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!mounted) return;
-        const status = err.response?.status;
+        const error = err as { response?: { status?: number }; message?: string };
+        const status = error.response?.status;
         if (status === 401 || status === 403 || status === 404) {
           navigate('/tracking', { state: { error: 'Vui lòng nhập mã đơn hàng và số điện thoại để tra cứu.' } });
         } else {
-          setError(err.message || 'Không thể tải dữ liệu đơn hàng.');
+          setError(error.message || 'Không thể tải dữ liệu đơn hàng.');
         }
       } finally {
         if (mounted) setLoading(false);
@@ -363,7 +365,7 @@ export function TrackingDetailPage() {
             <InfoChip
               label="Mã vận đơn"
               value={trackingNum ?? '—'}
-              icon={<Package className="size-3.5 text-violet-400" />}
+              icon={<Package className="size-3.5 text-cyan-400" />}
             />
             <InfoChip
               label="Dự kiến giao hàng"

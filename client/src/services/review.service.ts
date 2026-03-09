@@ -33,5 +33,5 @@ export const createReview = async (payload: CreateReviewPayload): Promise<Review
         '/api/reviews',
         payload
     );
-    return res.data || (res as any).review || res;
+    return res.data || (res as { review?: ReviewResponse }).review || res as unknown as ReviewResponse;
 };

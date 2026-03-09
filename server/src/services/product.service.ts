@@ -1,6 +1,7 @@
 
 import { prisma } from '../utils/prisma';
 import { cloudinaryService } from './cloudinary.service';
+import { logger } from '../lib/logger';
 
 // ─── Types for createProduct ──────────────────────────────────────────────────
 export interface CreateVariantPayload {
@@ -175,7 +176,7 @@ export const getProductById = async (id: number) => {
         const product = JSON.parse(jsonString);
         return product;
     } catch (error) {
-        console.error('Error calling sp_GetProductDetails:', error);
+        logger.error('[productService] sp_GetProductDetails failed', { error });
         throw error;
     }
 };
@@ -589,7 +590,7 @@ export const smartDeleteProduct = async (id: number): Promise<SmartDeleteResult>
                 try {
                     await cloudinaryService.deleteImage(publicId);
                 } catch (err) {
-                    console.warn(`[Smart Delete] Failed to delete Cloudinary image: ${publicId}`, err);
+                    logger.warn('[productService] Failed to delete Cloudinary image', { publicId, err });
                 }
             }
         });

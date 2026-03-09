@@ -29,15 +29,20 @@ export const StoreMyReturns: React.FC<Props> = ({ setView, setReturnId }) => {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['my-returns', page, limit],
     queryFn: async () => {
-      const res = await returnService.myReturns(page, limit);
-      return res.data?.data ?? res.data;
+      const res = await returnService.myReturns(page, limit) as { data?: { data?: unknown[], total?: number, totalPages?: number } | unknown[], total?: number, totalPages?: number };
+      const dataObj = res.data as { data?: unknown[] } | undefined;
+      return {
+        list: dataObj?.data ?? res.data ?? [],
+        total: (res.data as { total?: number })?.total ?? res.total ?? 0,
+        totalPages: (res.data as { totalPages?: number })?.totalPages ?? res.totalPages ?? Math.ceil(((res.data as { total?: number })?.total ?? res.total ?? 0) / limit)
+      };
     },
     enabled: Boolean(user),
   });
 
-  const list: any[] = data?.data ?? data ?? [];
+  const list: Record<string, unknown>[] = (data?.list as Record<string, unknown>[]) ?? [];
   const total: number = data?.total ?? 0;
-  const totalPages: number = data?.totalPages ?? Math.ceil(total / limit);
+  const totalPages: number = data?.totalPages ?? 1;
 
   if (!user) {
     return (
@@ -71,7 +76,7 @@ export const StoreMyReturns: React.FC<Props> = ({ setView, setReturnId }) => {
       {isError && (
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-300">
           <p className="font-medium">Không tải được danh sách</p>
-          <p className="text-sm mt-1 opacity-80">{(error as any)?.message ?? 'Lỗi không xác định'}</p>
+          <p className="text-sm mt-1 opacity-80">{(error as { message?: string })?.message ?? 'Lỗi không xác định'}</p>
           <button
             onClick={() => refetch()}
             className="mt-3 rounded-lg bg-red-600/40 px-3 py-1.5 text-sm hover:bg-red-600/60 transition-colors"
@@ -90,7 +95,7 @@ export const StoreMyReturns: React.FC<Props> = ({ setView, setReturnId }) => {
           </p>
           <button
             onClick={() => setView('STORE_MY_ORDERS')}
-            className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
+            className="mt-4 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 transition-colors"
           >
             Xem đơn hàng
           </button>
@@ -100,7 +105,7 @@ export const StoreMyReturns: React.FC<Props> = ({ setView, setReturnId }) => {
       {!isLoading && !isError && list.length > 0 && (
         <>
           <div className="space-y-3">
-            {list.map((r: any) => (
+            {list.map((r: { returnRequestId: number; orderId: number; reason: string; totalRefundAmount: number; createdAt: string; status: string }) => (
               <button
                 key={r.returnRequestId}
                 id={`return-card-${r.returnRequestId}`}

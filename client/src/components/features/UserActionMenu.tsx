@@ -75,7 +75,7 @@ export const UserActionMenu: React.FC<UserActionMenuProps> = ({
                     onClick={() => { setOpen(false); onChangeRole(user); }}
                     className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-left"
                 >
-                    <ShieldCheck size={15} className="text-purple-400" />
+                    <ShieldCheck size={15} className="text-teal-400" />
                     Phân quyền
                 </button>
 

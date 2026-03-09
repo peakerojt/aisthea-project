@@ -75,7 +75,16 @@ export interface ApiResponse<T> {
 export async function fetchOrderDetail(id: string): Promise<OrderDetail> {
   // getMyOrderDetail returns the order object directly
   const response = await api.get<OrderDetail>(`/api/orders/my/${id}`);
-  const raw = response as any;
+  // Define an extended type for the raw backend response to bridge missing properties
+  const raw = response as unknown as Omit<OrderDetail, 'items' | 'timeline' | 'pricing'> & {
+    pricing?: OrderPricing;
+    totalAmount?: string;
+    discountAmount?: string;
+    items?: Array<Record<string, unknown> & { variantId?: number; thumbnailUrl?: string; thumbnail?: string; variantName?: string; variant?: string; unitPrice?: string; price?: string; lineTotal?: string; subtotal?: string }>;
+    statusHistory?: Array<{ status: OrderStatus; changedAt?: string; at?: string }>;
+    timeline?: Array<{ status: OrderStatus; changedAt?: string; at?: string }>;
+  };
+
   // Map backend field names (thumbnailUrl, variantName) → OrderItem canonical shape
   return {
     ...raw,
@@ -86,24 +95,24 @@ export async function fetchOrderDetail(id: string): Promise<OrderDetail> {
       tax: 0,
       grandTotal: parseFloat(raw.totalAmount ?? '0'),
     },
-    items: (raw.items ?? []).map((item: any) => ({
+    items: (raw.items ?? []).map((item) => ({
       ...item,
       variantId: item.variantId ?? null,
       thumbnail: item.thumbnailUrl ?? item.thumbnail ?? null,
       variant: item.variantName ?? item.variant ?? '',
       price: parseFloat(item.unitPrice ?? item.price ?? '0'),
       subtotal: parseFloat(item.lineTotal ?? item.subtotal ?? '0'),
-    })),
-    timeline: (raw.statusHistory ?? raw.timeline ?? []).map((h: any) => ({
+    })) as OrderItem[],
+    timeline: (raw.statusHistory ?? raw.timeline ?? []).map((h) => ({
       status: h.status,
-      at: h.changedAt ?? h.at,
+      at: h.changedAt ?? h.at ?? '',
     })),
   };
 }
 
 export async function cancelOrder(id: string): Promise<OrderDetail> {
   const response = await api.patch<ApiResponse<OrderDetail>>(`/api/orders/${id}/cancel`);
-  return ((response as any).data || response) as OrderDetail;
+  return ((response as { data?: OrderDetail }).data || response) as OrderDetail;
 }
 
 export async function confirmReceipt(id: string): Promise<{ success: boolean; newStatus: string }> {

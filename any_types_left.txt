@@ -1,0 +1,92 @@
+client/src/app/App.tsx:130:    return contextItems.map((item: any) => ({
+client/src/app/App.tsx:138:      color: item.variant?.variantAttributes?.find((a: any) => a.value.attribute.name === 'Color' || a.value.attribute.name === 'Màu' || a.value.attribute.name === 'Màu sắc')?.value.value || 'N/A',
+client/src/app/App.tsx:139:      size: item.variant?.variantAttributes?.find((a: any) => a.value.attribute.name === 'Size' || a.value.attribute.name === 'Kích thước')?.value.value || 'N/A',
+client/src/app/App.tsx:172:  const handleProductClick = (product: any) => { setSelectedProduct(product); setView('STORE_DETAIL'); };
+client/src/components/AdminSidebar.tsx:96:    return currentView === item.view || item.subRoutes.includes(currentView as any);
+client/src/components/BulkImportExportModal.tsx:156:        } catch (err: any) {
+client/src/components/CouponModal.tsx:43:            const res = await api.get<any>('/api/coupons/available');
+client/src/components/CouponModal.tsx:45:        } catch (err: any) {
+client/src/components/HasPermission.tsx:19: * This prevents any DOM-based exposure of restricted UI elements.
+client/src/components/Product/ProductImageManager.tsx:473:        } catch (err: any) {
+client/src/components/Product/ProductVariantSelector.tsx:182: * check whether any in-stock variant satisfies ALL current selections + this candidate.
+client/src/components/ProductImageUploader/ProductImageUploader.tsx:142:                    } catch (error: any) {
+client/src/components/StoreHeader.tsx:14:  onProductClick?: (product: any) => void;
+client/src/components/StoreHeader.tsx:26:  const [searchResults, setSearchResults] = useState<any[]>([]);
+client/src/components/features/CategoryFormModal.tsx:107:        } catch (e: any) {
+client/src/components/order/AdminRefundDialog.tsx:103:            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+client/src/components/order/AdminRefundDialog.tsx:104:            (parsed.error.issues as any[]).forEach((e: any) => {
+client/src/components/order/AdminRefundDialog.tsx:127:                throw new Error((res as any).message ?? 'Lỗi không xác định.');
+client/src/components/order/AdminRefundDialog.tsx:129:        } catch (err: any) {
+client/src/components/order/OrderActionPanel.tsx:383:            const messageKey = (res as any)?.messageKey || 'ORDER_STATUS_UPDATED';
+client/src/components/order/OrderActionPanel.tsx:385:        } catch (err: any) {
+client/src/components/order/OrderTimeline.tsx:72:              <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${(cfg as any)?.bgClass ?? cfg?.badgeClass ?? 'bg-white/10'}`}>
+client/src/config/orderStatus.config.ts:150: * Normalizes any casing variant to the canonical PascalCase value.
+client/src/contexts/CartContext.tsx:144:            } catch (err: any) {
+client/src/contexts/CartContext.tsx:184:            } catch (err: any) {
+client/src/contexts/ProductContext.tsx:82:    } catch (err: any) {
+client/src/hooks/useOrderTrackingRealtime.ts:51:              const latest = await getOrderTracking(orderId) as any;
+client/src/hooks/useOrderTrackingRealtime.ts:67:      timeline: any[];
+client/src/hooks/useOrderTrackingRealtime.ts:73:      updateFromSocket(payload.status, payload.timeline as any, {
+client/src/hooks/useReorderItems.ts:31:            // Cancel any in-flight queries so they don't overwrite our optimistic state
+client/src/hooks/useReorderItems.ts:52:        onError: (err: any, _vars, context: any) => {
+client/src/pages/AdminAnalytics.tsx:23:const VNDTooltip = ({ active, payload, label }: any) => {
+client/src/pages/AdminAnalytics.tsx:29:            {payload.map((p: any) => (
+client/src/pages/AdminAnalytics.tsx:270:    const t = _t as (key: string, options?: any) => string;
+client/src/pages/AdminAnalytics.tsx:283:        } catch (e: any) {
+client/src/pages/AdminCategories.tsx:234:        } catch (e: any) {
+client/src/pages/AdminCategories.tsx:274:        } catch (e: any) {
+client/src/pages/AdminCategories.tsx:292:        } catch (e: any) {
+client/src/pages/AdminCreateProduct.tsx:283:        } catch (err: any) {
+client/src/pages/AdminCustomers.tsx:138:        } catch (e: any) {
+client/src/pages/AdminCustomers.tsx:168:        } catch (e: any) {
+client/src/pages/AdminCustomers.tsx:190:        } catch (e: any) {
+client/src/pages/AdminDashboard.tsx:108:      } catch (e: any) {
+client/src/pages/AdminOrderDetail.tsx:140:        } catch (e: any) { setError(e.message || 'Không thể tải chi tiết đơn hàng.'); }
+client/src/pages/AdminOrderDetail.tsx:183:    const statusHistory = (order as any).statusHistory ?? [];
+client/src/pages/AdminProducts.tsx:68:    } catch (err: any) {
+client/src/pages/AdminRestock.tsx:585:   // ─── Keyboard shortcut: Escape closes any modal ──────────────────────────
+client/src/pages/AdminReturnDetailPage.tsx:346:            {detail.refundTransactions.map((t: any) => (
+client/src/pages/AdminReturns.tsx:24:const getStatusLabel = (s: string, t: (key: string, options?: any) => string) => {
+client/src/pages/AdminReturns.tsx:50:    const t = _t as (key: string, options?: any) => string;
+client/src/pages/AdminReturns.tsx:261:    const t = _t as (key: string, options?: any) => string;
+client/src/pages/AdminReturns.tsx:290:        } catch (e: any) {
+client/src/pages/AdminReturns.tsx:310:        } catch (e: any) {
+client/src/pages/AdminReturnsListPage.tsx:180:                {rows.map((r: any) => (
+client/src/pages/AdminRoles.tsx:139:        } catch (err: any) {
+client/src/pages/EmailVerification.tsx:112:            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+client/src/pages/EmailVerification.tsx:113:            setMessage((response as any).message || 'Email verified successfully!');
+client/src/pages/MyOrdersPage.tsx:6:  const [orders, setOrders] = useState<any[]>([]);
+client/src/pages/MyOrdersPage.tsx:12:      .then((res: any) => setOrders(res.data || res))
+client/src/pages/OAuthCallback.tsx:34:            } catch (err: any) {
+client/src/pages/OrderDetailPage.tsx:156:    onError: (err: any) => {
+client/src/pages/ProductDetail.tsx:203:      if (attr) sizes.add((attr as Record<string, unknown>).attributeValue as string || (attr as any).value?.value || (attr as any).value);
+client/src/pages/ProductDetail.tsx:214:      if (attr) colors.add((attr as Record<string, unknown>).attributeValue as string || (attr as any).value?.value || (attr as any).value);
+client/src/pages/Signup.tsx:40:const PasswordStrengthMeter = React.memo(({ control }: { control: any }) => {
+client/src/pages/Signup.tsx:120:    } catch (err: any) {
+client/src/pages/StoreCategory.tsx:10:  onProductClick: (product: any) => void;
+client/src/pages/StoreCollection.tsx:144:        const responseData = await api.get<any>('/api/products', {
+client/src/pages/StoreHome.tsx:11:   onProductClick: (product: any) => void;
+client/src/pages/StoreProfile.tsx:67:    } catch (err: any) {
+client/src/pages/StoreProfile.tsx:89:    } catch (err: any) {
+client/src/pages/StoreProfile.tsx:137:      alert((response as any).message || 'Avatar uploaded successfully to cloud storage!');
+client/src/pages/StoreProfile.tsx:138:    } catch (err: any) {
+client/src/pages/TrackingLookupPage.tsx:32:  // Surface any redirect-error (e.g. from TrackingDetailPage unauthorized bounce)
+client/src/pages/TrackingLookupPage.tsx:58:      navigate(`/tracking/${(data as any).orderId}?orderCode=${encodeURIComponent(trimCode)}&phone=${encodeURIComponent(trimPhone)}`);
+client/src/pages/VNPayReturn.tsx:15:                const data = await api.get<any>(`/api/vnpay/vnpay_return?${searchParams.toString()}`);
+client/src/pages/auth/ForgotPasswordPage.tsx:33:        } catch (err: any) {
+client/src/services/category.service.ts:38:    return (res as any).data ?? res;
+client/src/services/category.service.ts:43:    return (res as any).data ?? res;
+client/src/services/category.service.ts:48:): Promise<{ success: boolean; message: string; data: any }> => {
+client/src/services/category.service.ts:55:): Promise<{ success: boolean; message: string; data: any }> => {
+client/src/services/order.service.ts:191:    const response = await api.get<any>(`/api/orders/my${query ? `?${query}` : ''}`);
+client/src/services/order.service.ts:231:    const response = await api.get<any>(`/api/orders/admin${query ? `?${query}` : ''}`);
+client/src/services/orderApi.ts:78:  const raw = response as any;
+client/src/services/orderApi.ts:106:  return ((response as any).data || response) as OrderDetail;
+client/src/services/product.service.ts:110:        const response = await api.get<any>('/api/products', { params });
+client/src/services/refund.service.ts:93:        return (res as any).data ?? [];
+client/src/services/return.service.ts:80:    return (res as any).data ?? null;
+client/src/services/return.service.ts:86:  async myReturns(page = 1, limit = 8): Promise<any> {
+client/src/services/return.service.ts:93:  async detail(returnId: number): Promise<any> {
+client/src/services/review.service.ts:36:    return res.data || (res as any).review || res;
+client/src/services/role.service.ts:21:        return (res as any).data;
+client/src/services/role.service.ts:27:        return (res as any).data;

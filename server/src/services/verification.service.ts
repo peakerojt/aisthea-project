@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma';
 import { sendVerificationEmail } from './email.service';
+import { logger } from '../lib/logger';
 
 const TOKEN_EXPIRY_HOURS = 24;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -40,7 +41,7 @@ export const createVerificationToken = async (userId: number, email: string, ful
     // Send email asynchronously (don't await)
     // This prevents the UI from blocking while SMTP connects
     sendVerificationEmail(email, token, fullName).catch((error) => {
-        console.error('Failed to send verification email (async):', error);
+        logger.error('[verificationService] Failed to send verification email (async)', { error });
     });
 
     return token;

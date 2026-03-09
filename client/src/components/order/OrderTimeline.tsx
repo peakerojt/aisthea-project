@@ -69,7 +69,7 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({ history = [] }) =>
         return (
           <div key={`${item.status}-${index}`} className="flex gap-3">
             <div className="flex flex-col items-center">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${(cfg as any)?.bgClass ?? cfg?.badgeClass ?? 'bg-white/10'}`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${(cfg as { bgClass?: string })?.bgClass ?? cfg?.badgeClass ?? 'bg-white/10'}`}>
                 <StatusDotIcon iconName={cfg?.icon ?? 'Package'} className={cfg?.textClass ?? 'text-white/60'} />
               </div>
               {index < history.length - 1 && <div className="w-px flex-1 bg-white/10 mt-1" />}

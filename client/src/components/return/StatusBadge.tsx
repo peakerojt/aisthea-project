@@ -27,10 +27,10 @@ const STATUS_CONFIG: Record<
   },
   RECEIVED: {
     label: 'Đã nhận hàng',
-    bg: 'bg-purple-50',
-    text: 'text-purple-700',
-    ring: 'ring-purple-600/20',
-    dot: 'bg-purple-500',
+    bg: 'bg-teal-50',
+    text: 'text-teal-700',
+    ring: 'ring-teal-600/20',
+    dot: 'bg-teal-500',
   },
   REFUNDED: {
     label: 'Đã hoàn tiền',

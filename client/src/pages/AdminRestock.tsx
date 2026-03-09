@@ -55,7 +55,7 @@ const REASON_COLORS: Record<string, string> = {
    CHECKOUT: 'text-blue-400',
    RESTOCK: 'text-emerald-400',
    CANCELLED_RESTORE: 'text-amber-400',
-   MANUAL_ADJUST: 'text-purple-400',
+   MANUAL_ADJUST: 'text-teal-400',
 };
 
 function fmtDate(iso: string): string {
@@ -368,7 +368,7 @@ const ProductGroupRow: React.FC<ProductGroupRowProps> = ({ group, dirtyMap, onQu
                   />
                   <div className="w-8 h-10 rounded overflow-hidden bg-white/5 border border-white/5 shrink-0">
                      {group.primaryImageUrl ? (
-                        <img src={group.primaryImageUrl} alt={group.productName} className="w-full h-full object-cover" />
+                        <img src={group.primaryImageUrl} alt={group.productName} loading="lazy" className="w-full h-full object-cover" />
                      ) : (
                         <div className="w-full h-full flex items-center justify-center">
                            <Package size={12} className="text-white/20" />
@@ -533,8 +533,9 @@ export const AdminRestock: React.FC = () => {
          const data = await fetchInventory({ lowStock: onlyLowStock, search: debouncedSearch });
          setVariants(data);
          setDirtyMap({});
-      } catch (e: any) {
-         setError(e.message || t('restock:feedback.loadError'));
+      } catch (e: unknown) {
+         const error = e as { message?: string };
+         setError(error.message || t('restock:feedback.loadError'));
       } finally {
          setLoading(false);
       }
@@ -567,8 +568,9 @@ export const AdminRestock: React.FC = () => {
          const res = await bulkUpdateStock(changes);
          setToast({ message: res.message, type: 'success' });
          await loadInventory();
-      } catch (e: any) {
-         setToast({ message: e.message || t('restock:feedback.saveError'), type: 'error' });
+      } catch (e: unknown) {
+         const error = e as { message?: string };
+         setToast({ message: error.message || t('restock:feedback.saveError'), type: 'error' });
       } finally {
          setSaving(false);
       }

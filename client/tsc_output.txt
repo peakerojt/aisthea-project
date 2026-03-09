@@ -1,0 +1,12 @@
+src/components/Product/ProductVariantSelector.tsx(126,58): error TS2339: Property 'name' does not exist on type 'unknown'.
+src/components/Product/ProductVariantSelector.tsx(128,32): error TS2322: Type 'unknown' is not assignable to type 'string'.
+src/components/Product/ProductVariantSelector.tsx(135,40): error TS2339: Property 'name' does not exist on type 'unknown'.
+src/components/Product/ProductVariantSelector.tsx(135,58): error TS2339: Property 'attribute' does not exist on type 'unknown'.
+src/components/Product/ProductVariantSelector.tsx(136,37): error TS2339: Property 'value' does not exist on type 'unknown'.
+src/pages/StoreCollection.tsx(259,137): error TS2322: Type '(product: Product) => void' is not assignable to type '(product: import("C:/Users/Administrator/Downloads/OJT/Week3_GIT/AISTHEA-Project/client/src/services/product.service").Product) => void'.
+  Types of parameters 'product' and 'product' are incompatible.
+    Type 'Product' is missing the following properties from type 'Product': id, price, image, type
+src/pages/StoreMyReturns.tsx(33,18): error TS2339: Property 'data' does not exist on type 'unknown'.
+src/pages/StoreMyReturns.tsx(33,36): error TS2339: Property 'data' does not exist on type 'unknown'.
+src/pages/StoreReturnDetail.tsx(20,18): error TS2339: Property 'data' does not exist on type 'unknown'.
+src/pages/StoreReturnDetail.tsx(20,36): error TS2339: Property 'data' does not exist on type 'unknown'.

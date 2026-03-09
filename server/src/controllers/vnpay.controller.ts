@@ -82,8 +82,8 @@ export const createPaymentUrl = async (req: Request, res: Response) => {
 
         // Assuming we update order paymentStatus to pending
         res.status(200).json({ vnpUrl });
-    } catch (error: any) {
-        console.error('Error creating payment URL:', error);
+    } catch (error) {
+        logger.error('[vnpayController] createPaymentUrl failed', { error });
         res.status(500).json({ error: 'Internal server error' });
     }
 };

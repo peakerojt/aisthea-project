@@ -33,11 +33,15 @@ export const reviewRepository = {
         });
     },
 
-    async findByProduct(productId: number) {
+    async findByProduct(productId: number, opts: { take?: number; skip?: number } = {}) {
+        const take = Math.min(opts.take ?? 50, 200);
+        const skip = opts.skip ?? 0;
         return prisma.review.findMany({
             where: { productId },
             include: { user: { select: { userId: true, fullName: true, avatarUrl: true } } },
             orderBy: { createdAt: 'desc' },
+            take,
+            skip,
         });
     },
 };

@@ -139,8 +139,8 @@ export function ProductImageUploader({
                         ));
 
                         uploadedImages.push(data.data);
-                    } catch (error: any) {
-                        const errorMessage = error.message || 'Unknown error';
+                    } catch (error: unknown) {
+                        const errorMessage = (error as Error).message || 'Unknown error';
                         errors.push(`${file.name}: ${errorMessage}`);
 
                         // Update status: Error

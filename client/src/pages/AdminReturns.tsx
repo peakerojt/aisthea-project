@@ -31,7 +31,7 @@ const getStatusLabel = (s: string, t: (key: string, options?: any) => string) =>
 
 const statusTone = (s: string) => {
     if (s === 'PENDING_APPROVAL') return 'border-amber-500/30 text-amber-200 bg-amber-500/10';
-    if (s === 'APPROVED') return 'border-indigo-500/30 text-indigo-200 bg-indigo-500/10';
+    if (s === 'APPROVED') return 'border-sky-500/30 text-sky-200 bg-sky-500/10';
     if (s === 'REJECTED') return 'border-red-500/30 text-red-200 bg-red-500/10';
     if (s === 'COMPLETED') return 'border-emerald-500/30 text-emerald-200 bg-emerald-500/10';
     return 'border-white/10 text-white/60 bg-white/5';
@@ -200,7 +200,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
                                         <button
                                             onClick={() => handleAction('APPROVE')}
                                             disabled={processing}
-                                            className="flex-1 px-4 py-3 border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
+                                            className="flex-1 px-4 py-3 border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
                                         >{t('modal.actionApprove')}
                                         </button>
                                     )}

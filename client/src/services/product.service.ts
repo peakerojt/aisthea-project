@@ -58,8 +58,8 @@ export interface ProductVariant {
     stockQuantity: number;
     isDefault: boolean;
     images?: ProductImage[];
-    variantAttributes?: any[];
-    attributes?: any[]; // Thuộc tính trả về từ Stored Procedure sp_GetProductDetails
+    variantAttributes?: Record<string, unknown>[];
+    attributes?: Record<string, unknown>[]; // Thuộc tính trả về từ Stored Procedure sp_GetProductDetails
 }
 
 export interface Product {
@@ -83,7 +83,7 @@ export interface Product {
     };
     images?: ProductImage[];
     variants?: ProductVariant[];
-    reviews?: any[];
+    reviews?: Record<string, unknown>[];
 }
 
 export interface ProductFilters {
@@ -107,9 +107,9 @@ export const fetchProducts = async (filters?: ProductFilters): Promise<Product[]
         if (filters?.minPrice) params.minPrice = filters.minPrice.toString();
         if (filters?.maxPrice) params.maxPrice = filters.maxPrice.toString();
 
-        const response = await api.get<any>('/api/products', { params });
+        const response = await api.get<{ data: Product[] } | Product[]>('/api/products', { params });
         // The backend now returns { data: [...], meta: {...} }
-        return response.data || response;
+        return Array.isArray(response) ? response : (response.data || []);
     } catch (error) {
         console.error('Failed to fetch products:', error);
         throw error;

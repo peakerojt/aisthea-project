@@ -93,12 +93,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, setView
     if (item.view === 'ADMIN_DASHBOARD') {
       return currentView === 'ADMIN_DASHBOARD';
     }
-    return currentView === item.view || item.subRoutes.includes(currentView as any);
+    return currentView === item.view || item.subRoutes.includes(currentView as string);
   };
 
   return (
     <aside className="w-64 bg-black border-r border-white/10 flex flex-col h-screen sticky top-0">
-      <div className="h-24 flex items-center px-6 border-b border-white/5 cursor-pointer" onClick={() => setView('STORE_HOME')}>
+      <div className="h-24 flex items-center px-6 border-b border-white/15 cursor-pointer" onClick={() => setView('STORE_HOME')}>
         <Logo className="text-xl" />
       </div>
 
@@ -134,7 +134,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, setView
         })}
       </nav>
 
-      <div className="p-6 border-t border-white/5 bg-surface-dark/50">
+      <div className="p-6 border-t border-white/15 bg-surface-dark/50">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-primary font-bold border border-white/10">
             {user?.name?.charAt(0) || 'A'}

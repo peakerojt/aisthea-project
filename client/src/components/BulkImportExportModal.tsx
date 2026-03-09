@@ -13,6 +13,7 @@ import {
     FileUp,
     ChevronRight,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { downloadTemplate, exportAllProducts, importProducts, ImportReport } from '../services/product.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -41,6 +42,7 @@ const UPLOAD_STEPS = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
+    const { t } = useTranslation('errors');
     const [tab, setTab] = useState<Tab>('export');
     const [importState, setImportState] = useState<ImportState>({ phase: 'idle' });
     const [exportLoading, setExportLoading] = useState(false);
@@ -153,14 +155,14 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
 
             await uploadPromise;
             if (!done) return; // already handled by simulateProgress callback
-        } catch (err: any) {
+        } catch (err: unknown) {
             setImportState({
                 phase: 'done',
                 report: {
                     total: 0,
                     success: 0,
                     failed: 1,
-                    errors: [{ row: -1, handle: '', reason: err.message ?? 'Lỗi kết nối đến máy chủ' }],
+                    errors: [{ row: -1, handle: '', reason: (err as Error).message ?? t('NETWORK_ERROR') }],
                 },
             });
         }
@@ -187,13 +189,13 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
             />
 
             {/* Modal */}
-            <div className="relative bg-[#0f0f0f] border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden"
+            <div className="relative bg-[#0f0f0f] border border-white/10 rounded-sm shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden"
                 style={{ boxShadow: '0 0 60px rgba(220,38,38,0.08), 0 25px 50px rgba(0,0,0,0.7)' }}
             >
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-sm bg-red-500/10 border border-red-500/20 flex items-center justify-center">
                             <FileSpreadsheet size={18} className="text-red-400" />
                         </div>
                         <div>
@@ -203,7 +205,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                     </div>
                     <button
                         onClick={handleClose}
-                        className="text-white/40 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10"
+                        className="text-white/40 hover:text-white transition-colors p-1.5 rounded-sm hover:bg-white/10"
                     >
                         <X size={18} />
                     </button>
@@ -233,8 +235,8 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                     {tab === 'export' && (
                         <div className="flex flex-col gap-4">
                             {/* Download template card */}
-                            <div className="group rounded-xl border border-white/8 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/15 transition-all p-5 flex items-start gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                            <div className="group rounded-sm border border-white/8 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/15 transition-all p-5 flex items-start gap-4">
+                                <div className="w-10 h-10 rounded-sm bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
                                     <FileSpreadsheet size={18} className="text-blue-400" />
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -246,7 +248,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                                 <button
                                     onClick={handleDownloadTemplate}
                                     disabled={templateLoading}
-                                    className="shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-600/80 hover:bg-blue-600 disabled:opacity-60 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                                    className="shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-600/80 hover:bg-blue-600 disabled:opacity-60 text-white text-xs font-bold rounded-sm transition-colors cursor-pointer"
                                 >
                                     {templateLoading ? (
                                         <Loader2 size={13} className="animate-spin" />
@@ -258,8 +260,8 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                             </div>
 
                             {/* Export all products card */}
-                            <div className="group rounded-xl border border-white/8 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/15 transition-all p-5 flex items-start gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                            <div className="group rounded-sm border border-white/8 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/15 transition-all p-5 flex items-start gap-4">
+                                <div className="w-10 h-10 rounded-sm bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
                                     <Download size={18} className="text-emerald-400" />
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -271,7 +273,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                                 <button
                                     onClick={handleExportAll}
                                     disabled={exportLoading}
-                                    className="shrink-0 flex items-center gap-2 px-4 py-2 bg-emerald-600/80 hover:bg-emerald-600 disabled:opacity-60 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                                    className="shrink-0 flex items-center gap-2 px-4 py-2 bg-emerald-600/80 hover:bg-emerald-600 disabled:opacity-60 text-white text-xs font-bold rounded-sm transition-colors cursor-pointer"
                                 >
                                     {exportLoading ? (
                                         <Loader2 size={13} className="animate-spin" />
@@ -283,7 +285,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                             </div>
 
                             {/* Format guide */}
-                            <div className="rounded-xl border border-white/5 bg-white/[0.015] p-4">
+                            <div className="rounded-sm border border-white/5 bg-white/[0.015] p-4">
                                 <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">Cấu trúc cột trong file</p>
                                 <div className="grid grid-cols-2 gap-x-6 gap-y-1">
                                     {[
@@ -322,11 +324,11 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                                         onDragOver={handleDragOver}
                                         onDragLeave={handleDragLeave}
                                         onClick={() => fileInputRef.current?.click()}
-                                        className={`relative rounded-2xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center gap-3 py-12 px-6 text-center ${isDragging
-                                                ? 'border-red-500 bg-red-500/5 shadow-[0_0_30px_rgba(220,38,38,0.1)]'
-                                                : importState.phase === 'file_selected'
-                                                    ? 'border-emerald-500/60 bg-emerald-500/5'
-                                                    : 'border-white/10 hover:border-white/25 bg-white/[0.02] hover:bg-white/[0.04]'
+                                        className={`relative rounded-sm border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center gap-3 py-12 px-6 text-center ${isDragging
+                                            ? 'border-red-500 bg-red-500/5 shadow-[0_0_30px_rgba(220,38,38,0.1)]'
+                                            : importState.phase === 'file_selected'
+                                                ? 'border-emerald-500/60 bg-emerald-500/5'
+                                                : 'border-white/10 hover:border-white/25 bg-white/[0.02] hover:bg-white/[0.04]'
                                             }`}
                                     >
                                         <input
@@ -343,7 +345,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
 
                                         {importState.phase === 'file_selected' ? (
                                             <>
-                                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                                                <div className="w-12 h-12 rounded-sm bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                                                     <FileSpreadsheet size={22} className="text-emerald-400" />
                                                 </div>
                                                 <div>
@@ -355,7 +357,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                                             </>
                                         ) : (
                                             <>
-                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${isDragging ? 'bg-red-500/20 border border-red-500/30' : 'bg-white/5 border border-white/10'
+                                                <div className={`w-12 h-12 rounded-sm flex items-center justify-center transition-colors ${isDragging ? 'bg-red-500/20 border border-red-500/30' : 'bg-white/5 border border-white/10'
                                                     }`}>
                                                     <Upload size={22} className={isDragging ? 'text-red-400' : 'text-white/40'} />
                                                 </div>
@@ -374,7 +376,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                                     {importState.phase === 'file_selected' && (
                                         <button
                                             onClick={handleStartImport}
-                                            className="flex items-center justify-center gap-2 w-full py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition-colors shadow-lg shadow-red-900/30 cursor-pointer"
+                                            className="flex items-center justify-center gap-2 w-full py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-sm transition-colors shadow-lg shadow-red-900/30 cursor-pointer"
                                         >
                                             <Upload size={16} />
                                             Bắt đầu nhập dữ liệu
@@ -382,7 +384,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                                     )}
 
                                     {/* Tips */}
-                                    <div className="rounded-xl bg-white/[0.02] border border-white/5 px-4 py-3 flex items-start gap-3">
+                                    <div className="rounded-sm bg-white/[0.02] border border-white/5 px-4 py-3 flex items-start gap-3">
                                         <AlertCircle size={14} className="text-yellow-400 shrink-0 mt-0.5" />
                                         <p className="text-xs text-white/50 leading-relaxed">
                                             <span className="text-white/70 font-semibold">Lưu ý:</span>{' '}
@@ -395,7 +397,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                             {/* Upload progress */}
                             {importState.phase === 'uploading' && (
                                 <div className="flex flex-col items-center gap-6 py-8">
-                                    <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                                    <div className="w-16 h-16 rounded-sm bg-red-500/10 border border-red-500/20 flex items-center justify-center">
                                         <Loader2 size={28} className="text-red-400 animate-spin" />
                                     </div>
                                     <div className="w-full max-w-sm text-center">
@@ -425,8 +427,8 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                                             <span className="text-xs text-emerald-400 font-semibold">Thành công: {importState.report.success}</span>
                                         </div>
                                         <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${importState.report.failed > 0
-                                                ? 'bg-red-500/10 border border-red-500/20'
-                                                : 'bg-white/5 border border-white/10'
+                                            ? 'bg-red-500/10 border border-red-500/20'
+                                            : 'bg-white/5 border border-white/10'
                                             }`}>
                                             <XCircle size={13} className={importState.report.failed > 0 ? 'text-red-400' : 'text-white/40'} />
                                             <span className={`text-xs font-semibold ${importState.report.failed > 0 ? 'text-red-400' : 'text-white/40'}`}>
@@ -437,7 +439,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
 
                                     {/* Success banner */}
                                     {importState.report.success > 0 && importState.report.failed === 0 && (
-                                        <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 flex items-center gap-3">
+                                        <div className="rounded-sm bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 flex items-center gap-3">
                                             <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
                                             <p className="text-sm text-emerald-300 font-semibold">
                                                 Nhập thành công {importState.report.success} phân loại — không có lỗi!
@@ -447,7 +449,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
 
                                     {/* Error table */}
                                     {importState.report.errors.length > 0 && (
-                                        <div className="rounded-xl border border-white/8 overflow-hidden">
+                                        <div className="rounded-sm border border-white/8 overflow-hidden">
                                             <div className="bg-red-500/5 border-b border-white/8 px-4 py-2.5 flex items-center gap-2">
                                                 <XCircle size={13} className="text-red-400" />
                                                 <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Chi tiết lỗi</span>
@@ -482,7 +484,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                                     {/* Reset button */}
                                     <button
                                         onClick={resetImport}
-                                        className="flex items-center justify-center gap-2 w-full py-2.5 border border-white/10 hover:bg-white/5 text-white/70 hover:text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                                        className="flex items-center justify-center gap-2 w-full py-2.5 border border-white/10 hover:bg-white/5 text-white/70 hover:text-white text-xs font-semibold rounded-sm transition-colors cursor-pointer"
                                     >
                                         <Upload size={13} />
                                         Nhập thêm file khác
@@ -500,7 +502,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                     </p>
                     <button
                         onClick={handleClose}
-                        className="px-5 py-2 rounded-lg text-xs font-semibold text-white/60 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
+                        className="px-5 py-2 rounded-sm text-xs font-semibold text-white/60 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
                     >
                         Đóng
                     </button>

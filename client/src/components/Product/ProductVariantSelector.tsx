@@ -44,6 +44,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, AlertCircle, ChevronDown, Ruler, CheckCircle2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ProductVariant } from '../../services/product.service';
 import { getColorEmoji } from '../../utils/groupVariantsHelper';
 
@@ -123,18 +124,20 @@ function normalizeAttrs(v: ProductVariant): AttrMap {
     // Shape A
     if (v.attributes?.length) {
         for (const a of v.attributes) {
-            const name = a.attributeName ?? a.attribute?.name ?? '';
-            const value = a.attributeValue ?? a.value ?? '';
-            if (name && value) out[name] = value;
+            const attr = a as { attributeName?: string, attributeValue?: string, value?: string, attribute?: { name: string } };
+            const name = attr.attributeName ?? attr.attribute?.name ?? '';
+            const value = attr.attributeValue ?? attr.value ?? '';
+            if (name && value) out[name] = String(value);
         }
     }
 
     // Shape B
     if (v.variantAttributes?.length) {
         for (const va of v.variantAttributes) {
-            const name = va.attribute?.name ?? va.value?.attribute?.name ?? '';
-            const value = va.value?.value ?? va.attributeValue ?? '';
-            if (name && value) out[name] = value;
+            const vAttr = va as { attributeValue?: string, attribute?: { name: string }, value?: { value: string, attribute?: { name: string } } };
+            const name = vAttr.attribute?.name ?? vAttr.value?.attribute?.name ?? '';
+            const value = vAttr.value?.value ?? vAttr.attributeValue ?? '';
+            if (name && value) out[name] = String(value);
         }
     }
 
@@ -244,8 +247,9 @@ const ColorSwatch: React.FC<{
     value: string;
     selected: boolean;
     availability: 'available' | 'oos' | 'incompatible';
+    t: (key: string) => string;
     onClick: () => void;
-}> = ({ value, selected, availability, onClick }) => {
+}> = ({ value, selected, availability, t, onClick }) => {
     const cssColor = getSwatchColor(value);
     const emoji = getColorEmoji(value);
     const disabled = availability !== 'available';
@@ -255,7 +259,7 @@ const ColorSwatch: React.FC<{
         return (
             <button
                 type="button"
-                title={`${value}${isOos ? ' — Hết hàng' : ''}`}
+                title={`${value}${isOos ? t('variantSelector.outOfStockIcon') : ''}`}
                 disabled={disabled}
                 onClick={onClick}
                 className={`relative flex-shrink-0 rounded-full transition-all duration-200 focus-visible:outline-none
@@ -363,6 +367,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
     onAddToCart,
     showQuantity = true,
 }) => {
+    const { t } = useTranslation('products');
     const [selected, setSelected] = useState<Record<string, string>>({});
     const [quantity, setQuantity] = useState(1);
     const [shakeAttr, setShakeAttr] = useState<string | null>(null);
@@ -525,7 +530,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                 {/* Price range hint when no full selection yet */}
                 {!resolvedVariant && priceRange && (
                     <span className="text-xs text-white/35 font-medium">
-                        Từ {VN_NUM.format(priceRange.min)}đ — {VN_NUM.format(priceRange.max)}đ
+                        {t('variantSelector.priceFrom', { min: VN_NUM.format(priceRange.min), max: VN_NUM.format(priceRange.max) })}
                     </span>
                 )}
 
@@ -538,7 +543,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                                    bg-red-500/10 text-red-400 text-[10px] font-bold border border-red-500/20"
                     >
                         <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-                        Chỉ còn {stockQty} sản phẩm
+                        {t('variantSelector.onlyNLeft', { count: stockQty! })}
                     </motion.span>
                 )}
                 {isInStock && stockQty! >= 10 && (
@@ -548,13 +553,13 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                         className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-400"
                     >
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        Còn hàng
+                        {t('variantSelector.inStock')}
                     </motion.span>
                 )}
             </div>
 
             {/* ── Attribute axes ─────────────────────────────────────────── */}
-            <div className="flex flex-col gap-5 border-t border-white/[0.06] pt-5">
+            <div className="flex flex-col gap-8 w-full max-w-lg mb-8 bg-surface-dark border border-white/10 rounded-sm p-6 lg:p-8">
                 {axes.map(ax => {
                     const isMissing = !selected[ax.name] && shakeAttr === ax.name;
 
@@ -582,7 +587,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                                             className="flex items-center gap-1 text-[9px] text-amber-400 font-semibold"
                                         >
                                             <AlertCircle size={9} />
-                                            Vui lòng chọn
+                                            {t('variantSelector.pleaseSelect')}
                                         </motion.span>
                                     )}
                                 </div>
@@ -594,7 +599,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                                         className="text-[9px] font-bold uppercase tracking-widest text-primary/70
                                                    hover:text-primary transition-colors flex items-center gap-0.5 cursor-pointer"
                                     >
-                                        <Ruler size={9} /> Hướng dẫn chọn size
+                                        <Ruler size={9} /> {t('variantSelector.sizeGuide')}
                                     </button>
                                 )}
                             </div>
@@ -620,6 +625,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                                                 value={val}
                                                 selected={isSelected}
                                                 availability={availability}
+                                                t={t}
                                                 onClick={() => handleSelect(ax.name, val)}
                                             />
                                         ) : (
@@ -687,18 +693,18 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                     {cartBtnState === 'active' && (
                         <>
                             <ShoppingBag size={16} />
-                            Thêm vào giỏ hàng
+                            {t('variantSelector.addToCart')}
                             <span className="w-px h-4 bg-white/20" />
                             <span className="font-medium normal-case tracking-normal text-white/80">
                                 {VN_NUM.format(displayPrice * quantity)}đ
                             </span>
                         </>
                     )}
-                    {cartBtnState === 'oos' && 'Hết hàng'}
+                    {cartBtnState === 'oos' && t('variantSelector.outOfStockBtn')}
                     {cartBtnState === 'unselected' && (
                         <>
                             <AlertCircle size={13} className="text-amber-400/60" />
-                            Vui lòng chọn phân loại hàng
+                            {t('variantSelector.unselectedBtn')}
                         </>
                     )}
                 </motion.button>
@@ -715,8 +721,8 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                                    bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2"
                     >
                         <AlertCircle size={12} className="text-white/30 shrink-0" />
-                        Phân loại này hiện đã <strong className="text-white/60">hết hàng</strong>.
-                        Vui lòng chọn phân loại khác hoặc quay lại sau.
+                        {t('variantSelector.outOfStockSubtitle')} <strong className="text-white/60">{t('variantSelector.outOfStockHighlight')}</strong>
+                        {t('variantSelector.outOfStockDesc')}
                     </motion.div>
                 )}
             </AnimatePresence>

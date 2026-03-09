@@ -15,6 +15,45 @@ interface Props {
   setView: (v: ViewState) => void;
 }
 
+interface ReturnItem {
+  id: number;
+  orderItemId: number;
+  productName: string;
+  variantPrice: number;
+  quantity: number;
+  refundAmount: number;
+  image?: string;
+}
+
+interface ReturnStatusLog {
+  id: number;
+  logId: number;
+  status: string;
+  toStatus: string;
+  note?: string;
+  createdAt: string;
+}
+
+interface ReturnDetailData {
+  returnRequestId: number;
+  orderId: number;
+  createdAt: string;
+  status: string;
+  reason: string;
+  note?: string;
+  adminNote?: string;
+  totalRefundAmount: number;
+  user?: {
+    name: string;
+    email: string;
+    avatar?: string;
+    fullName?: string;
+  };
+  items?: ReturnItem[];
+  statusLogs?: ReturnStatusLog[];
+  refundTransactions?: { amount: number; transactionId?: string; status?: string }[];
+}
+
 // ─── Simple toast notification ───────────────────────────────────────────────
 function Toast({
   msg,
@@ -27,7 +66,7 @@ function Toast({
 }) {
   return (
     <div
-      className={`flex items-start gap-3 rounded-xl border p-4 mb-4 ${type === 'success'
+      className={`flex items-start gap-3 rounded-sm border p-4 mb-4 ${type === 'success'
         ? 'border-green-500/30 bg-green-500/10 text-green-300'
         : 'border-red-500/30 bg-red-500/10 text-red-300'
         }`}
@@ -43,7 +82,7 @@ function Toast({
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a2e] p-6 shadow-2xl">
+      <div className="w-full max-w-md rounded-sm border border-white/10 bg-[#1a1a2e] p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold text-white">{title}</h3>
           <button onClick={onClose} className="text-white/40 hover:text-white text-lg">✕</button>
@@ -70,12 +109,18 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
     queryKey: ['admin-return-detail', returnId],
     queryFn: async () => {
       const res = await api.get(`/api/returns/${returnId}`);
-      return (res as any).data?.data ?? (res as any).data;
+      const resObj = res as { data?: { data?: unknown } | unknown };
+      return (resObj.data as { data?: unknown })?.data ?? resObj.data;
     },
     enabled: returnId > 0,
   });
 
-  const detail = useMemo(() => query.data?.data ?? query.data, [query.data]);
+  const detail = useMemo(() => {
+    if (query.data && typeof query.data === 'object' && 'data' in query.data) {
+      return (query.data as { data: ReturnDetailData }).data;
+    }
+    return query.data as ReturnDetailData | undefined;
+  }, [query.data]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-return-detail', returnId] });
@@ -88,14 +133,15 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
     showToast(msg, 'success');
     invalidate();
   };
-  const onMutateError = (err: any, fallback: string) => {
-    showToast(err?.response?.data?.error?.message ?? err?.message ?? fallback, 'error');
+  const onMutateError = (err: unknown, fallback: string) => {
+    const error = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+    showToast(error?.response?.data?.error?.message ?? error?.message ?? fallback, 'error');
   };
 
   const approveMut = useMutation({
     mutationFn: () => adminReturnService.process(returnId, 'APPROVE'),
     onSuccess: () => onMutateSuccess(t('feedback.approveSuccess')),
-    onError: (e: any) => onMutateError(e, t('feedback.approveError')),
+    onError: (e: unknown) => onMutateError(e, t('feedback.approveError')),
   });
 
   const rejectMut = useMutation({
@@ -105,7 +151,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
       setShowRejectModal(false);
       setRejectReason('');
     },
-    onError: (e: any) => onMutateError(e, t('feedback.rejectError')),
+    onError: (e: unknown) => onMutateError(e, t('feedback.rejectError')),
   });
 
   const refundMut = useMutation({
@@ -113,22 +159,22 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
     onSuccess: () => {
       onMutateSuccess(t('feedback.refundSuccess'));
     },
-    onError: (e: any) => onMutateError(e, t('feedback.refundError')),
+    onError: (e: unknown) => onMutateError(e, t('feedback.refundError')),
   });
 
   if (query.isLoading)
     return (
       <div className="p-6 space-y-4 animate-pulse">
-        <div className="h-8 w-48 rounded-lg bg-white/10" />
-        <div className="h-28 rounded-xl bg-white/5 border border-white/10" />
-        <div className="h-40 rounded-xl bg-white/5 border border-white/10" />
+        <div className="h-8 w-48 rounded-sm bg-white/10" />
+        <div className="h-28 rounded-sm bg-white/5 border border-white/10" />
+        <div className="h-40 rounded-sm bg-white/5 border border-white/10" />
       </div>
     );
 
   if (!detail)
     return (
       <div className="p-6">
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-300 text-sm">
+        <div className="rounded-sm border border-red-500/30 bg-red-500/10 p-4 text-red-300 text-sm">
           {t('detail.notFound', { id: returnId })}
         </div>
       </div>
@@ -136,7 +182,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
 
   const status = detail.status as string;
 
-  const actionDisabled = (mut: any) => mut.isPending;
+  const actionDisabled = (mut: { isPending: boolean }) => mut.isPending;
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -151,20 +197,20 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
             onChange={(e) => setRejectReason(e.target.value)}
             placeholder={t('detail.rejectReasonPlaceholder')}
             rows={3}
-            className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-red-500/50 resize-none"
+            className="w-full rounded-sm border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-red-500/50 resize-none"
           />
           <div className="mt-4 flex gap-2">
             <button
               disabled={!rejectReason.trim() || rejectMut.isPending}
               onClick={() => rejectMut.mutate()}
               id="confirm-reject-btn"
-              className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-40 transition-colors"
+              className="flex-1 rounded-sm bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-40 transition-colors"
             >
               {rejectMut.isPending ? t('detail.processing') : t('detail.confirmReject')}
             </button>
             <button
               onClick={() => setShowRejectModal(false)}
-              className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition-colors"
+              className="rounded-sm border border-white/20 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition-colors"
             >
               {t('detail.cancel')}
             </button>
@@ -193,7 +239,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
           <StatusBadge status={detail.status} />
           <button
             onClick={() => setView('ADMIN_RETURNS')}
-            className="rounded-lg border border-white/20 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
+            className="rounded-sm border border-white/20 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
           >
             {t('detail.backToList')}
           </button>
@@ -201,8 +247,8 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
       </div>
 
       {/* Info + Customer */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+      <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-4">
+        <div className="rounded-sm border border-white/10 bg-white/5 p-4 space-y-2">
           <h2 className="font-semibold text-white text-sm mb-2">{t('detail.infoTitle')}</h2>
           <dl className="grid grid-cols-2 gap-y-2 text-sm">
             <dt className="text-white/50">{t('detail.infoReason')}</dt>
@@ -220,7 +266,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
           </dl>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+        <div className="rounded-sm border border-white/10 bg-white/5 p-4 space-y-2">
           <h2 className="font-semibold text-white text-sm mb-2">{t('detail.customerTitle')}</h2>
           <dl className="grid grid-cols-2 gap-y-2 text-sm">
             <dt className="text-white/50">{t('detail.customerName')}</dt>
@@ -238,7 +284,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
       </div>
 
       {/* Actions */}
-      <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+      <div className="rounded-sm border border-white/10 bg-white/5 p-4">
         <h2 className="font-semibold text-white mb-4 text-sm">{t('detail.actionsTitle')}</h2>
         <div className="flex flex-wrap gap-3">
           {/* Approve — only from PENDING_APPROVAL */}
@@ -246,7 +292,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
             id="approve-btn"
             disabled={status !== 'PENDING_APPROVAL' || actionDisabled(approveMut)}
             onClick={() => approveMut.mutate()}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 rounded-sm bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40 transition-colors"
           >
             {t('detail.actionApprove')}
           </button>
@@ -256,7 +302,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
             id="reject-btn"
             disabled={status !== 'PENDING_APPROVAL'}
             onClick={() => setShowRejectModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 rounded-sm bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-40 transition-colors"
           >
             {t('detail.actionReject')}
           </button>
@@ -266,7 +312,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
             id="refund-btn"
             disabled={status !== 'APPROVED' || refundMut.isPending}
             onClick={() => refundMut.mutate()}
-            className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-500 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 rounded-sm bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-500 disabled:opacity-40 transition-colors"
           >
             {t('detail.actionRefund')}
           </button>
@@ -287,7 +333,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
       {/* Timeline */}
       <div>
         <h2 className="mb-3 font-semibold text-white">{t('detail.timelineTitle')}</h2>
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+        <div className="rounded-sm border border-white/10 bg-white/5 p-4">
           <ReturnTimeline logs={detail.statusLogs ?? []} />
         </div>
       </div>
@@ -300,7 +346,7 @@ export const AdminReturnDetailPage: React.FC<Props> = ({ returnId, setView }) =>
             {detail.refundTransactions.map((t: any) => (
               <div
                 key={t.transactionId}
-                className="flex items-center justify-between rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm"
+                className="flex items-center justify-between rounded-sm border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm"
               >
                 <div>
                   <span className="font-semibold text-green-300">

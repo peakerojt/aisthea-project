@@ -470,8 +470,8 @@ export const ProductImageManager: React.FC<ProductImageManagerProps> = ({
                 dbImageId: data.data?.imageId,
                 file: undefined,
             }));
-        } catch (err: any) {
-            update(p => p.map(i => i.id === tempId ? { ...i, status: 'error', errorMsg: err.message } : i));
+        } catch (err: unknown) {
+            update(p => p.map(i => i.id === tempId ? { ...i, status: 'error', errorMsg: (err as Error).message } : i));
         }
     }, [productId, update]);
 

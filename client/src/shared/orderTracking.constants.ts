@@ -29,8 +29,8 @@ export const STATUS_LABEL: Record<OrderTrackingStatus, string> = {
 export const STATUS_COLOR_MAP: Record<OrderTrackingStatus, string> = {
   PENDING: 'bg-slate-100 text-slate-700',
   CONFIRMED: 'bg-blue-100 text-blue-700',
-  PACKING: 'bg-indigo-100 text-indigo-700',
-  SHIPPED: 'bg-purple-100 text-purple-700',
+  PACKING: 'bg-sky-100 text-sky-700',
+  SHIPPED: 'bg-teal-100 text-teal-700',
   OUT_FOR_DELIVERY: 'bg-amber-100 text-amber-700',
   DELIVERED: 'bg-emerald-100 text-emerald-700',
   FAILED_DELIVERY: 'bg-orange-100 text-orange-700',

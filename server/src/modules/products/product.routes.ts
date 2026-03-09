@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { productController } from './product.controller';
 import { authenticateToken, requirePermission } from '../../middlewares/auth.middleware';
 import { validate } from '../../middlewares/validate.middleware';
+import { cacheMiddleware, invalidateCache, CACHE_TTL } from '../../middlewares/cache.middleware';
 import {
     createProductSchema,
     updateProductSchema,
@@ -26,17 +27,17 @@ const router = Router();
 
 // ─── Meta routes — MUST be before /:id ───────────────────────────────────────
 // GET /api/products/meta/categories
-router.get('/meta/categories', getAllCategories);
+router.get('/meta/categories', cacheMiddleware(CACHE_TTL.CATEGORIES), getAllCategories);
 // GET /api/products/meta/brands
-router.get('/meta/brands', getAllBrands);
+router.get('/meta/brands', cacheMiddleware(CACHE_TTL.BRANDS), getAllBrands);
 
 // ─── Public Routes ────────────────────────────────────────────────────────────
 
 /** GET /api/products?category=&brand=&search=&page=&limit= */
-router.get('/', validate(productQuerySchema, 'query'), productController.getAll);
+router.get('/', cacheMiddleware(CACHE_TTL.PRODUCTS), validate(productQuerySchema, 'query'), productController.getAll);
 
 /** GET /api/products/:id/edit  (admin) — MUST be before /:id */
-router.get('/:id/edit', authenticateToken, requirePermission('MANAGE_PRODUCTS'), productController.getForEdit);
+router.get('/:id/edit', authenticateToken, requirePermission('MANAGE_PRODUCTS'), productController.getForEdit)
 
 // ─── Product Images — MUST be before /:id ────────────────────────────────────
 // GET /api/products/:productId/images
@@ -58,10 +59,12 @@ router.get('/:id', productController.getOne);
 // ─── Protected Admin Routes ───────────────────────────────────────────────────
 
 /** POST /api/products */
+const invalidateProductCache = (_req: any, _res: any, next: any) => { invalidateCache('/api/products'); next(); };
 router.post(
     '/',
     authenticateToken,
     requirePermission('MANAGE_PRODUCTS'),
+    invalidateProductCache,
     validate(createProductSchema),
     productController.create,
 );
