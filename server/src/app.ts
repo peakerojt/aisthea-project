@@ -6,39 +6,36 @@ import { configureGoogleStrategy } from './config/passport.config';
 
 // ─── Security ─────────────────────────────────────────────────────────────────
 import { applyHelmet, globalRateLimiter } from './middlewares/security.middleware';
-
-// ─── Locale ───────────────────────────────────────────────────────────────────
 import { localeMiddleware } from './middlewares/locale.middleware';
-
-// ─── Error handling ───────────────────────────────────────────────────────────
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 
-// ─── New Module Routes ────────────────────────────────────────────────────────
+// ─── Modular Architecture — new module routes ─────────────────────────────────
 import authModuleRoutes from './modules/auth/auth.routes';
 import productModuleRoutes from './modules/products/product.routes';
+import importExportRoutes from './modules/products/importExport.routes';
 import categoryModuleRoutes from './modules/categories/category.routes';
 import reviewModuleRoutes from './modules/reviews/review.routes';
+import cartModuleRoutes from './modules/cart/cart.routes';
+import inventoryModuleRoutes from './modules/inventory/inventory.routes';
+import warehouseModuleRoutes from './modules/warehouses/warehouse.routes';
+import couponModuleRoutes from './modules/coupons/coupon.routes';
+import userModuleRoutes from './modules/users/user.routes';
+import dashboardModuleRoutes from './modules/dashboard/dashboard.routes';
+import analyticsModuleRoutes from './modules/analytics/analytics.routes';
+import { vnpayModuleRoutes, refundModuleRoutes } from './modules/payments/payment.routes';
 
-// ─── Existing legacy module routes (unchanged) ────────────────────────────────
+// ─── Legacy module routes (migrated but still in /modules sub-folder) ─────────
 import orderModuleRoutes from './modules/order/order.route';
 import trackingRouter from './modules/tracking/tracking.route';
 import itemsRouter from './modules/items/items.route';
 import returnOrderRoutes from './modules/return-order/routes/return-request.routes';
 
-// ─── Remaining legacy routes (will be migrated in future sprints) ─────────────
-import importExportRoutes from './routes/importExport.routes';
-import userRoutes from './routes/user.routes';
-import orderRoutes from './routes/order.routes';
-import inventoryRoutes from './routes/inventory.routes';
-import dashboardRoutes from './routes/dashboard.routes';
-import analyticsRoutes from './routes/analytics.routes';
-import vnpayRoutes from './routes/vnpay.routes';
-import couponRoutes from './routes/coupon.routes';
-import cartRoutes from './routes/cart.routes';
+// ─── Remaining legacy routes (thin — keep until full migration) ───────────────
 import roleRoutes from './routes/role.routes';
 import permissionRoutes from './routes/permission.routes';
 import returnRoutes from './routes/return.routes';
-import refundRoutes from './routes/refund.routes';
+import orderRoutes from './routes/order.routes';
+
 import { authenticateToken } from './middlewares/auth.middleware';
 import { postReturnRequest, getOrderReturn } from './controllers/return.controller';
 import { env } from './lib/env';
@@ -71,48 +68,44 @@ export function createApp() {
   // ── Locale ────────────────────────────────────────────────────────────────────
   app.use(localeMiddleware);
 
-  // ── Global rate limiter (applied to all API routes) ───────────────────────────
+  // ── Global rate limiter ───────────────────────────────────────────────────────
   app.use('/api/', globalRateLimiter);
 
-  // ── New Module Routes ─────────────────────────────────────────────────────────
+  // ── Core Modular Routes ───────────────────────────────────────────────────────
   app.use('/api/auth', authModuleRoutes);
   app.use('/api/products', productModuleRoutes);
+  app.use('/api/products', importExportRoutes);   // /export, /import under products
   app.use('/api/categories', categoryModuleRoutes);
   app.use('/api/reviews', reviewModuleRoutes);
+  app.use('/api/cart', cartModuleRoutes);
+  app.use('/api/inventory', inventoryModuleRoutes);
+  app.use('/api/warehouses', warehouseModuleRoutes);
+  app.use('/api/coupons', couponModuleRoutes);
+  app.use('/api/users', userModuleRoutes);
+  app.use('/api/dashboard', dashboardModuleRoutes);
+  app.use('/api/analytics', analyticsModuleRoutes);
+  app.use('/api/vnpay', vnpayModuleRoutes);
 
-  // ── Order routes — IMPORTANT: legacy orderRoutes MUST come before orderModuleRoutes
-  // orderModuleRoutes has GET /:id which would shadow /admin, /my etc. if registered first
-  app.use('/api/orders', orderRoutes);  // Named paths: /admin, /my, /my/:id, POST /, PATCH /:id/status
-  // Order-scoped return handlers (POST/GET /api/orders/:id/return)
+  // ── Order routes — ORDERING MATTERS: named paths before catch-all /:id ────────
+  app.use('/api/orders', orderRoutes);            // /admin, /my, /my/:id, POST /, PATCH /:id/status
   app.post('/api/orders/:id/return', authenticateToken, postReturnRequest);
   app.get('/api/orders/:id/return', authenticateToken, getOrderReturn);
-  app.use('/api/orders', refundRoutes);
-  // orderModuleRoutes: GET /:id, PATCH /:id/cancel (catch-all after named routes)
-  app.use('/api/orders', orderModuleRoutes);
+  app.use('/api/orders', refundModuleRoutes);     // /:id/refunds
+  app.use('/api/orders', orderModuleRoutes);      // /:id (catch-all detail / cancel)
 
+  // Return/refund management (legacy module routes)
   app.use('/api', trackingRouter);
   app.use('/api/items', itemsRouter);
-  // NOTE: return-order module handles /api/return-requests/* (create, my, admin/list, detail, etc.)
   app.use('/api/return-requests', returnOrderRoutes);
-
-  // ── Legacy routes (kept as-is, to be migrated per sprint) ────────────────────
-  // NOTE: importExportRoutes mounts /export, /export/template, /import sub-paths under /api/products
-  app.use('/api/products', importExportRoutes);
-  app.use('/api/inventory', inventoryRoutes);
-  app.use('/api/dashboard', dashboardRoutes);
-  app.use('/api/analytics', analyticsRoutes);
-  app.use('/api/vnpay', vnpayRoutes);
-  app.use('/api/coupons', couponRoutes);
-  app.use('/api/cart', cartRoutes);
-  app.use('/api/roles', roleRoutes);
-  app.use('/api/permissions', permissionRoutes);
   app.use('/api/returns', returnRoutes);
 
-  app.use('/api/users', userRoutes);
+  // Roles & permissions (Admin RBAC)
+  app.use('/api/roles', roleRoutes);
+  app.use('/api/permissions', permissionRoutes);
 
   // ── Health check ──────────────────────────────────────────────────────────────
   app.get('/', (_req: Request, res: Response) => {
-    res.json({ success: true, message: 'AISTHEA API Server 🚀', version: '2.0.0' });
+    res.json({ success: true, message: 'AISTHEA API Server 🚀', version: '2.2.0' });
   });
 
   // ── Error handling (must be last) ─────────────────────────────────────────────
@@ -121,4 +114,3 @@ export function createApp() {
 
   return app;
 }
-

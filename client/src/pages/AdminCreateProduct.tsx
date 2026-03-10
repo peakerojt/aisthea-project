@@ -280,7 +280,8 @@ export const AdminCreateProduct: React.FC<Props> = ({ setView }) => {
             showToast('success', t('editor.feedback.createSuccess', { name: data.name, count: variants.length }));
             await refreshProducts();
             setTimeout(() => setView('ADMIN_PRODUCTS'), 1800);
-        } catch (err: any) {
+        } catch (error) {
+            const err = error as Error | { message?: string; error?: string; data?: unknown };
             showToast('error', err.message || t('editor.feedback.createError'));
         } finally {
             setSaving(false);

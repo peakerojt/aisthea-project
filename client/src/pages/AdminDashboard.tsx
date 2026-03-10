@@ -105,7 +105,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ setView }) => {
       try {
          const data = await fetchDashboardSummary(r);
          setSummary(data);
-      } catch (e: any) {
+      } catch (error) {
+            const e = error as Error | { message?: string; error?: string; data?: unknown };
          setError(e?.message ?? 'Không thể tải dữ liệu.');
       } finally {
          setIsLoading(false);

@@ -136,7 +136,8 @@ export const AdminRoles: React.FC = () => {
                 )
             );
             showToast(t('feedback.saveSuccess'), 'success');
-        } catch (err: any) {
+        } catch (error) {
+            const err = error as { response?: { data?: { message?: string } } };
             const msg = err?.response?.data?.message || t('feedback.accessDenied');
             showToast(msg, 'error');
         } finally {

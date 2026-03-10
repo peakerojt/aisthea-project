@@ -69,6 +69,7 @@ export type ViewState =
   | 'ADMIN_ROLES'
   | 'ADMIN_RETURNS'
   | 'ADMIN_RETURN_DETAIL'
+  | 'ADMIN_WAREHOUSES'
   | 'STORE_RETURN_DETAIL'
   | 'STORE_MY_RETURNS';
 

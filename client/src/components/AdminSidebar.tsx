@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Logo } from './Logo';
 import { ViewState } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, Shirt, ShoppingBag, Users, BarChart2, LogOut, PackagePlus, Tag, TicketPercent, ShieldCheck, RotateCcw } from 'lucide-react';
+import { LayoutDashboard, Shirt, ShoppingBag, Users, BarChart2, LogOut, PackagePlus, Tag, TicketPercent, ShieldCheck, RotateCcw, Warehouse } from 'lucide-react';
 
 
 
@@ -78,6 +78,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ currentView, setView
       icon: ShieldCheck,
       label: 'Phân quyền',
       view: 'ADMIN_ROLES' as ViewState,
+      subRoutes: []
+    },
+    {
+      icon: Warehouse,
+      label: 'Kho hàng',
+      view: 'ADMIN_WAREHOUSES' as ViewState,
       subRoutes: []
     },
   ];

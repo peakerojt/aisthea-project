@@ -3,12 +3,14 @@ import { StoreHeader } from '../components/StoreHeader';
 import { ViewState, CategoryType } from '../types';
 import { useProducts } from '../contexts/ProductContext';
 import { ProductCard } from '../components/ProductCard';
+import { ProductItem } from '../types';
+import { Product } from '../services/product.service';
 
 interface StoreHomeProps {
    setView: (v: ViewState, id?: number) => void;
    setCategory: (c: CategoryType) => void;
    setCollection: (c: string) => void;
-   onProductClick: (product: any) => void;
+   onProductClick: (product: ProductItem | Product) => void;
    setSearchTerm: (term: string) => void;
 }
 

@@ -31,7 +31,8 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ setView }) => {
                     setError('Authentication failed - no user session');
                     setTimeout(() => setView('AUTH_LOGIN'), 3000);
                 }
-            } catch (err: any) {
+            } catch (error) {
+            const err = error as Error | { message?: string; error?: string; data?: unknown };
                 console.error('Failed to verify session:', err);
                 setError(err.message || 'Failed to verify authentication');
                 setTimeout(() => setView('AUTH_LOGIN'), 3000);

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { prisma } from '../utils/prisma';
+import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 
 // ─── Size ordering reference ──────────────────────────────────────────────────
@@ -178,7 +178,7 @@ export const bulkUpdateStock = async (req: Request, res: Response) => {
         const userId: number | null = (req as any).user?.userId ?? null;
 
         // ── Wrap all updates + audit logs in one transaction ───────────────
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx: any) => {
             for (const c of changes) {
                 // Read previousStock before update
                 const current = await (tx.productVariant.findUnique as any)({

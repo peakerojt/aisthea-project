@@ -65,7 +65,8 @@ export const AdminProducts: React.FC<{ setView: (v: ViewState, productId?: numbe
       setDeleteModal(null);
       await refreshProducts();
       showToast(result.message, result.mode === 'archived' ? 'archive' : 'success');
-    } catch (err: any) {
+    } catch (error) {
+            const err = error as Error | { message?: string; error?: string; data?: unknown };
       setDeleteModal(null);
       showToast(err.message || t('products:feedback.deleteSuccess'), 'error');
     } finally {

@@ -49,12 +49,14 @@ export function useReorderItems() {
         },
 
         // Rollback to snapshot and show error
-        onError: (err: any, _vars, context: any) => {
-            if (context?.snapshot) {
-                queryClient.setQueryData(QUERY_KEY, context.snapshot);
+        onError: (err: unknown, _vars: unknown, context: unknown) => {
+            const typedContext = context as { snapshot?: Item[] } | undefined;
+            if (typedContext?.snapshot) {
+                queryClient.setQueryData(QUERY_KEY, typedContext.snapshot);
             }
+            const error = err as Error & { response?: { data?: { message?: string } } };
             const message =
-                err?.response?.data?.message ?? err?.message ?? 'Reorder failed. Please try again.';
+                error?.response?.data?.message ?? error?.message ?? 'Reorder failed. Please try again.';
             setReorderError(message);
         },
     });

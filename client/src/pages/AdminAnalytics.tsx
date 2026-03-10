@@ -280,7 +280,8 @@ export const AdminAnalytics: React.FC = () => {
         try {
             const result = await fetchAnalyticsSummary(sd, ed);
             setData(result);
-        } catch (e: any) {
+        } catch (error) {
+            const e = error as Error | { message?: string; error?: string; data?: unknown };
             setError(e?.message ?? t('feedback.loadError'));
         } finally {
             setLoading(false);

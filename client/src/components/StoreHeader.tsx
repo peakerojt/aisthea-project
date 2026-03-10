@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Logo } from './Logo';
-import { ViewState, CategoryType } from '../types';
+import { ViewState, CategoryType, ProductItem } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchProducts, Product } from '../services/product.service';
 import { getCloudinaryProductCard } from '../utils/cloudinary';
@@ -11,7 +11,7 @@ interface StoreHeaderProps {
   transparent?: boolean;
   searchTerm?: string;
   setSearchTerm?: (term: string) => void;
-  onProductClick?: (product: Product) => void;
+  onProductClick?: (product: Product | ProductItem) => void;
   cartCount?: number;
 }
 

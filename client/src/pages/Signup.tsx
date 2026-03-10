@@ -117,7 +117,8 @@ export const Signup: React.FC<SignupProps> = ({ setView }) => {
 
       // Redirect to email verification page
       setView('EMAIL_VERIFICATION');
-    } catch (err: any) {
+    } catch (error) {
+            const err = error as Error | { message?: string; error?: string; data?: unknown };
       setServerError(err.message || 'Registration failed');
     }
   };

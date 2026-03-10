@@ -137,7 +137,8 @@ export const AdminOrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, set
             const o = await adminOrderService.getDetail(orderId);
             setOrder(o);
             loadRefunds(orderId);
-        } catch (e: any) { setError(e.message || 'Không thể tải chi tiết đơn hàng.'); }
+        } catch (error) {
+            const e = error as Error | { message?: string; error?: string; data?: unknown }; setError(e.message || 'Không thể tải chi tiết đơn hàng.'); }
         finally { setLoading(false); }
     }, [orderId, loadRefunds]);
 

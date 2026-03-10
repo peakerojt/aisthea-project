@@ -64,7 +64,8 @@ export const StoreProfile: React.FC<StoreProfileProps> = ({ setView, setCategory
         fullName: profileData.fullName,
         phone: profileData.phone || '',
       });
-    } catch (err: any) {
+    } catch (error) {
+            const err = error as Error | { message?: string; error?: string; data?: unknown };
       setError(err.message || 'Failed to load profile');
     } finally {
       setLoading(false);
@@ -86,7 +87,8 @@ export const StoreProfile: React.FC<StoreProfileProps> = ({ setView, setCategory
       const updatedProfile = await userService.updateProfile(profileForm);
       setProfile(updatedProfile);
       setIsEditingProfile(false);
-    } catch (err: any) {
+    } catch (error) {
+            const err = error as Error | { message?: string; error?: string; data?: unknown };
       alert(err.message || 'Failed to update profile');
     }
   };
@@ -135,7 +137,8 @@ export const StoreProfile: React.FC<StoreProfileProps> = ({ setView, setCategory
       await loadProfileData();
       setAvatarPreview(null);
       alert((response as any).message || 'Avatar uploaded successfully to cloud storage!');
-    } catch (err: any) {
+    } catch (error) {
+            const err = error as Error | { message?: string; error?: string; data?: unknown };
       alert(err.message || 'Failed to upload avatar');
     } finally {
       setUploadingAvatar(false);

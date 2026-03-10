@@ -141,7 +141,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const cart = await addToCartApi(variantId, quantity);
                 setDbItems(cart.items ?? []);
                 showToast(t('toast.added'), 'success');
-            } catch (err: any) {
+            } catch (error) {
+            const err = error as { response?: { data?: { code?: string; available?: number } } };
                 const code = err?.response?.data?.code;
                 if (code === 'INSUFFICIENT_STOCK') {
                     const available = err?.response?.data?.available ?? 0;
@@ -181,7 +182,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             try {
                 const cart = await updateCartItemApi(cartItemId, quantity);
                 setDbItems(cart.items ?? []);
-            } catch (err: any) {
+            } catch (error) {
+            const err = error as { response?: { data?: { code?: string; available?: number } } };
                 const code = err?.response?.data?.code;
                 if (code === 'INSUFFICIENT_STOCK') {
                     const available = err?.response?.data?.available ?? 0;

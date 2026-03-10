@@ -314,16 +314,17 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
 
   const stockLevel = activeVariant?.stockQuantity ?? null;
 
-  function detailsTrigger(p: { productId?: number, id?: number }) {
+  function detailsTrigger(p: { productId?: number, id?: number | string }) {
     setProductDetails(null);
     setIsLoading(true);
     const loadData = async () => {
       try {
-        const details = await fetchProductById(p.productId || p.id);
+        const fetchId = Number(p.productId || p.id);
+        const details = await fetchProductById(fetchId);
         setProductDetails(details);
         if (details.categoryId) {
           const related = await fetchProducts({ category: details.category?.name });
-          setRelatedProducts(related.filter(item => item.productId !== (p.productId || p.id)).slice(0, 8));
+          setRelatedProducts(related.filter(item => item.productId !== fetchId).slice(0, 8));
         }
       } catch (err) { console.error(err); }
       finally { setIsLoading(false); window.scrollTo(0, 0); }
@@ -442,7 +443,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                     {recentProducts.map((rp) => (
                       <button
                         key={rp.productId}
-                        onClick={() => detailsTrigger(rp)}
+                        onClick={() => detailsTrigger(rp as { productId?: number; id?: number | string })}
                         className="flex-shrink-0 flex items-center gap-4 p-3 bg-surface-dark/10 border border-border-dark/20 hover:border-primary/50 transition-all rounded-sm group min-w-[200px]"
                       >
                         <div className="w-12 h-12 overflow-hidden bg-surface-dark ring-1 ring-white/5">
@@ -510,7 +511,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                         status={item.status}
                         onClick={() => {
                           window.scrollTo({ top: 0, behavior: 'smooth' });
-                          detailsTrigger({ productId: parseInt(item.id) });
+                          detailsTrigger({ id: parseInt(item.id) });
                         }}
                         showHoverGallery={true}
                         className="scale-[0.8] origin-top-left transition-transform hover:scale-[0.85]"
@@ -560,7 +561,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                 style={{ animationDelay: `${idx * 100}ms` }}
                 onClick={() => {
                   setView('STORE_DETAIL');
-                  detailsTrigger(p);
+                  detailsTrigger(p as { productId?: number; id?: number | string });
                 }}
               >
                 <div className="relative aspect-[3/4] overflow-hidden bg-surface-dark group">

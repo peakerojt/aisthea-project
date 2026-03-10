@@ -135,7 +135,8 @@ export const AdminCustomers: React.FC = () => {
                 status: statusFilter !== 'all' ? statusFilter : undefined,
             });
             setUsers(data);
-        } catch (e: any) {
+        } catch (error) {
+            const e = error as Error | { message?: string; error?: string; data?: unknown };
             setError(e.message || t('feedback.loadError'));
         } finally {
             setLoading(false);
@@ -165,7 +166,8 @@ export const AdminCustomers: React.FC = () => {
             showToast(res.message || t('feedback.statusUpdated'), 'success');
             setBanTarget(null);
             await loadUsers();
-        } catch (e: any) {
+        } catch (error) {
+            const e = error as Error | { message?: string; error?: string; data?: unknown };
             showToast(e.message || t('feedback.statusError'), 'error');
             setBanTarget(null);
         } finally {
@@ -187,7 +189,8 @@ export const AdminCustomers: React.FC = () => {
             showToast(res.message || t('feedback.roleUpdated'), 'success');
             setRoleTarget(null);
             await loadUsers();
-        } catch (e: any) {
+        } catch (error) {
+            const e = error as Error | { message?: string; error?: string; data?: unknown };
             showToast(e.message || t('feedback.roleError'), 'error');
             setRoleTarget(null);
         } finally {

@@ -2,14 +2,24 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getMyOrdersTracking } from '../services/tracking.service';
 
+interface TrackingOrder {
+  orderId: number;
+  orderCode?: string;
+  orderNumber?: string;
+  status: string;
+}
+
 export function MyOrdersPage() {
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<TrackingOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getMyOrdersTracking()
-      .then((res: any) => setOrders(res.data || res))
+      .then((res: unknown) => {
+        const data = (res as { data?: TrackingOrder[] }).data || res;
+        setOrders(data as TrackingOrder[]);
+      })
       .catch((err) => setError(err.message || 'Cannot load orders'))
       .finally(() => setLoading(false));
   }, []);

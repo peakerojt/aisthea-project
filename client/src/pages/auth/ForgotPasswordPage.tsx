@@ -30,7 +30,8 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ setView 
 
             setStatus('success');
             setMessage(data.message);
-        } catch (err: any) {
+        } catch (error) {
+            const err = error as Error | { message?: string; error?: string; data?: unknown };
             setStatus('error');
             setMessage(err.message);
         }

@@ -195,6 +195,9 @@ model ProductVariant {
   product           Product            @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ProductVariants_Products")
   variantAttributes VariantAttribute[]
   inventoryLogs     InventoryLog[]
+  inventories       Inventory[]
+  stockAdjustments  StockAdjustment[]
+  stockTransfers    StockTransfer[]
 
   @@index([productId], map: "IX_ProductVariants_ProductId")
   @@index([stockQuantity], map: "IX_ProductVariants_StockQuantity")
@@ -306,6 +309,7 @@ model Order {
   inventoryLogs         InventoryLog[]
   orderReturn           OrderReturn?
   refunds               Refund[]
+  inventoryReservations InventoryReservation[]
 
   @@index([createdAt], map: "IX_Orders_CreatedAt")
   @@index([orderNumber], map: "IX_Orders_OrderNumber")
@@ -494,4 +498,141 @@ model Refund {
   @@index([orderId],  map: "IX_Refunds_OrderId")
   @@index([status],   map: "IX_Refunds_Status")
   @@map("Refunds")
+}
+
+// ─── Warehouse & Multi-location Inventory ────────────────────────────────────
+
+model Warehouse {
+  warehouseId        Int               @id @default(autoincrement()) @map("WarehouseId")
+  name               String            @map("Name") @db.NVarChar(100)
+  address            String?           @map("Address") @db.NVarChar(255)
+  isActive           Boolean           @default(true) @map("IsActive")
+  createdAt          DateTime          @default(now()) @map("CreatedAt")
+  updatedAt          DateTime          @default(now()) @updatedAt @map("UpdatedAt")
+
+  inventory          Inventory[]
+  stockAdjustments   StockAdjustment[]
+  stockTransfersFrom StockTransfer[]   @relation("TransferFrom")
+  stockTransfersTo   StockTransfer[]   @relation("TransferTo")
+  purchaseOrders     PurchaseOrder[]
+
+  @@index([isActive], map: "IX_Warehouses_IsActive")
+  @@map("Warehouses")
+}
+
+// available_stock (computed at app layer) = quantity - reservedQuantity
+model Inventory {
+  inventoryId      Int       @id @default(autoincrement()) @map("InventoryId")
+  warehouseId      Int       @map("WarehouseId")
+  variantId        Int       @map("VariantId")
+  quantity         Int       @default(0) @map("Quantity")
+  reservedQuantity Int       @default(0) @map("ReservedQuantity")
+  createdAt        DateTime  @default(now()) @map("CreatedAt")
+  updatedAt        DateTime  @default(now()) @updatedAt @map("UpdatedAt")
+
+  warehouse    Warehouse              @relation(fields: [warehouseId], references: [warehouseId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Inventory_Warehouses")
+  variant      ProductVariant         @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Inventory_Variants")
+  reservations InventoryReservation[]
+  transactions InventoryTransaction[]
+
+  @@unique([warehouseId, variantId], map: "UQ_Inventory_Warehouse_Variant")
+  @@index([variantId],   map: "IX_Inventory_VariantId")
+  @@index([warehouseId], map: "IX_Inventory_WarehouseId")
+  @@map("Inventory")
+}
+
+// status: ACTIVE | RELEASED | FULFILLED
+model InventoryReservation {
+  reservationId Int       @id @default(autoincrement()) @map("ReservationId")
+  inventoryId   Int       @map("InventoryId")
+  orderId       Int       @map("OrderId")
+  quantity      Int       @map("Quantity")
+  status        String    @default("ACTIVE") @map("Status") @db.NVarChar(20)
+  expiresAt     DateTime  @map("ExpiresAt")
+  createdAt     DateTime  @default(now()) @map("CreatedAt")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("UpdatedAt")
+
+  inventory Inventory @relation(fields: [inventoryId], references: [inventoryId], onDelete: Cascade, onUpdate: NoAction, map: "FK_InventoryReservations_Inventory")
+  order     Order     @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_InventoryReservations_Orders")
+
+  @@index([inventoryId], map: "IX_InventoryReservations_InventoryId")
+  @@index([orderId],     map: "IX_InventoryReservations_OrderId")
+  @@index([status],      map: "IX_InventoryReservations_Status")
+  @@map("InventoryReservations")
+}
+
+// type: IN | OUT | ADJUST | TRANSFER_IN | TRANSFER_OUT
+model InventoryTransaction {
+  transactionId Int      @id @default(autoincrement()) @map("TransactionId")
+  inventoryId   Int      @map("InventoryId")
+  type          String   @map("Type") @db.NVarChar(20)
+  quantity      Int      @map("Quantity")
+  note          String?  @map("Note") @db.NVarChar(500)
+  createdBy     Int?     @map("CreatedBy")
+  createdAt     DateTime @default(now()) @map("CreatedAt")
+
+  inventory Inventory @relation(fields: [inventoryId], references: [inventoryId], onDelete: Cascade, onUpdate: NoAction, map: "FK_InventoryTransactions_Inventory")
+
+  @@index([inventoryId], map: "IX_InventoryTransactions_InventoryId")
+  @@index([type],        map: "IX_InventoryTransactions_Type")
+  @@map("InventoryTransactions")
+}
+
+model StockAdjustment {
+  adjustmentId Int      @id @default(autoincrement()) @map("AdjustmentId")
+  warehouseId  Int      @map("WarehouseId")
+  variantId    Int      @map("VariantId")
+  quantity     Int      @map("Quantity")   // positive = add, negative = remove
+  reason       String   @map("Reason") @db.NVarChar(255)
+  adjustedBy   Int?     @map("AdjustedBy")
+  adjustedAt   DateTime @default(now()) @map("AdjustedAt")
+
+  warehouse Warehouse      @relation(fields: [warehouseId], references: [warehouseId], onDelete: Cascade, onUpdate: NoAction, map: "FK_StockAdjustments_Warehouses")
+  variant   ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_StockAdjustments_Variants")
+
+  @@index([warehouseId], map: "IX_StockAdjustments_WarehouseId")
+  @@index([variantId],   map: "IX_StockAdjustments_VariantId")
+  @@map("StockAdjustments")
+}
+
+// status: PENDING | COMPLETED | CANCELLED
+model StockTransfer {
+  transferId      Int      @id @default(autoincrement()) @map("TransferId")
+  fromWarehouseId Int      @map("FromWarehouseId")
+  toWarehouseId   Int      @map("ToWarehouseId")
+  variantId       Int      @map("VariantId")
+  quantity        Int      @map("Quantity")
+  status          String   @default("PENDING") @map("Status") @db.NVarChar(20)
+  transferredBy   Int?     @map("TransferredBy")
+  createdAt       DateTime @default(now()) @map("CreatedAt")
+  updatedAt       DateTime @default(now()) @updatedAt @map("UpdatedAt")
+
+  fromWarehouse Warehouse      @relation("TransferFrom", fields: [fromWarehouseId], references: [warehouseId], onDelete: NoAction, onUpdate: NoAction, map: "FK_StockTransfers_FromWarehouse")
+  toWarehouse   Warehouse      @relation("TransferTo",   fields: [toWarehouseId],   references: [warehouseId], onDelete: NoAction, onUpdate: NoAction, map: "FK_StockTransfers_ToWarehouse")
+  variant       ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_StockTransfers_Variants")
+
+  @@index([fromWarehouseId], map: "IX_StockTransfers_FromWarehouse")
+  @@index([toWarehouseId],   map: "IX_StockTransfers_ToWarehouse")
+  @@index([status],          map: "IX_StockTransfers_Status")
+  @@map("StockTransfers")
+}
+
+// status: PENDING | RECEIVED | CANCELLED
+model PurchaseOrder {
+  purchaseOrderId Int       @id @default(autoincrement()) @map("PurchaseOrderId")
+  warehouseId     Int       @map("WarehouseId")
+  supplier        String    @map("Supplier") @db.NVarChar(100)
+  status          String    @default("PENDING") @map("Status") @db.NVarChar(20)
+  totalCost       Decimal?  @map("TotalCost") @db.Decimal(18, 2)
+  notes           String?   @map("Notes") @db.NVarChar(1000)
+  orderedAt       DateTime  @default(now()) @map("OrderedAt")
+  receivedAt      DateTime? @map("ReceivedAt")
+  createdBy       Int?      @map("CreatedBy")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("UpdatedAt")
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [warehouseId], onDelete: Cascade, onUpdate: NoAction, map: "FK_PurchaseOrders_Warehouses")
+
+  @@index([warehouseId], map: "IX_PurchaseOrders_WarehouseId")
+  @@index([status],      map: "IX_PurchaseOrders_Status")
+  @@map("PurchaseOrders")
 }

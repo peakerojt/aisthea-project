@@ -50,6 +50,14 @@ class ApiClient {
                     error: `HTTP ${response.status}: ${response.statusText}`,
                 }));
 
+                // If unauthorized (session expired), redirect to login
+                if (response.status === 401) {
+                    window.dispatchEvent(new CustomEvent('auth:logout'));
+                    if (!window.location.pathname.startsWith('/login')) {
+                        window.location.href = '/login';
+                    }
+                }
+
                 // If account is banned, dispatch a global event so AuthContext can auto-logout
                 if (response.status === 403 && errorData?.code === 'ACCOUNT_BANNED') {
                     window.dispatchEvent(new CustomEvent('auth:banned', {

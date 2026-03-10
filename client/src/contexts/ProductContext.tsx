@@ -79,7 +79,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       // Cache products in localStorage for offline access
       localStorage.setItem(STORAGE_KEY, JSON.stringify(convertedProducts));
-    } catch (err: any) {
+    } catch (error) {
+            const err = error as Error | { message?: string; error?: string; data?: unknown };
       console.error('Failed to fetch products from database:', err);
       setError(err.message || 'Failed to load products');
 

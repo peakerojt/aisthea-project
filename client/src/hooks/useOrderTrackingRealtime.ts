@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { API_BASE_URL } from '../utils/api';
 import { useTrackingStore } from '../store/tracking.store';
+import { TrackingData, TrackingTimelineItem } from '../types/tracking';
 
 /**
  * useOrderTrackingRealtime
@@ -48,8 +49,8 @@ export function useOrderTrackingRealtime(orderId?: number, userId?: number, enab
           pollingRef.current = setInterval(async () => {
             try {
               const { getOrderTracking } = await import('../services/tracking.service');
-              const latest = await getOrderTracking(orderId) as any;
-              if (mounted) setTracking(latest.data || latest);
+              const latest = await getOrderTracking(orderId) as unknown as TrackingData | { data: TrackingData };
+              if (mounted) setTracking('data' in latest ? latest.data : latest);
             } catch {
               // Ignore 401 while polling (public mode)
             }
@@ -64,13 +65,20 @@ export function useOrderTrackingRealtime(orderId?: number, userId?: number, enab
      */
     socket.on('order:status_updated', (payload: {
       status: string;
-      timeline: any[];
+      timeline: { status: string; changedAt: string; note?: string | null; }[];
       carrier?: string | null;
       trackingNumber?: string | null;
       estimatedDeliveryDate?: string | null;
     }) => {
       if (!mounted) return;
-      updateFromSocket(payload.status, payload.timeline as any, {
+
+      const mappedTimeline: TrackingTimelineItem[] = payload.timeline.map(t => ({
+        status: t.status as TrackingTimelineItem['status'],
+        timestamp: t.changedAt,
+        note: t.note
+      }));
+
+      updateFromSocket(payload.status, mappedTimeline, {
         carrier: payload.carrier ?? null,
         trackingNumber: payload.trackingNumber ?? null,
         estimatedDeliveryDate: payload.estimatedDeliveryDate ?? null,

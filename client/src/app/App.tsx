@@ -44,6 +44,7 @@ const AdminCategories = React.lazy(() => import('../pages/AdminCategories').then
 const AdminCoupons = React.lazy(() => import('../pages/AdminCoupons').then(m => ({ default: m.AdminCoupons })));
 const AdminRoles = React.lazy(() => import('../pages/AdminRoles').then(m => ({ default: m.AdminRoles })));
 const AdminReturns = React.lazy(() => import('../pages/AdminReturns').then(m => ({ default: m.AdminReturns })));
+const AdminWarehouses = React.lazy(() => import('../pages/AdminWarehouses'));
 
 // ─── Minimal fallback ─────────────────────────────────────────────────────────
 const PageFallback = () => (
@@ -112,7 +113,7 @@ const App: React.FC = () => {
   const [dbProducts, setDbProducts] = useState<Record<string, unknown>[]>([]);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/products')
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/products`)
       .then((res) => res.json())
       .then((data) => { setDbProducts(data); })
       .catch(() => { setDbProducts([]); });
@@ -204,6 +205,7 @@ const App: React.FC = () => {
             {view === 'ADMIN_COUPONS' && <AdminCoupons />}
             {view === 'ADMIN_ROLES' && <AdminRoles />}
             {view === 'ADMIN_RETURNS' && <AdminReturns />}
+            {view === 'ADMIN_WAREHOUSES' && <AdminWarehouses />}
           </Suspense>
         </main>
       </div>

@@ -287,7 +287,8 @@ export const AdminReturns: React.FC = () => {
             const data = await adminReturnService.list({ status: statusFilter, page, pageSize: 15 });
             setReturns(data.returns);
             setTotalPages(data.pagination.totalPages);
-        } catch (e: any) {
+        } catch (error) {
+            const e = error as Error | { message?: string; error?: string; data?: unknown };
             setToast({ type: 'error', message: e?.message || t('feedback.loadError') });
         } finally {
             setLoading(false);
@@ -307,7 +308,8 @@ export const AdminReturns: React.FC = () => {
             setToast({ type: 'success', message });
             setSelectedReturn(null);
             await load();
-        } catch (e: any) {
+        } catch (error) {
+            const e = error as Error | { message?: string; error?: string; data?: unknown };
             setToast({ type: 'error', message: e?.message || t('feedback.processError') });
         }
     };

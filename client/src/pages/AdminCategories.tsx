@@ -231,7 +231,8 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
             setFlat(flatData);
             // Auto-expand all roots
             setExpandedIds(new Set(treeData.map(n => n.categoryId)));
-        } catch (e: any) {
+        } catch (error) {
+            const e = error as Error | { message?: string; error?: string; data?: unknown };
             setError(e.message || t('feedback.loadErrorDetail'));
         } finally {
             setLoading(false);
@@ -271,7 +272,8 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
             }
             handleCloseForm();
             await loadData();
-        } catch (e: any) {
+        } catch (error) {
+            const e = error as Error | { message?: string; error?: string; data?: unknown };
             showToast(e.message || t('feedback.genericError'), 'error');
             throw e; // Let modal handle spinner reset
         }
@@ -289,7 +291,8 @@ export const AdminCategories: React.FC<AdminCategoriesProps> = ({ setView: _setV
             setDeleteModal(null);
             showToast(t('feedback.deleteSuccess'), 'success');
             await loadData();
-        } catch (e: any) {
+        } catch (error) {
+            const e = error as Error | { message?: string; error?: string; data?: unknown };
             setDeleteModal(null);
             showToast(e.message || t('feedback.deleteError'), 'error');
         } finally {
