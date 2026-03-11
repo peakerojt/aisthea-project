@@ -77,13 +77,23 @@ class ApiClient {
                     }));
                 }
 
-                throw new Error(errorMessage);
+                // Tag the error so the catch block knows it's already handled
+                const err = new Error(errorMessage) as Error & { status: number; skipAuthRedirect?: boolean };
+                err.status = response.status;
+                err.skipAuthRedirect = skipAuthRedirect;
+                throw err;
             }
 
             // Parse JSON response
             return await response.json();
         } catch (error) {
-            console.error('API request failed:', error);
+            const apiErr = error as Error & { status?: number; skipAuthRedirect?: boolean };
+            // Suppress console noise for expected auth errors (e.g. session check for guests)
+            const isExpectedAuthError =
+                apiErr.status === 401 && apiErr.skipAuthRedirect === true;
+            if (!isExpectedAuthError) {
+                console.error('API request failed:', error);
+            }
             if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
                 window.dispatchEvent(new CustomEvent('app:toast', {
                     detail: { type: 'error', title: 'Lỗi kết nối', subtitle: 'Không thể tải dữ liệu từ máy chủ' }

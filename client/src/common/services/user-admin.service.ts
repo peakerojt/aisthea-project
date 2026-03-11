@@ -1,4 +1,4 @@
-// Removed api import for user-admin.service.ts
+import { userAdminApi } from '@/common/api/user-admin.api';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface AdminUserRole {
@@ -24,7 +24,6 @@ export interface FetchAdminUsersParams {
     status?: string;
 }
 
-import { userAdminApi } from '@/common/api/user-admin.api';
 
 // ─── API Calls ───────────────────────────────────────────────────────────────
 

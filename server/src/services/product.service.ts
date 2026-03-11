@@ -16,6 +16,13 @@ export interface CreateImagePayload {
     imageUrl: string;
     thumbnailUrl?: string;
     isPrimary?: boolean;
+    associatedAttributeValue?: string;
+}
+
+export interface UpdateImagePayload {
+    imageId: number;
+    associatedAttributeValue?: string;
+    isPrimary?: boolean;
 }
 
 export interface CreateProductPayload {
@@ -351,7 +358,8 @@ export interface UpdateProductPayload {
     status?: string;
     // Image management
     deletedImageIds: number[];
-    newImages: CreateImagePayload[];
+    newImages?: CreateImagePayload[];
+    updatedImages?: UpdateImagePayload[];
     primaryImageId?: number;   // existing image to mark as primary
     // Variant management
     variants: UpdateVariantPayload[];
@@ -402,18 +410,7 @@ export const updateProduct = async (productId: number, payload: UpdateProductPay
             });
         }
 
-        // 4. Create new images
-        for (let i = 0; i < newImages.length; i++) {
-            const img = newImages[i];
-            await tx.productImage.create({
-                data: {
-                    productId,
-                    imageUrl: img.imageUrl,
-                    thumbnailUrl: img.thumbnailUrl,
-                    isPrimary: img.isPrimary ?? false,
-                },
-            });
-        }
+
 
         // 5. Soft-delete variants no longer in submission (preserve order history)
         if (keptVariantIds.length > 0) {
@@ -503,6 +500,69 @@ export const updateProduct = async (productId: number, payload: UpdateProductPay
             }
 
             savedVariantIds.push(variantId);
+        }
+
+        // 8. Create new images (moved here to allow linking to newly created variants)
+        if (newImages && newImages.length > 0) {
+            for (let i = 0; i < newImages.length; i++) {
+                const img = newImages[i];
+                let assignedVariantId: number | null = null;
+
+                if (img.associatedAttributeValue) {
+                    const variantInfo = await tx.productVariant.findFirst({
+                        where: {
+                            productId,
+                            isDeleted: false,
+                            variantAttributes: {
+                                some: {
+                                    value: { value: img.associatedAttributeValue }
+                                }
+                            }
+                        },
+                        select: { variantId: true }
+                    });
+                    if (variantInfo) assignedVariantId = variantInfo.variantId;
+                }
+
+                await tx.productImage.create({
+                    data: {
+                        productId,
+                        variantId: assignedVariantId,
+                        imageUrl: img.imageUrl,
+                        thumbnailUrl: img.thumbnailUrl,
+                        isPrimary: img.isPrimary ?? false,
+                    },
+                });
+            }
+        }
+
+        // 9. Update existing images (e.g. category reassignment)
+        if (payload.updatedImages && payload.updatedImages.length > 0) {
+            for (const uimg of payload.updatedImages) {
+                let assignedVariantId: number | null = null;
+                if (uimg.associatedAttributeValue) {
+                    const variantInfo = await tx.productVariant.findFirst({
+                        where: {
+                            productId,
+                            isDeleted: false,
+                            variantAttributes: {
+                                some: { value: { value: uimg.associatedAttributeValue } }
+                            }
+                        },
+                        select: { variantId: true }
+                    });
+                    if (variantInfo) assignedVariantId = variantInfo.variantId;
+                }
+
+                // If it's primary, handle it. Otherwise ignore primary logic here as it's handled by primaryImageId field already
+                // Actually, let's just update variantId
+                await tx.productImage.update({
+                    where: { imageId: uimg.imageId },
+                    data: {
+                        variantId: assignedVariantId,
+                    }
+                });
+            }
         }
 
         return { productId, variantCount: savedVariantIds.length };

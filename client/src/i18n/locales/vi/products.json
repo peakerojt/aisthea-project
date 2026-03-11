@@ -204,5 +204,46 @@
         "outOfStockBtn": "Hết hàng",
         "unselectedBtn": "Vui lòng chọn phân loại hàng",
         "outOfStockIcon": " — Hết hàng"
+    },
+    "pdp": {
+        "notFound": "Không tìm thấy sản phẩm.",
+        "back": "Quay lại",
+        "share": "Chia sẻ",
+        "defaultDesc": "Được chế tác từ những vật liệu cao cấp, sản phẩm này định nghĩa lại sự sang trọng hiện đại. Nổi bật với kiểu dáng được cắt may tỉ mỉ, phụ kiện tinh tế và thiết kế cấu trúc mang tính biểu tượng của Aisthea.",
+        "copyLinkSuccess": "Đã sao chép liên kết",
+        "copyLinkSubtitle": "Bạn có thể chia sẻ liên kết này.",
+        "stylist": {
+            "heading": "Cần hỗ trợ phối đồ?",
+            "subheading": "Các stylist của chúng tôi luôn sẵn sàng tư vấn chuyên nghiệp.",
+            "cta": "Trò chuyện cùng stylist"
+        },
+        "accordion": {
+            "features": "Đặc điểm sản phẩm",
+            "material": "Chất liệu & Bảo quản",
+            "shipping": "Vận chuyển & Đổi trả",
+            "featuresBody": "Được thiết kế với sự chú ý tỉ mỉ đến từng chi tiết tại xưởng chính của chúng tôi.",
+            "materialBody": "100% Wool siêu nhẹ cao cấp. Chỉ giặt khô. Ủi ở nhiệt độ thấp nếu cần thiết.",
+            "shippingBody": "Miễn phí giao hàng nhanh cho mọi đơn hàng từ 5.000.000đ. Đổi trả dễ dàng trong vòng 14 ngày sau khi nhận hàng."
+        },
+        "reviews": {
+            "title": "Đánh giá của khách hàng",
+            "empty": "Chưa có đánh giá nào."
+        },
+        "recentlyViewed": "Vừa mới xem",
+        "youMightLike": {
+            "label": "Gợi ý cho bạn",
+            "title": "Có thể bạn sẽ thích",
+            "memberBadge": "Dành cho thành viên"
+        },
+        "viewLabels": [
+            "Mặt trước",
+            "Mặt cạnh",
+            "Mặt sau"
+        ],
+        "insufficientStock": "Không đủ hàng",
+        "insufficientStockSub": "Chỉ còn {{count}} sản phẩm trong kho.",
+        "addFailed": "Thêm thất bại",
+        "addFailedSub": "Vui lòng thử lại.",
+        "guestCartSubtitle": "Đăng nhập để hoàn tất mua hàng"
     }
 }

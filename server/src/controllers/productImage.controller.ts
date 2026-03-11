@@ -38,10 +38,32 @@ export const uploadSingleProductImage = async (req: Request, res: Response) => {
 
         const result = await cloudinaryService.uploadProductVariantImage(base64Data, options);
 
+        let finalVariantId = req.body.variantId ? Number(req.body.variantId) : null;
+
+        if (!finalVariantId && req.body.associatedAttributeValue) {
+            const variantInfo = await (prisma.productVariant.findFirst as any)({
+                where: {
+                    productId,
+                    isDeleted: false,
+                    variantAttributes: {
+                        some: {
+                            value: {
+                                value: req.body.associatedAttributeValue,
+                            }
+                        }
+                    }
+                },
+                select: { variantId: true }
+            });
+            if (variantInfo) {
+                finalVariantId = variantInfo.variantId;
+            }
+        }
+
         const productImage = await (prisma.productImage.create as any)({
             data: {
                 productId,
-                variantId: req.body.variantId ? Number(req.body.variantId) : null,
+                variantId: finalVariantId,
                 imageUrl: result.secureUrl,
                 thumbnailUrl: result.thumbnailUrl,
                 isPrimary: options.isPrimary || false,

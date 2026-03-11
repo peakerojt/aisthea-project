@@ -29,7 +29,8 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isZoomed, setIsZoomed] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
+    // Track which URLs have already been loaded so we skip the skeleton on revisit
+    const [loadedUrls, setLoadedUrls] = useState<Set<string>>(new Set());
 
     // Filter valid images and deduplicate based on URL
     const validImages = useMemo(() => {
@@ -67,6 +68,11 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
         }
     }, [validImages.length, currentIndex]);
 
+    // Reset index to 0 when images reference changes (e.g., when switching colors)
+    useEffect(() => {
+        setCurrentIndex(0);
+    }, [images]);
+
     useEffect(() => {
         if (!autoPlay || validImages.length <= 1) return;
         const interval = setInterval(() => {
@@ -99,13 +105,13 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
         }
     };
 
-    const handleImageLoad = () => {
-        setIsLoading(false);
+    const handleImageLoad = (url: string) => {
+        setLoadedUrls(prev => new Set(prev).add(url));
     };
 
-    const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>, url: string) => {
         e.currentTarget.src = 'https://via.placeholder.com/800x1200?text=Image+Not+Available';
-        setIsLoading(false);
+        setLoadedUrls(prev => new Set(prev).add(url));
     };
 
     if (validImages.length === 0 || !currentImage) {
@@ -123,18 +129,19 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
         <div className={`relative ${className} flex flex-col items-center w-full`}>
             {/* Main Image Display - Shorter aspect ratio to fit everything */}
             <div className="relative w-full aspect-[4/3] md:aspect-[4/4] bg-black rounded-lg overflow-hidden group">
-                {/* Loading Skeleton */}
-                {isLoading && (
+                {/* Loading Skeleton — only shown when URL hasn't been loaded yet */}
+                {!loadedUrls.has(currentImage.imageUrl) && (
                     <div className="absolute inset-0 bg-gradient-to-r from-black via-gray-900 to-black animate-pulse" />
                 )}
 
                 <img
+                    key={currentImage.imageUrl}
                     src={currentImage.imageUrl}
                     alt={`${productName} - Image ${currentIndex + 1}`}
-                    className={`w-full h-full object-contain transition-all duration-500 ${isLoading ? 'opacity-0' : 'opacity-100'
-                        } ${enableZoom && 'cursor-zoom-in hover:scale-105'}`}
-                    onLoad={handleImageLoad}
-                    onError={handleImageError}
+                    className={`w-full h-full object-contain transition-opacity duration-300 ${loadedUrls.has(currentImage.imageUrl) ? 'opacity-100' : 'opacity-0'
+                        } ${enableZoom && 'cursor-zoom-in'}`}
+                    onLoad={() => handleImageLoad(currentImage.imageUrl)}
+                    onError={(e) => handleImageError(e, currentImage.imageUrl)}
                     onClick={() => enableZoom && setIsZoomed(true)}
                 />
 

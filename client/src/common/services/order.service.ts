@@ -1,6 +1,7 @@
-// Removed api import for order.service.ts
+import { orderApi } from '@/common/api/order.api';
+
 // ─────────────────────────────────────────────────────────────────────────────
-// User-facing types (existing)
+// User-facing types
 // ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -211,7 +212,6 @@ export interface UpdateStatusPayload {
   estimatedDeliveryDate?: string;
 }
 
-import { orderApi } from '@/common/api/order.api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // User order service

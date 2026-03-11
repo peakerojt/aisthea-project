@@ -53,8 +53,19 @@ export function groupVariants(rows: VariantRow[]): GroupedVariants {
 
     // Detect primary and secondary attribute names from the first row
     const firstCombo = rows[0].combination;
-    const primaryAttrName = firstCombo[0]?.attr ?? '';
-    const secondaryAttrName = firstCombo[1]?.attr ?? '';
+
+    // Prioritize 'Màu sắc' or 'Color' over positional order
+    let primaryAttrName = '';
+    let secondaryAttrName = '';
+
+    const colorCombo = firstCombo.find(c => c.attr === 'Màu sắc' || c.attr === 'Color' || c.attr === 'color');
+    if (colorCombo) {
+        primaryAttrName = colorCombo.attr;
+        secondaryAttrName = firstCombo.find(c => c.attr !== primaryAttrName)?.attr ?? '';
+    } else {
+        primaryAttrName = firstCombo[0]?.attr ?? '';
+        secondaryAttrName = firstCombo[1]?.attr ?? '';
+    }
 
     // Flat variants (no attributes defined yet)
     if (!primaryAttrName) {
@@ -88,3 +99,38 @@ export function groupVariants(rows: VariantRow[]): GroupedVariants {
 
     return { primaryAttrName, secondaryAttrName, groups, isFlat: false };
 }
+
+// ─── Helper: detect primary attribute name from a flat list of combinations ───
+
+// Attributes that are considered "color" — checked first so they become primary.
+// Keep this list minimal; the fallback already handles everything else.
+const COLOR_ATTR_NAMES = ['Màu sắc', 'Màu', 'Color', 'color', 'Couleur'] as const;
+
+/**
+ * Given any variant's attribute list (in either the SP or REST shape),
+ * return the value of its primary (grouping) attribute.
+ *
+ * This mirrors the logic in `groupVariants()` — no hardcoding of "Màu sắc".
+ *
+ * @param attrs - array of { attr: string; value: string } (REST shape) OR
+ *                array of { attributeName: string; attributeValue: string } (SP shape)
+ */
+export function getPrimaryAttrValue(
+    attrs: Array<{ attr?: string; value?: string; attributeName?: string; attributeValue?: string }>
+): string | undefined {
+    if (!attrs || attrs.length === 0) return undefined;
+
+    // Normalise to { name, value }
+    const normalised = attrs.map(a => ({
+        name: a.attr ?? a.attributeName ?? '',
+        val: a.value ?? a.attributeValue ?? '',
+    }));
+
+    // Prefer a known "color" attribute
+    const colorEntry = normalised.find(n => (COLOR_ATTR_NAMES as readonly string[]).includes(n.name));
+    if (colorEntry) return colorEntry.val;
+
+    // Fallback: first attribute (same as groupVariants fallback)
+    return normalised[0]?.val;
+}
+

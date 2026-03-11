@@ -1,4 +1,5 @@
-// Removed api import for analytics.service.ts
+import { analyticsApi } from '@/common/api/analytics.api';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -64,7 +65,6 @@ export interface AnalyticsSummary {
     _cached?: boolean;
 }
 
-import { analyticsApi } from '@/common/api/analytics.api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // API

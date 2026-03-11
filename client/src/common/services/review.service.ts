@@ -1,4 +1,5 @@
-// Removed api import for review.service.ts
+import { reviewApi } from '@/common/api/review.api';
+
 export interface CreateReviewPayload {
     orderItemId: number;
     productId: number;
@@ -17,7 +18,6 @@ export interface ReviewResponse {
     createdAt: string;
 }
 
-import { reviewApi } from '@/common/api/review.api';
 
 // GET /api/reviews/product/:productId — public
 export const getReviewsByProduct = async (productId: number) => {

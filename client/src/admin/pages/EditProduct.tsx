@@ -529,6 +529,14 @@ export const EditProduct: React.FC<Props> = ({ setView, productId }) => {
                 attributeValues: v.combination.map(c => ({ attributeName: c.attr, value: c.value })),
             }));
 
+            const updatedImages = managedImages
+                .filter(img => !img.file && img.id)
+                .map(img => ({
+                    imageId: Number(img.id),
+                    associatedAttributeValue: img.associatedAttributeValue,
+                    isPrimary: img.isPrimary
+                }));
+
             await updateProduct(productId, {
                 name: data.name,
                 slug: slugPreview || currentSlug,
@@ -539,6 +547,7 @@ export const EditProduct: React.FC<Props> = ({ setView, productId }) => {
                 status: data.status || 'Active',
                 deletedImageIds,
                 newImages: [],   // will upload below
+                updatedImages,
                 primaryImageId,
                 variants: variantPayloads,
                 keptVariantIds,

@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Header } from '@/store/components/Header';
 import { ViewState, CategoryType } from '@/types';
-import { fetchWeatherByCity, fetchWeatherByCoords } from '@/common/services/weatherApi';
+import { fetchWeatherByCity, fetchWeatherByCoords } from '@/common/api/weather.api';
 import { WeatherResponse } from '@/types/weather';
 import { fetchProducts, Product, getPrimaryImage } from '@/common/services/product.service';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';

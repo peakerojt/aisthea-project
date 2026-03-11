@@ -605,8 +605,7 @@ export const ProductImageManager: React.FC<ProductImageManagerProps> = ({
     let primaryAttrName: string;
     if (attributeGroups?.length) {
         // Find the group corresponding to the primary attribute name across variants
-        const colorAttr = variants[0]?.combination.find(c => c.attr === 'Màu sắc' || c.attr === 'Color' || c.attr === 'color');
-        const expectedPrimaryName = colorAttr?.attr ?? variants[0]?.combination[0]?.attr;
+        const expectedPrimaryName = variants[0]?.combination[0]?.attr;
         const primaryGroup = expectedPrimaryName
             ? attributeGroups.find(g => g.name === expectedPrimaryName)
             : attributeGroups.find(g => g.name.trim() && g.values.length);

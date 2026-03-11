@@ -55,21 +55,43 @@ const VN_NUM = new Intl.NumberFormat('vi-VN');
 // ─── Color detection ──────────────────────────────────────────────────────────
 /** Vietnamese color names → CSS color for swatch background */
 const COLOR_CSS: Record<string, string> = {
-    đỏ: '#ef4444', 'do': '#ef4444',
-    xanh: '#3b82f6', 'xanh duong': '#3b82f6', 'xanh navy': '#1e3a5f', 'xanh la': '#22c55e',
-    'xanh than': '#1e3a8a',
-    vàng: '#eab308', vang: '#eab308',
-    cam: '#f97316',
-    tím: '#a855f7', tim: '#a855f7',
-    trắng: '#f9fafb', trang: '#f9fafb',
-    đen: '#111111', den: '#111111',
-    nâu: '#92400e', nau: '#92400e',
-    hồng: '#f472b6', hong: '#f472b6',
-    bé: '#d4b483', be: '#d4b483',
-    xám: '#9ca3af', xam: '#9ca3af',
-    'xanh lam': '#3b82f6',
-    'xanh bạc hà': '#6ee7b7',
-    kem: '#fef3c7',
+    // Đỏ
+    'do': '#ef4444', 'do dam': '#b91c1c', 'do nhat': '#fca5a5',
+    'do tuoi': '#f87171', 'mau do': '#ef4444',
+    // Cam
+    'cam': '#f97316', 'cam dat': '#c2410c',
+    // Vàng
+    'vang': '#eab308', 'vang nhat': '#fde68a', 'vang dam': '#ca8a04',
+    // Xanh lá
+    'xanh la': '#22c55e', 'xanh la cay': '#16a34a', 'xanh nhat': '#86efac',
+    'xanh pastel': '#6ee7b7', 'xanh bac ha': '#6ee7b7',
+    // Xanh dương / navy
+    'xanh': '#3b82f6', 'xanh duong': '#3b82f6', 'xanh lam': '#3b82f6',
+    'xanh navy': '#1e3a5f', 'xanh den': '#172554', 'xanh co vit': '#0e7490',
+    'xanh than': '#1e3a8a', 'xanh dam': '#1d4ed8', 'xanh cobalt': '#1e40af',
+    // Tím
+    'tim': '#a855f7', 'tim nhat': '#d8b4fe', 'tim dam': '#7e22ce',
+    // Hồng
+    'hong': '#f472b6', 'hong nhat': '#fbcfe8', 'hong dam': '#db2777',
+    'hong pastel': '#f9a8d4',
+    // Trắng
+    'trang': '#f9fafb', 'trang sua': '#fefce8', 'trang kem': '#fffbeb',
+    // Đen
+    'den': '#111111', 'den tuyen': '#000000',
+    // Xám — FULL range
+    'xam': '#9ca3af',
+    'xam nhat': '#e5e7eb',      // Gray 200
+    'xam sang': '#d1d5db',      // Gray 300
+    'xam trung': '#9ca3af',     // Gray 400
+    'xam dam': '#4b5563',       // Gray 600  ← "Xám đậm"
+    'xam toi': '#374151',       // Gray 700
+    'xam den': '#1f2937',       // Gray 800
+    'xam bac': '#cbd5e1',       // Slate 300
+    // Nâu & Be
+    'nau': '#92400e', 'nau nhat': '#d97706', 'nau dam': '#78350f',
+    'be': '#d4b483', 'kem': '#fef3c7', 'cafe': '#6b3f1a',
+    // Rêu / Olive
+    'reu': '#65a30d', 'olive': '#4d7c0f',
 };
 
 const COLOR_ATTR_NAMES = new Set(['màu', 'mau', 'màu sắc', 'mau sac', 'color', 'colour']);
@@ -78,24 +100,43 @@ function isColorAttr(name: string): boolean {
     return COLOR_ATTR_NAMES.has(name.toLowerCase().trim());
 }
 
-function getSwatchColor(value: string): string {
-    if (value.startsWith('#')) return value;
-    const key = value
+function normalizeColorKey(value: string): string {
+    return value
         .toLowerCase()
         .trim()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
-        .replace(/đ/g, 'd');
+        .replace(/đ/g, 'd')
+        .replace(/\s+/g, ' ');
+}
 
+function getSwatchColor(value: string): string {
+    // 1. Already a hex code → use as-is
+    if (/^#[0-9A-Fa-f]{3,6}$/.test(value.trim())) return value.trim();
+
+    const key = normalizeColorKey(value);
+
+    // 2. Exact match
     if (COLOR_CSS[key]) return COLOR_CSS[key];
 
-    // Fallback: generate a consistent color based on string hash
+    // 3. Partial match — find the longest key that is a substring of `key`
+    let bestMatch = '';
+    let bestColor = '';
+    for (const [k, c] of Object.entries(COLOR_CSS)) {
+        if (key.includes(k) && k.length > bestMatch.length) {
+            bestMatch = k;
+            bestColor = c;
+        }
+    }
+    if (bestColor) return bestColor;
+
+    // 4. Fallback: consistent hash (deterministic, but may look random)
     let hash = 0;
     for (let i = 0; i < key.length; i++) {
         hash = key.charCodeAt(i) + ((hash << 5) - hash);
     }
     const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
-    return '#' + '00000'.substring(0, 6 - c.length) + c;
+    return '#' + '000000'.substring(0, 6 - c.length) + c;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -553,7 +594,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
         <div style={VN_FONT} className="flex flex-col gap-6">
 
             {/* ── Price block ────────────────────────────────────────────── */}
-            <div className="flex items-baseline gap-3 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap min-h-[2.75rem]">
                 <AnimatePresence mode="wait">
                     <motion.span
                         key={displayPrice}
@@ -574,32 +615,40 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                     </span>
                 )}
 
-                {/* Stock badge */}
-                {isInStock && stockQty! < 10 && (
-                    <motion.span
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
-                                   bg-red-500/10 text-red-400 text-[10px] font-bold border border-red-500/20"
-                    >
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-                        {t('variantSelector.onlyNLeft', { count: stockQty! })}
-                    </motion.span>
-                )}
-                {isInStock && stockQty! >= 10 && (
-                    <motion.span
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-400"
-                    >
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        {t('variantSelector.inStock')}
-                    </motion.span>
-                )}
+                {/* Stock badge — fixed-height container prevents layout shift */}
+                <AnimatePresence mode="wait">
+                    {isInStock && stockQty! < 10 ? (
+                        <motion.span
+                            key="low-stock"
+                            initial={{ opacity: 0, scale: 0.85 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.85 }}
+                            transition={{ duration: 0.15 }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+                                       bg-red-500/10 text-red-400 text-[10px] font-bold border border-red-500/20 whitespace-nowrap"
+                        >
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse flex-shrink-0" />
+                            {t('variantSelector.onlyNLeft', { count: stockQty! })}
+                        </motion.span>
+                    ) : isInStock && stockQty! >= 10 ? (
+                        <motion.span
+                            key="in-stock"
+                            initial={{ opacity: 0, scale: 0.85 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.85 }}
+                            transition={{ duration: 0.15 }}
+                            className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 whitespace-nowrap"
+                        >
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                            {t('variantSelector.inStock')}
+                        </motion.span>
+                    ) : null}
+                </AnimatePresence>
             </div>
 
+
             {/* ── Attribute axes ─────────────────────────────────────────── */}
-            <div className="flex flex-col gap-8 w-full max-w-lg mb-8 bg-surface-dark border border-white/10 rounded-sm p-6 lg:p-8">
+            <div className="flex flex-col gap-6 w-full mb-8 bg-surface-dark border border-white/10 rounded-sm p-5 lg:p-6">
                 {axes.map(ax => {
                     const isMissing = !selected[ax.name] && shakeAttr === ax.name;
 
@@ -609,38 +658,25 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                             variants={shakeVariants}
                             animate={isMissing ? 'shake' : 'idle'}
                         >
-                            {/* Axis label */}
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
-                                        {ax.name}
+                            {/* Axis label row */}
+                            <div className="flex items-center gap-2 mb-3">
+                                <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
+                                    {ax.name}
+                                </span>
+                                {selected[ax.name] && (
+                                    <span className="text-[10px] font-semibold text-white/80 normal-case tracking-normal">
+                                        — {selected[ax.name]}
                                     </span>
-                                    {selected[ax.name] && (
-                                        <span className="text-[10px] font-semibold text-white/80 normal-case tracking-normal">
-                                            — {selected[ax.name]}
-                                        </span>
-                                    )}
-                                    {!selected[ax.name] && isMissing && (
-                                        <motion.span
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            className="flex items-center gap-1 text-[9px] text-amber-400 font-semibold"
-                                        >
-                                            <AlertCircle size={9} />
-                                            {t('variantSelector.pleaseSelect')}
-                                        </motion.span>
-                                    )}
-                                </div>
-                                {/* Size guide button for size-like axes */}
-                                {!ax.isColor && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowSizeGuide(v => !v)}
-                                        className="text-[9px] font-bold uppercase tracking-widest text-primary/70
-                                                   hover:text-primary transition-colors flex items-center gap-0.5 cursor-pointer"
+                                )}
+                                {!selected[ax.name] && isMissing && (
+                                    <motion.span
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="flex items-center gap-1 text-[9px] text-amber-400 font-semibold"
                                     >
-                                        <Ruler size={9} /> {t('variantSelector.sizeGuide')}
-                                    </button>
+                                        <AlertCircle size={9} />
+                                        {t('variantSelector.pleaseSelect')}
+                                    </motion.span>
                                 )}
                             </div>
 
@@ -680,6 +716,20 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                                     })}
                                 </div>
                             </div>
+
+                            {/* Size guide — bottom-right below pills, only for non-color axes */}
+                            {!ax.isColor && (
+                                <div className="flex justify-end mt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowSizeGuide(v => !v)}
+                                        className="text-[9px] font-bold uppercase tracking-widest text-primary/70
+                                                   hover:text-primary transition-colors flex items-center gap-0.5 cursor-pointer"
+                                    >
+                                        <Ruler size={9} /> {t('variantSelector.sizeGuide')}
+                                    </button>
+                                </div>
+                            )}
                         </motion.div>
                     );
                 })}

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { fetchWeatherByCity, fetchWeatherByCoords } from '@/common/services/weatherApi';
-import { requestOutfitRecommendation } from '@/common/services/outfitApi';
+import { fetchWeatherByCity, fetchWeatherByCoords } from '@/common/api/weather.api';
+import { requestOutfitRecommendation } from '@/common/api/outfit.api';
 import { WeatherResponse } from '@/types/weather';
 import { OutfitProfile, OutfitRecommendation } from '@/types/outfit';
 

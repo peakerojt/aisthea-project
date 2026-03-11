@@ -274,7 +274,8 @@ export interface UpdateProductPayload {
     brandId?: number;
     status?: string;
     deletedImageIds: number[];
-    newImages: { imageUrl: string; thumbnailUrl?: string; isPrimary?: boolean }[];
+    newImages: { imageUrl: string; thumbnailUrl?: string; isPrimary?: boolean; associatedAttributeValue?: string }[];
+    updatedImages?: { imageId: number; associatedAttributeValue?: string; isPrimary?: boolean }[];
     primaryImageId?: number;
     variants: UpdateVariantPayload[];
     keptVariantIds: number[];
