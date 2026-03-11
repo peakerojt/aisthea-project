@@ -1,17 +1,17 @@
 /* =============================================================
    MASTER DATABASE SETUP SCRIPT - AISTHEA
-   
+
    ─── HƯỚNG DẪN CHẠY TRONG SSMS ────────────────────────────
-   
+
    BƯỚC 1: Đảm bảo database AISTHEA đã tồn tại.
            Nếu chưa, chạy: CREATE DATABASE AISTHEA;
-   
+
    BƯỚC 2: Bật SQLCMD Mode trong SSMS:
            Menu Query → SQLCMD Mode (hoặc Ctrl+Shift+Q)
-   
+
    BƯỚC 3: Sửa biến BasePath bên dưới thành đường dẫn
            thư mục "database" trên máy của bạn.
-   
+
    BƯỚC 4: Nhấn F5 để chạy.
    ============================================================= */
 
@@ -27,14 +27,14 @@ PRINT '  AISTHEA DATABASE SETUP STARTING...';
 PRINT '==============================================';
 GO
 
-PRINT '> STEP 1/2 - Schema (Tables, Indexes, Views, SPs, FullText)';
+PRINT '> STEP 1/2 - Schema (Tables, Indexes, Functions)';
 GO
 :r $(BasePath)\01_schema_all.sql
 GO
 
-PRINT '> STEP 2/2 - Seed Data (Products, Categories, Users)';
+PRINT '> STEP 2/2 - Seed Data (Products, Categories, Images)';
 GO
-:r $(BasePath)\02_seed_data.sql
+:r $(BasePath)\03_seed_data_standard.sql
 GO
 
 PRINT '==============================================';

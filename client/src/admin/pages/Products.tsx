@@ -29,7 +29,30 @@ export const Products: React.FC<{ setView: (v: ViewState, productId?: number) =>
   const [deleting, setDeleting] = useState(false);
   const [showImportExport, setShowImportExport] = useState(false);
 
-  const filteredProducts = products.filter(product => {
+  // Helper: convert DB status → display status
+  const toDisplayStatus = (dbStatus: string) => {
+    if (dbStatus === 'Active') return 'In Stock';
+    if (dbStatus === 'Inactive' || dbStatus === 'Archived') return 'Out of Stock';
+    return dbStatus; // already a display value (e.g. 'Low Stock')
+  };
+
+  // Map backend Product shape → flat shape expected by the table
+  const mappedProducts = products.map((p) => {
+    const defaultVariant = p.variants?.find((v: { isDefault: boolean; sku: string }) => v.isDefault) ?? p.variants?.[0];
+    const primaryImage = p.images?.find((img: { isPrimary: boolean }) => img.isPrimary) ?? p.images?.[0];
+    return {
+      id: String(p.productId),
+      name: p.name,
+      sku: defaultVariant?.sku ?? '-',
+      price: defaultVariant?.price ?? p.basePrice ?? 0,
+      stock: defaultVariant?.stockQuantity ?? 0,
+      status: toDisplayStatus(p.status),
+      image: primaryImage?.thumbnailUrl ?? primaryImage?.imageUrl ?? '',
+      category: p.category?.name ?? '',
+    };
+  });
+
+  const filteredProducts = mappedProducts.filter(product => {
     const statusMatch = statusFilter === 'All' || product.status === statusFilter;
     const categoryMatch = categoryFilter === 'All' || product.category === categoryFilter;
     return statusMatch && categoryMatch;
@@ -85,18 +108,10 @@ export const Products: React.FC<{ setView: (v: ViewState, productId?: number) =>
 
   const markAsInStock = async () => {
     await Promise.all(selectedIds.map(async id => {
-      const product = products.find(p => p.id === id || p.productId === Number(id));
-      if (product) {
-        // Find existing variants first to map them correctly - since we're bulk updating stock status, just push updates
-        // Realistically, the "updateProduct" API payload is complex. For this dummy refactor, we simulate it
-        await updateProductMutation.mutateAsync({
-          id: Number(id),
-          data: {
-            ...product, // the rest of the payloads are complex, bypassing full payload map here for brevity
-            status: 'In Stock'
-          } as any
-        });
-      }
+      await updateProductMutation.mutateAsync({
+        id: Number(id),
+        data: { status: 'In Stock' } as any
+      });
     }));
     setSelectedIds([]);
     showToast(t('products:feedback.markInStockSuccess'));
@@ -130,27 +145,27 @@ export const Products: React.FC<{ setView: (v: ViewState, productId?: number) =>
   };
 
   const toggleStatus = async (id: string) => {
-    const product = products.find(p => p.id === id || p.productId === Number(id));
-    if (!product) return;
-    const newStatus = product.status === 'Out of Stock' ? 'In Stock' : 'Out of Stock';
+    const mapped = mappedProducts.find(p => p.id === id);
+    if (!mapped) return;
+    // Send DB-compatible status values back to the server
+    const newDbStatus = mapped.status === 'Out of Stock' ? 'Active' : 'Inactive';
     await updateProductMutation.mutateAsync({
       id: Number(id),
-      data: {
-        status: newStatus
-      } as any
+      data: { status: newDbStatus } as any
     });
     showToast(t('products:feedback.statusUpdated'));
   };
 
-  // Localised status label
+  // Localised status label (handles both display values and raw DB values)
   const getStatusLabel = (status: string) => {
-    if (status === 'In Stock') return t('products:status.inStock');
-    if (status === 'Low Stock') return t('products:status.lowStock');
-    if (status === 'Out of Stock') return t('products:status.outOfStock');
-    return status;
+    const display = toDisplayStatus(status);
+    if (display === 'In Stock') return t('products:status.inStock');
+    if (display === 'Low Stock') return t('products:status.lowStock');
+    if (display === 'Out of Stock') return t('products:status.outOfStock');
+    return display;
   };
 
-  const isAllSelected = filteredProducts.length > 0 && filteredProducts.every(p => selectedIds.includes(String(p.id || p.productId)));
+  const isAllSelected = filteredProducts.length > 0 && filteredProducts.every(p => selectedIds.includes(p.id));
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col relative">

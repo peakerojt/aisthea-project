@@ -88,23 +88,3 @@ export function groupVariants(rows: VariantRow[]): GroupedVariants {
 
     return { primaryAttrName, secondaryAttrName, groups, isFlat: false };
 }
-
-// ─── Color Emoji Hint Helper ──────────────────────────────────────────────────
-
-const COLOR_MAP: Record<string, string> = {
-    đỏ: '🔴', xanh: '🔵', xanhla: '🟢', vang: '🟡', cam: '🟠', tim: '🟣',
-    trang: '⚪', den: '⚫', nau: '🟤', hong: '🩷', be: '🟤', xam: '🩶',
-    'xanh lá': '🟢', 'xanh dương': '🔵', 'xanh navy': '🌊',
-};
-
-/** Return a color emoji hint for Vietnamese color names, or empty string */
-export function getColorEmoji(value: string): string {
-    const key = value
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/đ/g, 'd')
-        .replace(/\s+/g, ' ')
-        .trim();
-    return COLOR_MAP[key] ?? '';
-}

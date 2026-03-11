@@ -142,7 +142,7 @@ export const Collection: React.FC<StoreCollectionProps> = ({ setView, category =
         setLoading(true);
         setError(null);
         const responseData = await api.get<any>('/api/products', {
-          params: { search: searchTerm }
+          params: { search: searchTerm, limit: '100' }
         });
 
         // Transform API response to match component interface

@@ -20,7 +20,7 @@ import {
     syncVariantMatrix,
     buildSkuSuffix,
 } from '@/common/utils/cartesianProduct';
-import { groupVariants, getColorEmoji, VariantGroup } from '@/common/utils/groupVariantsHelper';
+import { groupVariants, VariantGroup } from '@/common/utils/groupVariantsHelper';
 
 export type { AttributeGroup, VariantRow };
 
@@ -84,8 +84,8 @@ const GroupRow: React.FC<GroupRowProps> = ({
                         <button key={preset} type="button"
                             onClick={() => onUpdateName(group.id, preset)}
                             className={`px-2.5 py-1 text-[11px] rounded-full border transition-all ${group.name === preset
-                                    ? 'bg-primary/20 border-primary/40 text-primary'
-                                    : 'bg-white/[0.03] border-white/10 text-white/50 hover:border-white/20 hover:text-white/70'
+                                ? 'bg-primary/20 border-primary/40 text-primary'
+                                : 'bg-white/[0.03] border-white/10 text-white/50 hover:border-white/20 hover:text-white/70'
                                 }`}>
                             {preset}
                         </button>
@@ -159,7 +159,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
     const [bulkPrice, setBulkPrice] = useState('');
     const [bulkStock, setBulkStock] = useState('');
 
-    const emoji = getColorEmoji(group.primaryValue);
+
     const totalStock = group.rows.reduce((s, r) => s + (Number(r.stock) || 0), 0);
     const hasUnsetPrice = group.rows.some(r => !r.price || Number(r.price) <= 0);
     const hasUnsetStock = group.rows.some(r => !r.stock || Number(r.stock) === 0);
@@ -185,7 +185,6 @@ const GroupCard: React.FC<GroupCardProps> = ({
                 className="w-full flex items-center justify-between px-4 py-3 bg-white/[0.03] hover:bg-white/[0.05] transition-colors text-left"
             >
                 <div className="flex items-center gap-2.5">
-                    {emoji && <span className="text-base leading-none">{emoji}</span>}
                     <div>
                         <span className="text-sm font-bold text-white">
                             {group.primaryAttr && (
@@ -310,8 +309,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
                                                 onChange={e => updateVariant(row.id, 'price', e.target.value)}
                                                 placeholder="0"
                                                 className={`w-full bg-black/30 border rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none transition-colors ${!row.price || Number(row.price) <= 0
-                                                        ? 'border-yellow-500/30 focus:border-yellow-400/50'
-                                                        : 'border-white/[0.08] focus:border-primary/40'
+                                                    ? 'border-yellow-500/30 focus:border-yellow-400/50'
+                                                    : 'border-white/[0.08] focus:border-primary/40'
                                                     }`}
                                             />
                                         </div>
@@ -324,8 +323,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
                                                 onChange={e => updateVariant(row.id, 'stock', e.target.value)}
                                                 placeholder="0"
                                                 className={`w-full bg-black/30 border rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none transition-colors ${!row.stock || Number(row.stock) === 0
-                                                        ? 'border-orange-500/20 focus:border-orange-400/40'
-                                                        : 'border-white/[0.08] focus:border-primary/40'
+                                                    ? 'border-orange-500/20 focus:border-orange-400/40'
+                                                    : 'border-white/[0.08] focus:border-primary/40'
                                                     }`}
                                             />
                                         </div>

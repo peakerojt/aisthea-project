@@ -38,7 +38,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { API_BASE_URL } from '@/common/utils/api';
 import { compressImage } from '@/common/utils/imageCompression';
-import { getColorEmoji } from '@/common/utils/groupVariantsHelper';
+
 import type { VariantRow } from '@/admin/components/VariantManager';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -78,15 +78,50 @@ function uid() { return Math.random().toString(36).slice(2) + Date.now().toStrin
 function getPrimaryAttrGroups(variants: VariantRow[]): string[] {
     const seen = new Set<string>();
     for (const v of variants) {
-        // Only look at the FIRST attribute in the combination (usually Color)
-        const p = v.combination[0]?.value;
+        // Prefer 'Màu sắc' attribute; fall back to first attribute
+        const colorEntry = v.combination.find(c => c.attr === 'Màu sắc' || c.attr === 'Color' || c.attr === 'color');
+        const p = colorEntry?.value ?? v.combination[0]?.value;
         if (p && !seen.has(p)) seen.add(p);
     }
     return Array.from(seen);
 }
 
-/** Deterministic hue from a string — used for zone accent colours */
-function stringToHsl(str: string): string {
+/** Vietnamese color name → real CSS color map */
+const VN_COLOR_MAP: Record<string, string> = {
+    // Normalize key: lowercase + strip diacritics + replace đ→d
+    trang: '#e8e8e8',
+    den: '#555555',
+    do: '#e05252',
+    xanh: '#4a90d9',
+    'xanh duong': '#4a90d9',
+    'xanh than': '#1e3a5f',
+    'xanh la': '#4caf50',
+    'xanh navy': '#1e3a5f',
+    vang: '#f5c842',
+    'vang kim': '#d4a017',
+    cam: '#f08030',
+    tim: '#9b59b6',
+    hong: '#f48fb1',
+    'hong phan': '#f8bbd0',
+    nau: '#8d6e63',
+    be: '#d2b48c',
+    xam: '#9e9e9e',
+    'xam dam': '#616161',
+    kem: '#fff8dc',
+    bac: '#c0c0c0',
+};
+
+/** Map a Vietnamese color name to its real CSS color, or fall back to HSL hash */
+function getAccentColor(str: string): string {
+    const key = str
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (VN_COLOR_MAP[key]) return VN_COLOR_MAP[key];
+    // Fallback: deterministic hue
     let h = 0;
     for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
     return `hsl(${Math.abs(h) % 360},55%,58%)`;
@@ -296,8 +331,7 @@ interface ZoneBRowProps {
 const ZoneBRow: React.FC<ZoneBRowProps> = ({ attrVal, variantCount, images, onRemove, onAddFiles }) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const [over, setOver] = useState(false);
-    const emoji = getColorEmoji(attrVal);
-    const accentColor = stringToHsl(attrVal);
+    const accentColor = getAccentColor(attrVal);
     const doneCount = images.filter(i => i.status === 'done').length;
 
     const acceptFiles = (list: FileList | null) => {
@@ -317,7 +351,6 @@ const ZoneBRow: React.FC<ZoneBRowProps> = ({ attrVal, variantCount, images, onRe
 
                 {/* Emoji + name */}
                 <div className="flex items-center gap-1.5 min-w-0">
-                    {emoji && <span className="text-base leading-none">{emoji}</span>}
                     <span className="text-sm font-semibold text-white truncate">{attrVal}</span>
                 </div>
 
@@ -581,7 +614,9 @@ export const ProductImageManager: React.FC<ProductImageManagerProps> = ({
         primaryAttrName = primaryGroup?.name ?? '';
     } else {
         attrGroups = getPrimaryAttrGroups(variants);
-        primaryAttrName = variants[0]?.combination[0]?.attr ?? '';
+        // Prefer the color attribute name; fall back to first attr
+        const colorAttr = variants[0]?.combination.find(c => c.attr === 'Màu sắc' || c.attr === 'Color' || c.attr === 'color');
+        primaryAttrName = colorAttr?.attr ?? variants[0]?.combination[0]?.attr ?? '';
     }
 
     const totalCount = images.length;
@@ -761,8 +796,12 @@ export const ProductImageManager: React.FC<ProductImageManagerProps> = ({
 
                         {/* One row per variant value */}
                         {attrGroups.map(attrVal => {
-                            // Only count variants where the primary attribute matches this value
-                            const variantCount = variants.filter(v => v.combination[0]?.value === attrVal).length;
+                            // Count variants that have this color value in any position
+                            const variantCount = variants.filter(v =>
+                                v.combination.some(c =>
+                                    (c.attr === 'Màu sắc' || c.attr === 'Color' || c.attr === 'color') && c.value === attrVal
+                                ) || (!v.combination.some(c => c.attr === 'Màu sắc' || c.attr === 'Color' || c.attr === 'color') && v.combination[0]?.value === attrVal)
+                            ).length;
                             const zoneImages = images.filter(i => i.associatedAttributeValue === attrVal);
                             return (
                                 <ZoneBRow

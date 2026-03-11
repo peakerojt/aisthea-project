@@ -77,7 +77,7 @@ export const productRepository = {
                     },
                     variants: {
                         where: { isDeleted: false },
-                        select: { price: true, stockQuantity: true },
+                        select: { sku: true, price: true, stockQuantity: true, isDefault: true },
                     },
                 },
             }),

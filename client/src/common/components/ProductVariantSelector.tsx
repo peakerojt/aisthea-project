@@ -46,7 +46,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, AlertCircle, ChevronDown, Ruler, CheckCircle2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ProductVariant } from '@/common/services/product.service';
-import { getColorEmoji } from '@/common/utils/groupVariantsHelper';
+
 
 // ─── Font & palette ───────────────────────────────────────────────────────────
 const VN_FONT: React.CSSProperties = { fontFamily: "'Be Vietnam Pro', sans-serif" };
@@ -251,7 +251,6 @@ const ColorSwatch: React.FC<{
     onClick: () => void;
 }> = ({ value, selected, availability, t, onClick }) => {
     const cssColor = getSwatchColor(value);
-    const emoji = getColorEmoji(value);
     const disabled = availability !== 'available';
     const isOos = availability === 'oos';
 
@@ -300,7 +299,6 @@ const ColorSwatch: React.FC<{
                 }
             `}
         >
-            {emoji && <span className="leading-none">{emoji}</span>}
             <span>{value}</span>
             {isOos && (
                 <svg viewBox="0 0 100 24" className="absolute inset-0 w-full h-full pointer-events-none">
