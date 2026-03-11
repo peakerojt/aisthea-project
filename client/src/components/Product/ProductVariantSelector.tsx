@@ -56,6 +56,7 @@ const VN_NUM = new Intl.NumberFormat('vi-VN');
 const COLOR_CSS: Record<string, string> = {
     đỏ: '#ef4444', 'do': '#ef4444',
     xanh: '#3b82f6', 'xanh duong': '#3b82f6', 'xanh navy': '#1e3a5f', 'xanh la': '#22c55e',
+    'xanh than': '#1e3a8a',
     vàng: '#eab308', vang: '#eab308',
     cam: '#f97316',
     tím: '#a855f7', tim: '#a855f7',
@@ -76,7 +77,7 @@ function isColorAttr(name: string): boolean {
     return COLOR_ATTR_NAMES.has(name.toLowerCase().trim());
 }
 
-function getSwatchColor(value: string): string | null {
+function getSwatchColor(value: string): string {
     if (value.startsWith('#')) return value;
     const key = value
         .toLowerCase()
@@ -84,7 +85,16 @@ function getSwatchColor(value: string): string | null {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/đ/g, 'd');
-    return COLOR_CSS[key] ?? null;
+
+    if (COLOR_CSS[key]) return COLOR_CSS[key];
+
+    // Fallback: generate a consistent color based on string hash
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+        hash = key.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+    return '#' + '00000'.substring(0, 6 - c.length) + c;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -247,61 +257,32 @@ const ColorSwatch: React.FC<{
     onClick: () => void;
 }> = ({ value, selected, availability, onClick }) => {
     const cssColor = getSwatchColor(value);
-    const emoji = getColorEmoji(value);
     const disabled = availability !== 'available';
     const isOos = availability === 'oos';
 
-    if (cssColor) {
-        return (
-            <button
-                type="button"
-                title={`${value}${isOos ? ' — Hết hàng' : ''}`}
-                disabled={disabled}
-                onClick={onClick}
-                className={`relative flex-shrink-0 rounded-full transition-all duration-200 focus-visible:outline-none
-                    ${selected
-                        ? 'ring-2 ring-offset-2 ring-offset-[#0a0a0a] ring-white scale-110 shadow-xl'
-                        : 'hover:scale-105'
-                    }
-                    ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
-                `}
-                style={{ width: 32, height: 32, backgroundColor: cssColor }}
-            >
-                {/* Diagonal strikethrough for OOS */}
-                {isOos && (
-                    <svg viewBox="0 0 32 32" className="absolute inset-0 w-full h-full pointer-events-none">
-                        <line x1="2" y1="30" x2="30" y2="2" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                )}
-                {selected && (
-                    <CheckCircle2 className="absolute -top-0.5 -right-0.5 w-3 h-3 text-white drop-shadow" />
-                )}
-            </button>
-        );
-    }
-
-    // Fallback: text pill with optional emoji
     return (
         <button
             type="button"
+            title={`${value}${isOos ? ' — Hết hàng' : ''}`}
             disabled={disabled}
             onClick={onClick}
-            className={`relative flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold
-                border transition-all duration-200 focus-visible:outline-none
+            className={`relative flex-shrink-0 rounded-full transition-all duration-200 focus-visible:outline-none
                 ${selected
-                    ? 'border-white bg-white text-black'
-                    : disabled
-                        ? 'border-white/10 text-white/30 cursor-not-allowed'
-                        : 'border-white/20 text-white/70 hover:border-white/50 hover:text-white cursor-pointer'
+                    ? 'ring-2 ring-offset-2 ring-offset-[#0a0a0a] ring-white scale-110 shadow-xl'
+                    : 'hover:scale-105'
                 }
+                ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
             `}
+            style={{ width: 32, height: 32, backgroundColor: cssColor }}
         >
-            {emoji && <span className="leading-none">{emoji}</span>}
-            <span>{value}</span>
+            {/* Diagonal strikethrough for OOS */}
             {isOos && (
-                <svg viewBox="0 0 100 24" className="absolute inset-0 w-full h-full pointer-events-none">
-                    <line x1="2" y1="22" x2="98" y2="2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
+                <svg viewBox="0 0 32 32" className="absolute inset-0 w-full h-full pointer-events-none">
+                    <line x1="2" y1="30" x2="30" y2="2" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" />
                 </svg>
+            )}
+            {selected && (
+                <CheckCircle2 className="absolute -top-0.5 -right-0.5 w-3 h-3 text-white drop-shadow" />
             )}
         </button>
     );
