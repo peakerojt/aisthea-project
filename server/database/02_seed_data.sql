@@ -178,7 +178,7 @@ GO
 
 -- Importing ProductVariants
 SET IDENTITY_INSERT [ProductVariants] ON;
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1,1,N'SKU-1-1',308000,0,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1,1,N'SKU-1-1',308000,0,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (2,1,N'SKU-1-2',259000,21,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (3,1,N'SKU-1-3',279000,30,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (4,1,N'SKU-1-4',310000,42,0,0);
@@ -190,10 +190,10 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (10,1,N'SKU-1-10',259000,32,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (11,1,N'SKU-1-11',270000,37,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (12,1,N'SKU-1-12',305000,21,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (13,2,N'SKU-2-13',492000,31,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (13,2,N'SKU-2-13',492000,31,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (14,2,N'SKU-2-14',427000,11,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (15,2,N'SKU-2-15',449000,3,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (16,3,N'SKU-3-16',1927000,0,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (16,3,N'SKU-3-16',1927000,0,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (17,3,N'SKU-3-17',1718000,19,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (18,3,N'SKU-3-18',1881000,51,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (19,3,N'SKU-3-19',1857000,5,0,0);
@@ -205,7 +205,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (25,3,N'SKU-3-25',1785000,53,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (26,3,N'SKU-3-26',1999000,24,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (27,3,N'SKU-3-27',1929000,31,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (28,4,N'SKU-4-28',321000,24,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (28,4,N'SKU-4-28',321000,24,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (29,4,N'SKU-4-29',361000,9,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (30,4,N'SKU-4-30',353000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (31,4,N'SKU-4-31',312000,47,0,0);
@@ -217,7 +217,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (37,4,N'SKU-4-37',377000,35,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (38,4,N'SKU-4-38',347000,61,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (39,4,N'SKU-4-39',348000,43,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (40,5,N'SKU-5-40',274000,14,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (40,5,N'SKU-5-40',274000,14,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (41,5,N'SKU-5-41',284000,26,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (42,5,N'SKU-5-42',283000,25,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (43,5,N'SKU-5-43',315000,12,0,0);
@@ -229,7 +229,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (49,5,N'SKU-5-49',323000,24,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (50,5,N'SKU-5-50',293000,89,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (51,5,N'SKU-5-51',287000,20,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (52,6,N'SKU-6-52',397000,15,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (52,6,N'SKU-6-52',397000,15,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (53,6,N'SKU-6-53',379000,65,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (54,6,N'SKU-6-54',377000,81,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (55,6,N'SKU-6-55',390000,49,0,0);
@@ -241,7 +241,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (61,6,N'SKU-6-61',419000,5,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (62,6,N'SKU-6-62',368000,4,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (63,6,N'SKU-6-63',362000,12,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (64,7,N'SKU-7-64',525000,79,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (64,7,N'SKU-7-64',525000,79,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (65,7,N'SKU-7-65',528000,79,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (66,7,N'SKU-7-66',555000,49,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (67,7,N'SKU-7-67',547000,67,0,0);
@@ -253,7 +253,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (73,7,N'SKU-7-73',515000,62,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (74,7,N'SKU-7-74',532000,23,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (75,7,N'SKU-7-75',580000,22,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (76,8,N'SKU-8-76',695000,61,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (76,8,N'SKU-8-76',695000,61,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (77,8,N'SKU-8-77',775000,61,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (78,8,N'SKU-8-78',677000,15,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (79,8,N'SKU-8-79',755000,24,0,0);
@@ -265,7 +265,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (85,8,N'SKU-8-85',705000,99,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (86,8,N'SKU-8-86',788000,42,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (87,8,N'SKU-8-87',658000,69,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (88,9,N'SKU-9-88',1033000,82,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (88,9,N'SKU-9-88',1033000,82,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (89,9,N'SKU-9-89',1017000,30,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (90,9,N'SKU-9-90',1120000,43,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (91,9,N'SKU-9-91',1160000,99,0,0);
@@ -286,7 +286,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (106,9,N'SKU-9-106',1093000,39,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (107,9,N'SKU-9-107',1020000,30,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (108,9,N'SKU-9-108',1083000,49,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (109,10,N'SKU-10-109',1012000,34,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (109,10,N'SKU-10-109',1012000,34,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (110,10,N'SKU-10-110',932000,10,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (111,10,N'SKU-10-111',940000,79,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (112,10,N'SKU-10-112',895000,34,0,0);
@@ -298,7 +298,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (118,10,N'SKU-10-118',903000,49,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (119,10,N'SKU-10-119',845000,29,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (120,10,N'SKU-10-120',896000,46,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (121,11,N'SKU-11-121',991000,76,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (121,11,N'SKU-11-121',991000,76,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (122,11,N'SKU-11-122',887000,4,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (123,11,N'SKU-11-123',914000,42,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (124,11,N'SKU-11-124',985000,45,0,0);
@@ -310,7 +310,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (130,11,N'SKU-11-130',982000,14,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (131,11,N'SKU-11-131',1020000,10,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (132,11,N'SKU-11-132',932000,13,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (133,12,N'SKU-12-133',285000,80,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (133,12,N'SKU-12-133',285000,80,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (134,12,N'SKU-12-134',306000,30,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (135,12,N'SKU-12-135',303000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (136,12,N'SKU-12-136',275000,75,0,0);
@@ -322,7 +322,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (142,12,N'SKU-12-142',285000,34,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (143,12,N'SKU-12-143',319000,21,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (144,12,N'SKU-12-144',289000,75,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (145,13,N'SKU-13-145',761000,16,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (145,13,N'SKU-13-145',761000,16,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (146,13,N'SKU-13-146',690000,53,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (147,13,N'SKU-13-147',743000,27,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (148,13,N'SKU-13-148',777000,11,0,0);
@@ -334,7 +334,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (154,13,N'SKU-13-154',701000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (155,13,N'SKU-13-155',784000,48,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (156,13,N'SKU-13-156',746000,21,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (157,14,N'SKU-14-157',1228000,7,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (157,14,N'SKU-14-157',1228000,7,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (158,14,N'SKU-14-158',1371000,80,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (159,14,N'SKU-14-159',1397000,82,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (160,14,N'SKU-14-160',1349000,54,0,0);
@@ -343,7 +343,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (163,14,N'SKU-14-163',1181000,67,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (164,14,N'SKU-14-164',1243000,31,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (165,14,N'SKU-14-165',1379000,26,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (166,15,N'SKU-15-166',1271000,11,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (166,15,N'SKU-15-166',1271000,11,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (167,15,N'SKU-15-167',1209000,40,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (168,15,N'SKU-15-168',1175000,83,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (169,15,N'SKU-15-169',1208000,35,0,0);
@@ -355,7 +355,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (175,15,N'SKU-15-175',1107000,21,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (176,15,N'SKU-15-176',1133000,49,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (177,15,N'SKU-15-177',1118000,15,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (178,16,N'SKU-16-178',165000,31,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (178,16,N'SKU-16-178',165000,31,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (179,16,N'SKU-16-179',157000,55,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (180,16,N'SKU-16-180',152000,30,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (181,16,N'SKU-16-181',161000,28,0,0);
@@ -367,7 +367,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (187,16,N'SKU-16-187',149000,16,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (188,16,N'SKU-16-188',155000,7,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (189,16,N'SKU-16-189',148000,22,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (190,17,N'SKU-17-190',350000,17,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (190,17,N'SKU-17-190',350000,17,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (191,17,N'SKU-17-191',365000,42,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (192,17,N'SKU-17-192',380000,35,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (193,17,N'SKU-17-193',365000,44,0,0);
@@ -376,7 +376,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (196,17,N'SKU-17-196',367000,8,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (197,17,N'SKU-17-197',382000,20,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (198,17,N'SKU-17-198',381000,38,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (199,18,N'SKU-18-199',354000,29,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (199,18,N'SKU-18-199',354000,29,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (200,18,N'SKU-18-200',326000,37,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (201,18,N'SKU-18-201',308000,21,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (202,18,N'SKU-18-202',372000,46,0,0);
@@ -388,7 +388,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (208,18,N'SKU-18-208',372000,1,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (209,18,N'SKU-18-209',317000,83,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (210,18,N'SKU-18-210',316000,15,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (211,19,N'SKU-19-211',408000,29,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (211,19,N'SKU-19-211',408000,29,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (212,19,N'SKU-19-212',419000,26,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (213,19,N'SKU-19-213',440000,12,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (214,19,N'SKU-19-214',405000,19,0,0);
@@ -400,7 +400,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (220,19,N'SKU-19-220',435000,36,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (221,19,N'SKU-19-221',413000,38,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (222,19,N'SKU-19-222',413000,6,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (223,20,N'SKU-20-223',913000,54,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (223,20,N'SKU-20-223',913000,54,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (224,20,N'SKU-20-224',901000,78,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (225,20,N'SKU-20-225',914000,4,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (226,20,N'SKU-20-226',1057000,26,0,0);
@@ -412,7 +412,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (232,20,N'SKU-20-232',1003000,31,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (233,20,N'SKU-20-233',1043000,7,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (234,20,N'SKU-20-234',908000,64,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (235,21,N'SKU-21-235',1115000,30,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (235,21,N'SKU-21-235',1115000,30,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (236,21,N'SKU-21-236',1261000,40,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (237,21,N'SKU-21-237',1097000,33,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (238,21,N'SKU-21-238',1087000,55,0,0);
@@ -424,7 +424,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (244,21,N'SKU-21-244',1083000,19,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (245,21,N'SKU-21-245',1177000,9,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (246,21,N'SKU-21-246',1268000,45,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (247,22,N'SKU-22-247',515000,77,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (247,22,N'SKU-22-247',515000,77,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (248,22,N'SKU-22-248',491000,88,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (249,22,N'SKU-22-249',524000,4,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (250,22,N'SKU-22-250',538000,18,0,0);
@@ -436,7 +436,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (256,22,N'SKU-22-256',537000,5,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (257,22,N'SKU-22-257',512000,26,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (258,22,N'SKU-22-258',446000,36,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (259,23,N'SKU-23-259',279000,38,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (259,23,N'SKU-23-259',279000,38,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (260,23,N'SKU-23-260',302000,49,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (261,23,N'SKU-23-261',311000,15,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (262,23,N'SKU-23-262',315000,40,0,0);
@@ -448,7 +448,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (268,23,N'SKU-23-268',324000,11,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (269,23,N'SKU-23-269',296000,32,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (270,23,N'SKU-23-270',331000,0,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (271,24,N'SKU-24-271',1823000,22,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (271,24,N'SKU-24-271',1823000,22,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (272,24,N'SKU-24-272',1788000,89,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (273,24,N'SKU-24-273',1672000,99,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (274,24,N'SKU-24-274',1681000,52,0,0);
@@ -457,7 +457,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (277,24,N'SKU-24-277',1573000,93,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (278,24,N'SKU-24-278',1592000,26,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (279,24,N'SKU-24-279',1598000,84,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (280,25,N'SKU-25-280',541000,14,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (280,25,N'SKU-25-280',541000,14,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (281,25,N'SKU-25-281',494000,2,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (282,25,N'SKU-25-282',532000,28,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (283,25,N'SKU-25-283',522000,98,0,0);
@@ -469,7 +469,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (289,25,N'SKU-25-289',575000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (290,25,N'SKU-25-290',482000,53,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (291,25,N'SKU-25-291',572000,4,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (292,26,N'SKU-26-292',523000,2,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (292,26,N'SKU-26-292',523000,2,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (293,26,N'SKU-26-293',501000,97,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (294,26,N'SKU-26-294',502000,26,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (295,26,N'SKU-26-295',571000,75,0,0);
@@ -481,10 +481,10 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (301,26,N'SKU-26-301',514000,3,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (302,26,N'SKU-26-302',496000,27,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (303,26,N'SKU-26-303',531000,29,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (304,27,N'SKU-27-304',401000,57,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (304,27,N'SKU-27-304',401000,57,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (305,27,N'SKU-27-305',436000,24,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (306,27,N'SKU-27-306',442000,91,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (307,28,N'SKU-28-307',1512000,23,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (307,28,N'SKU-28-307',1512000,23,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (308,28,N'SKU-28-308',1651000,23,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (309,28,N'SKU-28-309',1383000,62,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (310,28,N'SKU-28-310',1431000,88,0,0);
@@ -496,7 +496,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (316,28,N'SKU-28-316',1666000,13,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (317,28,N'SKU-28-317',1485000,30,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (318,28,N'SKU-28-318',1477000,0,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (319,29,N'SKU-29-319',474000,1,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (319,29,N'SKU-29-319',474000,1,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (320,29,N'SKU-29-320',469000,85,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (321,29,N'SKU-29-321',475000,42,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (322,29,N'SKU-29-322',475000,34,0,0);
@@ -508,7 +508,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (328,29,N'SKU-29-328',490000,55,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (329,29,N'SKU-29-329',468000,73,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (330,29,N'SKU-29-330',462000,67,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (331,30,N'SKU-30-331',667000,44,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (331,30,N'SKU-30-331',667000,44,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (332,30,N'SKU-30-332',684000,21,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (333,30,N'SKU-30-333',731000,12,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (334,30,N'SKU-30-334',639000,48,0,0);
@@ -517,7 +517,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (337,30,N'SKU-30-337',727000,49,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (338,30,N'SKU-30-338',723000,25,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (339,30,N'SKU-30-339',639000,31,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (340,31,N'SKU-31-340',721000,45,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (340,31,N'SKU-31-340',721000,45,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (341,31,N'SKU-31-341',767000,7,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (342,31,N'SKU-31-342',708000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (343,31,N'SKU-31-343',708000,27,0,0);
@@ -529,7 +529,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (349,31,N'SKU-31-349',788000,37,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (350,31,N'SKU-31-350',767000,26,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (351,31,N'SKU-31-351',669000,84,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (352,32,N'SKU-32-352',788000,14,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (352,32,N'SKU-32-352',788000,14,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (353,32,N'SKU-32-353',707000,22,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (354,32,N'SKU-32-354',824000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (355,32,N'SKU-32-355',745000,63,0,0);
@@ -541,7 +541,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (361,32,N'SKU-32-361',722000,21,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (362,32,N'SKU-32-362',772000,35,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (363,32,N'SKU-32-363',755000,38,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (364,33,N'SKU-33-364',1144000,49,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (364,33,N'SKU-33-364',1144000,49,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (365,33,N'SKU-33-365',1242000,11,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (366,33,N'SKU-33-366',1323000,57,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (367,33,N'SKU-33-367',1289000,50,0,0);
@@ -553,7 +553,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (373,33,N'SKU-33-373',1258000,71,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (374,33,N'SKU-33-374',1282000,14,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (375,33,N'SKU-33-375',1297000,17,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (376,34,N'SKU-34-376',1322000,47,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (376,34,N'SKU-34-376',1322000,47,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (377,34,N'SKU-34-377',1365000,44,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (378,34,N'SKU-34-378',1195000,17,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (379,34,N'SKU-34-379',1430000,24,0,0);
@@ -574,7 +574,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (394,34,N'SKU-34-394',1282000,65,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (395,34,N'SKU-34-395',1426000,29,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (396,34,N'SKU-34-396',1345000,12,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (397,35,N'SKU-35-397',325000,89,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (397,35,N'SKU-35-397',325000,89,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (398,35,N'SKU-35-398',302000,1,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (399,35,N'SKU-35-399',342000,7,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (400,35,N'SKU-35-400',330000,39,0,0);
@@ -586,7 +586,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (406,35,N'SKU-35-406',336000,62,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (407,35,N'SKU-35-407',312000,51,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (408,35,N'SKU-35-408',320000,0,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (409,36,N'SKU-36-409',471000,18,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (409,36,N'SKU-36-409',471000,18,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (410,36,N'SKU-36-410',470000,44,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (411,36,N'SKU-36-411',539000,18,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (412,36,N'SKU-36-412',465000,32,0,0);
@@ -598,7 +598,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (418,36,N'SKU-36-418',462000,25,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (419,36,N'SKU-36-419',486000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (420,36,N'SKU-36-420',539000,28,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (421,37,N'SKU-37-421',1089000,70,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (421,37,N'SKU-37-421',1089000,70,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (422,37,N'SKU-37-422',1124000,11,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (423,37,N'SKU-37-423',1113000,91,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (424,37,N'SKU-37-424',1064000,70,0,0);
@@ -610,13 +610,13 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (430,37,N'SKU-37-430',1042000,28,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (431,37,N'SKU-37-431',1035000,16,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (432,37,N'SKU-37-432',1009000,39,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (433,38,N'SKU-38-433',611000,13,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (433,38,N'SKU-38-433',611000,13,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (434,38,N'SKU-38-434',620000,63,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (435,38,N'SKU-38-435',623000,13,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (436,39,N'SKU-39-436',203000,20,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (436,39,N'SKU-39-436',203000,20,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (437,39,N'SKU-39-437',216000,71,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (438,39,N'SKU-39-438',230000,36,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (439,40,N'SKU-40-439',855000,6,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (439,40,N'SKU-40-439',855000,6,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (440,40,N'SKU-40-440',869000,5,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (441,40,N'SKU-40-441',777000,55,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (442,40,N'SKU-40-442',736000,56,0,0);
@@ -628,7 +628,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (448,40,N'SKU-40-448',847000,17,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (449,40,N'SKU-40-449',775000,40,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (450,40,N'SKU-40-450',834000,33,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (451,41,N'SKU-41-451',584000,91,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (451,41,N'SKU-41-451',584000,91,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (452,41,N'SKU-41-452',528000,46,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (453,41,N'SKU-41-453',622000,2,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (454,41,N'SKU-41-454',614000,45,0,0);
@@ -640,7 +640,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (460,41,N'SKU-41-460',532000,95,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (461,41,N'SKU-41-461',637000,47,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (462,41,N'SKU-41-462',636000,19,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (463,42,N'SKU-42-463',1434000,35,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (463,42,N'SKU-42-463',1434000,35,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (464,42,N'SKU-42-464',1558000,57,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (465,42,N'SKU-42-465',1473000,23,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (466,42,N'SKU-42-466',1324000,49,0,0);
@@ -661,7 +661,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (481,42,N'SKU-42-481',1469000,37,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (482,42,N'SKU-42-482',1595000,84,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (483,42,N'SKU-42-483',1382000,33,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (484,43,N'SKU-43-484',1025000,11,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (484,43,N'SKU-43-484',1025000,11,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (485,43,N'SKU-43-485',1073000,40,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (486,43,N'SKU-43-486',1015000,33,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (487,43,N'SKU-43-487',1082000,22,0,0);
@@ -682,7 +682,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (502,43,N'SKU-43-502',968000,15,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (503,43,N'SKU-43-503',968000,2,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (504,43,N'SKU-43-504',983000,36,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (505,44,N'SKU-44-505',735000,38,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (505,44,N'SKU-44-505',735000,38,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (506,44,N'SKU-44-506',702000,31,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (507,44,N'SKU-44-507',722000,28,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (508,44,N'SKU-44-508',725000,31,0,0);
@@ -694,7 +694,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (514,44,N'SKU-44-514',798000,18,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (515,44,N'SKU-44-515',767000,45,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (516,44,N'SKU-44-516',822000,8,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (517,45,N'SKU-45-517',290000,40,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (517,45,N'SKU-45-517',290000,40,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (518,45,N'SKU-45-518',316000,50,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (519,45,N'SKU-45-519',299000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (520,45,N'SKU-45-520',324000,93,0,0);
@@ -706,7 +706,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (526,45,N'SKU-45-526',288000,65,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (527,45,N'SKU-45-527',312000,41,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (528,45,N'SKU-45-528',342000,49,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (529,46,N'SKU-46-529',573000,29,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (529,46,N'SKU-46-529',573000,29,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (530,46,N'SKU-46-530',556000,43,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (531,46,N'SKU-46-531',525000,40,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (532,46,N'SKU-46-532',524000,13,0,0);
@@ -718,7 +718,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (538,46,N'SKU-46-538',589000,66,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (539,46,N'SKU-46-539',562000,46,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (540,46,N'SKU-46-540',598000,43,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (541,47,N'SKU-47-541',242000,91,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (541,47,N'SKU-47-541',242000,91,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (542,47,N'SKU-47-542',290000,13,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (543,47,N'SKU-47-543',276000,24,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (544,47,N'SKU-47-544',245000,2,0,0);
@@ -730,7 +730,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (550,47,N'SKU-47-550',284000,100,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (551,47,N'SKU-47-551',293000,39,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (552,47,N'SKU-47-552',249000,18,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (553,48,N'SKU-48-553',2229000,0,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (553,48,N'SKU-48-553',2229000,0,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (554,48,N'SKU-48-554',2149000,27,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (555,48,N'SKU-48-555',1949000,35,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (556,48,N'SKU-48-556',2012000,94,0,0);
@@ -739,7 +739,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (559,48,N'SKU-48-559',2214000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (560,48,N'SKU-48-560',1945000,40,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (561,48,N'SKU-48-561',2084000,18,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (562,49,N'SKU-49-562',229000,27,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (562,49,N'SKU-49-562',229000,27,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (563,49,N'SKU-49-563',275000,26,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (564,49,N'SKU-49-564',252000,100,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (565,49,N'SKU-49-565',230000,43,0,0);
@@ -751,7 +751,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (571,49,N'SKU-49-571',238000,20,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (572,49,N'SKU-49-572',259000,20,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (573,49,N'SKU-49-573',260000,37,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (574,50,N'SKU-50-574',1528000,64,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (574,50,N'SKU-50-574',1528000,64,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (575,50,N'SKU-50-575',1533000,31,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (576,50,N'SKU-50-576',1514000,30,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (577,50,N'SKU-50-577',1361000,16,0,0);
@@ -763,7 +763,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (583,50,N'SKU-50-583',1468000,25,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (584,50,N'SKU-50-584',1363000,36,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (585,50,N'SKU-50-585',1528000,23,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (586,51,N'SKU-51-586',2339000,1,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (586,51,N'SKU-51-586',2339000,1,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (587,51,N'SKU-51-587',2178000,26,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (588,51,N'SKU-51-588',1977000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (589,51,N'SKU-51-589',2206000,49,0,0);
@@ -772,7 +772,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (592,51,N'SKU-51-592',2178000,8,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (593,51,N'SKU-51-593',2064000,33,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (594,51,N'SKU-51-594',2206000,34,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (595,52,N'SKU-52-595',2128000,47,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (595,52,N'SKU-52-595',2128000,47,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (596,52,N'SKU-52-596',1866000,37,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (597,52,N'SKU-52-597',2026000,49,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (598,52,N'SKU-52-598',1944000,22,0,0);
@@ -781,7 +781,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (601,52,N'SKU-52-601',2107000,5,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (602,52,N'SKU-52-602',1763000,70,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (603,52,N'SKU-52-603',2113000,63,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (604,53,N'SKU-53-604',1129000,39,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (604,53,N'SKU-53-604',1129000,39,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (605,53,N'SKU-53-605',1088000,94,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (606,53,N'SKU-53-606',1040000,46,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (607,53,N'SKU-53-607',1096000,2,0,0);
@@ -793,7 +793,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (613,53,N'SKU-53-613',1025000,33,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (614,53,N'SKU-53-614',1030000,27,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (615,53,N'SKU-53-615',1075000,47,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (616,54,N'SKU-54-616',365000,87,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (616,54,N'SKU-54-616',365000,87,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (617,54,N'SKU-54-617',429000,24,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (618,54,N'SKU-54-618',433000,86,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (619,54,N'SKU-54-619',415000,27,0,0);
@@ -805,7 +805,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (625,54,N'SKU-54-625',361000,35,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (626,54,N'SKU-54-626',436000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (627,54,N'SKU-54-627',399000,30,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (628,55,N'SKU-55-628',382000,35,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (628,55,N'SKU-55-628',382000,35,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (629,55,N'SKU-55-629',376000,12,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (630,55,N'SKU-55-630',365000,26,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (631,55,N'SKU-55-631',368000,89,0,0);
@@ -817,13 +817,13 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (637,55,N'SKU-55-637',388000,49,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (638,55,N'SKU-55-638',376000,45,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (639,55,N'SKU-55-639',323000,75,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (640,56,N'SKU-56-640',135000,11,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (640,56,N'SKU-56-640',135000,11,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (641,56,N'SKU-56-641',142000,21,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (642,56,N'SKU-56-642',122000,65,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (643,57,N'SKU-57-643',438000,33,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (643,57,N'SKU-57-643',438000,33,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (644,57,N'SKU-57-644',431000,12,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (645,57,N'SKU-57-645',445000,29,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (646,58,N'SKU-58-646',983000,43,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (646,58,N'SKU-58-646',983000,43,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (647,58,N'SKU-58-647',1053000,58,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (648,58,N'SKU-58-648',1003000,5,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (649,58,N'SKU-58-649',1016000,79,0,0);
@@ -835,7 +835,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (655,58,N'SKU-58-655',1017000,17,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (656,58,N'SKU-58-656',912000,7,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (657,58,N'SKU-58-657',1039000,33,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (658,59,N'SKU-59-658',1255000,31,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (658,59,N'SKU-59-658',1255000,31,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (659,59,N'SKU-59-659',1443000,23,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (660,59,N'SKU-59-660',1388000,1,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (661,59,N'SKU-59-661',1222000,71,0,0);
@@ -856,7 +856,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (676,59,N'SKU-59-676',1435000,46,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (677,59,N'SKU-59-677',1230000,24,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (678,59,N'SKU-59-678',1245000,67,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (679,60,N'SKU-60-679',212000,94,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (679,60,N'SKU-60-679',212000,94,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (680,60,N'SKU-60-680',197000,41,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (681,60,N'SKU-60-681',189000,90,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (682,60,N'SKU-60-682',205000,45,0,0);
@@ -868,7 +868,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (688,60,N'SKU-60-688',179000,30,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (689,60,N'SKU-60-689',207000,7,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (690,60,N'SKU-60-690',209000,19,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (691,61,N'SKU-61-691',1271000,42,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (691,61,N'SKU-61-691',1271000,42,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (692,61,N'SKU-61-692',1148000,95,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (693,61,N'SKU-61-693',1269000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (694,61,N'SKU-61-694',1196000,2,0,0);
@@ -889,7 +889,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (709,61,N'SKU-61-709',1229000,18,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (710,61,N'SKU-61-710',1180000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (711,61,N'SKU-61-711',1265000,33,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (712,62,N'SKU-62-712',299000,13,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (712,62,N'SKU-62-712',299000,13,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (713,62,N'SKU-62-713',271000,16,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (714,62,N'SKU-62-714',298000,20,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (715,62,N'SKU-62-715',283000,7,0,0);
@@ -901,10 +901,10 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (721,62,N'SKU-62-721',283000,49,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (722,62,N'SKU-62-722',275000,5,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (723,62,N'SKU-62-723',296000,95,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (724,63,N'SKU-63-724',1017000,24,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (724,63,N'SKU-63-724',1017000,24,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (725,63,N'SKU-63-725',994000,1,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (726,63,N'SKU-63-726',879000,8,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (727,64,N'SKU-64-727',1192000,95,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (727,64,N'SKU-64-727',1192000,95,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (728,64,N'SKU-64-728',1136000,50,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (729,64,N'SKU-64-729',1235000,31,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (730,64,N'SKU-64-730',1193000,13,0,0);
@@ -916,10 +916,10 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (736,64,N'SKU-64-736',1153000,66,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (737,64,N'SKU-64-737',1099000,36,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (738,64,N'SKU-64-738',1207000,0,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (739,65,N'SKU-65-739',1006000,55,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (739,65,N'SKU-65-739',1006000,55,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (740,65,N'SKU-65-740',934000,50,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (741,65,N'SKU-65-741',955000,12,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (742,66,N'SKU-66-742',439000,55,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (742,66,N'SKU-66-742',439000,55,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (743,66,N'SKU-66-743',366000,70,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (744,66,N'SKU-66-744',406000,9,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (745,66,N'SKU-66-745',376000,34,0,0);
@@ -931,10 +931,10 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (751,66,N'SKU-66-751',395000,49,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (752,66,N'SKU-66-752',389000,59,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (753,66,N'SKU-66-753',425000,53,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (754,67,N'SKU-67-754',174000,59,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (754,67,N'SKU-67-754',174000,59,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (755,67,N'SKU-67-755',158000,24,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (756,67,N'SKU-67-756',152000,21,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (757,68,N'SKU-68-757',373000,88,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (757,68,N'SKU-68-757',373000,88,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (758,68,N'SKU-68-758',417000,55,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (759,68,N'SKU-68-759',379000,41,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (760,68,N'SKU-68-760',352000,32,0,0);
@@ -946,7 +946,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (766,68,N'SKU-68-766',371000,30,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (767,68,N'SKU-68-767',417000,92,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (768,68,N'SKU-68-768',404000,46,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (769,69,N'SKU-69-769',1904000,45,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (769,69,N'SKU-69-769',1904000,45,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (770,69,N'SKU-69-770',1942000,85,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (771,69,N'SKU-69-771',1781000,55,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (772,69,N'SKU-69-772',1923000,21,0,0);
@@ -967,7 +967,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (787,69,N'SKU-69-787',1959000,2,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (788,69,N'SKU-69-788',2029000,34,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (789,69,N'SKU-69-789',1907000,6,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (790,70,N'SKU-70-790',903000,81,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (790,70,N'SKU-70-790',903000,81,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (791,70,N'SKU-70-791',1043000,30,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (792,70,N'SKU-70-792',909000,5,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (793,70,N'SKU-70-793',1061000,33,0,0);
@@ -979,10 +979,10 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (799,70,N'SKU-70-799',956000,38,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (800,70,N'SKU-70-800',1082000,24,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (801,70,N'SKU-70-801',914000,34,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (802,71,N'SKU-71-802',167000,0,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (802,71,N'SKU-71-802',167000,0,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (803,71,N'SKU-71-803',161000,55,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (804,71,N'SKU-71-804',165000,30,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (805,72,N'SKU-72-805',716000,39,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (805,72,N'SKU-72-805',716000,39,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (806,72,N'SKU-72-806',681000,74,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (807,72,N'SKU-72-807',703000,6,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (808,72,N'SKU-72-808',685000,29,0,0);
@@ -994,7 +994,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (814,72,N'SKU-72-814',713000,36,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (815,72,N'SKU-72-815',758000,2,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (816,72,N'SKU-72-816',684000,29,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (817,73,N'SKU-73-817',1800000,73,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (817,73,N'SKU-73-817',1800000,73,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (818,73,N'SKU-73-818',1890000,5,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (819,73,N'SKU-73-819',2009000,66,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (820,73,N'SKU-73-820',2054000,11,0,0);
@@ -1003,7 +1003,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (823,73,N'SKU-73-823',1841000,21,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (824,73,N'SKU-73-824',1804000,27,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (825,73,N'SKU-73-825',1780000,31,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (826,74,N'SKU-74-826',339000,72,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (826,74,N'SKU-74-826',339000,72,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (827,74,N'SKU-74-827',335000,71,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (828,74,N'SKU-74-828',317000,51,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (829,74,N'SKU-74-829',339000,61,0,0);
@@ -1015,7 +1015,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (835,74,N'SKU-74-835',297000,92,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (836,74,N'SKU-74-836',296000,63,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (837,74,N'SKU-74-837',280000,17,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (838,75,N'SKU-75-838',358000,95,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (838,75,N'SKU-75-838',358000,95,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (839,75,N'SKU-75-839',368000,17,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (840,75,N'SKU-75-840',310000,46,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (841,75,N'SKU-75-841',353000,23,0,0);
@@ -1027,7 +1027,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (847,75,N'SKU-75-847',339000,12,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (848,75,N'SKU-75-848',366000,16,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (849,75,N'SKU-75-849',320000,28,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (850,76,N'SKU-76-850',873000,14,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (850,76,N'SKU-76-850',873000,14,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (851,76,N'SKU-76-851',878000,97,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (852,76,N'SKU-76-852',815000,42,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (853,76,N'SKU-76-853',856000,57,0,0);
@@ -1039,16 +1039,16 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (859,76,N'SKU-76-859',813000,17,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (860,76,N'SKU-76-860',800000,29,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (861,76,N'SKU-76-861',738000,61,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (862,77,N'SKU-77-862',282000,20,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (862,77,N'SKU-77-862',282000,20,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (863,77,N'SKU-77-863',270000,12,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (864,77,N'SKU-77-864',317000,55,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (865,78,N'SKU-78-865',609000,79,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (865,78,N'SKU-78-865',609000,79,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (866,78,N'SKU-78-866',731000,7,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (867,78,N'SKU-78-867',713000,0,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (868,79,N'SKU-79-868',139000,26,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (868,79,N'SKU-79-868',139000,26,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (869,79,N'SKU-79-869',132000,10,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (870,79,N'SKU-79-870',141000,71,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (871,80,N'SKU-80-871',956000,48,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (871,80,N'SKU-80-871',956000,48,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (872,80,N'SKU-80-872',957000,15,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (873,80,N'SKU-80-873',995000,17,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (874,80,N'SKU-80-874',947000,17,0,0);
@@ -1060,7 +1060,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (880,80,N'SKU-80-880',849000,21,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (881,80,N'SKU-80-881',858000,61,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (882,80,N'SKU-80-882',893000,46,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (883,81,N'SKU-81-883',1079000,55,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (883,81,N'SKU-81-883',1079000,55,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (884,81,N'SKU-81-884',1225000,100,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (885,81,N'SKU-81-885',1295000,60,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (886,81,N'SKU-81-886',1088000,13,0,0);
@@ -1072,7 +1072,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (892,81,N'SKU-81-892',1214000,19,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (893,81,N'SKU-81-893',1089000,25,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (894,81,N'SKU-81-894',1124000,10,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (895,82,N'SKU-82-895',1833000,57,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (895,82,N'SKU-82-895',1833000,57,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (896,82,N'SKU-82-896',1564000,56,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (897,82,N'SKU-82-897',1780000,60,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (898,82,N'SKU-82-898',1643000,36,0,0);
@@ -1084,7 +1084,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (904,82,N'SKU-82-904',1697000,15,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (905,82,N'SKU-82-905',1517000,54,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (906,82,N'SKU-82-906',1623000,5,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (907,83,N'SKU-83-907',543000,10,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (907,83,N'SKU-83-907',543000,10,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (908,83,N'SKU-83-908',539000,93,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (909,83,N'SKU-83-909',581000,34,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (910,83,N'SKU-83-910',592000,58,0,0);
@@ -1096,7 +1096,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (916,83,N'SKU-83-916',577000,38,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (917,83,N'SKU-83-917',544000,53,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (918,83,N'SKU-83-918',591000,0,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (919,84,N'SKU-84-919',832000,12,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (919,84,N'SKU-84-919',832000,12,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (920,84,N'SKU-84-920',793000,6,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (921,84,N'SKU-84-921',795000,11,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (922,84,N'SKU-84-922',773000,14,0,0);
@@ -1108,10 +1108,10 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (928,84,N'SKU-84-928',857000,39,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (929,84,N'SKU-84-929',859000,72,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (930,84,N'SKU-84-930',852000,0,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (931,85,N'SKU-85-931',1022000,33,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (931,85,N'SKU-85-931',1022000,33,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (932,85,N'SKU-85-932',1012000,45,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (933,85,N'SKU-85-933',1004000,12,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (934,86,N'SKU-86-934',165000,73,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (934,86,N'SKU-86-934',165000,73,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (935,86,N'SKU-86-935',156000,23,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (936,86,N'SKU-86-936',139000,14,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (937,86,N'SKU-86-937',158000,9,0,0);
@@ -1123,7 +1123,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (943,86,N'SKU-86-943',153000,22,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (944,86,N'SKU-86-944',148000,8,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (945,86,N'SKU-86-945',148000,68,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (946,87,N'SKU-87-946',745000,30,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (946,87,N'SKU-87-946',745000,30,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (947,87,N'SKU-87-947',715000,29,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (948,87,N'SKU-87-948',654000,8,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (949,87,N'SKU-87-949',705000,36,0,0);
@@ -1135,7 +1135,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (955,87,N'SKU-87-955',669000,27,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (956,87,N'SKU-87-956',719000,43,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (957,87,N'SKU-87-957',706000,0,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (958,88,N'SKU-88-958',1886000,0,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (958,88,N'SKU-88-958',1886000,0,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (959,88,N'SKU-88-959',2108000,21,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (960,88,N'SKU-88-960',2105000,7,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (961,88,N'SKU-88-961',1922000,0,0,0);
@@ -1144,7 +1144,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (964,88,N'SKU-88-964',1970000,21,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (965,88,N'SKU-88-965',1840000,30,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (966,88,N'SKU-88-966',2043000,64,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (967,89,N'SKU-89-967',499000,45,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (967,89,N'SKU-89-967',499000,45,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (968,89,N'SKU-89-968',476000,12,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (969,89,N'SKU-89-969',507000,50,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (970,89,N'SKU-89-970',532000,12,0,0);
@@ -1156,7 +1156,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (976,89,N'SKU-89-976',484000,22,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (977,89,N'SKU-89-977',517000,59,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (978,89,N'SKU-89-978',550000,29,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (979,90,N'SKU-90-979',1724000,47,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (979,90,N'SKU-90-979',1724000,47,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (980,90,N'SKU-90-980',1601000,23,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (981,90,N'SKU-90-981',1703000,48,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (982,90,N'SKU-90-982',1743000,23,0,0);
@@ -1165,7 +1165,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (985,90,N'SKU-90-985',1674000,7,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (986,90,N'SKU-90-986',1883000,87,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (987,90,N'SKU-90-987',1743000,48,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (988,91,N'SKU-91-988',1230000,19,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (988,91,N'SKU-91-988',1230000,19,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (989,91,N'SKU-91-989',1372000,40,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (990,91,N'SKU-91-990',1230000,14,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (991,91,N'SKU-91-991',1220000,23,0,0);
@@ -1177,7 +1177,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (997,91,N'SKU-91-997',1362000,29,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (998,91,N'SKU-91-998',1178000,9,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (999,91,N'SKU-91-999',1182000,28,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1000,92,N'SKU-92-1000',238000,22,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1000,92,N'SKU-92-1000',238000,22,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1001,92,N'SKU-92-1001',250000,7,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1002,92,N'SKU-92-1002',260000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1003,92,N'SKU-92-1003',257000,26,0,0);
@@ -1189,7 +1189,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1009,92,N'SKU-92-1009',220000,0,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1010,92,N'SKU-92-1010',213000,37,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1011,92,N'SKU-92-1011',242000,83,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1012,93,N'SKU-93-1012',353000,25,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1012,93,N'SKU-93-1012',353000,25,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1013,93,N'SKU-93-1013',372000,29,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1014,93,N'SKU-93-1014',337000,9,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1015,93,N'SKU-93-1015',361000,22,0,0);
@@ -1201,10 +1201,10 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1021,93,N'SKU-93-1021',371000,4,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1022,93,N'SKU-93-1022',310000,6,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1023,93,N'SKU-93-1023',367000,44,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1024,94,N'SKU-94-1024',171000,0,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1024,94,N'SKU-94-1024',171000,0,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1025,94,N'SKU-94-1025',170000,25,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1026,94,N'SKU-94-1026',169000,44,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1027,95,N'SKU-95-1027',1622000,6,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1027,95,N'SKU-95-1027',1622000,6,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1028,95,N'SKU-95-1028',1679000,48,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1029,95,N'SKU-95-1029',1689000,92,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1030,95,N'SKU-95-1030',1748000,8,0,0);
@@ -1225,7 +1225,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1045,95,N'SKU-95-1045',1574000,96,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1046,95,N'SKU-95-1046',1685000,70,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1047,95,N'SKU-95-1047',1740000,29,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1048,96,N'SKU-96-1048',211000,29,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1048,96,N'SKU-96-1048',211000,29,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1049,96,N'SKU-96-1049',197000,21,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1050,96,N'SKU-96-1050',195000,63,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1051,96,N'SKU-96-1051',203000,36,0,0);
@@ -1237,7 +1237,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1057,96,N'SKU-96-1057',198000,83,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1058,96,N'SKU-96-1058',189000,9,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1059,96,N'SKU-96-1059',213000,11,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1060,97,N'SKU-97-1060',1540000,14,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1060,97,N'SKU-97-1060',1540000,14,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1061,97,N'SKU-97-1061',1619000,36,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1062,97,N'SKU-97-1062',1495000,58,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1063,97,N'SKU-97-1063',1663000,23,0,0);
@@ -1258,10 +1258,10 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1078,97,N'SKU-97-1078',1610000,39,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1079,97,N'SKU-97-1079',1627000,7,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1080,97,N'SKU-97-1080',1629000,78,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1081,98,N'SKU-98-1081',218000,50,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1081,98,N'SKU-98-1081',218000,50,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1082,98,N'SKU-98-1082',207000,60,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1083,98,N'SKU-98-1083',203000,69,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1084,99,N'SKU-99-1084',313000,27,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1084,99,N'SKU-99-1084',313000,27,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1085,99,N'SKU-99-1085',300000,1,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1086,99,N'SKU-99-1086',313000,18,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1087,99,N'SKU-99-1087',273000,11,0,0);
@@ -1273,7 +1273,7 @@ INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuant
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1093,99,N'SKU-99-1093',261000,42,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1094,99,N'SKU-99-1094',269000,27,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1095,99,N'SKU-99-1095',312000,29,0,0);
-INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1096,100,N'SKU-100-1096',559000,88,0,0);
+INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1096,100,N'SKU-100-1096',559000,88,1,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1097,100,N'SKU-100-1097',494000,98,0,0);
 INSERT INTO [ProductVariants] ([VariantId],[ProductId],[SKU],[Price],[StockQuantity],[IsDefault],[IsDeleted]) VALUES (1098,100,N'SKU-100-1098',490000,41,0,0);
 SET IDENTITY_INSERT [ProductVariants] OFF;
