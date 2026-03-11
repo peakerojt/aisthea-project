@@ -248,10 +248,10 @@ const App: React.FC = () => {
       {/* Bạn có thể truyền dbProducts vào các component con ở đây nếu muốn hiển thị dữ liệu thật */}
       {view === 'STORE_HOME' && <StoreHome setView={handleSetView} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} setSearchTerm={setSearchTerm} />}
       {view === 'STORE_CATEGORY' && <StoreCategory setView={handleSetView} category={activeCategory} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} setSearchTerm={setSearchTerm} />}
-      {view === 'STORE_COLLECTION' && <StoreCollection setView={handleSetView} category={activeCategory} setCategory={handleCategoryClick} collection={activeCollection} onProductClick={handleProductClick} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />}
-      {view === 'STORE_DETAIL' && <ProductDetail setView={handleSetView} setCategory={handleCategoryClick} addToCart={addToCart} cartCount={cart.reduce((acc, item) => acc + item.quantity, 0)} product={selectedProduct} setSearchTerm={setSearchTerm} />}
+      {view === 'STORE_COLLECTION' && <StoreCollection setView={handleSetView} category={activeCategory} setCategory={handleCategoryClick} collection={activeCollection} setCollection={handleCollectionClick} onProductClick={handleProductClick} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />}
+      {view === 'STORE_DETAIL' && <ProductDetail setView={handleSetView} setCategory={handleCategoryClick} setCollection={handleCollectionClick} addToCart={addToCart} cartCount={cart.reduce((acc, item) => acc + item.quantity, 0)} product={selectedProduct} setSearchTerm={setSearchTerm} />}
       {view === 'STORE_CART' && <ShoppingBag setView={handleSetView} setCategory={handleCategoryClick} cart={cart} updateQuantity={updateQuantity} removeItem={removeItem} />}
-      {view === 'STORE_STYLIST' && <StoreStylist setView={handleSetView} setCategory={handleCategoryClick} onProductClick={handleProductClick} />}
+      {view === 'STORE_STYLIST' && <StoreStylist setView={handleSetView} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} />}
       {view === 'STORE_PROFILE' && <StoreProfile setView={handleSetView} setCategory={handleCategoryClick} />}
       {view === 'STORE_MY_ORDERS' && <StoreMyOrders setView={handleSetView} setCategory={handleCategoryClick} />}
       {view === 'STORE_CHECKOUT' && <Checkout setView={handleSetView} setCategory={handleCategoryClick} cart={cart} />}

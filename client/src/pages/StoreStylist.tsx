@@ -5,6 +5,7 @@ import { ViewState, CategoryType, CartItem } from '../types';
 interface StoreStylistProps {
    setView: (v: ViewState) => void;
    setCategory: (c: CategoryType) => void;
+   setCollection: (c: string) => void;
    onProductClick: (product: any) => void;
 }
 
@@ -63,14 +64,14 @@ const STYLE_TRENDS = [
    }
 ];
 
-export const StoreStylist: React.FC<StoreStylistProps> = ({ setView, setCategory, onProductClick }) => {
+export const StoreStylist: React.FC<StoreStylistProps> = ({ setView, setCategory, setCollection, onProductClick }) => {
    const [activeTrendId, setActiveTrendId] = useState('vintage');
    const activeTrend = STYLE_TRENDS.find(t => t.id === activeTrendId) || STYLE_TRENDS[1];
    const totalPrice = activeTrend.products.reduce((acc, curr) => acc + curr.price, 0);
 
    return (
       <div className="bg-bg-dark text-white font-sans min-h-screen flex flex-col overflow-x-hidden">
-         <StoreHeader setView={setView} setCategory={setCategory} />
+         <StoreHeader setView={setView} setCategory={setCategory} setCollection={setCollection} />
 
          <main className="flex-1 w-full max-w-[1600px] mx-auto px-6 md:px-12 pt-28 pb-20">
 

@@ -9,6 +9,7 @@ import { useToast } from '../contexts/ToastContext';
 interface StoreHeaderProps {
   setView: (view: ViewState) => void;
   setCategory?: (category: CategoryType) => void;
+  setCollection?: (collection: string) => void;
   transparent?: boolean;
   searchTerm?: string;
   setSearchTerm?: (term: string) => void;
@@ -16,7 +17,7 @@ interface StoreHeaderProps {
   cartCount?: number;
 }
 
-export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, transparent = false, searchTerm = '', setSearchTerm, onProductClick, cartCount = 0 }) => {
+export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, setCollection, transparent = false, searchTerm = '', setSearchTerm, onProductClick, cartCount = 0 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const { user, role } = useAuth();
   const { showToast } = useToast();
@@ -270,7 +271,10 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, 
                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest leading-relaxed">Không tìm thấy sản phẩm nào phù hợp</p>
                     <button
                       onClick={() => {
-                        saveSearchTerm(searchTermLocal);
+                        if (setSearchTerm) setSearchTerm('');
+                        setSearchTermLocal('');
+                        if (setCategory) setCategory('All' as any);
+                        if (setCollection) setCollection('All');
                         setView('STORE_COLLECTION');
                         setIsSearchActive(false);
                       }}

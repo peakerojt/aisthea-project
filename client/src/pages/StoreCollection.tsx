@@ -32,6 +32,7 @@ interface StoreCollectionProps {
   onProductClick: (product: any) => void;
   searchTerm?: string;
   setSearchTerm: (term: string) => void;
+  setCollection: (c: string) => void;
 }
 
 const HERO_IMAGES = {
@@ -119,7 +120,7 @@ const ProductGridCard: React.FC<{ product: Product; onProductClick: (p: any) => 
 
 const ITEMS_PER_PAGE = 8;
 
-export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, category = 'Men', setCategory, collection = 'Outerwear', onProductClick, searchTerm = '', setSearchTerm }) => {
+export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, category = 'Men', setCategory, collection = 'Outerwear', onProductClick, searchTerm = '', setSearchTerm, setCollection }) => {
 
   const heroImage = HERO_IMAGES[collection as keyof typeof HERO_IMAGES] || HERO_IMAGES.Default;
 
@@ -257,7 +258,7 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
 
   return (
     <div className="min-h-screen bg-bg-dark flex flex-col text-white relative">
-      <StoreHeader setView={setView} setCategory={setCategory} transparent={true} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onProductClick={onProductClick} />
+      <StoreHeader setView={setView} setCategory={setCategory} setCollection={setCollection} transparent={true} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onProductClick={onProductClick} />
 
       {/* Filter Drawer Overlay */}
       {isFilterDrawerOpen && (

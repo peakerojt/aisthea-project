@@ -45,7 +45,7 @@ export const StoreCategory: React.FC<StoreCategoryProps> = ({ setView, category,
 
   return (
     <div className="w-full bg-bg-dark font-sans text-white overflow-x-hidden min-h-screen flex flex-col">
-      <StoreHeader setView={setView} setCategory={setCategory} transparent={true} setSearchTerm={setSearchTerm} onProductClick={onProductClick} />
+      <StoreHeader setView={setView} setCategory={setCategory} setCollection={setCollection} transparent={true} setSearchTerm={setSearchTerm} onProductClick={onProductClick} />
 
       {/* Hero Section - 4 Columns Visual Sub-Categories */}
       <div className="flex flex-col md:flex-row h-screen w-full">

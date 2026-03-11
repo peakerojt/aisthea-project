@@ -18,13 +18,14 @@ import { ProductVariantSelector } from '../components/Product/ProductVariantSele
 interface ProductDetailProps {
   setView: (v: ViewState, id?: number) => void;
   setCategory: (c: CategoryType) => void;
+  setCollection: (c: string) => void;
   addToCart: (item: CartItem) => void;
   cartCount: number;
   product?: any;
   setSearchTerm: (term: string) => void;
 }
 
-export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCategory, addToCart, cartCount, product: initialProduct, setSearchTerm }) => {
+export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCategory, setCollection, addToCart, cartCount, product: initialProduct, setSearchTerm }) => {
   const [productDetails, setProductDetails] = useState<ApiProductType | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
   const [recentProducts, setRecentProducts] = useState<any[]>([]);
@@ -364,6 +365,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
           <StoreHeader
             setView={setView}
             setCategory={setCategory}
+            setCollection={setCollection}
             transparent={false}
             setSearchTerm={setSearchTerm}
             onProductClick={detailsTrigger}
