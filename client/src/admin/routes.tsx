@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { ViewState } from '@/types';
+import { ViewState, CategoryType } from '@/types';
 import { AdminLayout } from '@/admin/layouts/AdminLayout';
 
 const Dashboard = React.lazy(() => import('@/admin/pages/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -25,7 +25,7 @@ interface AdminRoutesProps {
     editProductId: number | null;
     selectedOrderId: number | null;
     PageFallback: React.FC;
-    handleCategoryClick: (c: any) => void;
+    handleCategoryClick: (c: CategoryType) => void;
 }
 
 export const AdminRoutes: React.FC<AdminRoutesProps> = ({

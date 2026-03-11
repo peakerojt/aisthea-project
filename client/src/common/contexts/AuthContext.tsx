@@ -17,6 +17,7 @@ interface AuthContextType {
   user: User | null;
   role: UserRole;
   permissions: string[];
+  isInitialized: boolean;
   login: (email: string, password: string) => Promise<User | null>;
   register: (data: Parameters<typeof authService.register>[0]) => Promise<User | null>;
   logout: () => Promise<void>;
@@ -223,7 +224,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, permissions, login, register, logout, isLoading, initializeAuth, refreshSession: checkSession, setUserFromSession }}>
+    <AuthContext.Provider value={{ user, role, permissions, isInitialized: initialized, login, register, logout, isLoading, initializeAuth, refreshSession: checkSession, setUserFromSession }}>
       {children}
     </AuthContext.Provider>
   );

@@ -6,7 +6,7 @@ import { ViewState, CartItem, CategoryType } from '@/types';
 import { ProductImageGallery } from '@/common/components/ProductImageGallery';
 import { fetchProductById, fetchProducts, Product as ApiProductType, ProductVariant } from '@/common/services/product.service';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
-import { useProducts } from '@/common/contexts/ProductContext';
+import { useProductsAPI } from '@/common/hooks/useProducts';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { ProductCard } from '@/common/components/ProductCard';
 import { Header } from '@/store/components/Header';
@@ -65,7 +65,17 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
   const [activeVariant, setActiveVariant] = useState<ProductVariant | null>(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
 
-  const { products } = useProducts();
+  const { data: rawAPIProducts = [] } = useProductsAPI();
+  // Map API Product[] to the ProductItem shape used by suggestedProducts
+  const products = rawAPIProducts.map(p => ({
+    id: p.productId.toString(),
+    name: p.name,
+    price: Number(p.variants?.[0]?.price ?? p.basePrice),
+    image: p.images?.[0]?.thumbnailUrl || p.images?.[0]?.imageUrl || '',
+    images: p.images?.map(img => ({ imageUrl: img.imageUrl, thumbnailUrl: img.thumbnailUrl || img.imageUrl })),
+    category: p.category?.name || '',
+    status: (p.variants?.[0]?.stockQuantity ?? 0) === 0 ? 'Out of Stock' : 'In Stock',
+  }));
   const { user } = useAuth();
   const { showToast, showCartToast } = useToast();
   const { addItem } = useCart();

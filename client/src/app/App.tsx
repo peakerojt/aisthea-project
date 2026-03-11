@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ViewState, CategoryType, CartItem, Product } from '@/types';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { useCart } from '@/common/contexts/CartContext';
+import { useToast } from '@/common/contexts/ToastContext';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
 
 import { AdminRoutes } from '@/admin/routes';
@@ -16,7 +17,8 @@ const PageFallback = () => (
 );
 
 const App: React.FC = () => {
-  const { role } = useAuth();
+  const { role, isInitialized } = useAuth();
+  const { showToast } = useToast();
   // useLocation MUST be declared before useState so the lazy initializer
   // can read location.state synchronously — this eliminates the STORE_HOME flash.
   const location = useLocation();
@@ -72,19 +74,7 @@ const App: React.FC = () => {
     }
   }, [location.state]);
 
-  const [dbProducts, setDbProducts] = useState<Record<string, unknown>[]>([]);
 
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/products`)
-      .then((res) => res.json())
-      .then((data) => { setDbProducts(data); })
-      .catch(() => { setDbProducts([]); });
-  }, []);
-
-  useEffect(() => {
-    const isAdminView = view.startsWith('ADMIN_') && view !== 'ADMIN_TRACKING';
-    if (isAdminView && role !== 'admin') setView('AUTH_LOGIN');
-  }, [view, role]);
 
   const { items: contextItems, updateItem, removeItem: removeContextItem } = useCart();
   const { user } = useAuth();
@@ -124,7 +114,7 @@ const App: React.FC = () => {
       const newQty = Math.max(1, item.quantity + delta);
       await updateItem(targetId, newQty);
     } catch {
-      alert('Có lỗi xảy ra khi cập nhật số lượng. Vui lòng kiểm tra lại số lượng tồn kho.');
+      showToast({ type: 'error', title: 'Có lỗi xảy ra khi cập nhật số lượng. Vui lòng kiểm tra lại số lượng tồn kho.' });
     }
   };
 
@@ -144,7 +134,32 @@ const App: React.FC = () => {
 
   const isAdminView = view.startsWith('ADMIN_') && view !== 'ADMIN_TRACKING';
 
-  if (isAdminView && role !== 'admin') return null;
+  // Block render until the session check resolves — prevents auth flicker
+  if (!isInitialized) return <PageFallback />;
+
+  // Synchronous guard — no useEffect redirect race condition
+  if (isAdminView && role !== 'admin') {
+    return (
+      <StorefrontRoutes
+        view="AUTH_LOGIN"
+        setView={setView}
+        handleSetView={handleSetView}
+        PageFallback={PageFallback}
+        activeCategory={activeCategory}
+        handleCategoryClick={handleCategoryClick}
+        activeCollection={activeCollection}
+        handleCollectionClick={handleCollectionClick}
+        selectedProduct={selectedProduct}
+        handleProductClick={handleProductClick}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        cart={cart}
+        addToCart={addToCart}
+        updateQuantity={updateQuantity}
+        removeItem={removeItem}
+      />
+    );
+  }
 
   if (isAdminView) {
     return (

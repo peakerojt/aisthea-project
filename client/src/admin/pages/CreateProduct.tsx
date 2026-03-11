@@ -12,7 +12,8 @@ import {
 import type { CategoryOption, BrandOption } from '@/common/services/product.service';
 import { API_BASE_URL } from '@/common/utils/api';
 import { ViewState } from '@/types';
-import { useProducts } from '@/common/contexts/ProductContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { productKeys } from '@/common/hooks/useProducts';
 import ProductImageManager from '@/admin/components/ProductImageManager';
 import type { ProductImageState } from '@/admin/components/ProductImageManager';
 import {
@@ -91,7 +92,7 @@ interface Props {
 
 export const CreateProduct: React.FC<Props> = ({ setView }) => {
     const { t } = useTranslation(['products']);
-    const { refreshProducts } = useProducts();
+    const queryClient = useQueryClient();
     const {
         register,
         handleSubmit,
@@ -278,7 +279,7 @@ export const CreateProduct: React.FC<Props> = ({ setView }) => {
             }
 
             showToast('success', t('editor.feedback.createSuccess', { name: data.name, count: variants.length }));
-            await refreshProducts();
+            queryClient.invalidateQueries({ queryKey: productKeys.all });
             setTimeout(() => setView('ADMIN_PRODUCTS'), 1800);
         } catch (error) {
             const err = error as Error | { message?: string; error?: string; data?: unknown };

@@ -1,8 +1,8 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useState } from 'react';
 import { ViewState, CategoryType, Product, CartItem } from '@/types';
 import { StoreLayout } from '@/store/layouts/StoreLayout';
-import { Home } from '@/store/pages/Home';
 
+const Home = React.lazy(() => import('@/store/pages/Home').then(m => ({ default: m.Home })));
 const Category = React.lazy(() => import('@/store/pages/Category').then(m => ({ default: m.Category })));
 const Collection = React.lazy(() => import('@/store/pages/Collection').then(m => ({ default: m.Collection })));
 const ProductDetail = React.lazy(() => import('@/common/pages/ProductDetail').then(m => ({ default: m.ProductDetail })));
@@ -59,6 +59,9 @@ export const StorefrontRoutes: React.FC<StorefrontRoutesProps> = ({
     updateQuantity,
     removeItem,
 }) => {
+    const [pendingEmail] = useState<string | undefined>(
+        () => sessionStorage.getItem('pendingVerificationEmail') ?? undefined
+    );
     return (
         <StoreLayout>
             <Suspense fallback={<PageFallback />}>
@@ -79,7 +82,7 @@ export const StorefrontRoutes: React.FC<StorefrontRoutesProps> = ({
                 {view === 'AUTH_CALLBACK' && <OAuthCallback setView={setView} />}
                 {view === 'AUTH_FORGOT_PASSWORD' && <ForgotPasswordPage setView={setView} />}
                 {view === 'AUTH_RESET_PASSWORD' && <ResetPasswordPage setView={setView} />}
-                {view === 'EMAIL_VERIFICATION' && <EmailVerification setView={setView} email={sessionStorage.getItem('pendingVerificationEmail') || undefined} />}
+                {view === 'EMAIL_VERIFICATION' && <EmailVerification setView={setView} email={pendingEmail} />}
             </Suspense>
         </StoreLayout>
     );

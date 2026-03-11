@@ -1,7 +1,7 @@
 import React from 'react';
 import { Header } from '@/store/components/Header';
 import { ViewState, CategoryType } from '@/types';
-import { useProducts } from '@/common/contexts/ProductContext';
+import { useProductsAPI } from '@/common/hooks/useProducts';
 import { ProductCard } from '@/common/components/ProductCard';
 import { ProductItem } from '@/types';
 import { Product } from '@/common/services/product.service';
@@ -15,7 +15,17 @@ interface StoreHomeProps {
 }
 
 export const Home: React.FC<StoreHomeProps> = ({ setView, setCategory, setCollection, onProductClick, setSearchTerm }) => {
-   const { products, loading } = useProducts();
+   const { data: rawProducts = [], isLoading: loading } = useProductsAPI();
+   // Convert API Product[] to ProductItem[] shape for ProductCard compatibility
+   const products = rawProducts.map(p => ({
+      id: p.productId.toString(),
+      name: p.name,
+      price: Number(p.variants?.[0]?.price ?? p.basePrice),
+      image: p.images?.[0]?.thumbnailUrl || p.images?.[0]?.imageUrl || '',
+      images: p.images?.map(img => ({ imageUrl: img.imageUrl, thumbnailUrl: img.thumbnailUrl || img.imageUrl })),
+      category: p.category?.name || '',
+      status: (p.variants?.[0]?.stockQuantity ?? 0) === 0 ? 'Out of Stock' : 'In Stock',
+   }));
 
    const handleNavigate = (category: CategoryType) => {
       setCategory(category);
@@ -23,7 +33,8 @@ export const Home: React.FC<StoreHomeProps> = ({ setView, setCategory, setCollec
       window.scrollTo(0, 0);
    };
 
-   // Take first 4 products as featured/curated products
+   // Take first 4 products as featured/curated products (raw for click handler, mapped for display)
+   const curatedRaw = rawProducts.slice(0, 4);
    const curatedProducts = products.slice(0, 4);
 
    return (
@@ -99,7 +110,7 @@ export const Home: React.FC<StoreHomeProps> = ({ setView, setCategory, setCollec
                   </div>
                ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
-                     {curatedProducts.map((product) => (
+                     {curatedProducts.map((product, i) => (
                         <ProductCard
                            key={product.id}
                            id={product.id}
@@ -109,7 +120,7 @@ export const Home: React.FC<StoreHomeProps> = ({ setView, setCategory, setCollec
                            images={product.images}
                            category={product.category}
                            status={product.status}
-                           onClick={() => onProductClick(product)}
+                           onClick={() => onProductClick(curatedRaw[i])}
                            showHoverGallery={true}
                         />
                      ))}
