@@ -3,6 +3,7 @@ import { StoreHeader } from '../components/StoreHeader';
 import { ViewState, CategoryType } from '../types';
 import { useProducts } from '../contexts/ProductContext';
 import { ProductCard } from '../components/ProductCard';
+import Footer from '../components/Footer';
 
 interface StoreHomeProps {
    setView: (v: ViewState, id?: number) => void;
@@ -46,7 +47,11 @@ export const StoreHome: React.FC<StoreHomeProps> = ({ setView, setCategory, setC
                      Where architectural innovation meets fluid design. We curate the essential wardrobe for those who speak without words.
                   </p>
                   <button
-                     onClick={() => handleNavigate('Women')}
+                     onClick={() => {
+                        setCategory('All' as any);
+                        setCollection('All');
+                        setView('STORE_COLLECTION');
+                     }}
                      className="bg-primary hover:bg-red-700 text-white px-10 py-5 text-xs font-bold uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/20 flex items-center gap-3 group"
                   >
                      Explore Collection
@@ -185,21 +190,7 @@ export const StoreHome: React.FC<StoreHomeProps> = ({ setView, setCategory, setC
             </div>
          </section>
 
-         <footer className="bg-black py-12 border-t border-white/10 z-10 relative">
-            <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
-               <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold tracking-widest uppercase text-white">Aisthea</span>
-               </div>
-               <div className="flex flex-wrap justify-center gap-8">
-                  {['Men', 'Women', 'Stylist', 'Journal', 'Contact'].map(link => (
-                     <button key={link} className="text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-white transition-colors relative after:content-[''] after:absolute after:-bottom-1 after:left-0 after:w-0 after:h-px after:bg-white after:transition-all hover:after:w-full">
-                        {link}
-                     </button>
-                  ))}
-               </div>
-               <p className="text-[10px] text-gray-600 uppercase tracking-widest">© 2024 Aisthea Inc.</p>
-            </div>
-         </footer>
+         <Footer />
       </div>
    );
 };

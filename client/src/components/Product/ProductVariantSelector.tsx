@@ -389,11 +389,39 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
             return aIsColor - bIsColor;
         });
 
-        return nameOrder.map(name => ({
-            name,
-            values: valueOrder.get(name) ?? [],
-            isColor: isColorAttr(name),
-        }));
+        const SIZE_ORDER: Record<string, number> = {
+            'xxs': 1, 'xs': 2, 's': 3, 'm': 4, 'l': 5, 'xl': 6, 'xxl': 7, '2xl': 8, '3xl': 9, '4xl': 10
+        };
+
+        return nameOrder.map(name => {
+            const values = valueOrder.get(name) ?? [];
+            const isSize = ['kích thước', 'kich thuoc', 'size'].includes(name.toLowerCase().trim());
+
+            if (isSize) {
+                values.sort((a, b) => {
+                    const aLower = a.toLowerCase().trim();
+                    const bLower = b.toLowerCase().trim();
+                    const rankA = SIZE_ORDER[aLower];
+                    const rankB = SIZE_ORDER[bLower];
+
+                    if (rankA && rankB) return rankA - rankB;
+                    if (rankA) return -1;
+                    if (rankB) return 1;
+
+                    const numA = parseFloat(a);
+                    const numB = parseFloat(b);
+                    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+
+                    return a.localeCompare(b);
+                });
+            }
+
+            return {
+                name,
+                values,
+                isColor: isColorAttr(name),
+            };
+        });
     }, [attrMaps]);
 
     // ── Derive the currently resolved variant ────────────────────────────────

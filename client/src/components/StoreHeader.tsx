@@ -4,6 +4,7 @@ import { ViewState, CategoryType } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchProducts } from '../services/product.service';
 import { getCloudinaryProductCard } from '../utils/cloudinary';
+import { useToast } from '../contexts/ToastContext';
 
 interface StoreHeaderProps {
   setView: (view: ViewState) => void;
@@ -18,6 +19,7 @@ interface StoreHeaderProps {
 export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, transparent = false, searchTerm = '', setSearchTerm, onProductClick, cartCount = 0 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const { user, role } = useAuth();
+  const { showToast } = useToast();
 
   // Search States
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -281,7 +283,18 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({ setView, setCategory, 
               </div>
             )}
           </div>
-          <button onClick={() => setView('STORE_CART')} className="text-white/90 hover:text-white p-2 relative">
+          <button onClick={() => {
+            if (!user) {
+              showToast({
+                type: 'info',
+                title: 'Yêu cầu đăng nhập',
+                subtitle: 'Vui lòng đăng nhập để xem giỏ hàng'
+              });
+              setView('AUTH_LOGIN');
+            } else {
+              setView('STORE_CART');
+            }
+          }} className="text-white/90 hover:text-white p-2 relative">
             <span className="material-symbols-outlined text-2xl">shopping_bag</span>
             {cartCount > 0 && (
               <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-black text-white ring-2 ring-bg-dark">

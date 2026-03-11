@@ -3,6 +3,7 @@ import { StoreHeader } from '../components/StoreHeader';
 import { ViewState, CategoryType } from '../types';
 import { api } from '../utils/api';
 import { getCloudinaryProductCard } from '../utils/cloudinary';
+import Footer from '../components/Footer';
 
 interface Product {
   id: string;
@@ -484,15 +485,7 @@ export const StoreCollection: React.FC<StoreCollectionProps> = ({ setView, categ
         </div>
       </main>
 
-      {/* Mini Footer for Collection */}
-      <footer className="py-8 border-t border-white/10 text-center">
-        <div className="flex justify-center gap-6 mb-4">
-          {['Privacy', 'Terms', 'Shipping', 'Contact'].map(link => (
-            <a key={link} href="#" className="text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-white">{link}</a>
-          ))}
-        </div>
-        <p className="text-[10px] text-gray-600 uppercase tracking-widest">© 2024 Aisthea Inc.</p>
-      </footer>
+      <Footer />
     </div>
   );
 };
