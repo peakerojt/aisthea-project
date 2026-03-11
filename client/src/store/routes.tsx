@@ -8,6 +8,7 @@ const Collection = React.lazy(() => import('@/store/pages/Collection').then(m =>
 const ProductDetail = React.lazy(() => import('@/common/pages/ProductDetail').then(m => ({ default: m.ProductDetail })));
 const ShoppingBag = React.lazy(() => import('@/common/pages/ShoppingBag').then(m => ({ default: m.ShoppingBag })));
 const Stylist = React.lazy(() => import('@/store/pages/Stylist').then(m => ({ default: m.Stylist })));
+const WeatherOutfitPage = React.lazy(() => import('@/store/pages/WeatherOutfitPage').then(m => ({ default: m.WeatherOutfitPage })));
 const Profile = React.lazy(() => import('@/store/pages/Profile').then(m => ({ default: m.Profile })));
 const MyOrders = React.lazy(() => import('@/store/pages/MyOrders').then(m => ({ default: m.MyOrders })));
 const Checkout = React.lazy(() => import('@/common/pages/Checkout'));
@@ -67,6 +68,7 @@ export const StorefrontRoutes: React.FC<StorefrontRoutesProps> = ({
                 {view === 'STORE_DETAIL' && <ProductDetail setView={handleSetView} setCategory={handleCategoryClick} addToCart={addToCart} cartCount={cart.reduce((acc, item) => acc + item.quantity, 0)} product={selectedProduct} setSearchTerm={setSearchTerm} />}
                 {view === 'STORE_CART' && <ShoppingBag setView={handleSetView} setCategory={handleCategoryClick} cart={cart} updateQuantity={updateQuantity} removeItem={removeItem} />}
                 {view === 'STORE_STYLIST' && <Stylist setView={handleSetView} setCategory={handleCategoryClick} onProductClick={handleProductClick} />}
+                {view === 'STORE_WEATHER_OUTFIT' && <WeatherOutfitPage />}
                 {view === 'STORE_PROFILE' && <Profile setView={handleSetView} setCategory={handleCategoryClick} />}
                 {view === 'STORE_MY_ORDERS' && <MyOrders setView={handleSetView} setCategory={handleCategoryClick} />}
                 {view === 'STORE_CHECKOUT' && <Checkout setView={handleSetView} setCategory={handleCategoryClick} cart={cart} />}

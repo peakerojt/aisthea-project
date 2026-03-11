@@ -23,6 +23,8 @@ import userModuleRoutes from './modules/users/user.routes';
 import dashboardModuleRoutes from './modules/dashboard/dashboard.routes';
 import analyticsModuleRoutes from './modules/analytics/analytics.routes';
 import { vnpayModuleRoutes, refundModuleRoutes } from './modules/payments/payment.routes';
+import weatherRoutes from './modules/weather/weather.routes';
+import outfitRoutes from './modules/outfit/outfit.routes';
 
 // ─── Legacy module routes (migrated but still in /modules sub-folder) ─────────
 import orderModuleRoutes from './modules/order/order.route';
@@ -85,6 +87,8 @@ export function createApp() {
   app.use('/api/dashboard', dashboardModuleRoutes);
   app.use('/api/analytics', analyticsModuleRoutes);
   app.use('/api/vnpay', vnpayModuleRoutes);
+  app.use('/api/weather', weatherRoutes);
+  app.use('/api/outfit', outfitRoutes);
 
   // ── Order routes — ORDERING MATTERS: named paths before catch-all /:id ────────
   app.use('/api/orders', orderRoutes);            // /admin, /my, /my/:id, POST /, PATCH /:id/status

@@ -1,4 +1,5 @@
 
+
 export interface Product {
   id: string;
   name: string;
@@ -43,6 +44,7 @@ export type ViewState =
   | 'STORE_DETAIL'
   | 'STORE_CART'
   | 'STORE_STYLIST'
+  | 'STORE_WEATHER_OUTFIT'
   | 'STORE_PROFILE'
   | 'STORE_MY_ORDERS'
   | 'STORE_CHECKOUT'
