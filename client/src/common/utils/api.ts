@@ -3,6 +3,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 interface FetchOptions extends RequestInit {
     params?: Record<string, string>;
+    skipAuthRedirect?: boolean;
 }
 
 /**
@@ -22,7 +23,7 @@ class ApiClient {
         endpoint: string,
         options: FetchOptions = {}
     ): Promise<T> {
-        const { params, ...fetchOptions } = options;
+        const { params, skipAuthRedirect, ...fetchOptions } = options;
 
         // Build URL with query parameters
         let url = `${this.baseUrl}${endpoint}`;
@@ -59,7 +60,7 @@ class ApiClient {
                 }
 
                 // If unauthorized (session expired), redirect to login
-                if (response.status === 401) {
+                if (response.status === 401 && !skipAuthRedirect) {
                     window.dispatchEvent(new CustomEvent('auth:logout'));
                     if (!window.location.pathname.startsWith('/login')) {
                         window.location.href = '/login';
