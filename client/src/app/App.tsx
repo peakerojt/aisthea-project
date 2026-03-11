@@ -1,50 +1,52 @@
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ViewState, CategoryType, CartItem, Product } from '../types';
-import { useAuth } from '../contexts/AuthContext';
-import { useCart } from '../contexts/CartContext';
-import { getCloudinaryProductCard } from '../utils/cloudinary';
+import { ViewState, CategoryType, CartItem, Product } from '@/types';
+import { useAuth } from '@/common/contexts/AuthContext';
+import { useCart } from '@/common/contexts/CartContext';
+import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
 
 // ─── Eagerly loaded (critical path) ──────────────────────────────────────────
-import { AdminSidebar } from '../components/AdminSidebar';
-import { StoreHome } from '../pages/StoreHome';
+import { Sidebar } from '@/admin/components/Sidebar';
+import { AdminLayout } from '@/admin/layouts/AdminLayout';
+import { StoreLayout } from '@/store/layouts/StoreLayout';
+import { Home } from '@/store/pages/Home';
 
 // ─── Lazy loaded store pages ──────────────────────────────────────────────────
-const StoreCategory = React.lazy(() => import('../pages/StoreCategory').then(m => ({ default: m.StoreCategory })));
-const StoreCollection = React.lazy(() => import('../pages/StoreCollection').then(m => ({ default: m.StoreCollection })));
-const ProductDetail = React.lazy(() => import('../pages/ProductDetail').then(m => ({ default: m.ProductDetail })));
-const ShoppingBag = React.lazy(() => import('../pages/ShoppingBag').then(m => ({ default: m.ShoppingBag })));
-const StoreStylist = React.lazy(() => import('../pages/StoreStylist').then(m => ({ default: m.StoreStylist })));
-const StoreProfile = React.lazy(() => import('../pages/StoreProfile').then(m => ({ default: m.StoreProfile })));
-const StoreMyOrders = React.lazy(() => import('../pages/StoreMyOrders').then(m => ({ default: m.StoreMyOrders })));
-const Checkout = React.lazy(() => import('../pages/Checkout'));
-const OrderSuccess = React.lazy(() => import('../pages/OrderSuccess'));
-const PaymentQR = React.lazy(() => import('../pages/PaymentQR'));
+const Category = React.lazy(() => import('@/store/pages/Category').then(m => ({ default: m.Category })));
+const Collection = React.lazy(() => import('@/store/pages/Collection').then(m => ({ default: m.Collection })));
+const ProductDetail = React.lazy(() => import('@/common/pages/ProductDetail').then(m => ({ default: m.ProductDetail })));
+const ShoppingBag = React.lazy(() => import('@/common/pages/ShoppingBag').then(m => ({ default: m.ShoppingBag })));
+const Stylist = React.lazy(() => import('@/store/pages/Stylist').then(m => ({ default: m.Stylist })));
+const Profile = React.lazy(() => import('@/store/pages/Profile').then(m => ({ default: m.Profile })));
+const MyOrders = React.lazy(() => import('@/store/pages/MyOrders').then(m => ({ default: m.MyOrders })));
+const Checkout = React.lazy(() => import('@/common/pages/Checkout'));
+const OrderSuccess = React.lazy(() => import('@/common/pages/OrderSuccess'));
+const PaymentQR = React.lazy(() => import('@/common/pages/PaymentQR'));
 
 // ─── Lazy loaded auth pages ───────────────────────────────────────────────────
-const Login = React.lazy(() => import('../pages/Login').then(m => ({ default: m.Login })));
-const Signup = React.lazy(() => import('../pages/Signup').then(m => ({ default: m.Signup })));
-const OAuthCallback = React.lazy(() => import('../pages/OAuthCallback').then(m => ({ default: m.OAuthCallback })));
-const EmailVerification = React.lazy(() => import('../pages/EmailVerification').then(m => ({ default: m.EmailVerification })));
-const ForgotPasswordPage = React.lazy(() => import('../pages/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
-const ResetPasswordPage = React.lazy(() => import('../pages/auth/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
+const Login = React.lazy(() => import('@/common/pages/Login').then(m => ({ default: m.Login })));
+const Signup = React.lazy(() => import('@/common/pages/Signup').then(m => ({ default: m.Signup })));
+const OAuthCallback = React.lazy(() => import('@/common/pages/OAuthCallback').then(m => ({ default: m.OAuthCallback })));
+const EmailVerification = React.lazy(() => import('@/common/pages/EmailVerification').then(m => ({ default: m.EmailVerification })));
+const ForgotPasswordPage = React.lazy(() => import('@/common/pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = React.lazy(() => import('@/common/pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 
 // ─── Lazy loaded admin pages (heaviest — only admins ever see these) ──────────
-const AdminDashboard = React.lazy(() => import('../pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
-const AdminProducts = React.lazy(() => import('../pages/AdminProducts').then(m => ({ default: m.AdminProducts })));
-const AdminCreateProduct = React.lazy(() => import('../pages/AdminCreateProduct').then(m => ({ default: m.AdminCreateProduct })));
-const AdminEditProduct = React.lazy(() => import('../pages/AdminEditProduct').then(m => ({ default: m.AdminEditProduct })));
-const AdminOrders = React.lazy(() => import('../pages/AdminOrders').then(m => ({ default: m.AdminOrders })));
-const AdminOrderDetail = React.lazy(() => import('../pages/AdminOrderDetail').then(m => ({ default: m.AdminOrderDetail })));
-const AdminTracking = React.lazy(() => import('../pages/AdminTracking').then(m => ({ default: m.AdminTracking })));
-const AdminCustomers = React.lazy(() => import('../pages/AdminCustomers').then(m => ({ default: m.AdminCustomers })));
-const AdminAnalytics = React.lazy(() => import('../pages/AdminAnalytics').then(m => ({ default: m.AdminAnalytics })));
-const AdminRestock = React.lazy(() => import('../pages/AdminRestock').then(m => ({ default: m.AdminRestock })));
-const AdminCategories = React.lazy(() => import('../pages/AdminCategories').then(m => ({ default: m.AdminCategories })));
-const AdminCoupons = React.lazy(() => import('../pages/AdminCoupons').then(m => ({ default: m.AdminCoupons })));
-const AdminRoles = React.lazy(() => import('../pages/AdminRoles').then(m => ({ default: m.AdminRoles })));
-const AdminReturns = React.lazy(() => import('../pages/AdminReturns').then(m => ({ default: m.AdminReturns })));
-const AdminWarehouses = React.lazy(() => import('../pages/AdminWarehouses'));
+const Dashboard = React.lazy(() => import('@/admin/pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const Products = React.lazy(() => import('@/admin/pages/Products').then(m => ({ default: m.Products })));
+const CreateProduct = React.lazy(() => import('@/admin/pages/CreateProduct').then(m => ({ default: m.CreateProduct })));
+const EditProduct = React.lazy(() => import('@/admin/pages/EditProduct').then(m => ({ default: m.EditProduct })));
+const Orders = React.lazy(() => import('@/admin/pages/Orders').then(m => ({ default: m.Orders })));
+const OrderDetail = React.lazy(() => import('@/admin/pages/OrderDetail').then(m => ({ default: m.OrderDetail })));
+const Tracking = React.lazy(() => import('@/admin/pages/Tracking').then(m => ({ default: m.Tracking })));
+const Customers = React.lazy(() => import('@/admin/pages/Customers').then(m => ({ default: m.Customers })));
+const Analytics = React.lazy(() => import('@/admin/pages/Analytics').then(m => ({ default: m.Analytics })));
+const Restock = React.lazy(() => import('@/admin/pages/Restock').then(m => ({ default: m.Restock })));
+const Categories = React.lazy(() => import('@/admin/pages/Categories').then(m => ({ default: m.Categories })));
+const Coupons = React.lazy(() => import('@/admin/pages/Coupons').then(m => ({ default: m.Coupons })));
+const Roles = React.lazy(() => import('@/admin/pages/Roles').then(m => ({ default: m.Roles })));
+const Returns = React.lazy(() => import('@/admin/pages/Returns').then(m => ({ default: m.Returns })));
+const Warehouses = React.lazy(() => import('@/admin/pages/Warehouses'));
 
 // ─── Minimal fallback ─────────────────────────────────────────────────────────
 const PageFallback = () => (
@@ -87,7 +89,7 @@ const App: React.FC = () => {
     if (productIdParam) {
       const productId = parseInt(productIdParam, 10);
       if (!isNaN(productId)) {
-        import('../services/product.service').then(({ fetchProductById }) => {
+        import('@/common/services/product.service').then(({ fetchProductById }) => {
           fetchProductById(productId).then((product) => {
             if (product) {
               setSelectedProduct(product as unknown as Product);
@@ -186,43 +188,40 @@ const App: React.FC = () => {
 
   if (isAdminView) {
     return (
-      <div className="flex h-screen w-full bg-bg-dark text-white font-sans overflow-hidden">
-        <AdminSidebar currentView={view} setView={setView} />
-        <main className="flex-1 h-full overflow-y-auto bg-bg-dark relative">
-          <Suspense fallback={<PageFallback />}>
-            {view === 'ADMIN_DASHBOARD' && <AdminDashboard setView={setView} />}
-            {view === 'ADMIN_PRODUCTS' && <AdminProducts setView={(v, id?: number) => handleSetView(v as ViewState, id)} />}
-            {view === 'ADMIN_CREATE_PRODUCT' && <AdminCreateProduct setView={setView} />}
-            {view === 'ADMIN_EDIT_PRODUCT' && editProductId !== null && (
-              <AdminEditProduct setView={setView} productId={editProductId} />
-            )}
-            {view === 'ADMIN_CATEGORIES' && <AdminCategories setView={setView} />}
-            {view === 'ADMIN_RESTOCK' && <AdminRestock />}
-            {view === 'ADMIN_ORDERS' && <AdminOrders setView={(v, id?: number) => handleSetView(v as ViewState, id)} />}
-            {view === 'ADMIN_ORDER_DETAIL' && <AdminOrderDetail orderId={selectedOrderId} setView={setView} />}
-            {view === 'ADMIN_CUSTOMERS' && <AdminCustomers />}
-            {view === 'ADMIN_ANALYTICS' && <AdminAnalytics />}
-            {view === 'ADMIN_COUPONS' && <AdminCoupons />}
-            {view === 'ADMIN_ROLES' && <AdminRoles />}
-            {view === 'ADMIN_RETURNS' && <AdminReturns />}
-            {view === 'ADMIN_WAREHOUSES' && <AdminWarehouses />}
-          </Suspense>
-        </main>
-      </div>
+      <AdminLayout currentView={view} setView={setView}>
+        <Suspense fallback={<PageFallback />}>
+          {view === 'ADMIN_DASHBOARD' && <Dashboard setView={setView} />}
+          {view === 'ADMIN_PRODUCTS' && <Products setView={(v, id?: number) => handleSetView(v as ViewState, id)} />}
+          {view === 'ADMIN_CREATE_PRODUCT' && <CreateProduct setView={setView} />}
+          {view === 'ADMIN_EDIT_PRODUCT' && editProductId !== null && (
+            <EditProduct setView={setView} productId={editProductId} />
+          )}
+          {view === 'ADMIN_CATEGORIES' && <Categories setView={setView} />}
+          {view === 'ADMIN_RESTOCK' && <Restock />}
+          {view === 'ADMIN_ORDERS' && <Orders setView={(v, id?: number) => handleSetView(v as ViewState, id)} />}
+          {view === 'ADMIN_ORDER_DETAIL' && <OrderDetail orderId={selectedOrderId} setView={setView} />}
+          {view === 'ADMIN_CUSTOMERS' && <Customers />}
+          {view === 'ADMIN_ANALYTICS' && <Analytics />}
+          {view === 'ADMIN_COUPONS' && <Coupons />}
+          {view === 'ADMIN_ROLES' && <Roles />}
+          {view === 'ADMIN_RETURNS' && <Returns />}
+          {view === 'ADMIN_WAREHOUSES' && <Warehouses />}
+        </Suspense>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="text-white font-sans antialiased">
+    <StoreLayout>
       <Suspense fallback={<PageFallback />}>
-        {view === 'STORE_HOME' && <StoreHome setView={handleSetView} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} setSearchTerm={setSearchTerm} />}
-        {view === 'STORE_CATEGORY' && <StoreCategory setView={handleSetView} category={activeCategory} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} setSearchTerm={setSearchTerm} />}
-        {view === 'STORE_COLLECTION' && <StoreCollection setView={handleSetView} category={activeCategory} setCategory={handleCategoryClick} collection={activeCollection} onProductClick={handleProductClick} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />}
+        {view === 'STORE_HOME' && <Home setView={handleSetView} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} setSearchTerm={setSearchTerm} />}
+        {view === 'STORE_CATEGORY' && <Category setView={handleSetView} category={activeCategory} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} setSearchTerm={setSearchTerm} />}
+        {view === 'STORE_COLLECTION' && <Collection setView={handleSetView} category={activeCategory} setCategory={handleCategoryClick} collection={activeCollection} onProductClick={handleProductClick} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />}
         {view === 'STORE_DETAIL' && <ProductDetail setView={handleSetView} setCategory={handleCategoryClick} addToCart={addToCart} cartCount={cart.reduce((acc, item) => acc + item.quantity, 0)} product={selectedProduct} setSearchTerm={setSearchTerm} />}
         {view === 'STORE_CART' && <ShoppingBag setView={handleSetView} setCategory={handleCategoryClick} cart={cart} updateQuantity={updateQuantity} removeItem={removeItem} />}
-        {view === 'STORE_STYLIST' && <StoreStylist setView={handleSetView} setCategory={handleCategoryClick} onProductClick={handleProductClick} />}
-        {view === 'STORE_PROFILE' && <StoreProfile setView={handleSetView} setCategory={handleCategoryClick} />}
-        {view === 'STORE_MY_ORDERS' && <StoreMyOrders setView={handleSetView} setCategory={handleCategoryClick} />}
+        {view === 'STORE_STYLIST' && <Stylist setView={handleSetView} setCategory={handleCategoryClick} onProductClick={handleProductClick} />}
+        {view === 'STORE_PROFILE' && <Profile setView={handleSetView} setCategory={handleCategoryClick} />}
+        {view === 'STORE_MY_ORDERS' && <MyOrders setView={handleSetView} setCategory={handleCategoryClick} />}
         {view === 'STORE_CHECKOUT' && <Checkout setView={handleSetView} setCategory={handleCategoryClick} cart={cart} />}
         {view === 'STORE_ORDER_SUCCESS' && <OrderSuccess setView={handleSetView} setCategory={handleCategoryClick} />}
         {view === 'STORE_PAYMENT_QR' && <PaymentQR setView={handleSetView} totalAmount={cart.reduce((sum, item) => sum + item.price * item.quantity, 0) + (cart.reduce((sum, item) => sum + item.price * item.quantity, 0) > 200 ? 0 : 15)} />}
@@ -232,9 +231,9 @@ const App: React.FC = () => {
         {view === 'AUTH_FORGOT_PASSWORD' && <ForgotPasswordPage setView={setView} />}
         {view === 'AUTH_RESET_PASSWORD' && <ResetPasswordPage setView={setView} />}
         {view === 'EMAIL_VERIFICATION' && <EmailVerification setView={setView} email={sessionStorage.getItem('pendingVerificationEmail') || undefined} />}
-        {view === 'ADMIN_TRACKING' && <AdminTracking setView={setView} setCategory={handleCategoryClick} />}
+        {view === 'ADMIN_TRACKING' && <Tracking setView={setView} setCategory={handleCategoryClick} />}
       </Suspense>
-    </div>
+    </StoreLayout>
   );
 };
 

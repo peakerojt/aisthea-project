@@ -2,23 +2,23 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
 // ── Namespace imports (Vite handles JSON natively) ──────────────────────────
-import commonVI from './locales/vi/common.json';
-import sidebarVI from './locales/vi/sidebar.json';
-import productsVI from './locales/vi/products.json';
-import ordersVI from './locales/vi/orders.json';
-import customersVI from './locales/vi/customers.json';
-import couponsVI from './locales/vi/coupons.json';
-import restockVI from './locales/vi/restock.json';
-import returnsVI from './locales/vi/returns.json';
-import rolesVI from './locales/vi/roles.json';
-import analyticsVI from './locales/vi/analytics.json';
-import categoriesVI from './locales/vi/categories.json';
-import dashboardVI from './locales/vi/dashboard.json';
-import errorsVI from './locales/vi/errors.json';
-import messagesVI from './locales/vi/messages.json';
-import enumsVI from './locales/vi/enums.json';
-import trackingVI from './locales/vi/tracking.json';
-import cartVI from './locales/vi/cart.json';
+import commonVI from '@/i18n/locales/vi/common.json';
+import sidebarVI from '@/i18n/locales/vi/sidebar.json';
+import productsVI from '@/i18n/locales/vi/products.json';
+import ordersVI from '@/i18n/locales/vi/orders.json';
+import customersVI from '@/i18n/locales/vi/customers.json';
+import couponsVI from '@/i18n/locales/vi/coupons.json';
+import restockVI from '@/i18n/locales/vi/restock.json';
+import returnsVI from '@/i18n/locales/vi/returns.json';
+import rolesVI from '@/i18n/locales/vi/roles.json';
+import analyticsVI from '@/i18n/locales/vi/analytics.json';
+import categoriesVI from '@/i18n/locales/vi/categories.json';
+import dashboardVI from '@/i18n/locales/vi/dashboard.json';
+import errorsVI from '@/i18n/locales/vi/errors.json';
+import messagesVI from '@/i18n/locales/vi/messages.json';
+import enumsVI from '@/i18n/locales/vi/enums.json';
+import trackingVI from '@/i18n/locales/vi/tracking.json';
+import cartVI from '@/i18n/locales/vi/cart.json';
 
 // ── i18next initialisation ──────────────────────────────────────────────────
 i18n

@@ -1,4 +1,4 @@
-import { OrderTrackingStatus } from '../shared/orderTracking.constants';
+import { OrderTrackingStatus } from '@/common/components/orderTracking.constants';
 
 export interface TrackingTimelineItem {
   status: OrderTrackingStatus;
