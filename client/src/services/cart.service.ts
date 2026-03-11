@@ -54,6 +54,8 @@ export interface GuestCartItem {
     price?: number;
     imageUrl?: string;
     stockQuantity?: number;
+    size?: string;
+    color?: string;
 }
 
 export const GUEST_CART_KEY = 'aisthea_guest_cart';

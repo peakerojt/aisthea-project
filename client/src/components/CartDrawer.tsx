@@ -11,16 +11,25 @@ interface CartDrawerProps {
 }
 
 /** Lấy tên thuộc tính variant (VD: "Màu: Đen, Size: M") */
-function getVariantLabel(item: CartItemResponse): string {
-    return item.variant.variantAttributes
-        .map(va => `${va.value.attribute.name}: ${va.value.value}`)
-        .join(', ');
+function getVariantLabel(item: any): string {
+    if (item.variant) {
+        return item.variant.variantAttributes
+            .map((va: any) => `${va.value.attribute.name}: ${va.value.value}`)
+            .join(', ');
+    }
+    const parts = [];
+    if (item.color && item.color !== 'N/A') parts.push(`Color: ${item.color}`);
+    if (item.size && item.size !== 'N/A') parts.push(`Size: ${item.size}`);
+    return parts.join(', ');
 }
 
 /** Lấy URL ảnh đầu tiên của sản phẩm */
-function getImageUrl(item: CartItemResponse): string {
-    const imgs = item.variant.product.images;
-    return imgs?.[0]?.thumbnailUrl ?? imgs?.[0]?.imageUrl ?? '';
+function getImageUrl(item: any): string {
+    if (item.variant) {
+        const imgs = item.variant.product.images;
+        return imgs?.[0]?.thumbnailUrl ?? imgs?.[0]?.imageUrl ?? '';
+    }
+    return item.imageUrl ?? '';
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheckout }) => {
@@ -52,7 +61,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheck
         return () => document.removeEventListener('keydown', handler);
     }, [onClose]);
 
-    const dbItems = items as CartItemResponse[];
+    const dbItems = items as any[];
 
     return (
         <>
@@ -121,17 +130,20 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheck
                             const stockStatus = getStockStatus(item);
                             const imgUrl = getImageUrl(item);
                             const label = getVariantLabel(item);
-                            const stock = item.variant.stockQuantity ?? 99999;
+                            const stock = item.variant?.stockQuantity ?? item.stockQuantity ?? 99999;
+                            const targetId = item.cartItemId || item.variantId;
+                            const productName = item.variant?.product?.name || item.productName || 'Sản phẩm';
+                            const price = Number(item.variant?.price || item.price || 0);
 
                             return (
                                 <div
-                                    key={item.cartItemId}
+                                    key={targetId}
                                     className="group flex gap-3 p-3 rounded-lg bg-white/[0.03] border border-white/[0.07] hover:border-white/[0.15] hover:bg-white/[0.06] transition-all duration-200"
                                 >
                                     {/* Ảnh */}
                                     <div className="relative w-16 h-20 flex-shrink-0 rounded-md overflow-hidden bg-white/5">
                                         {imgUrl ? (
-                                            <img src={imgUrl} alt={item.variant.product.name} className="w-full h-full object-cover" />
+                                            <img src={imgUrl} alt={productName} className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
                                                 <ShoppingBag size={20} className="text-gray-600" />
@@ -149,7 +161,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheck
 
                                     {/* Thông tin */}
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-white text-sm font-semibold truncate">{item.variant.product.name}</p>
+                                        <p className="text-white text-sm font-semibold truncate">{productName}</p>
                                         {label && (
                                             <p className="text-gray-500 text-xs mt-0.5 truncate">{label}</p>
                                         )}
@@ -175,12 +187,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheck
                                         {/* Giá + điều chỉnh số lượng */}
                                         <div className="flex items-center justify-between mt-2.5">
                                             <span className="text-primary font-bold text-sm">
-                                                {(Number(item.variant.price) * item.quantity).toLocaleString('vi-VN')}₫
+                                                {(price * item.quantity).toLocaleString('vi-VN')}₫
                                             </span>
                                             <div className="flex items-center gap-1">
                                                 {/* Giảm */}
                                                 <button
-                                                    onClick={() => updateItem(item.cartItemId, item.quantity - 1)}
+                                                    onClick={() => updateItem(targetId, item.quantity - 1)}
                                                     className="w-6 h-6 flex items-center justify-center rounded-sm bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer disabled:opacity-40"
                                                     disabled={isLoading}
                                                     aria-label="Giảm số lượng"
@@ -192,7 +204,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheck
                                                 </span>
                                                 {/* Tăng */}
                                                 <button
-                                                    onClick={() => updateItem(item.cartItemId, item.quantity + 1)}
+                                                    onClick={() => updateItem(targetId, item.quantity + 1)}
                                                     className="w-6 h-6 flex items-center justify-center rounded-sm bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer disabled:opacity-40"
                                                     disabled={isLoading || stockStatus === 'out'}
                                                     aria-label="Tăng số lượng"
@@ -205,7 +217,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheck
 
                                     {/* Xoá */}
                                     <button
-                                        onClick={() => removeItem(item.cartItemId)}
+                                        onClick={() => removeItem(targetId)}
                                         className="self-start mt-0.5 opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all cursor-pointer p-1"
                                         disabled={isLoading}
                                         aria-label={t('actions.remove')}

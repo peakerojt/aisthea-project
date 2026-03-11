@@ -244,6 +244,11 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
       if (existing) {
         existing.quantity += qty;
       } else {
+        const sizeAttr = variant.attributes?.find(a => a.attributeName === 'Size' || a.attributeName === 'Kích thước') ||
+          variant.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Size' || a.value?.attribute?.name === 'Kích thước');
+        const colorAttr = variant.attributes?.find(a => a.attributeName === 'Color' || a.attributeName === 'Màu' || a.attributeName === 'Màu sắc') ||
+          variant.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Color' || a.value?.attribute?.name === 'Màu' || a.value?.attribute?.name === 'Màu sắc');
+
         guestItems.push({
           variantId: variant.variantId,
           quantity: qty,
@@ -251,9 +256,14 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
           price: Number(variant.price || productDetails?.basePrice || basicInfo.price),
           imageUrl: basicInfo.image || productDetails?.images?.[0]?.imageUrl || '',
           stockQuantity: variant.stockQuantity ?? 99999,
+          size: sizeAttr?.attributeValue || (sizeAttr as any)?.value?.value || (sizeAttr as any)?.value || 'N/A',
+          color: colorAttr?.attributeValue || (colorAttr as any)?.value?.value || (colorAttr as any)?.value || 'N/A',
         });
       }
       saveGuestCart(guestItems);
+      // Dispatch storage event to notify other components (like CartContext) to re-read localStorage
+      window.dispatchEvent(new Event('storage'));
+
       showCartToast(productDetails?.name || basicInfo.name, 'Đăng nhập để hoàn tất mua hàng');
       return;
     }

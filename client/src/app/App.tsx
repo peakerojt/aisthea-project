@@ -153,8 +153,8 @@ const App: React.FC = () => {
       name: item.variant?.product?.name || item.productName || 'Sản phẩm',
       price: Number(item.variant?.price || item.price || 0),
       image: item.variant ? getCloudinaryProductCard(item.variant.product.images?.[0]?.imageUrl || '') : (item.imageUrl || ''),
-      color: item.variant?.variantAttributes?.find((a: any) => a.value.attribute.name === 'Color' || a.value.attribute.name === 'Màu' || a.value.attribute.name === 'Màu sắc')?.value.value || 'N/A',
-      size: item.variant?.variantAttributes?.find((a: any) => a.value.attribute.name === 'Size' || a.value.attribute.name === 'Kích thước')?.value.value || 'N/A',
+      color: item.variant?.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Color' || a.value?.attribute?.name === 'Màu' || a.value?.attribute?.name === 'Màu sắc')?.value?.value || item.color || 'N/A',
+      size: item.variant?.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Size' || a.value?.attribute?.name === 'Kích thước')?.value?.value || item.size || 'N/A',
       quantity: item.quantity,
       ref: item.variant?.sku || ''
     }));
