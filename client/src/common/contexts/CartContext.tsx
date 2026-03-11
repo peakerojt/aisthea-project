@@ -100,8 +100,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             // Tải giỏ khách từ localStorage
             setGuestItems(getGuestCart());
             setDbItems([]);
+
+            // Listen for cross-tab or manual 'storage' events to keep in sync
+            const handleStorageChange = () => {
+                setGuestItems(getGuestCart());
+            };
+            window.addEventListener('storage', handleStorageChange);
+            return () => window.removeEventListener('storage', handleStorageChange);
         }
-    }, [isAuthenticated]);
+    }, [isAuthenticated, fetchCart]);
 
     // ─── Gộp giỏ khách vào DB sau đăng nhập ────────────────────────────────
     const syncWithMerge = useCallback(async (localItems: GuestCartItem[]) => {
@@ -161,7 +168,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 if (exists) {
                     const maxQty = meta?.stockQuantity ?? 99999;
                     updated = prev.map(i =>
-                        i.variantId === variantId
+                        Number(i.variantId) === Number(variantId)
                             ? { ...i, quantity: Math.min(i.quantity + quantity, maxQty) }
                             : i
                     );
@@ -195,8 +202,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else {
             setGuestItems(prev => {
                 const updated = quantity <= 0
-                    ? prev.filter(i => i.variantId !== cartItemId)
-                    : prev.map(i => i.variantId === cartItemId ? { ...i, quantity } : i);
+                    ? prev.filter(i => Number(i.variantId) !== Number(cartItemId))
+                    : prev.map(i => Number(i.variantId) === Number(cartItemId) ? { ...i, quantity } : i);
                 saveGuestCart(updated);
                 return updated;
             });
@@ -218,7 +225,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         } else {
             setGuestItems(prev => {
-                const updated = prev.filter(i => i.variantId !== cartItemId);
+                const updated = prev.filter(i => Number(i.variantId) !== Number(cartItemId));
                 saveGuestCart(updated);
                 return updated;
             });

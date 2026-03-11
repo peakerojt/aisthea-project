@@ -64,8 +64,8 @@ export const StorefrontRoutes: React.FC<StorefrontRoutesProps> = ({
             <Suspense fallback={<PageFallback />}>
                 {view === 'STORE_HOME' && <Home setView={handleSetView} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} setSearchTerm={setSearchTerm} />}
                 {view === 'STORE_CATEGORY' && <Category setView={handleSetView} category={activeCategory} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} setSearchTerm={setSearchTerm} />}
-                {view === 'STORE_COLLECTION' && <Collection setView={handleSetView} category={activeCategory} setCategory={handleCategoryClick} collection={activeCollection} onProductClick={handleProductClick} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />}
-                {view === 'STORE_DETAIL' && <ProductDetail setView={handleSetView} setCategory={handleCategoryClick} addToCart={addToCart} cartCount={cart.reduce((acc, item) => acc + item.quantity, 0)} product={selectedProduct} setSearchTerm={setSearchTerm} />}
+                {view === 'STORE_COLLECTION' && <Collection setView={handleSetView} category={activeCategory} setCategory={handleCategoryClick} collection={activeCollection} setCollection={handleCollectionClick} onProductClick={handleProductClick} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />}
+                {view === 'STORE_DETAIL' && <ProductDetail setView={handleSetView} setCategory={handleCategoryClick} setCollection={handleCollectionClick} addToCart={addToCart} cartCount={cart.reduce((acc, item) => acc + item.quantity, 0)} product={selectedProduct} setSearchTerm={setSearchTerm} />}
                 {view === 'STORE_CART' && <ShoppingBag setView={handleSetView} setCategory={handleCategoryClick} cart={cart} updateQuantity={updateQuantity} removeItem={removeItem} />}
                 {view === 'STORE_STYLIST' && <Stylist setView={handleSetView} setCategory={handleCategoryClick} onProductClick={handleProductClick} />}
                 {view === 'STORE_WEATHER_OUTFIT' && <WeatherOutfitPage />}

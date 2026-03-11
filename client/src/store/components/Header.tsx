@@ -4,10 +4,12 @@ import { ViewState, CategoryType, ProductItem } from '@/types';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { fetchProducts, Product } from '@/common/services/product.service';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
+import { useToast } from '@/common/contexts/ToastContext';
 
 interface StoreHeaderProps {
   setView: (view: ViewState) => void;
   setCategory?: (category: CategoryType) => void;
+  setCollection?: (collection: string) => void;
   transparent?: boolean;
   searchTerm?: string;
   setSearchTerm?: (term: string) => void;
@@ -15,9 +17,10 @@ interface StoreHeaderProps {
   cartCount?: number;
 }
 
-export const Header: React.FC<StoreHeaderProps> = ({ setView, setCategory, transparent = false, searchTerm = '', setSearchTerm, onProductClick, cartCount = 0 }) => {
+export const Header: React.FC<StoreHeaderProps> = ({ setView, setCategory, setCollection, transparent = false, searchTerm = '', setSearchTerm, onProductClick, cartCount = 0 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const { user, role } = useAuth();
+  const { showToast } = useToast();
 
   // Search States
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -268,7 +271,10 @@ export const Header: React.FC<StoreHeaderProps> = ({ setView, setCategory, trans
                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest leading-relaxed">Không tìm thấy sản phẩm nào phù hợp</p>
                     <button
                       onClick={() => {
-                        saveSearchTerm(searchTermLocal);
+                        if (setSearchTerm) setSearchTerm('');
+                        setSearchTermLocal('');
+                        if (setCategory) setCategory('All' as any);
+                        if (setCollection) setCollection('All');
                         setView('STORE_COLLECTION');
                         setIsSearchActive(false);
                       }}

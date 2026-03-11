@@ -31,6 +31,7 @@ interface StoreCollectionProps {
   onProductClick: (product: Product | import('@/common/services/product.service').Product | import('@/types').ProductItem) => void;
   searchTerm?: string;
   setSearchTerm: (term: string) => void;
+  setCollection: (c: string) => void;
 }
 
 const HERO_IMAGES = {
@@ -118,7 +119,7 @@ const ProductGridCard: React.FC<{ product: Product; onProductClick: (p: Product 
 
 const ITEMS_PER_PAGE = 8;
 
-export const Collection: React.FC<StoreCollectionProps> = ({ setView, category = 'Men', setCategory, collection = 'Outerwear', onProductClick, searchTerm = '', setSearchTerm }) => {
+export const Collection: React.FC<StoreCollectionProps> = ({ setView, category = 'Men', setCategory, collection = 'Outerwear', onProductClick, searchTerm = '', setSearchTerm, setCollection }) => {
 
   const heroImage = HERO_IMAGES[collection as keyof typeof HERO_IMAGES] || HERO_IMAGES.Default;
 
@@ -256,94 +257,96 @@ export const Collection: React.FC<StoreCollectionProps> = ({ setView, category =
 
   return (
     <div className="min-h-screen bg-bg-dark flex flex-col text-white relative">
-      <Header setView={setView} setCategory={setCategory} transparent={true} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onProductClick={onProductClick} />
+      <Header setView={setView} setCategory={setCategory} setCollection={setCollection} transparent={true} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onProductClick={onProductClick} />
 
       {/* Filter Drawer Overlay */}
-      {isFilterDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsFilterDrawerOpen(false)}></div>
-          <div className="relative w-full max-w-sm bg-surface-dark h-full shadow-2xl p-8 overflow-y-auto animate-fade-in border-l border-white/10">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-xl font-bold uppercase tracking-widest">Filters</h2>
-              <button onClick={() => setIsFilterDrawerOpen(false)} className="hover:text-primary transition-colors">
-                <span className="material-symbols-outlined text-3xl">close</span>
-              </button>
-            </div>
-
-            <div className="space-y-8">
-              {/* Sort */}
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Sort By</h3>
-                <div className="space-y-3">
-                  {['Featured', 'Newest', 'Price: Low to High', 'Price: High to Low'].map(option => (
-                    <label key={option} className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${sortOption === option ? 'border-primary' : 'border-white/20 group-hover:border-white'}`}>
-                        {sortOption === option && <div className="w-2 h-2 rounded-full bg-primary"></div>}
-                      </div>
-                      <input type="radio" name="sort" className="hidden" checked={sortOption === option} onChange={() => setSortOption(option)} />
-                      <span className={`text-sm ${sortOption === option ? 'text-white font-bold' : 'text-gray-400 group-hover:text-white'}`}>{option}</span>
-                    </label>
-                  ))}
-                </div>
+      {
+        isFilterDrawerOpen && (
+          <div className="fixed inset-0 z-50 flex justify-end">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsFilterDrawerOpen(false)}></div>
+            <div className="relative w-full max-w-sm bg-surface-dark h-full shadow-2xl p-8 overflow-y-auto animate-fade-in border-l border-white/10">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-xl font-bold uppercase tracking-widest">Filters</h2>
+                <button onClick={() => setIsFilterDrawerOpen(false)} className="hover:text-primary transition-colors">
+                  <span className="material-symbols-outlined text-3xl">close</span>
+                </button>
               </div>
 
-              {/* Price Range */}
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Khoảng giá</h3>
-                <div className="flex items-center justify-between text-sm mb-4 font-mono">
-                  <span>{formatPrice(priceRange[0])}đ</span>
-                  <span>{formatPrice(priceRange[1])}đ</span>
+              <div className="space-y-8">
+                {/* Sort */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Sort By</h3>
+                  <div className="space-y-3">
+                    {['Featured', 'Newest', 'Price: Low to High', 'Price: High to Low'].map(option => (
+                      <label key={option} className="flex items-center gap-3 cursor-pointer group">
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${sortOption === option ? 'border-primary' : 'border-white/20 group-hover:border-white'}`}>
+                          {sortOption === option && <div className="w-2 h-2 rounded-full bg-primary"></div>}
+                        </div>
+                        <input type="radio" name="sort" className="hidden" checked={sortOption === option} onChange={() => setSortOption(option)} />
+                        <span className={`text-sm ${sortOption === option ? 'text-white font-bold' : 'text-gray-400 group-hover:text-white'}`}>{option}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="10000000"
-                  step="100000"
-                  value={priceRange[1]}
-                  onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
-                  className="w-full accent-primary h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
-                />
-              </div>
 
-              {/* Sizes */}
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Size</h3>
-                <div className="grid grid-cols-4 gap-2">
-                  {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map(size => (
-                    <button
-                      key={size}
-                      onClick={() => toggleSize(size)}
-                      className={`h-10 text-xs font-bold border transition-colors ${selectedSizes.includes(size) ? 'bg-white text-black border-white' : 'border-white/10 text-gray-400 hover:border-white hover:text-white'}`}
-                    >
-                      {size}
-                    </button>
-                  ))}
+                {/* Price Range */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Khoảng giá</h3>
+                  <div className="flex items-center justify-between text-sm mb-4 font-mono">
+                    <span>{formatPrice(priceRange[0])}đ</span>
+                    <span>{formatPrice(priceRange[1])}đ</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="10000000"
+                    step="100000"
+                    value={priceRange[1]}
+                    onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
+                    className="w-full accent-primary h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                  />
                 </div>
+
+                {/* Sizes */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Size</h3>
+                  <div className="grid grid-cols-4 gap-2">
+                    {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map(size => (
+                      <button
+                        key={size}
+                        onClick={() => toggleSize(size)}
+                        className={`h-10 text-xs font-bold border transition-colors ${selectedSizes.includes(size) ? 'bg-white text-black border-white' : 'border-white/10 text-gray-400 hover:border-white hover:text-white'}`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Clear Button */}
+                <button
+                  onClick={() => {
+                    setSortOption('Featured');
+                    setPriceRange([0, 5000000]);
+                    setSelectedSizes([]);
+                    setActiveCategoryFilter('All');
+                  }}
+                  className="w-full py-4 border border-white/10 text-xs font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-colors mt-8"
+                >
+                  Reset All Filters
+                </button>
+
+                <button
+                  onClick={() => setIsFilterDrawerOpen(false)}
+                  className="w-full py-4 bg-primary text-white text-xs font-bold uppercase tracking-widest hover:bg-red-700 transition-colors shadow-lg shadow-primary/20"
+                >
+                  View {filteredProducts.length} Results
+                </button>
               </div>
-
-              {/* Clear Button */}
-              <button
-                onClick={() => {
-                  setSortOption('Featured');
-                  setPriceRange([0, 5000000]);
-                  setSelectedSizes([]);
-                  setActiveCategoryFilter('All');
-                }}
-                className="w-full py-4 border border-white/10 text-xs font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-colors mt-8"
-              >
-                Reset All Filters
-              </button>
-
-              <button
-                onClick={() => setIsFilterDrawerOpen(false)}
-                className="w-full py-4 bg-primary text-white text-xs font-bold uppercase tracking-widest hover:bg-red-700 transition-colors shadow-lg shadow-primary/20"
-              >
-                View {filteredProducts.length} Results
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Hero */}
       <div className="relative h-[60vh] w-full overflow-hidden">
@@ -483,16 +486,6 @@ export const Collection: React.FC<StoreCollectionProps> = ({ setView, category =
           )}
         </div>
       </main>
-
-      {/* Mini Footer for Collection */}
-      <footer className="py-8 border-t border-white/10 text-center">
-        <div className="flex justify-center gap-6 mb-4">
-          {['Privacy', 'Terms', 'Shipping', 'Contact'].map(link => (
-            <a key={link} href="#" className="text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-white">{link}</a>
-          ))}
-        </div>
-        <p className="text-[10px] text-gray-600 uppercase tracking-widest">© 2024 Aisthea Inc.</p>
-      </footer>
-    </div>
+    </div >
   );
 };

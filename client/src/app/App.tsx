@@ -105,8 +105,8 @@ const App: React.FC = () => {
         name: (product?.name || itemRecord.productName || 'Sản phẩm') as string,
         price: Number(variant?.price || itemRecord.price || 0),
         image: variant ? getCloudinaryProductCard(images?.[0]?.imageUrl || '') : (itemRecord.imageUrl as string || ''),
-        color: variantAttributes?.find((a) => ['Color', 'Màu', 'Màu sắc'].includes(a.value.attribute.name))?.value.value || 'N/A',
-        size: variantAttributes?.find((a) => ['Size', 'Kích thước'].includes(a.value.attribute.name))?.value.value || 'N/A',
+        color: variantAttributes?.find((a) => ['Color', 'Màu', 'Màu sắc'].includes(a.value.attribute.name))?.value.value || (itemRecord.color as string) || 'N/A',
+        size: variantAttributes?.find((a) => ['Size', 'Kích thước'].includes(a.value.attribute.name))?.value.value || (itemRecord.size as string) || 'N/A',
         quantity: itemRecord.quantity as number,
         ref: (variant?.sku as string) || ''
       };

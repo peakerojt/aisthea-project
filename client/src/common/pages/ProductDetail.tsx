@@ -25,13 +25,14 @@ interface ReviewItem {
 interface ProductDetailProps {
   setView: (v: ViewState, id?: number) => void;
   setCategory: (c: CategoryType) => void;
+  setCollection: (c: string) => void;
   addToCart: (item: CartItem) => void;
   cartCount: number;
   product?: unknown;
   setSearchTerm: (term: string) => void;
 }
 
-export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCategory, addToCart, cartCount, product, setSearchTerm }) => {
+export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCategory, setCollection, addToCart, cartCount, product, setSearchTerm }) => {
   const initialProduct = product as Partial<ApiProductType> & {
     productId?: number | string;
     id?: number | string;
@@ -41,7 +42,6 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     price?: number;
     category?: string | { name: string };
   } | undefined;
-
   const [productDetails, setProductDetails] = useState<ApiProductType | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<ApiProductType[]>([]);
   const [recentProducts, setRecentProducts] = useState<ApiProductType[]>([]);
@@ -101,7 +101,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
 
   // Fallback default product if none selected
   if (!initialProduct) {
-    return <div className="min-h-screen bg-bg-dark text-white flex items-center justify-center">Product not found.</div>;
+    return <div className="min-h-screen bg-bg-dark text-white flex items-center justify-center">Không tìm thấy sản phẩm.</div>;
   }
 
   // Normalize product data
@@ -264,6 +264,11 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
       if (existing) {
         existing.quantity += qty;
       } else {
+        const sizeAttr = variant.attributes?.find(a => a.attributeName === 'Size' || a.attributeName === 'Kích thước') ||
+          variant.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Size' || a.value?.attribute?.name === 'Kích thước');
+        const colorAttr = variant.attributes?.find(a => a.attributeName === 'Color' || a.attributeName === 'Màu' || a.attributeName === 'Màu sắc') ||
+          variant.variantAttributes?.find((a: any) => a.value?.attribute?.name === 'Color' || a.value?.attribute?.name === 'Màu' || a.value?.attribute?.name === 'Màu sắc');
+
         guestItems.push({
           variantId: variant.variantId,
           quantity: qty,
@@ -271,9 +276,14 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
           price: Number(variant.price || productDetails?.basePrice || basicInfo.price),
           imageUrl: basicInfo.image || productDetails?.images?.[0]?.imageUrl || '',
           stockQuantity: variant.stockQuantity ?? 99999,
+          size: sizeAttr?.attributeValue || (sizeAttr as any)?.value?.value || (sizeAttr as any)?.value || 'N/A',
+          color: colorAttr?.attributeValue || (colorAttr as any)?.value?.value || (colorAttr as any)?.value || 'N/A',
         });
       }
       saveGuestCart(guestItems);
+      // Dispatch storage event to notify other components (like CartContext) to re-read localStorage
+      window.dispatchEvent(new Event('storage'));
+
       showCartToast(productDetails?.name || basicInfo.name, 'Đăng nhập để hoàn tất mua hàng');
       return;
     }
@@ -332,6 +342,23 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     loadData();
   }
 
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: productDetails?.name || basicInfo.name,
+          url: url
+        });
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      navigator.clipboard.writeText(url);
+      showToast({ type: 'success', title: 'Đã sao chép liên kết', subtitle: 'Bạn có thể chia sẻ liên kết này.', duration: 3000 });
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen w-full bg-bg-dark text-white">
       <div className="flex flex-col lg:flex-row w-full">
@@ -346,7 +373,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
               className="w-full min-h-[60vh] lg:h-full pb-10 lg:pb-0"
               enableZoom={true}
               showThumbnails={true}
-              viewLabels={['FRONT VIEW', 'SIDE VIEW', 'BACK VIEW']}
+              viewLabels={['MẶT TRƯỚC', 'MẶT CẠNH', 'MẶT SAU']}
             />
           )}
           <button onClick={() => setView('STORE_COLLECTION')} className="absolute top-6 left-6 w-10 h-10 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-black/70 transition-all cursor-pointer z-10 flex items-center justify-center">
@@ -359,6 +386,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
           <Header
             setView={setView}
             setCategory={setCategory}
+            setCollection={setCollection}
             transparent={false}
             setSearchTerm={setSearchTerm}
             onProductClick={detailsTrigger}
@@ -367,27 +395,22 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
 
           <div className="flex-1 flex flex-col pt-20"> {/* Add padding top because Header is fixed */}
 
-            <div className="px-5 py-4 lg:px-10 lg:py-4 flex flex-col gap-4">
-              <div className="flex flex-col gap-6">
-                <div className="flex justify-between items-start">
-                  <div className="flex flex-col gap-1">
-                    <p className="text-primary text-[8px] font-bold tracking-[0.3em] uppercase">{productDetails?.category?.name || 'Exclusive Collection'}</p>
-                    <p className="text-gray-500 text-[8px] font-medium tracking-widest uppercase">Ref. {basicInfo.ref}</p>
-                  </div>
+            <div className="px-5 py-2 lg:px-10 flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-end items-start">
                   <div className="flex gap-4">
-                    <button className="w-10 h-10 flex items-center justify-center rounded-full border border-border-dark hover:border-white hover:text-white text-gray-400 transition-all"><span className="material-symbols-outlined text-xl">favorite</span></button>
-                    <button className="w-10 h-10 flex items-center justify-center rounded-full border border-border-dark hover:border-white hover:text-white text-gray-400 transition-all"><span className="material-symbols-outlined text-xl">share</span></button>
+                    <button onClick={handleShare} className="w-10 h-10 flex items-center justify-center bg-black/50 backdrop-blur-md rounded-full border border-border-dark hover:border-white hover:text-white text-gray-400 transition-all cursor-pointer z-50 pointer-events-auto"><span className="material-symbols-outlined text-xl">share</span></button>
                   </div>
                 </div>
 
-                <h1 className="text-xl lg:text-3xl font-black leading-[1.1] tracking-tight uppercase text-white animate-fade-in-up">
+                <h1 className="text-xl lg:text-3xl font-black leading-[1.1] tracking-tight uppercase text-white animate-fade-in-up mt-0">
                   {productDetails?.name || basicInfo.name}
                 </h1>
 
                 {/* Price and stock are now driven by ProductVariantSelector below */}
 
                 <p className="text-gray-400 leading-relaxed text-xs max-w-lg">
-                  {productDetails?.description || "Crafted from premium materials, this piece defines modern luxury. Features a tailored silhouette, refined hardware, and Aisthea's signature structural design."}
+                  {productDetails?.description || "Được chế tác từ những vật liệu cao cấp, sản phẩm này định nghĩa lại sự sang trọng hiện đại. Nổi bật với kiểu dáng được cắt may tỉ mỉ, phụ kiện tinh tế và thiết kế cấu trúc mang tính biểu tượng của Aisthea."}
                 </p>
               </div>
 
@@ -410,23 +433,23 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                     <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&h=200&fit=crop" alt="Stylist" className="w-full h-full object-cover" />
                   </div>
                   <div className="flex flex-col gap-0.5">
-                    <p className="text-white font-bold text-xs tracking-tight">Need help with styling?</p>
-                    <p className="text-gray-500 text-[10px]">Our master stylists are available for expert advice.</p>
+                    <p className="text-white font-bold text-xs tracking-tight">Cần hỗ trợ phối đồ?</p>
+                    <p className="text-gray-500 text-[10px]">Các stylist của chúng tôi luôn sẵn sàng tư vấn chuyên nghiệp.</p>
                   </div>
                 </div>
                 <button className="px-6 py-2 border border-white text-[8px] font-black uppercase tracking-[0.2em] hover:bg-white hover:text-black transition-all whitespace-nowrap">
-                  Chat With Stylist
+                  TRÒ CHUYỆN CÙNG STYLIST
                 </button>
               </div>
 
               <div className="flex flex-col divide-y divide-border-dark border-y border-border-dark mt-4 mb-4">
-                {['Product Features', 'Material & Care', 'Shipping & Returns'].map(item => (
+                {['ĐẶC ĐIỂM SẢN PHẨM', 'CHẤT LIỆU & BẢO QUẢN', 'VẬN CHUYỂN & ĐỔI TRẢ'].map(item => (
                   <details key={item} className="group py-4 cursor-pointer">
                     <summary className="flex items-center justify-between font-black text-[10px] uppercase tracking-[0.2em] list-none select-none text-white/80 group-hover:text-white transition-colors">
                       {item} <span className="material-symbols-outlined text-gray-500 transition-transform group-open:rotate-180">expand_more</span>
                     </summary>
                     <div className="pt-6 text-sm text-gray-400 leading-relaxed max-w-2xl animate-fade-in">
-                      <p>Designed with meticulous attention to detail at our flagship workshop. {item === 'Material & Care' ? '100% Premium lightweight wool. Dry clean only. Iron at low temperature if necessary.' : 'Complimentary express shipping on all orders over 5.000.000đ. Easy returns within 14 days of receipt.'}</p>
+                      <p>{item === 'ĐẶC ĐIỂM SẢN PHẨM' ? 'Được thiết kế với sự chú ý tỉ mỉ đến từng chi tiết tại xưởng chính của chúng tôi.' : item === 'CHẤT LIỆU & BẢO QUẢN' ? '100% Wool siêu nhẹ cao cấp. Chỉ giặt khô. Ủi ở nhiệt độ thấp nếu cần thiết.' : 'Miễn phí giao hàng nhanh cho mọi đơn hàng từ 5.000.000đ. Đổi trả dễ dàng trong vòng 14 ngày sau khi nhận hàng.'}</p>
                     </div>
                   </details>
                 ))}
@@ -436,7 +459,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
               {recentProducts.length > 0 && (
                 <div className="py-4 border-t border-border-dark/30">
                   <div className="flex items-center gap-4 mb-3">
-                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500">Recently Viewed</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500">VỪA MỚI XEM</span>
                     <div className="h-px flex-1 bg-border-dark/30"></div>
                   </div>
                   <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
@@ -466,7 +489,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
               {/* Reviews Section */}
               <div className="mt-10 border-t border-border-dark pt-8">
                 <h2 className="text-lg font-bold uppercase tracking-wider mb-4">
-                  Customer Reviews
+                  Đánh giá của khách hàng
                 </h2>
 
                 {reviews.length === 0 && (
@@ -493,8 +516,8 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
               {suggestedProducts.length > 0 && (
                 <div className="mt-2 pt-2 pb-20">
                   <div className="flex flex-col gap-2 mb-6">
-                    <span className="text-primary text-[10px] font-black tracking-[0.4em] uppercase">Recommended for You</span>
-                    <h2 className="text-3xl font-black uppercase tracking-tight text-white mb-2">You May Also Like</h2>
+                    <span className="text-primary text-[10px] font-black tracking-[0.4em] uppercase">GỢI Ý CHO BẠN</span>
+                    <h2 className="text-3xl font-black uppercase tracking-tight text-white mb-2">CÓ THỂ BẠN SẼ THÍCH</h2>
                     <div className="h-1 w-12 bg-primary"></div>
                   </div>
 
@@ -530,8 +553,8 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
         <section className="px-6 py-12 lg:px-24 bg-bg-dark border-t border-border-dark/30">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6 relative">
             <div className="flex flex-col gap-4">
-              <span className="text-primary text-[10px] font-black tracking-[0.4em] uppercase">Recommended for You</span>
-              <h2 className="text-2xl lg:text-4xl font-black uppercase tracking-tighter text-white">You May Also Like</h2>
+              <span className="text-primary text-[10px] font-black tracking-[0.4em] uppercase">GỢI Ý MUA SẮM</span>
+              <h2 className="text-2xl lg:text-4xl font-black uppercase tracking-tighter text-white">SẢN PHẨM TƯƠNG TỰ</h2>
             </div>
 
             <div className="flex items-center gap-4">
@@ -583,10 +606,10 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                   {/* Quick Actions overlay */}
                   <div className="absolute bottom-0 left-0 right-0 flex flex-col translate-y-full group-hover:translate-y-0 transition-transform duration-500 overflow-hidden">
                     <button className="h-12 bg-white text-black text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-colors">
-                      Quick View
+                      XEM NHANH
                     </button>
                     <button className="h-12 bg-black/80 text-white text-[10px] font-black uppercase tracking-widest hover:bg-black transition-colors">
-                      Add to Bag
+                      THÊM VÀO GIỎ
                     </button>
                   </div>
                 </div>
@@ -595,7 +618,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
                   <div className="flex gap-3 items-center">
                     <p className="text-xs font-medium text-gray-500">{new Intl.NumberFormat('vi-VN').format(p.basePrice)}đ</p>
                     {p.basePrice > 2000000 && (
-                      <span className="text-[8px] font-black text-primary border border-primary/30 px-1.5 rounded-sm">MEMBERS ONLY</span>
+                      <span className="text-[8px] font-black text-primary border border-primary/30 px-1.5 rounded-sm">DÀNH CHO THÀNH VIÊN</span>
                     )}
                   </div>
                 </div>
