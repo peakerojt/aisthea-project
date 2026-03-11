@@ -1,5 +1,5 @@
 import React from 'react';
-import { OrderDetail } from '@/common/services/orderApi';
+import { OrderDetail } from '@/common/services/order.service';
 import { OrderStatusBadge, getStatusTone } from '@/admin/components/OrderStatusBadge';
 import { formatVietnamTime } from '@/common/utils/formatDate';
 

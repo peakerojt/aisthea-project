@@ -1,14 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  cancelOrder,
-  confirmReceipt,
-  fetchOrderDetail,
-  OrderDetail,
-  OrderItem,
-  OrderTimelineItem,
-} from '@/common/services/orderApi';
+import { OrderDetail, OrderItem, OrderTimelineItem, orderService } from '@/common/services/order.service';;
 import { Header } from '@/store/components/Header';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { OrderHeader } from '@/common/components/OrderHeader';
@@ -78,14 +71,14 @@ export const OrderDetailPage: React.FC = () => {
     refetch,
   } = useQuery({
     queryKey: ['order-detail', id],
-    queryFn: () => fetchOrderDetail(id || ''),
+    queryFn: () => orderService.fetchOrderDetail(id || ''),
     enabled: !!id && role !== 'guest',
     retry: false,
   });
 
   // ── Cancel mutation ──
   const cancelMutation = useMutation({
-    mutationFn: () => cancelOrder(id || ''),
+    mutationFn: () => orderService.cancelOrderUser(id || ''),
     onMutate: async () => {
       if (!order) return;
       await queryClient.cancelQueries({ queryKey: ['order-detail', id] });
@@ -113,7 +106,7 @@ export const OrderDetailPage: React.FC = () => {
 
   // ── Confirm receipt mutation ──
   const confirmReceiptMutation = useMutation({
-    mutationFn: () => confirmReceipt(id || ''),
+    mutationFn: () => orderService.confirmReceipt(id || ''),
     onSuccess: () => {
       setConfirmReceiptDialog(false);
       setReceiptToastMsg('Cảm ơn bạn đã mua sắm! Vui lòng đánh giá sản phẩm nhé. 🎉');

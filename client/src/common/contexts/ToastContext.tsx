@@ -103,8 +103,8 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
         >
             {/* Left accent bar */}
             <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${toast.type === 'cart' ? 'bg-red-500' :
-                    toast.type === 'success' ? 'bg-emerald-400' :
-                        toast.type === 'error' ? 'bg-red-400' : 'bg-blue-400'
+                toast.type === 'success' ? 'bg-emerald-400' :
+                    toast.type === 'error' ? 'bg-red-400' : 'bg-blue-400'
                 }`} />
 
             {/* Icon */}
@@ -140,8 +140,8 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
             <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/5">
                 <div
                     className={`h-full ${toast.type === 'cart' ? 'bg-red-500' :
-                            toast.type === 'success' ? 'bg-emerald-400' :
-                                toast.type === 'error' ? 'bg-red-400' : 'bg-blue-400'
+                        toast.type === 'success' ? 'bg-emerald-400' :
+                            toast.type === 'error' ? 'bg-red-400' : 'bg-blue-400'
                         }`}
                     style={{
                         width: '100%',
@@ -194,6 +194,17 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             subtitle: subtitle ?? `${productName} · Đăng nhập để hoàn tất mua hàng`,
             duration: 4000,
         });
+    }, [showToast]);
+
+    React.useEffect(() => {
+        const handleGlobalToast = (e: Event) => {
+            const customEvent = e as CustomEvent<Omit<ToastMessage, 'id'>>;
+            if (customEvent.detail) {
+                showToast(customEvent.detail);
+            }
+        };
+        window.addEventListener('app:toast', handleGlobalToast);
+        return () => window.removeEventListener('app:toast', handleGlobalToast);
     }, [showToast]);
 
     return (

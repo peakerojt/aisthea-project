@@ -1,6 +1,6 @@
 import React from 'react';
 import { Star } from 'lucide-react';
-import { OrderDetail, OrderItem } from '@/common/services/orderApi';
+import { OrderDetail, OrderItem } from '@/common/services/order.service';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);

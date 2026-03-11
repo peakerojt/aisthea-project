@@ -1,5 +1,5 @@
 import React from 'react';
-import { OrderDetail } from '@/common/services/orderApi';
+import { OrderDetail } from '@/common/services/order.service';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);

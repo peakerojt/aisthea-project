@@ -49,6 +49,14 @@ class ApiClient {
                 const errorData = await response.json().catch(() => ({
                     error: `HTTP ${response.status}: ${response.statusText}`,
                 }));
+                const errorMessage = errorData.error || errorData.message || `Request failed with status ${response.status}`;
+
+                // Global Toast Trigger for server/app errors
+                if (response.status >= 500) {
+                    window.dispatchEvent(new CustomEvent('app:toast', {
+                        detail: { type: 'error', title: 'Lỗi máy chủ', subtitle: errorMessage }
+                    }));
+                }
 
                 // If unauthorized (session expired), redirect to login
                 if (response.status === 401) {
@@ -56,6 +64,9 @@ class ApiClient {
                     if (!window.location.pathname.startsWith('/login')) {
                         window.location.href = '/login';
                     }
+                    window.dispatchEvent(new CustomEvent('app:toast', {
+                        detail: { type: 'error', title: 'Hết phiên đăng nhập', subtitle: 'Vui lòng đăng nhập lại' }
+                    }));
                 }
 
                 // If account is banned, dispatch a global event so AuthContext can auto-logout
@@ -65,13 +76,18 @@ class ApiClient {
                     }));
                 }
 
-                throw new Error(errorData.error || errorData.message || `Request failed with status ${response.status}`);
+                throw new Error(errorMessage);
             }
 
             // Parse JSON response
             return await response.json();
         } catch (error) {
             console.error('API request failed:', error);
+            if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+                window.dispatchEvent(new CustomEvent('app:toast', {
+                    detail: { type: 'error', title: 'Lỗi kết nối', subtitle: 'Không thể tải dữ liệu từ máy chủ' }
+                }));
+            }
             throw error;
         }
     }

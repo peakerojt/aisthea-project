@@ -18,12 +18,15 @@ vi.mock('../../components/Header', () => ({
 const fetchOrderDetail = vi.fn();
 const cancelOrder = vi.fn();
 
-vi.mock('../../services/orderApi', async () => {
-  const actual = await vi.importActual<any>('../../services/orderApi');
+vi.mock('../../services/order.service', async () => {
+  const actual = await vi.importActual<any>('../../services/order.service');
   return {
     ...actual,
-    fetchOrderDetail: (...args: any[]) => fetchOrderDetail(...args),
-    cancelOrder: (...args: any[]) => cancelOrder(...args),
+    orderService: {
+      ...actual.orderService,
+      fetchOrderDetail: (...args: any[]) => fetchOrderDetail(...args),
+      cancelOrderUser: (...args: any[]) => cancelOrder(...args),
+    }
   };
 });
 

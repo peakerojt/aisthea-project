@@ -3,19 +3,57 @@
 // User-facing types (existing)
 // ─────────────────────────────────────────────────────────────────────────────
 
+
+
+
+
+export type OrderStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'shipping'
+  | 'delivered'
+  | 'cancelled'
+  | 'canceled'
+  | 'returned'
+  | 'failed'
+  | string;
+
+export interface OrderTimelineItem {
+  status: OrderStatus;
+  at: string;
+}
+
+export interface OrderPricing {
+  itemsTotal: number;
+  shippingFee: number;
+  discount: number;
+  tax: number;
+  grandTotal: number;
+}
+
 export interface OrderItem {
   orderItemId: number;
+  productId: string | null;
   productName: string;
   sku: string;
-  variantName: string;
+  variantId?: number | null;
+  variantName?: string;
+  variant?: string;
   unitPrice: string;
+  price?: number;
   quantity: number;
   lineTotal: string;
+  subtotal?: number;
+  thumbnail?: string | null;
+  thumbnailUrl?: string | null;
+  isReviewed?: boolean;
+  reviewId?: number | null;
 }
 
 export interface OrderDetail {
   orderId: number;
   orderNumber: string;
+  orderCode?: string; // used by some storefront components
   status: string;
   paymentStatus: string;
   paymentMethod?: string;
@@ -26,12 +64,15 @@ export interface OrderDetail {
   note?: string | null;
   shippingAddress: {
     recipientName: string;
+    recipientPhone?: string; // mapped backwards compatible
     phone: string;
     city: string;
     district?: string;
     ward?: string;
     addressDetail: string;
+    addressLine?: string; // mapped backwards compatible
   };
+  pricing?: OrderPricing;
   items: OrderItem[];
   payments?: {
     paymentId: number;
@@ -103,7 +144,7 @@ export interface AdminOrder {
 }
 
 export interface AdminOrderItem extends OrderItem {
-  productId: number;
+  productId: string | null;
   image: string | null;
 }
 
@@ -177,6 +218,44 @@ import { orderApi } from '@/common/api/order.api';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const orderService = {
+  async fetchOrderDetail(id: string): Promise<any> {
+    const response = await orderApi.getMyOrderDetail<any>(id);
+    const raw = response.data ? response.data : response;
+    return {
+      ...raw,
+      pricing: raw.pricing || {
+        itemsTotal: parseFloat(raw.totalAmount ?? '0') + parseFloat(raw.discountAmount ?? '0'),
+        shippingFee: 0,
+        discount: parseFloat(raw.discountAmount ?? '0'),
+        tax: 0,
+        grandTotal: parseFloat(raw.totalAmount ?? '0'),
+      },
+      items: (raw.items ?? []).map((item: any) => ({
+        ...item,
+        variantId: item.variantId ?? null,
+        productId: item.productId ?? null,
+        thumbnailUrl: item.thumbnailUrl ?? item.thumbnail ?? null,
+        variantName: item.variantName ?? item.variant ?? '',
+        price: parseFloat(item.unitPrice ?? item.price ?? '0'),
+        subtotal: parseFloat(item.lineTotal ?? item.subtotal ?? '0'),
+      })),
+      timeline: raw.statusHistory?.map((h: any) => ({
+        status: h.status,
+        at: h.changedAt ?? h.at ?? new Date().toISOString(),
+      })) || raw.timeline || [],
+    };
+  },
+
+  async cancelOrderUser(id: string): Promise<any> {
+    const res = await orderApi.cancelOrder<any>(id);
+    return res.data ? res.data : res;
+  },
+
+  async confirmReceipt(id: string): Promise<any> {
+    return orderApi.confirmReceipt(id);
+  },
+
+
   async getMyOrders(params?: {
     status?: string;
     page?: number;
@@ -198,11 +277,13 @@ export const orderService = {
   },
 
   async getMyOrderDetail(orderId: number): Promise<OrderDetail> {
-    return orderApi.getMyOrderDetail<OrderDetail>(orderId);
+    const res = await orderApi.getMyOrderDetail<any>(orderId);
+    return res.data ? res.data : res;
   },
 
   async cancelMyOrder(orderId: number): Promise<OrderDetail> {
-    return orderApi.cancelMyOrder<OrderDetail>(orderId);
+    const res = await orderApi.cancelMyOrder<any>(orderId);
+    return res.data ? res.data : res;
   },
 };
 

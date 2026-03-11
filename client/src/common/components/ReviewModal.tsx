@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Star, X, Loader2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createReview } from '@/common/services/review.service';
-import { OrderItem } from '@/common/services/orderApi';
+import { OrderItem } from '@/common/services/order.service';
 
 interface ReviewModalProps {
     open: boolean;

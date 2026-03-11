@@ -1,5 +1,5 @@
 import React from 'react';
-import { OrderDetail } from '@/common/services/orderApi';
+import { OrderDetail } from '@/common/services/order.service';
 
 export const ShippingAddressCard: React.FC<{ order: OrderDetail }> = ({ order }) => {
   const a = order.shippingAddress;

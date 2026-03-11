@@ -1,0 +1,23 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/Administrator/Downloads/OJT/Week3_GIT/AISTHEA-Project/client[39m
+
+
+[31m⎯⎯⎯⎯⎯⎯[1m[7m Failed Suites 2 [27m[22m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[31m[1m[7m FAIL [27m[22m[39m src/common/pages/OrderDetailPage.return.test.tsx[2m [ src/common/pages/OrderDetailPage.return.test.tsx ][22m
+[31m[1mError[22m: Failed to load url C:/Users/Administrator/Downloads/OJT/Week3_GIT/AISTHEA-Project/client/src/setupTests.ts (resolved id: C:/Users/Administrator/Downloads/OJT/Week3_GIT/AISTHEA-Project/client/src/setupTests.ts). Does the file exist?[39m
+[90m [2m❯[22m loadAndTransform node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:[2m51969:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m src/common/pages/OrderDetailPage.test.tsx[2m [ src/common/pages/OrderDetailPage.test.tsx ][22m
+[31m[1mError[22m: Failed to load url C:/Users/Administrator/Downloads/OJT/Week3_GIT/AISTHEA-Project/client/src/setupTests.ts (resolved id: C:/Users/Administrator/Downloads/OJT/Week3_GIT/AISTHEA-Project/client/src/setupTests.ts). Does the file exist?[39m
+[90m [2m❯[22m loadAndTransform node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:[2m51969:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m      Tests [22m [2mno tests[22m
+[2m   Start at [22m 13:16:19
+[2m   Duration [22m 1.05s[2m (transform 15ms, setup 0ms, collect 0ms, tests 0ms, environment 902ms, prepare 253ms)[22m
+
