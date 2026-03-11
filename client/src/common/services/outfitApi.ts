@@ -1,6 +1,6 @@
-import { api } from '../utils/api';
-import { OutfitProfile, OutfitRecommendation } from '../types/outfit';
-import { WeatherResponse } from '../types/weather';
+import { api } from '@/common/utils/api';
+import { OutfitProfile, OutfitRecommendation } from '@/types/outfit';
+import { WeatherResponse } from '@/types/weather';
 
 export const requestOutfitRecommendation = async ({
   weather,
