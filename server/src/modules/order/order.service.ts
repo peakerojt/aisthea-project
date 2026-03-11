@@ -599,17 +599,11 @@ export async function createOrder(
       orderNumber,
       userId: currentUser.userId,
       totalAmount
-    });
-
-    return orderId;
-  });
-
-  // Re-fetch with full relations so we can return the standard DTO
+    });    return orderId;
+  });  // Re-fetch with full relations so we can return the standard DTO
   const order = await findOrderByIdWithRelations(newOrderId);
   if (!order) {
     // Should never happen unless the DB is in a very unusual state
     throw new AppError('INTERNAL_ERROR', 'Order was created but could not be retrieved', 500);
-  }
-
-  return mapOrderToDto(order);
+  }  return mapOrderToDto(order);
 }

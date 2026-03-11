@@ -40,6 +40,12 @@ const envSchema = z.object({
     EMAIL_USER: z.string().optional().default(''),
     EMAIL_PASS: z.string().optional().default(''),
     EMAIL_FROM: z.string().optional().default(''),
+
+    // Weather + AI
+    WEATHER_API_KEY: z.string().optional().default(''),
+    OPENAI_API_KEY: z.string().optional().default(''),
+    OPENAI_MODEL: z.string().optional().default('gpt-4o-mini'),
+    MOCK_AI: z.string().optional().default('false'),
 });
 
 const _parsedEnv = envSchema.safeParse(process.env);
@@ -71,4 +77,8 @@ export const env = {
     emailUser: _parsedEnv.data.EMAIL_USER,
     emailPass: _parsedEnv.data.EMAIL_PASS,
     emailFrom: _parsedEnv.data.EMAIL_FROM,
+    weatherApiKey: _parsedEnv.data.WEATHER_API_KEY,
+    openAiApiKey: _parsedEnv.data.OPENAI_API_KEY,
+    openAiModel: _parsedEnv.data.OPENAI_MODEL,
+    mockAi: _parsedEnv.data.MOCK_AI === 'true',
 } as const;

@@ -18,6 +18,8 @@ import authModuleRoutes from './modules/auth/auth.routes';
 import productModuleRoutes from './modules/products/product.routes';
 import categoryModuleRoutes from './modules/categories/category.routes';
 import reviewModuleRoutes from './modules/reviews/review.routes';
+import weatherRoutes from './modules/weather/weather.routes';
+import outfitRoutes from './modules/outfit/outfit.routes';
 
 // ─── Existing legacy module routes (unchanged) ────────────────────────────────
 import orderModuleRoutes from './modules/order/order.route';
@@ -79,6 +81,8 @@ export function createApp() {
   app.use('/api/products', productModuleRoutes);
   app.use('/api/categories', categoryModuleRoutes);
   app.use('/api/reviews', reviewModuleRoutes);
+  app.use('/api/weather', weatherRoutes);
+  app.use('/api/outfit', outfitRoutes);
 
   // ── Order routes — IMPORTANT: legacy orderRoutes MUST come before orderModuleRoutes
   // orderModuleRoutes has GET /:id which would shadow /admin, /my etc. if registered first
@@ -121,4 +125,3 @@ export function createApp() {
 
   return app;
 }
-

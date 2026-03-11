@@ -15,6 +15,7 @@ const StoreCollection = React.lazy(() => import('../pages/StoreCollection').then
 const ProductDetail = React.lazy(() => import('../pages/ProductDetail').then(m => ({ default: m.ProductDetail })));
 const ShoppingBag = React.lazy(() => import('../pages/ShoppingBag').then(m => ({ default: m.ShoppingBag })));
 const StoreStylist = React.lazy(() => import('../pages/StoreStylist').then(m => ({ default: m.StoreStylist })));
+const WeatherOutfitPage = React.lazy(() => import('../pages/WeatherOutfitPage').then(m => ({ default: m.WeatherOutfitPage })));
 const StoreProfile = React.lazy(() => import('../pages/StoreProfile').then(m => ({ default: m.StoreProfile })));
 const StoreMyOrders = React.lazy(() => import('../pages/StoreMyOrders').then(m => ({ default: m.StoreMyOrders })));
 const Checkout = React.lazy(() => import('../pages/Checkout'));
