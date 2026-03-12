@@ -524,21 +524,24 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
             />
           )}
 
-          {/* Back button */}
+          {/* Fashionable Back button */}
           <button
             onClick={() => setView('STORE_COLLECTION')}
             title={t('pdp.back')}
-            className="absolute top-5 left-5 w-10 h-10 bg-black/50 backdrop-blur-md rounded-full text-white
-                       hover:bg-black/70 transition-all cursor-pointer z-10 flex items-center justify-center"
+            className="absolute top-8 left-8 w-12 h-12 flex items-center justify-center 
+                       bg-black/20 backdrop-blur-md rounded-full text-white/70 border border-white/10
+                       hover:bg-white hover:text-black hover:border-white transition-all duration-500 cursor-pointer z-50 group"
           >
-            <span className="material-symbols-outlined text-xl">arrow_back</span>
+            <span className="material-symbols-outlined text-lg font-light group-hover:scale-110 transition-transform">
+              arrow_back_ios_new
+            </span>
           </button>
         </div>
 
         {/* RIGHT — Scrollable product details */}
         <div className="w-full lg:w-[52%] xl:w-1/2 flex flex-col bg-bg-dark
                         lg:h-[calc(100vh-4rem)] lg:overflow-y-auto">
-          <div className="px-5 py-8 lg:px-10 xl:px-14 flex flex-col gap-6">
+          <div className="pl-6 pr-10 py-10 lg:pl-10 lg:pr-14 xl:pl-16 xl:pr-24 flex flex-col gap-8">
 
             {/* Header row: name + share */}
             <div className="flex items-start justify-between gap-4">
@@ -566,7 +569,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
             </div>
 
             {/* Description */}
-            <p className="text-gray-400 leading-relaxed text-sm max-w-lg">
+            <p className="text-gray-400 leading-relaxed text-sm max-w-xl">
               {productDetails?.description || t('pdp.defaultDesc')}
             </p>
 

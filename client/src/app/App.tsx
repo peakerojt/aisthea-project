@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ViewState, CategoryType, CartItem, Product } from '@/types';
+import type { SupportSection } from '@/store/pages/SupportPage';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { useCart } from '@/common/contexts/CartContext';
 import { useToast } from '@/common/contexts/ToastContext';
@@ -33,6 +34,13 @@ const App: React.FC = () => {
   const [editProductId, setEditProductId] = useState<number | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [activeSupportSection, setActiveSupportSection] = useState<SupportSection>('how-to-buy');
+
+  const handleSupportClick = (section: SupportSection) => {
+    setActiveSupportSection(section);
+    setView('STORE_SUPPORT');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleSetView = (v: ViewState, id?: number) => {
     if (v === 'ADMIN_EDIT_PRODUCT' && id !== undefined) setEditProductId(id);
@@ -157,6 +165,7 @@ const App: React.FC = () => {
         addToCart={addToCart}
         updateQuantity={updateQuantity}
         removeItem={removeItem}
+        handleSupportClick={handleSupportClick}
       />
     );
   }
@@ -193,6 +202,7 @@ const App: React.FC = () => {
       addToCart={addToCart}
       updateQuantity={updateQuantity}
       removeItem={removeItem}
+      handleSupportClick={handleSupportClick}
     />
   );
 };

@@ -8,6 +8,8 @@ const Collection = React.lazy(() => import('@/store/pages/Collection').then(m =>
 const ProductDetail = React.lazy(() => import('@/common/pages/ProductDetail').then(m => ({ default: m.ProductDetail })));
 const ShoppingBag = React.lazy(() => import('@/common/pages/ShoppingBag').then(m => ({ default: m.ShoppingBag })));
 const Stylist = React.lazy(() => import('@/store/pages/Stylist').then(m => ({ default: m.Stylist })));
+const SupportPage = React.lazy(() => import('@/store/pages/SupportPage').then(m => ({ default: m.SupportPage })));
+
 const WeatherOutfitPage = React.lazy(() => import('@/store/pages/WeatherOutfitPage').then(m => ({ default: m.WeatherOutfitPage })));
 const Profile = React.lazy(() => import('@/store/pages/Profile').then(m => ({ default: m.Profile })));
 const MyOrders = React.lazy(() => import('@/store/pages/MyOrders').then(m => ({ default: m.MyOrders })));
@@ -39,6 +41,8 @@ interface StorefrontRoutesProps {
     addToCart: (item: CartItem) => Promise<void>;
     updateQuantity: (itemId: string, delta: number) => Promise<void>;
     removeItem: (itemId: string) => Promise<void>;
+    activeSupportSection?: import('@/store/pages/SupportPage').SupportSection;
+    handleSupportClick: (section: import('@/store/pages/SupportPage').SupportSection) => void;
 }
 
 export const StorefrontRoutes: React.FC<StorefrontRoutesProps> = ({
@@ -58,12 +62,14 @@ export const StorefrontRoutes: React.FC<StorefrontRoutesProps> = ({
     addToCart,
     updateQuantity,
     removeItem,
+    activeSupportSection,
+    handleSupportClick,
 }) => {
     const [pendingEmail] = useState<string | undefined>(
         () => sessionStorage.getItem('pendingVerificationEmail') ?? undefined
     );
     return (
-        <StoreLayout>
+        <StoreLayout setView={handleSetView} setCategory={handleCategoryClick} setCollection={handleCollectionClick} handleSupportClick={handleSupportClick}>
             <Suspense fallback={<PageFallback />}>
                 {view === 'STORE_HOME' && <Home setView={handleSetView} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} setSearchTerm={setSearchTerm} />}
                 {view === 'STORE_CATEGORY' && <Category setView={handleSetView} category={activeCategory} setCategory={handleCategoryClick} setCollection={handleCollectionClick} onProductClick={handleProductClick} setSearchTerm={setSearchTerm} />}
@@ -71,6 +77,7 @@ export const StorefrontRoutes: React.FC<StorefrontRoutesProps> = ({
                 {view === 'STORE_DETAIL' && <ProductDetail setView={handleSetView} setCategory={handleCategoryClick} setCollection={handleCollectionClick} addToCart={addToCart} cartCount={cart.reduce((acc, item) => acc + item.quantity, 0)} product={selectedProduct} setSearchTerm={setSearchTerm} />}
                 {view === 'STORE_CART' && <ShoppingBag setView={handleSetView} setCategory={handleCategoryClick} cart={cart} updateQuantity={updateQuantity} removeItem={removeItem} />}
                 {view === 'STORE_STYLIST' && <Stylist setView={handleSetView} setCategory={handleCategoryClick} onProductClick={handleProductClick} />}
+                {view === 'STORE_SUPPORT' && <SupportPage setView={handleSetView} setCategory={handleCategoryClick} setSearchTerm={setSearchTerm} onProductClick={handleProductClick} initialSection={activeSupportSection} />}
                 {view === 'STORE_WEATHER_OUTFIT' && <WeatherOutfitPage />}
                 {view === 'STORE_PROFILE' && <Profile setView={handleSetView} setCategory={handleCategoryClick} />}
                 {view === 'STORE_MY_ORDERS' && <MyOrders setView={handleSetView} setCategory={handleCategoryClick} />}
