@@ -170,9 +170,9 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                     </>
                 )}
 
-                {/* Thumbnail Overlay - Bottom Right */}
+                {/* Thumbnail Overlay - Bottom Right (Horizontal) */}
                 {showThumbnails && validImages.length > 1 && (
-                    <div className="absolute bottom-4 right-4 flex gap-2 pointer-events-auto z-20">
+                    <div className="absolute bottom-6 right-6 flex flex-row gap-3 pointer-events-auto z-20">
                         {validImages.slice(0, 3).map((image, index) => (
                             <button
                                 key={image.imageId || index}

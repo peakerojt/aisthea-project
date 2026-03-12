@@ -648,7 +648,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
 
 
             {/* ── Attribute axes ─────────────────────────────────────────── */}
-            <div className="flex flex-col gap-6 w-full mb-8 bg-surface-dark border border-white/10 rounded-sm p-5 lg:p-6">
+            <div className="flex flex-col gap-8 w-full mb-8 bg-surface-dark/40 border border-white/5 rounded-lg p-6 lg:p-8">
                 {axes.map(ax => {
                     const isMissing = !selected[ax.name] && shakeAttr === ax.name;
 
@@ -739,7 +739,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
             <div className="flex flex-col sm:flex-row gap-3 pt-1">
                 {/* Quantity stepper */}
                 {showQuantity && (
-                    <div className="h-12 w-28 flex-shrink-0 border border-white/10 flex items-center
+                    <div className="h-14 w-32 flex-shrink-0 border border-white/10 flex items-center
                                     justify-between px-3 rounded-lg bg-white/[0.03]">
                         <button
                             type="button"
@@ -770,7 +770,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                     whileTap={cartBtnState === 'active' ? { scale: 0.97 } : undefined}
                     disabled={cartBtnState !== 'active'}
                     className={`
-                        flex-1 h-12 rounded-lg flex items-center justify-center gap-3
+                        flex-1 h-14 rounded-lg flex items-center justify-center gap-3
                         text-[12px] font-black tracking-[0.18em] uppercase transition-all duration-300
                         ${cartBtnState === 'active'
                             ? 'bg-primary hover:bg-red-600 text-white shadow-lg shadow-primary/25 cursor-pointer'
