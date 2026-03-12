@@ -7,6 +7,7 @@ const ProductDetail = React.lazy(() => import('@/common/pages/ProductDetail').th
 const ShoppingBag = React.lazy(() => import('@/common/pages/ShoppingBag').then((m) => ({ default: m.ShoppingBag })));
 const Stylist = React.lazy(() => import('@/store/pages/Stylist').then((m) => ({ default: m.Stylist })));
 const WeatherOutfitPage = React.lazy(() => import('@/store/pages/WeatherOutfitPage').then((m) => ({ default: m.WeatherOutfitPage })));
+const SupportPage = React.lazy(() => import('@/store/pages/SupportPage').then((m) => ({ default: m.SupportPage })));
 const Profile = React.lazy(() => import('@/store/pages/Profile').then((m) => ({ default: m.Profile })));
 const MyOrdersPage = React.lazy(() => import('@/store/pages/MyOrders').then((m) => ({ default: m.MyOrders })));
 const Checkout = React.lazy(() => import('@/common/pages/Checkout'));
@@ -28,6 +29,7 @@ export const storeRoutes = [
   { path: '/cart', element: <ShoppingBag /> },
   { path: '/stylist', element: <Stylist /> },
   { path: '/weather-outfit', element: <WeatherOutfitPage /> },
+  { path: '/support', element: <SupportPage /> },
   { path: '/profile', element: <Profile /> },
   { path: '/my-orders', element: <MyOrdersPage /> },
   { path: '/checkout', element: <Checkout /> },
