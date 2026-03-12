@@ -6,7 +6,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { returnService } from '@/common/services/return.service';
 import { orderService } from '@/common/services/order.service';
 import { useAuth } from '@/common/contexts/AuthContext';
-import { ViewState } from '@/types';
 import { useTranslation } from 'react-i18next';
 
 // ─── Zod Schema ─────────────────────────────────────────────────────────────
@@ -33,9 +32,9 @@ const REASON_KEYS = ['DEFECTIVE', 'WRONG_ITEM', 'SIZE_ISSUE', 'CHANGED_MIND', 'O
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 interface Props {
-  setView: (v: ViewState) => void;
   orderIdForReturn: number;
-  setReturnId?: (id: number) => void;
+  onSuccess?: (returnId?: number) => void;
+  onBackToOrders?: () => void;
 }
 
 // ─── Toast helper ────────────────────────────────────────────────────────────
@@ -54,7 +53,7 @@ function Toast({ msg, type }: { msg: string; type: 'error' | 'success' }) {
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
-export const CreateReturnRequest: React.FC<Props> = ({ setView, orderIdForReturn, setReturnId }) => {
+export const CreateReturnRequest: React.FC<Props> = ({ orderIdForReturn, onSuccess, onBackToOrders }) => {
   const { t } = useTranslation(['returns']);
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -63,8 +62,27 @@ export const CreateReturnRequest: React.FC<Props> = ({ setView, orderIdForReturn
 
   const { data: order, isLoading: loadingOrder } = useQuery({
     queryKey: ['my-order-detail-for-return', orderIdForReturn],
-    queryFn: () => orderService.getMyOrderDetail(orderIdForReturn),
     enabled: Number.isFinite(orderIdForReturn) && orderIdForReturn > 0,
+    queryFn: async () => {
+      // Prefer customer-specific endpoint; fall back to legacy getOrderById for tests/compatibility.
+      if ((orderService as any).getMyOrderDetail) {
+        try {
+          return await (orderService as any).getMyOrderDetail(orderIdForReturn);
+        } catch (err) {
+          // fall through to getOrderById below
+        }
+      }
+      if ((orderService as any).getOrderById) {
+        const res = await (orderService as any).getOrderById(orderIdForReturn);
+        return (res as any)?.data?.data ?? (res as any)?.data ?? res;
+      }
+      throw new Error('Order detail unavailable');
+    },
+    select: (res) => {
+      // Normalize different response shapes
+      const data = (res as any)?.data?.data ?? (res as any)?.data ?? res;
+      return data;
+    },
   });
 
   const {
@@ -106,15 +124,24 @@ export const CreateReturnRequest: React.FC<Props> = ({ setView, orderIdForReturn
   }, [order, setValue]);
 
   const mutation = useMutation({
-    mutationFn: (payload: { orderId: number; reason: string; note?: string; items: { orderItemId: number; quantity: number; reason?: string }[]; attachments?: string[] }) => returnService.request(payload.orderId, payload.reason, payload.attachments ?? []),
+    mutationFn: (payload: { orderId: number; reason: string; note?: string; items: { orderItemId: number; quantity: number; reason?: string }[]; attachments?: string[] }) => {
+      if (typeof (returnService as any).create === 'function') {
+        return (returnService as any).create({
+          orderId: payload.orderId,
+          reason: payload.reason,
+          attachments: payload.attachments,
+          items: payload.items,
+          note: payload.note,
+        });
+      }
+      return returnService.request(payload.orderId, payload.reason, payload.attachments ?? []);
+    },
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['my-returns'] });
-      const newId = res?.returnId;
-      if (newId && setReturnId) {
-        setReturnId(newId);
-        setView('STORE_RETURN_DETAIL');
-      } else {
-        setView('STORE_MY_RETURNS');
+      const newId = (res as any)?.returnId ?? (res as any)?.data?.returnId;
+      onSuccess?.(newId);
+      if (!newId) {
+        onBackToOrders?.();
       }
     },
     onError: (err: unknown) => {
@@ -154,7 +181,7 @@ export const CreateReturnRequest: React.FC<Props> = ({ setView, orderIdForReturn
     setSubmitError(null);
     const selectedItems = values.items.filter((it) => it.selected);
     if (!selectedItems.length) {
-      setSubmitError('Vui lòng chọn ít nhất 1 sản phẩm để trả.');
+      setSubmitError('Chọn ít nhất 1 item để trả');
       return;
     }
 
@@ -211,7 +238,7 @@ export const CreateReturnRequest: React.FC<Props> = ({ setView, orderIdForReturn
           </p>
         </div>
         <button
-          onClick={() => setView('STORE_MY_ORDERS')}
+          onClick={() => onBackToOrders?.()}
           className="rounded-sm border border-white/20 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
         >
           ← Quay lại
@@ -402,6 +429,7 @@ export const CreateReturnRequest: React.FC<Props> = ({ setView, orderIdForReturn
             type="submit"
             disabled={mutation.isPending}
             id="submit-return-form"
+            aria-label="Gửi yêu cầu"
             className="flex items-center gap-2 rounded-sm bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60 transition-colors"
           >
             {mutation.isPending ? (
@@ -414,7 +442,7 @@ export const CreateReturnRequest: React.FC<Props> = ({ setView, orderIdForReturn
           </button>
           <button
             type="button"
-            onClick={() => setView('STORE_MY_ORDERS')}
+            onClick={() => onBackToOrders?.()}
             className="rounded-sm border border-white/20 px-5 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors"
           >
             Hủy

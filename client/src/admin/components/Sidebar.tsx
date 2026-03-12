@@ -1,110 +1,40 @@
-
 import React from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Logo } from '@/common/components/Logo';
-import { ViewState } from '@/types';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { LayoutDashboard, Shirt, ShoppingBag, Users, BarChart2, LogOut, PackagePlus, Tag, TicketPercent, ShieldCheck, RotateCcw, Warehouse } from 'lucide-react';
 
+const menuItems = [
+  { icon: LayoutDashboard, labelKey: 'sidebar:nav.dashboard', path: '/admin' },
+  { icon: Shirt,           labelKey: 'sidebar:nav.products',  path: '/admin/products' },
+  { icon: PackagePlus,     labelKey: 'sidebar:nav.restock',   path: '/admin/restock' },
+  { icon: Tag,             labelKey: 'sidebar:nav.categories',path: '/admin/categories' },
+  { icon: ShoppingBag,     labelKey: 'sidebar:nav.orders',    path: '/admin/orders' },
+  { icon: RotateCcw,       labelKey: 'sidebar:nav.returns',   path: '/admin/returns', label: 'Hoàn trả' },
+  { icon: Users,           labelKey: 'sidebar:nav.customers', path: '/admin/customers' },
+  { icon: BarChart2,       labelKey: 'sidebar:nav.analytics', path: '/admin/analytics' },
+  { icon: TicketPercent,   labelKey: 'sidebar:nav.coupons',   path: '/admin/coupons' },
+  { icon: ShieldCheck,     labelKey: 'sidebar:nav.roles',     path: '/admin/roles', label: 'Phân quyền' },
+  { icon: Warehouse,       labelKey: 'sidebar:nav.warehouses',path: '/admin/warehouses', label: 'Kho hàng' },
+];
 
-
-interface AdminSidebarProps {
-  currentView: ViewState;
-  setView: (view: ViewState) => void;
-}
-
-export const Sidebar: React.FC<AdminSidebarProps> = ({ currentView, setView }) => {
+export const Sidebar: React.FC = () => {
   const { logout, user } = useAuth();
-  // Use explicit namespace prefix: t('sidebar:nav.products') → "Sản phẩm"
-  // This pattern satisfies TypeScript strict mode while retaining full IDE autocomplete.
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
-  const menuItems = [
-    {
-      icon: LayoutDashboard,
-      label: t('sidebar:nav.dashboard'),
-      view: 'ADMIN_DASHBOARD' as ViewState,
-      subRoutes: []
-    },
-    {
-      icon: Shirt,
-      label: t('sidebar:nav.products'),
-      view: 'ADMIN_PRODUCTS' as ViewState,
-      subRoutes: ['ADMIN_CREATE_PRODUCT']
-    },
-    {
-      icon: PackagePlus,
-      label: t('sidebar:nav.restock'),
-      view: 'ADMIN_RESTOCK' as ViewState,
-      subRoutes: []
-    },
-    {
-      icon: Tag,
-      label: t('sidebar:nav.categories'),
-      view: 'ADMIN_CATEGORIES' as ViewState,
-      subRoutes: []
-    },
-    {
-      icon: ShoppingBag,
-      label: t('sidebar:nav.orders'),
-      view: 'ADMIN_ORDERS' as ViewState,
-      subRoutes: ['ADMIN_TRACKING', 'ADMIN_ORDER_DETAIL']
-    },
-    {
-      icon: RotateCcw,
-      label: 'Hoàn trả',
-      view: 'ADMIN_RETURNS' as ViewState,
-      subRoutes: []
-    },
-    {
-      icon: Users,
-      label: t('sidebar:nav.customers'),
-      view: 'ADMIN_CUSTOMERS' as ViewState,
-      subRoutes: []
-    },
-    {
-      icon: BarChart2,
-      label: t('sidebar:nav.analytics'),
-      view: 'ADMIN_ANALYTICS' as ViewState,
-      subRoutes: []
-    },
-    {
-      icon: TicketPercent,
-      label: t('sidebar:nav.coupons'),
-      view: 'ADMIN_COUPONS' as ViewState,
-      subRoutes: []
-    },
-    {
-      icon: ShieldCheck,
-      label: 'Phân quyền',
-      view: 'ADMIN_ROLES' as ViewState,
-      subRoutes: []
-    },
-    {
-      icon: Warehouse,
-      label: 'Kho hàng',
-      view: 'ADMIN_WAREHOUSES' as ViewState,
-      subRoutes: []
-    },
-  ];
-
-
-  const handleLogout = () => {
-    logout();
-    setView('STORE_HOME');
-  };
-
-  const isItemActive = (item: typeof menuItems[0]) => {
-    // Strict Active Logic
-    if (item.view === 'ADMIN_DASHBOARD') {
-      return currentView === 'ADMIN_DASHBOARD';
-    }
-    return currentView === item.view || item.subRoutes.includes(currentView as string);
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
   };
 
   return (
     <aside className="w-64 bg-black border-r border-white/10 flex flex-col h-screen sticky top-0">
-      <div className="h-24 flex items-center px-6 border-b border-white/15 cursor-pointer" onClick={() => setView('STORE_HOME')}>
+      <div
+        className="h-24 flex items-center px-6 border-b border-white/15 cursor-pointer"
+        onClick={() => navigate('/')}
+      >
         <Logo className="text-xl" />
       </div>
 
@@ -116,26 +46,34 @@ export const Sidebar: React.FC<AdminSidebarProps> = ({ currentView, setView }) =
         </div>
 
         {menuItems.map((item) => {
-          const active = isItemActive(item);
           const Icon = item.icon;
+          const label = item.label ?? t(item.labelKey);
 
           return (
-            <button
-              key={item.label}
-              onClick={() => setView(item.view)}
-              className={`w-full flex items-center gap-4 px-6 py-3 transition-all group relative ${active
-                ? 'bg-white/5 text-primary border-l-2 border-primary'
-                : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-2 border-transparent'
-                }`}
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === '/admin'}
+              className={({ isActive }) =>
+                `w-full flex items-center gap-4 px-6 py-3 transition-all group relative ${
+                  isActive
+                    ? 'bg-white/5 text-primary border-l-2 border-primary'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-2 border-transparent'
+                }`
+              }
             >
-              <Icon
-                size={20}
-                className={`transition-colors ${active ? 'text-primary' : 'text-gray-500 group-hover:text-white'}`}
-              />
-              <span className={`text-sm font-medium tracking-wide ${active ? 'font-bold' : ''}`}>
-                {item.label}
-              </span>
-            </button>
+              {({ isActive }) => (
+                <>
+                  <Icon
+                    size={20}
+                    className={`transition-colors ${isActive ? 'text-primary' : 'text-gray-500 group-hover:text-white'}`}
+                  />
+                  <span className={`text-sm font-medium tracking-wide ${isActive ? 'font-bold' : ''}`}>
+                    {label}
+                  </span>
+                </>
+              )}
+            </NavLink>
           );
         })}
       </nav>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ShoppingBag } from 'lucide-react';
-import { ViewState } from '@/types';
+import { useNavigate } from 'react-router-dom';
 import { NotificationBell } from '@/admin/components/NotificationBell';
 import { DashboardCards } from '@/admin/components/DashboardCards';
 import { RevenueChart } from '@/admin/components/RevenueChart';
@@ -51,14 +51,11 @@ const NewOrderToast: React.FC<ToastProps> = ({ title, message, visible }) => (
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface AdminDashboardProps {
-   setView?: (view: ViewState) => void;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const Dashboard: React.FC<AdminDashboardProps> = ({ setView }) => {
+export const Dashboard: React.FC = () => {
    const { t } = useTranslation('dashboard');
+   const navigate = useNavigate();
    const RANGE_OPTIONS: { value: DashboardRange; label: string }[] = [
       { value: 'today', label: t('range.today') },
       { value: 'week', label: t('range.week') },
@@ -167,7 +164,7 @@ export const Dashboard: React.FC<AdminDashboardProps> = ({ setView }) => {
                </div>
 
                {/* Notification bell */}
-               <NotificationBell setView={setView || (() => { })} />
+               <NotificationBell />
             </div>
          </header>
 
@@ -205,7 +202,7 @@ export const Dashboard: React.FC<AdminDashboardProps> = ({ setView }) => {
          <RecentOrders
             orders={summary?.recentOrders ?? []}
             isLoading={isLoading}
-            setView={setView}
+            
          />
 
          {/* ── Real-time Toast Notification ────────────────────────────────────── */}
@@ -218,3 +215,4 @@ export const Dashboard: React.FC<AdminDashboardProps> = ({ setView }) => {
       </div>
    );
 };
+

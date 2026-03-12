@@ -1,39 +1,91 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
-import { ViewState, CartItem, CategoryType } from '@/types';
+import { CartItem } from '@/types';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { useToast } from '@/common/contexts/ToastContext';
+import { useCart } from '@/common/contexts/CartContext';
 
 interface ShoppingBagProps {
-    setView: (v: ViewState) => void;
-    setCategory: (c: CategoryType) => void;
-    cart: CartItem[];
-    updateQuantity: (id: string, delta: number) => void;
-    removeItem: (id: string) => void;
+    cart?: CartItem[];
+    updateQuantity?: (id: string, delta: number) => void;
+    removeItem?: (id: string) => void;
 }
 
-export const ShoppingBag: React.FC<ShoppingBagProps> = ({ setView, setCategory, cart, updateQuantity, removeItem }) => {
+export const ShoppingBag: React.FC<ShoppingBagProps> = ({ cart: propCart, updateQuantity: propUpdateQuantity, removeItem: propRemoveItem }) => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const { showToast } = useToast();
+    const { items, updateItem, removeItem: removeCartItem } = useCart();
+
+    const mappedCart = React.useMemo<CartItem[]>(() => {
+        const source = items as any[];
+        return source.map(item => {
+            const variant = item.variant;
+            const id = (item.cartItemId ?? item.variantId ?? item.id ?? Math.random()).toString();
+            const price = Number(item.price ?? variant?.price ?? 0);
+            const image = item.image
+                || item.imageUrl
+                || variant?.product?.images?.[0]?.thumbnailUrl
+                || variant?.product?.images?.[0]?.imageUrl
+                || '';
+            const name = item.name || item.productName || variant?.product?.name || 'Sản phẩm';
+            const ref = item.ref || variant?.sku || variant?.product?.slug || '';
+            const color = item.color || item.variantName || '';
+            const size = item.size || item.variantName || variant?.sku || '';
+            const quantity = item.quantity ?? 1;
+            return {
+                cartItemId: item.cartItemId,
+                id,
+                productId: item.productId?.toString?.() ?? variant?.product?.productId?.toString?.(),
+                variantId: variant?.variantId ?? item.variantId,
+                name,
+                price,
+                image,
+                color,
+                size,
+                quantity,
+                ref,
+            } as CartItem;
+        });
+    }, [items]);
+
+    const cart = propCart ?? mappedCart;
+
+    const updateQuantity = propUpdateQuantity ?? ((id: string, delta: number) => {
+        const target = cart.find(i => i.id === id);
+        if (!target) return;
+        const newQty = Math.max(1, target.quantity + delta);
+        const targetId = target.cartItemId ?? target.variantId ?? Number(id);
+        updateItem(targetId, newQty);
+    });
+
+    const removeItem = propRemoveItem ?? ((id: string) => {
+        const target = cart.find(i => i.id === id);
+        if (!target) return;
+        const targetId = target.cartItemId ?? target.variantId ?? Number(id);
+        removeCartItem(targetId);
+    });
+
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const tax = subtotal * 0.08;
     const total = subtotal + tax;
 
     return (
         <div className="bg-bg-dark text-white font-display overflow-x-hidden min-h-screen flex flex-col">
-            <Header setView={setView} setCategory={setCategory} />
+            <Header />
 
             <main className="flex-grow w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-28">
                 <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border-dark pb-6">
                     <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase">Shopping Bag <span className="text-gray-600 text-2xl align-top ml-2">({cart.length})</span></h1>
-                    <button onClick={() => setView('STORE_COLLECTION')} className="text-sm font-medium text-gray-400 hover:text-white underline decoration-1 underline-offset-4 transition-colors">Continue Shopping</button>
+                    <button onClick={() => navigate('/collection')} className="text-sm font-medium text-gray-400 hover:text-white underline decoration-1 underline-offset-4 transition-colors">Continue Shopping</button>
                 </div>
 
                 {cart.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-gray-500">
                         <span className="material-symbols-outlined text-6xl mb-4 opacity-50">shopping_bag</span>
                         <p className="text-xl font-medium mb-4">Your bag is empty.</p>
-                        <button onClick={() => setView('STORE_COLLECTION')} className="bg-primary text-white px-8 py-3 rounded text-sm font-bold uppercase tracking-wider hover:bg-red-700 transition-colors">Start Shopping</button>
+                        <button onClick={() => navigate('/collection')} className="bg-primary text-white px-8 py-3 rounded text-sm font-bold uppercase tracking-wider hover:bg-red-700 transition-colors">Start Shopping</button>
                     </div>
                 ) : (
                     <div className="flex flex-col lg:flex-row gap-12 xl:gap-20 items-start relative">
@@ -106,9 +158,9 @@ export const ShoppingBag: React.FC<ShoppingBagProps> = ({ setView, setCategory, 
                                             title: 'Yêu cầu đăng nhập',
                                             subtitle: 'Vui lòng đăng nhập để thanh toán'
                                         });
-                                        setView('AUTH_LOGIN');
+                                        navigate('/login');
                                     } else {
-                                        setView('STORE_CHECKOUT');
+                                        navigate('/checkout');
                                     }
                                 }} className="w-full bg-primary hover:bg-red-700 text-white font-bold text-sm uppercase tracking-widest h-14 rounded-sm transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group">
                                     Proceed to Checkout <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
@@ -122,3 +174,4 @@ export const ShoppingBag: React.FC<ShoppingBagProps> = ({ setView, setCategory, 
         </div>
     );
 };
+

@@ -1,16 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
-import { ViewState, CategoryType } from '@/types';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { userService, UserProfile, Address, RecentOrder } from '@/store/services/user.service';
 import { getImageUrl } from '@/common/utils/cloudinary';
 
-interface StoreProfileProps {
-  setView: (v: ViewState) => void;
-  setCategory: (c: CategoryType) => void;
-}
-
-export const Profile: React.FC<StoreProfileProps> = ({ setView, setCategory }) => {
+export const Profile: React.FC = () => {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   // State
@@ -72,9 +68,9 @@ export const Profile: React.FC<StoreProfileProps> = ({ setView, setCategory }) =
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    setView('STORE_HOME');
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
   };
 
   const toggleSection = (section: string) => {
@@ -220,7 +216,7 @@ export const Profile: React.FC<StoreProfileProps> = ({ setView, setCategory }) =
   if (loading) {
     return (
       <div className="bg-bg-dark min-h-screen text-white font-sans">
-        <Header setView={setView} setCategory={setCategory} />
+        <Header />
         <div className="pt-32 px-6 md:px-12 max-w-5xl mx-auto flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <span className="material-symbols-outlined text-6xl text-primary animate-spin mb-4">progress_activity</span>
@@ -234,7 +230,7 @@ export const Profile: React.FC<StoreProfileProps> = ({ setView, setCategory }) =
   if (error || !profile) {
     return (
       <div className="bg-bg-dark min-h-screen text-white font-sans">
-        <Header setView={setView} setCategory={setCategory} />
+        <Header />
         <div className="pt-32 px-6 md:px-12 max-w-5xl mx-auto">
           <div className="bg-red-500/10 border border-red-500/20 p-6 rounded text-center">
             <p className="text-red-400">{error || 'Failed to load profile'}</p>
@@ -246,7 +242,7 @@ export const Profile: React.FC<StoreProfileProps> = ({ setView, setCategory }) =
 
   return (
     <div className="bg-bg-dark min-h-screen text-white font-sans">
-      <Header setView={setView} setCategory={setCategory} />
+      <Header />
 
       <div className="pt-32 px-6 md:px-12 max-w-5xl mx-auto pb-20">
         {/* Page Header */}
@@ -529,7 +525,7 @@ export const Profile: React.FC<StoreProfileProps> = ({ setView, setCategory }) =
                 <div className="text-center py-12">
                   <span className="material-symbols-outlined text-6xl text-white/20 mb-4">shopping_bag</span>
                   <p className="text-gray-500 mb-6">No orders yet</p>
-                  <button onClick={() => setView('STORE_COLLECTION')} className="px-6 py-3 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest transition-colors">Start Shopping</button>
+                  <button onClick={() => navigate('/collection')} className="px-6 py-3 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest transition-colors">Start Shopping</button>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -549,7 +545,7 @@ export const Profile: React.FC<StoreProfileProps> = ({ setView, setCategory }) =
                       </div>
                     </div>
                   ))}
-                  <button onClick={() => setView('STORE_MY_ORDERS')} className="w-full px-6 py-3 border border-white/20 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors">View All Orders</button>
+                  <button onClick={() => navigate('/my-orders')} className="w-full px-6 py-3 border border-white/20 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors">View All Orders</button>
                 </div>
               )}
             </div>

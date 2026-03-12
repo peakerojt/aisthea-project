@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ViewState, CartItem, CategoryType } from '@/types';
 import { ProductImageGallery } from '@/common/components/ProductImageGallery';
 import { fetchProductById, fetchProducts, Product as ApiProductType, ProductVariant } from '@/common/services/product.service';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
@@ -24,36 +24,11 @@ interface ReviewItem {
   user?: { fullName: string };
 }
 
-interface ProductDetailProps {
-  setView: (v: ViewState, id?: number) => void;
-  setCategory: (c: CategoryType) => void;
-  setCollection: (c: string) => void;
-  addToCart: (item: CartItem) => void;
-  cartCount: number;
-  product?: unknown;
-  setSearchTerm: (term: string) => void;
-}
-
-export const ProductDetail: React.FC<ProductDetailProps> = ({
-  setView,
-  setCategory,
-  setCollection,
-  addToCart,
-  cartCount,
-  product,
-  setSearchTerm,
-}) => {
+export const ProductDetail: React.FC = () => {
   const { t } = useTranslation('products');
-
-  const initialProduct = product as Partial<ApiProductType> & {
-    productId?: number | string;
-    id?: number | string;
-    ref?: string;
-    img?: string;
-    image?: string;
-    price?: number;
-    category?: string | { name: string };
-  } | undefined;
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const paramId = id ? Number(id) : null;
 
   const [productDetails, setProductDetails] = useState<ApiProductType | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<ApiProductType[]>([]);
@@ -64,6 +39,25 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
 
   const [activeVariant, setActiveVariant] = useState<ProductVariant | null>(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
+
+  const initialProduct = (productDetails ?? (paramId ? { productId: paramId, id: paramId } : undefined)) as
+    | (Partial<ApiProductType> & {
+        productId?: number | string;
+        id?: number | string;
+        ref?: string;
+        img?: string;
+        image?: string;
+        price?: number;
+        category?: string | { name: string };
+      })
+    | undefined;
+
+  const productId = useMemo(() => {
+    if (productDetails?.productId) return Number(productDetails.productId);
+    if (paramId) return Number(paramId);
+    const fallbackId = initialProduct?.productId ?? initialProduct?.id;
+    return fallbackId ? Number(fallbackId) : null;
+  }, [productDetails?.productId, paramId, initialProduct]);
 
   const { data: rawAPIProducts = [] } = useProductsAPI();
   // Map API Product[] to the ProductItem shape used by suggestedProducts
@@ -76,16 +70,31 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
     category: p.category?.name || '',
     status: (p.variants?.[0]?.stockQuantity ?? 0) === 0 ? 'Out of Stock' : 'In Stock',
   }));
+
   const { user } = useAuth();
   const { showToast, showCartToast } = useToast();
   const { addItem } = useCart();
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
 
-  const productId = initialProduct?.id
-    ? Number(initialProduct.id)
-    : initialProduct?.productId
-      ? Number(initialProduct.productId)
-      : null;
+  // Normalize product data for consistent rendering while fetching
+  const basicInfo = useMemo(() => {
+    return {
+      ...initialProduct,
+      image: initialProduct?.image || initialProduct?.img || '',
+      ref: initialProduct?.ref || `SKU-${Date.now()}`,
+      id: initialProduct?.id || initialProduct?.productId || `temp-${Date.now()}`,
+      name: initialProduct?.name || 'Unknown Product',
+      price: initialProduct?.price || (initialProduct as any)?.basePrice || 0,
+      category:
+        typeof initialProduct?.category === 'string'
+          ? initialProduct.category
+          : initialProduct?.category?.name || '',
+    };
+  }, [initialProduct]);
+
+  const currentActiveId = useMemo(() => {
+    return (productDetails?.productId || basicInfo.id)?.toString();
+  }, [productDetails, basicInfo]);
 
   // ── Review fetch ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -112,77 +121,17 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
     return () => window.removeEventListener('review-submitted', handleReviewSubmitted);
   }, [productId]);
 
-  if (!initialProduct) {
-    return (
-      <div className="min-h-screen bg-bg-dark text-white flex items-center justify-center">
-        {t('pdp.notFound')}
-      </div>
-    );
-  }
-
-  // ── Normalize product data ────────────────────────────────────────────────
-  const basicInfo = {
-    ...initialProduct,
-    image: initialProduct?.image || initialProduct?.img || '',
-    ref: initialProduct?.ref || `SKU-${Date.now()}`,
-    id: initialProduct?.id || initialProduct?.productId || `temp-${Date.now()}`,
-    name: initialProduct?.name || 'Unknown Product',
-    price: initialProduct?.price || initialProduct?.basePrice || 0,
-    category:
-      typeof initialProduct?.category === 'string'
-        ? initialProduct.category
-        : initialProduct?.category?.name || '',
-  };
-
-  const currentActiveId = useMemo(() => {
-    return (productDetails?.productId || basicInfo.id).toString();
-  }, [productDetails, basicInfo]);
-
-  // ── Recently Viewed tracking ──────────────────────────────────────────────
+  // Fetch product details and related products
   useEffect(() => {
-    if (!currentActiveId || isNaN(Number(currentActiveId))) return;
-
-    const trackAndLoadRecent = async () => {
-      try {
-        const id = currentActiveId.toString();
-        const storageKey = 'aisthea_recent_views';
-        const stored = localStorage.getItem(storageKey);
-        let recentIds: string[] = stored
-          ? JSON.parse(stored).map((rid: string | number) => rid.toString())
-          : [];
-        recentIds = [id, ...recentIds.filter(rid => rid !== id)].slice(0, 10);
-        localStorage.setItem(storageKey, JSON.stringify(recentIds));
-
-        const historyIds = recentIds.filter(rid => rid !== id).slice(0, 8);
-        if (historyIds.length > 0) {
-          const details = await Promise.all(
-            historyIds.map(rid => fetchProductById(parseInt(rid)).catch(() => null))
-          );
-          setRecentProducts(details.filter(d => d !== null));
-        } else {
-          setRecentProducts([]);
-        }
-      } catch (err) {
-        console.error('Recent tracking error:', err);
-      }
-    };
-    trackAndLoadRecent();
-  }, [currentActiveId]);
-
-  // ── Fetch product details and related products ────────────────────────────
-  useEffect(() => {
+    if (!productId) return;
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const id =
-          typeof basicInfo.id === 'string'
-            ? parseInt(basicInfo.id)
-            : (basicInfo.id as number);
-        const details = await fetchProductById(id);
+        const details = await fetchProductById(productId);
         setProductDetails(details);
         if (details.categoryId) {
           const related = await fetchProducts({ category: details.category?.name });
-          setRelatedProducts(related.filter(p => p.productId !== id).slice(0, 8));
+          setRelatedProducts(related.filter(p => p.productId !== productId).slice(0, 8));
         }
       } catch (error) {
         console.error('Failed to load product details:', error);
@@ -192,9 +141,9 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
     };
     loadData();
     window.scrollTo(0, 0);
-  }, [basicInfo.id]);
+  }, [productId]);
 
-  // ── Preload all product images so color-switch is instant ──────────────────
+  // Preload all product images so color-switch is instant
   useEffect(() => {
     if (!productDetails?.images?.length) return;
     productDetails.images.forEach(img => {
@@ -426,25 +375,14 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
 
   // ── Internal navigation helper ────────────────────────────────────────────
   function detailsTrigger(p: { productId?: number; id?: number | string }) {
+    const fetchId = Number(p.productId || p.id);
+    if (!Number.isFinite(fetchId)) return;
     setProductDetails(null);
+    setRelatedProducts([]);
+    setRecentProducts([]);
     setIsLoading(true);
-    const loadData = async () => {
-      try {
-        const fetchId = Number(p.productId || p.id);
-        const details = await fetchProductById(fetchId);
-        setProductDetails(details);
-        if (details.categoryId) {
-          const related = await fetchProducts({ category: details.category?.name });
-          setRelatedProducts(related.filter(item => item.productId !== fetchId).slice(0, 8));
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-        window.scrollTo(0, 0);
-      }
-    };
-    loadData();
+    navigate(`/product/${fetchId}`);
+    window.scrollTo(0, 0);
   }
 
   // ── Share ─────────────────────────────────────────────────────────────────
@@ -496,15 +434,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
     <div className="flex flex-col min-h-screen w-full bg-bg-dark text-white">
 
       {/* ── Header (fixed, full-width) ──────────────────────────────────── */}
-      <Header
-        setView={setView}
-        setCategory={setCategory}
-        setCollection={setCollection}
-        transparent={false}
-        setSearchTerm={setSearchTerm}
-        onProductClick={detailsTrigger}
-        cartCount={cartCount}
-      />
+      <Header />
 
       {/* Two-column zone (sticky gallery + scrollable details) */}
       <div className="flex flex-col lg:flex-row w-full mt-[4rem]">
@@ -526,7 +456,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
 
           {/* Back button */}
           <button
-            onClick={() => setView('STORE_COLLECTION')}
+            onClick={() => navigate('/collection')}
             title={t('pdp.back')}
             className="absolute top-5 left-5 w-10 h-10 bg-black/50 backdrop-blur-md rounded-full text-white
                        hover:bg-black/70 transition-all cursor-pointer z-10 flex items-center justify-center"
@@ -917,3 +847,10 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
     </div>
   );
 };
+
+
+
+
+
+
+

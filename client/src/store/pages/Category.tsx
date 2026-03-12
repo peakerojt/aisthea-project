@@ -1,16 +1,6 @@
 import React from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
-import { ViewState, CategoryType, ProductItem } from '@/types';
-import { Product } from '@/common/services/product.service';
-
-interface StoreCategoryProps {
-  setView: (v: ViewState, id?: number) => void;
-  category: CategoryType;
-  setCategory: (c: CategoryType) => void;
-  setCollection: (c: string) => void;
-  onProductClick: (product: ProductItem | Product) => void;
-  setSearchTerm: (term: string) => void;
-}
 
 const CATEGORY_IMAGES = {
   Men: {
@@ -39,14 +29,17 @@ const TRENDING_DATA = {
   Accessories: []
 };
 
-export const Category: React.FC<StoreCategoryProps> = ({ setView, category, setCategory, setCollection, onProductClick, setSearchTerm }) => {
+export const Category: React.FC = () => {
+  const navigate = useNavigate();
+  const { gender = 'men' } = useParams<{ gender: string }>();
+  const category = (gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase()) as keyof typeof CATEGORY_IMAGES;
   const images = CATEGORY_IMAGES[category] || CATEGORY_IMAGES['Men'];
   const sections = Object.keys(images);
   const trendingItems = TRENDING_DATA[category] || TRENDING_DATA['Men'];
 
   return (
     <div className="w-full bg-bg-dark font-sans text-white overflow-x-hidden min-h-screen flex flex-col">
-      <Header setView={setView} setCategory={setCategory} setCollection={setCollection} transparent={true} setSearchTerm={setSearchTerm} onProductClick={onProductClick} />
+      <Header transparent={true} />
 
       {/* Hero Section - 4 Columns Visual Sub-Categories */}
       <div className="flex flex-col md:flex-row h-screen w-full">
@@ -54,10 +47,7 @@ export const Category: React.FC<StoreCategoryProps> = ({ setView, category, setC
           <div
             key={section}
             className="relative flex-1 h-full group cursor-pointer overflow-hidden border-b md:border-b-0 md:border-r border-white/10 last:border-0"
-            onClick={() => {
-              setCollection(section);
-              setView('STORE_COLLECTION');
-            }}
+            onClick={() => navigate(`/collection/${gender.toLowerCase()}/${section.toLowerCase()}`)}
           >
             {/* Background Image */}
             <div
@@ -106,7 +96,8 @@ export const Category: React.FC<StoreCategoryProps> = ({ setView, category, setC
         {/* Product Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
           {trendingItems.map((product) => (
-            <div key={product.id} className="group cursor-pointer flex flex-col gap-5" onClick={() => onProductClick(product)}>
+            <div key={product.id} className="group cursor-pointer flex flex-col gap-5" onClick={() => navigate(`/product/${product.id}`)}>
+
               <div className="aspect-[3/4] overflow-hidden relative bg-surface-dark w-full">
                 {product.tag && (
                   <div className={`absolute top-4 left-4 z-10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest ${product.tag === 'Best Seller' ? 'bg-white text-black' : 'bg-primary text-white'}`}>
@@ -140,7 +131,7 @@ export const Category: React.FC<StoreCategoryProps> = ({ setView, category, setC
 
         <div className="mt-24 text-center">
           <button
-            onClick={() => setView('STORE_COLLECTION')}
+            onClick={() => navigate('/collection')}
             className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.25em] border-b border-white pb-2 hover:text-primary hover:border-primary transition-all group"
           >
             View All Collections <span className="material-symbols-outlined text-base transition-transform group-hover:translate-x-1">arrow_forward</span>

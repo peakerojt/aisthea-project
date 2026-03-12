@@ -5,14 +5,12 @@ import { StatusBadge } from '@/common/components/StatusBadge';
 import { ReturnItemsTable } from '@/common/components/ReturnItemsTable';
 import { ReturnTimeline } from '@/common/components/ReturnTimeline';
 import { ReasonLabel } from '@/common/components/ReasonLabel';
-import { ViewState } from '@/types';
-
 interface Props {
   returnId: number;
-  setView: (v: ViewState) => void;
+  onBack?: () => void;
 }
 
-export const ReturnDetail: React.FC<Props> = ({ returnId, setView }) => {
+export const ReturnDetail: React.FC<Props> = ({ returnId, onBack }) => {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['return-detail', returnId],
     queryFn: async () => {
@@ -81,7 +79,7 @@ export const ReturnDetail: React.FC<Props> = ({ returnId, setView }) => {
         <div className="flex items-center gap-3">
           <StatusBadge status={rr.status} />
           <button
-            onClick={() => setView('STORE_MY_RETURNS')}
+            onClick={() => onBack?.()}
             className="rounded-lg border border-white/20 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
           >
             ← Danh sách

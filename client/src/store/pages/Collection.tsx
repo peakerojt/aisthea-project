@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
-import { ViewState, CategoryType } from '@/types';
 import { api } from '@/common/utils/api';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
 
@@ -21,17 +21,6 @@ interface ApiProduct {
   images?: { imageUrl: string; thumbnailUrl?: string; isPrimary?: boolean }[];
   variants?: { price: number | string; stockQuantity: number }[];
   status?: string;
-}
-
-interface StoreCollectionProps {
-  setView: (v: ViewState, id?: number) => void;
-  category?: CategoryType;
-  setCategory: (c: CategoryType) => void;
-  collection?: string;
-  onProductClick: (product: Product | import('@/common/services/product.service').Product | import('@/types').ProductItem) => void;
-  searchTerm?: string;
-  setSearchTerm: (term: string) => void;
-  setCollection: (c: string) => void;
 }
 
 const HERO_IMAGES = {
@@ -119,8 +108,13 @@ const ProductGridCard: React.FC<{ product: Product; onProductClick: (p: Product 
 
 const ITEMS_PER_PAGE = 8;
 
-export const Collection: React.FC<StoreCollectionProps> = ({ setView, category = 'Men', setCategory, collection = 'Outerwear', onProductClick, searchTerm = '', setSearchTerm, setCollection }) => {
-
+export const Collection: React.FC = () => {
+  const navigate = useNavigate();
+  const { gender, name: collectionName } = useParams<{ gender?: string; name?: string }>();
+  const [searchParams] = useSearchParams();
+  const searchTerm = searchParams.get('search') || '';
+  const category = gender ? (gender.charAt(0).toUpperCase() + gender.slice(1)) : 'Men';
+  const collection = collectionName ? (collectionName.charAt(0).toUpperCase() + collectionName.slice(1)) : 'Outerwear';
   const heroImage = HERO_IMAGES[collection as keyof typeof HERO_IMAGES] || HERO_IMAGES.Default;
 
   // State for Products from API
@@ -257,7 +251,7 @@ export const Collection: React.FC<StoreCollectionProps> = ({ setView, category =
 
   return (
     <div className="min-h-screen bg-bg-dark flex flex-col text-white relative">
-      <Header setView={setView} setCategory={setCategory} setCollection={setCollection} transparent={true} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onProductClick={onProductClick} />
+      <Header transparent={true} />
 
       {/* Filter Drawer Overlay */}
       {
@@ -423,7 +417,7 @@ export const Collection: React.FC<StoreCollectionProps> = ({ setView, category =
                 <ProductGridCard
                   key={product.id}
                   product={product}
-                  onProductClick={onProductClick}
+                  onProductClick={(p) => navigate(`/product/${(p as Product).id}`)}
                   index={index}
                 />
               ))}
@@ -439,7 +433,6 @@ export const Collection: React.FC<StoreCollectionProps> = ({ setView, category =
               </p>
               <button
                 onClick={() => {
-                  setSearchTerm('');
                   setSortOption('Featured');
                   setPriceRange([0, 10000000]);
                   setSelectedSizes([]);

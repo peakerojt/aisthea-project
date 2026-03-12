@@ -1,16 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, Package, AlertTriangle, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useInventoryAlerts } from '@/common/hooks/useInventoryAlerts';
-import { ViewState } from '@/types';
 
-interface NotificationBellProps {
-    setView: (view: ViewState) => void;
-}
-
-export const NotificationBell: React.FC<NotificationBellProps> = ({ setView }) => {
+export const NotificationBell: React.FC = () => {
     const [open, setOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const { data, isLoading } = useInventoryAlerts();
+    const navigate = useNavigate();
 
     const totalLowStock = data?.totalLowStock ?? 0;
     const topItems = (data?.items ?? []).slice(0, 5);
@@ -124,7 +121,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ setView }) =
                     {totalLowStock > 0 && (
                         <div className="px-4 py-2.5 border-t border-white/[0.06] bg-white/[0.015]">
                             <button
-                                onClick={() => { setOpen(false); setView('ADMIN_RESTOCK'); }}
+                                onClick={() => { setOpen(false); navigate('/admin/restock'); }}
                                 className="w-full flex items-center justify-center gap-1.5 text-[11px] font-bold text-amber-400 hover:text-amber-300 transition-colors"
                             >
                                 Xem tất cả ({totalLowStock})

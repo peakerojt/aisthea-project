@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ViewState } from '@/types';
+import { useNavigate } from 'react-router-dom';
 import { AuthLayout } from '@/common/layouts/AuthLayout';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { useCart } from '@/common/contexts/CartContext';
@@ -16,13 +16,10 @@ const loginSchema = z.object({
 
 type LoginFormInputs = z.infer<typeof loginSchema>;
 
-interface LoginProps {
-  setView: (view: ViewState) => void;
-}
-
-export const Login: React.FC<LoginProps> = ({ setView }) => {
+export const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const { login, isLoading } = useAuth();
+  const navigate = useNavigate();
   const { syncWithMerge } = useCart();
 
   // Check for banned reason in URL
@@ -60,9 +57,9 @@ export const Login: React.FC<LoginProps> = ({ setView }) => {
 
       // 3. Điều hướng sau khi đăng nhập
       if (user.roles.includes('Admin')) {
-        setView('ADMIN_DASHBOARD');
+        navigate('/admin');
       } else {
-        setView('STORE_HOME');
+        navigate('/');
       }
     }
   };
@@ -70,7 +67,7 @@ export const Login: React.FC<LoginProps> = ({ setView }) => {
   return (
     <AuthLayout
       backgroundImage="https://images.unsplash.com/photo-1496747611176-843222e1e57c?q=80&w=2000"
-      setView={setView}
+      
     >
       <div className="mb-12">
         <p className="text-primary text-xs font-bold uppercase tracking-[0.2em] mb-4">Account</p>
@@ -131,7 +128,7 @@ export const Login: React.FC<LoginProps> = ({ setView }) => {
         </div>
 
         <div className="flex justify-end">
-          <button type="button" onClick={() => setView('AUTH_FORGOT_PASSWORD')} className="text-xs text-gray-400 hover:text-white transition-colors font-medium">Forgot Password?</button>
+          <button type="button" onClick={() => navigate('/forgot-password')} className="text-xs text-gray-400 hover:text-white transition-colors font-medium">Forgot Password?</button>
         </div>
 
         <div className="flex flex-col gap-4 mt-4">
@@ -177,14 +174,15 @@ export const Login: React.FC<LoginProps> = ({ setView }) => {
 
       <div className="mt-12 text-center">
         <p className="text-gray-500 text-sm">
-          New to Aisthea? <button onClick={() => setView('AUTH_SIGNUP')} className="text-white font-bold hover:underline underline-offset-4 ml-1">Create an Account</button>
+          New to Aisthea? <button onClick={() => navigate('/signup')} className="text-white font-bold hover:underline underline-offset-4 ml-1">Create an Account</button>
         </p>
       </div>
 
       <div className="mt-8 pt-8 border-t border-white/5 flex justify-between items-center text-xs text-gray-600">
-        <button onClick={() => setView('ADMIN_DASHBOARD')} className="hover:text-gray-400">Admin Login</button>
+        <button onClick={() => navigate('/admin')} className="hover:text-gray-400">Admin Login</button>
         <span>Privacy & Terms</span>
       </div>
     </AuthLayout>
   );
 };
+

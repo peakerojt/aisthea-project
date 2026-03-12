@@ -55,14 +55,14 @@ const formatDateTime = (iso: string): string => {
 export const OrderTimeline: React.FC<OrderTimelineProps> = ({ history = [] }) => {
   if (history.length === 0) {
     return (
-      <div className="px-5 pb-5 pt-2">
-        <p className="text-sm text-white/40 italic">Chưa có lịch sử trạng thái.</p>
+      <div className="px-5 pb-5 pt-2" aria-label="order-timeline">
+        <p className="text-sm text-white/40 italic">No timeline yet.</p>
       </div>
     );
   }
 
   return (
-    <div className="px-5 pb-5 pt-2 space-y-4">
+    <div className="px-5 pb-5 pt-2 space-y-4" aria-label="order-timeline">
       {history.map((item, index) => {
         const normalizedStatus = normalizeStatus(item.status);
         const cfg = getStatusMeta(normalizedStatus);

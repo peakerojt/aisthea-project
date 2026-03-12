@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ViewState } from '@/types';
+import { useNavigate } from 'react-router-dom';
 import { AuthLayout } from '@/common/layouts/AuthLayout';
 import Eye from 'lucide-react/dist/esm/icons/eye';
 import EyeOff from 'lucide-react/dist/esm/icons/eye-off';
@@ -23,10 +23,6 @@ const signupSchema = z.object({
 });
 
 type SignupFormInputs = z.infer<typeof signupSchema>;
-
-interface SignupProps {
-  setView: (view: ViewState) => void;
-}
 
 const ValidationItem = React.memo(({ met, text }: { met: boolean; text: string }) => (
   <div className={`flex items-center gap-2 text-[10px] transition-colors ${met ? 'text-green-500' : 'text-gray-500'}`}>
@@ -79,7 +75,7 @@ const PasswordStrengthMeter = React.memo(({ control }: { control: any }) => {
   );
 });
 
-export const Signup: React.FC<SignupProps> = ({ setView }) => {
+export const Signup: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -101,6 +97,7 @@ export const Signup: React.FC<SignupProps> = ({ setView }) => {
   });
 
   const { register: registerUser } = useAuth();
+  const navigate = useNavigate();
 
   const onSubmit = async (data: SignupFormInputs) => {
     setServerError(null);
@@ -116,7 +113,7 @@ export const Signup: React.FC<SignupProps> = ({ setView }) => {
       sessionStorage.setItem('pendingVerificationEmail', data.email);
 
       // Redirect to email verification page
-      setView('EMAIL_VERIFICATION');
+      navigate('/email-verification');
     } catch (error) {
             const err = error as Error | { message?: string; error?: string; data?: unknown };
       setServerError(err.message || 'Registration failed');
@@ -126,7 +123,7 @@ export const Signup: React.FC<SignupProps> = ({ setView }) => {
   return (
     <AuthLayout
       backgroundImage="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2000"
-      setView={setView}
+      
     >
       <div className="mb-10">
         <p className="text-primary text-xs font-bold uppercase tracking-[0.2em] mb-4">Membership</p>
@@ -284,9 +281,10 @@ export const Signup: React.FC<SignupProps> = ({ setView }) => {
 
       <div className="mt-10 text-center">
         <p className="text-gray-500 text-sm">
-          Already have an account? <button onClick={() => setView('AUTH_LOGIN')} className="text-white font-bold hover:underline underline-offset-4 ml-1">Sign In</button>
+          Already have an account? <button onClick={() => navigate('/login')} className="text-white font-bold hover:underline underline-offset-4 ml-1">Sign In</button>
         </p>
       </div>
     </AuthLayout>
   );
 };
+

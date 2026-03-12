@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod/v4';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,7 +12,6 @@ import {
 } from '@/common/services/product.service';
 import type { CategoryOption, BrandOption } from '@/common/services/product.service';
 import { API_BASE_URL } from '@/common/utils/api';
-import { ViewState } from '@/types';
 import { useQueryClient } from '@tanstack/react-query';
 import { productKeys } from '@/common/hooks/useProducts';
 import ProductImageManager from '@/admin/components/ProductImageManager';
@@ -86,11 +86,8 @@ function cartesian(groups: AttributeGroup[]): { attr: string; value: string }[][
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-interface Props {
-    setView: (v: ViewState) => void;
-}
-
-export const CreateProduct: React.FC<Props> = ({ setView }) => {
+export const CreateProduct: React.FC = () => {
+    const navigate = useNavigate();
     const { t } = useTranslation(['products']);
     const queryClient = useQueryClient();
     const {
@@ -280,7 +277,7 @@ export const CreateProduct: React.FC<Props> = ({ setView }) => {
 
             showToast('success', t('editor.feedback.createSuccess', { name: data.name, count: variants.length }));
             queryClient.invalidateQueries({ queryKey: productKeys.all });
-            setTimeout(() => setView('ADMIN_PRODUCTS'), 1800);
+            setTimeout(() => navigate('/admin/products'), 1800);
         } catch (error) {
             const err = error as Error | { message?: string; error?: string; data?: unknown };
             showToast('error', err.message || t('editor.feedback.createError'));
@@ -323,9 +320,9 @@ export const CreateProduct: React.FC<Props> = ({ setView }) => {
             <header className="sticky top-0 z-10 h-16 border-b border-white/5 flex items-center justify-between px-6 bg-surface-dark/80 backdrop-blur-lg shrink-0">
                 <div>
                     <div className="flex items-center gap-1.5 text-[11px] text-gray-500 mb-1">
-                        <button onClick={() => setView('ADMIN_DASHBOARD')} className="hover:text-white transition-colors">{t('editor.breadcrumbs.home')}</button>
+                        <button onClick={() => navigate('/admin')} className="hover:text-white transition-colors">{t('editor.breadcrumbs.home')}</button>
                         <ChevronRight size={10} />
-                        <button onClick={() => setView('ADMIN_PRODUCTS')} className="hover:text-white transition-colors">{t('editor.breadcrumbs.products')}</button>
+                        <button onClick={() => navigate('/admin/products')} className="hover:text-white transition-colors">{t('editor.breadcrumbs.products')}</button>
                         <ChevronRight size={10} />
                         <span className="text-gray-300">{t('editor.breadcrumbs.create')}</span>
                     </div>
@@ -334,7 +331,7 @@ export const CreateProduct: React.FC<Props> = ({ setView }) => {
                 <div className="flex items-center gap-3">
                     <button
                         type="button"
-                        onClick={() => setView('ADMIN_PRODUCTS')}
+                        onClick={() => navigate('/admin/products')}
                         className="flex items-center gap-2 text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg hover:bg-white/5 transition-all">
                         <ArrowLeft size={15} />
                         {t('editor.actions.cancel')}

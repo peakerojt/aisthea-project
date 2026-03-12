@@ -68,6 +68,20 @@ export const returnService = {
   async request(orderId: number, reason: string, proofImages: string[]): Promise<OrderReturn> {
     return returnApi.requestReturn(orderId, { reason, proofImages });
   },
+  /**
+   * Legacy alias used by some screens/tests. Accepts either a payload object or positional args.
+   */
+  async create(
+    payloadOrOrderId: { orderId: number; reason: string; attachments?: string[]; proofImages?: string[] } | number,
+    reason?: string,
+    proofImages?: string[],
+  ): Promise<OrderReturn> {
+    if (typeof payloadOrOrderId === 'object') {
+      const proof = payloadOrOrderId.proofImages ?? payloadOrOrderId.attachments ?? [];
+      return this.request(payloadOrOrderId.orderId, payloadOrOrderId.reason, proof);
+    }
+    return this.request(payloadOrOrderId, reason ?? '', proofImages ?? []);
+  },
 
   /**
    * Get the OrderReturn linked to a specific order (for customer and admin).

@@ -5,7 +5,6 @@ import {
     CornerDownRight, AlertCircle, CheckCircle2, ImageIcon, Loader2,
     Tag,
 } from 'lucide-react';
-import { ViewState } from '@/types';
 import {
     CategoryNode,
     CategoryFlat,
@@ -28,9 +27,7 @@ interface Toast {
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
-interface AdminCategoriesProps {
-    setView: (v: ViewState) => void;
-}
+interface AdminCategoriesProps {}
 
 // ─── Delete Confirmation Dialog ───────────────────────────────────────────────
 
@@ -190,7 +187,7 @@ const TreeRow: React.FC<TreeRowProps> = ({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export const Categories: React.FC<AdminCategoriesProps> = ({ setView: _setView }) => {
+export const Categories: React.FC<AdminCategoriesProps> = () => {
     const { t } = useTranslation('categories');
     const [tree, setTree] = useState<CategoryNode[]>([]);
     const [flat, setFlat] = useState<CategoryFlat[]>([]);
@@ -479,3 +476,4 @@ export const Categories: React.FC<AdminCategoriesProps> = ({ setView: _setView }
         </div>
     );
 };
+

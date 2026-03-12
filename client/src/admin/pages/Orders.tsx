@@ -4,7 +4,7 @@ import {
   Loader2, AlertCircle, FilterX, Calendar,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ViewState } from '@/types';
+import { useNavigate } from 'react-router-dom';
 import { adminOrderService, AdminOrder } from '@/common/services/order.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,16 +87,13 @@ const StatusBadge: React.FC<{ status: string; label: string }> = ({ status, labe
 // Props
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface AdminOrdersProps {
-  setView: (view: ViewState, orderId?: number) => void;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Page
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const Orders: React.FC<AdminOrdersProps> = ({ setView }) => {
+export const Orders: React.FC = () => {
   const { t } = useTranslation(['orders']);
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -366,7 +363,7 @@ export const Orders: React.FC<AdminOrdersProps> = ({ setView }) => {
                     {/* Thao tác */}
                     <td className="py-4 px-6 text-right">
                       <button
-                        onClick={() => setView('ADMIN_ORDER_DETAIL', order.orderId)}
+                        onClick={() => navigate(`/admin/orders/${order.orderId}`)}
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white/60 bg-white/[0.04] border border-white/10 hover:text-white hover:bg-white/10 transition-all group-hover:border-white/20"
                       >
                         <Eye size={13} />
@@ -423,3 +420,4 @@ export const Orders: React.FC<AdminOrdersProps> = ({ setView }) => {
     </div>
   );
 };
+

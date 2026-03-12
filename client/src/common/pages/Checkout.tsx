@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ViewState, CartItem, CategoryType } from '@/types';
+import { useNavigate } from 'react-router-dom';
+import { CartItem } from '@/types';
 import { Header } from '@/store/components/Header';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { api } from '@/common/utils/api';
 import { CouponModal } from '@/common/components/CouponModal';
+import { useCart } from '@/common/contexts/CartContext';
 
 interface CheckoutProps {
-    setView: (v: ViewState) => void;
-    setCategory: (c: CategoryType) => void;
-    cart: CartItem[];
+    cart?: CartItem[];
 }
 
 // THÊM: Interface cho cấu trúc dữ liệu Voucher trả về từ Backend
@@ -24,7 +24,7 @@ interface AppliedCoupon {
 }
 
 // Remote API used for VN Locations (63 Provinces)
-const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
+const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
     const defaultForm = {
         email: '',
         fullName: '',
@@ -44,6 +44,8 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const { items, cartTotal } = useCart();
 
     // THÊM: Các state quản lý Mã giảm giá (Voucher)
     const [couponInput, setCouponInput] = useState('');
@@ -64,6 +66,40 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
 
     // THÊM: Shipping method state
     const [selectedShippingMethod, setSelectedShippingMethod] = useState<'STANDARD' | 'EXPRESS'>('STANDARD');
+
+    const mappedCart = React.useMemo<CartItem[]>(() => {
+        const source = items as any[];
+        return source.map(item => {
+            const variant = item.variant;
+            const id = (item.cartItemId ?? item.variantId ?? item.id ?? Math.random()).toString();
+            const price = Number(item.price ?? variant?.price ?? 0);
+            const image = item.image
+                || item.imageUrl
+                || variant?.product?.images?.[0]?.thumbnailUrl
+                || variant?.product?.images?.[0]?.imageUrl
+                || '';
+            const name = item.name || item.productName || variant?.product?.name || 'Sản phẩm';
+            const ref = item.ref || variant?.sku || variant?.product?.slug || '';
+            const color = item.color || item.variantName || '';
+            const size = item.size || item.variantName || variant?.sku || '';
+            const quantity = item.quantity ?? 1;
+            return {
+                cartItemId: item.cartItemId,
+                id,
+                productId: item.productId?.toString?.() ?? variant?.product?.productId?.toString?.(),
+                variantId: variant?.variantId ?? item.variantId,
+                name,
+                price,
+                image,
+                color,
+                size,
+                quantity,
+                ref,
+            } as CartItem;
+        });
+    }, [items]);
+
+    const cart = propCart ?? mappedCart;
 
     // Mặc định tự động chọn 'STANDARD' khi user vừa chọn xong Tỉnh/Thành
     useEffect(() => {
@@ -319,7 +355,7 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                     setError('Không thể tạo link thanh toán VNPAY.');
                 }
             } else {
-                setView('STORE_ORDER_SUCCESS');
+                navigate('/order-success');
             }
 
         } catch (err: unknown) {
@@ -335,7 +371,7 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
 
     return (
         <div className="bg-bg-dark text-white font-display overflow-x-hidden min-h-screen">
-            <Header setView={setView} setCategory={setCategory} transparent={false} />
+            <Header transparent={false} />
 
             <main className="w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-28 flex flex-col md:flex-row gap-12 lg:gap-20">
 
@@ -666,7 +702,7 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
                         </div>
 
                         <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
-                            <button onClick={() => setView('STORE_CART')} className="text-xs font-bold uppercase text-gray-400 hover:text-white flex items-center gap-1 transition-colors w-full sm:w-auto justify-center">
+                            <button onClick={() => navigate('/cart')} className="text-xs font-bold uppercase text-gray-400 hover:text-white flex items-center gap-1 transition-colors w-full sm:w-auto justify-center">
                                 <span className="material-symbols-outlined text-[16px]">arrow_back_ios</span> Quay về giỏ hàng
                             </button>
                             <button
@@ -696,3 +732,4 @@ const Checkout: React.FC<CheckoutProps> = ({ setView, setCategory, cart }) => {
 };
 
 export default Checkout;
+

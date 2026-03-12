@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { ViewState, AuthSession, AuthError } from '@/types';
+import { useNavigate } from 'react-router-dom';
+import { AuthSession, AuthError } from '@/types';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { api } from '@/common/utils/api';
 
-interface OAuthCallbackProps {
-    setView: (view: ViewState) => void;
-}
-
-export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ setView }) => {
+export const OAuthCallback: React.FC = () => {
     const { setUserFromSession } = useAuth();
+    const navigate = useNavigate();
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -23,24 +21,24 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ setView }) => {
 
                     // Redirect based on role
                     if (session.user.roles.includes('Admin')) {
-                        setView('ADMIN_DASHBOARD');
+                        navigate('/admin');
                     } else {
-                        setView('STORE_HOME');
+                        navigate('/');
                     }
                 } else {
                     setError('Authentication failed - no user session');
-                    setTimeout(() => setView('AUTH_LOGIN'), 3000);
+                    setTimeout(() => navigate('/login'), 3000);
                 }
             } catch (error) {
             const err = error as Error | { message?: string; error?: string; data?: unknown };
                 console.error('Failed to verify session:', err);
                 setError(err.message || 'Failed to verify authentication');
-                setTimeout(() => setView('AUTH_LOGIN'), 3000);
+                setTimeout(() => navigate('/login'), 3000);
             }
         };
 
         handleCallback();
-    }, [setView, setUserFromSession]);
+    }, [navigate, setUserFromSession]);
 
     return (
         <div className="min-h-screen bg-black flex items-center justify-center">
@@ -79,3 +77,4 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ setView }) => {
         </div>
     );
 };
+

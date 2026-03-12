@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod/v4';
@@ -14,7 +15,6 @@ import {
 } from '@/common/services/product.service';
 import type { CategoryOption, BrandOption } from '@/common/services/product.service';
 import { API_BASE_URL } from '@/common/utils/api';
-import { ViewState } from '@/types';
 import { useQueryClient } from '@tanstack/react-query';
 import { productKeys } from '@/common/hooks/useProducts';
 import VariantManager from '@/admin/components/VariantManager';
@@ -236,12 +236,14 @@ const GroupRow: React.FC<GroupRowProps> = ({
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface Props {
-    setView: (v: ViewState) => void;
-    productId: number;
+    productId?: number;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export const EditProduct: React.FC<Props> = ({ setView, productId }) => {
+export const EditProduct: React.FC<Props> = ({ productId }) => {
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+    const resolvedProductId = id ? Number(id) : productId ?? 0;
     const { t } = useTranslation(['products']);
     const queryClient = useQueryClient();
 
@@ -307,7 +309,7 @@ export const EditProduct: React.FC<Props> = ({ setView, productId }) => {
     // ─── Load data ───────────────────────────────────────────────────────
     useEffect(() => {
         Promise.all([
-            fetchProductForEdit(productId),
+            fetchProductForEdit(resolvedProductId),
             fetchCategories(),
             fetchBrands(),
         ]).then(([product, cats, brnds]) => {
@@ -403,7 +405,7 @@ export const EditProduct: React.FC<Props> = ({ setView, productId }) => {
             setLoadingProduct(false);
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [productId]);
+    }, [resolvedProductId]);
 
     // ─── Dirty state tracking ─────────────────────────────────────────────
     useEffect(() => {
@@ -538,7 +540,7 @@ export const EditProduct: React.FC<Props> = ({ setView, productId }) => {
                     isPrimary: img.isPrimary
                 }));
 
-            await updateProduct(productId, {
+            await updateProduct(resolvedProductId, {
                 name: data.name,
                 slug: slugPreview || currentSlug,
                 description: data.description,
@@ -556,13 +558,13 @@ export const EditProduct: React.FC<Props> = ({ setView, productId }) => {
 
             // Upload new images sequentially (best-effort)
             for (const img of newImages) {
-                await uploadNewImage(productId, img);
+                await uploadNewImage(resolvedProductId, img);
             }
 
             showToast('success', t('editor.feedback.updateSuccess', { name: data.name }));
             queryClient.invalidateQueries({ queryKey: productKeys.all });
             setFormDirty(false);
-            setTimeout(() => setView('ADMIN_PRODUCTS'), 1800);
+            setTimeout(() => navigate('/admin/products'), 1800);
         } catch (err: unknown) {
             const error = err as { message?: string };
             showToast('error', error.message || t('editor.feedback.createError'));
@@ -588,7 +590,7 @@ export const EditProduct: React.FC<Props> = ({ setView, productId }) => {
             <AlertCircle size={48} className="text-red-500" />
             <p className="text-white/70">{loadError}</p>
             <button
-                onClick={() => setView('ADMIN_PRODUCTS')}
+                onClick={() => navigate('/admin/products')}
                 className="mt-2 text-primary text-sm font-bold underline underline-offset-2"
             >
                 {t('editor.actions.backToList')}
@@ -625,7 +627,7 @@ export const EditProduct: React.FC<Props> = ({ setView, productId }) => {
                         type="button"
                         onClick={() => {
                             if ((formDirty || newImages.length > 0) && !window.confirm(t('editor.feedback.unsavedChanges'))) return;
-                            setView('ADMIN_PRODUCTS');
+                            navigate('/admin/products');
                         }}
                         className="p-2 rounded-lg hover:bg-white/5 text-white/60 hover:text-white transition-colors"
                     >
@@ -719,7 +721,7 @@ export const EditProduct: React.FC<Props> = ({ setView, productId }) => {
                         <div className={cardCls}>
                             {imInitialized && (
                                 <ProductImageManager
-                                    productId={productId}
+                                    productId={resolvedProductId}
                                     variants={variants}
                                     initialImages={managedImages}
                                     onChange={handleImagesChange}
@@ -819,3 +821,6 @@ export const EditProduct: React.FC<Props> = ({ setView, productId }) => {
         </div >
     );
 };
+
+
+

@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ViewState } from '@/types';
+import { useNavigate } from 'react-router-dom';
 
-interface ResetPasswordPageProps {
-    setView: (view: ViewState) => void;
-}
-
-export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ setView }) => {
+export const ResetPasswordPage: React.FC = () => {
+    const navigate = useNavigate();
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -90,7 +87,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ setView })
                             {message}
                         </div>
                         <button
-                            onClick={() => setView('AUTH_LOGIN')}
+                            onClick={() => navigate('/login')}
                             className="w-full py-3 bg-white text-black font-bold rounded-md hover:bg-gray-200 transition-colors"
                         >
                             Login Now
@@ -154,3 +151,4 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ setView })
         </div>
     );
 };
+

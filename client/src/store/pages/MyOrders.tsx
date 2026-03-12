@@ -1,18 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
-import { CategoryType, ViewState } from '@/types';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { orderService, Order } from '@/common/services/order.service';
 import { Search } from 'lucide-react';
 import { formatVietnamTime } from '@/common/utils/formatDate';
 
-interface StoreMyOrdersProps {
-  setView: (v: ViewState) => void;
-  setCategory: (c: CategoryType) => void;
-}
-
-export const MyOrders: React.FC<StoreMyOrdersProps> = ({ setView, setCategory }) => {
+export const MyOrders: React.FC = () => {
   const { role } = useAuth();
+  const navigate = useNavigate();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,20 +44,20 @@ export const MyOrders: React.FC<StoreMyOrdersProps> = ({ setView, setCategory })
 
   useEffect(() => {
     if (role === 'guest') {
-      setView('AUTH_LOGIN');
+      navigate('/login', { replace: true });
       return;
     }
     loadOrders();
-  }, [role, statusFilter]);
+  }, [role, statusFilter, navigate]);
 
   const goToOrderDetailPage = (orderId: number) => {
     // Điều hướng sang route mới /orders/:id (React Router sẽ xử lý)
-    window.location.href = `/orders/${orderId}`;
+    navigate(`/orders/${orderId}`);
   };
 
   return (
     <div className="bg-bg-dark min-h-screen text-white font-sans">
-      <Header setView={setView} setCategory={setCategory} />
+      <Header />
 
       <div className="pt-32 px-6 md:px-12 max-w-5xl mx-auto">
         <div className="flex items-end justify-between gap-4 mb-8">
@@ -71,14 +67,14 @@ export const MyOrders: React.FC<StoreMyOrdersProps> = ({ setView, setCategory })
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { window.location.href = '/tracking'; }}
+              onClick={() => { navigate('/tracking') }}
               className="flex items-center gap-2 px-4 py-3 border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 transition-colors text-xs font-bold uppercase tracking-widest rounded"
             >
               <Search size={13} />
               Tra cứu đơn hàng
             </button>
             <button
-              onClick={() => setView('STORE_PROFILE')}
+              onClick={() => navigate('/profile')}
               className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
             >
               Back to Account
@@ -123,7 +119,7 @@ export const MyOrders: React.FC<StoreMyOrdersProps> = ({ setView, setCategory })
                 <span className="material-symbols-outlined text-5xl text-white/20 mb-2">receipt_long</span>
                 <p className="text-gray-500 text-sm">No orders found.</p>
                 <button
-                  onClick={() => setView('STORE_COLLECTION')}
+                  onClick={() => navigate('/collection')}
                   className="mt-4 text-xs font-bold uppercase tracking-widest text-primary hover:text-white transition-colors"
                 >
                   Start Shopping
@@ -172,3 +168,7 @@ export const MyOrders: React.FC<StoreMyOrdersProps> = ({ setView, setCategory })
     </div>
   );
 };
+
+
+
+

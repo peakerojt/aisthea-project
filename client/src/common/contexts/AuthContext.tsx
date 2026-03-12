@@ -96,21 +96,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   /**
-   * Initialize auth on component mount & listen for account-banned events
+   * Initialize auth on component mount
    */
   useEffect(() => {
     initializeAuth();
-
-    // Listen for ACCOUNT_BANNED signal from api.ts — auto logout when backend kicks us out
-    const handleBanned = () => {
-      setUser(null);
-      setRole('guest');
-      // Redirect to login with a reason param so the Login page can show a message
-      window.location.href = '/login?reason=banned';
-    };
-
-    window.addEventListener('auth:banned', handleBanned);
-    return () => window.removeEventListener('auth:banned', handleBanned);
   }, []);
 
   const login = async (email: string, password: string): Promise<User | null> => {

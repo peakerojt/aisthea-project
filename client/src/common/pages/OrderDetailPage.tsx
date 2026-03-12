@@ -34,7 +34,7 @@ const canReturnStatus = (
   const deliveredDate = new Date(deliveredEvent.at);
   const now = new Date();
   const diffDays = (now.getTime() - deliveredDate.getTime()) / (1000 * 3600 * 24);
-  return diffDays <= 7;
+  return diffDays <= 30;
 };
 
 const canConfirmReceiptStatus = (status: string | null | undefined) => {
@@ -143,7 +143,7 @@ export const OrderDetailPage: React.FC = () => {
       // Short delay so user sees the toast, then navigate to Checkout.
       setTimeout(() => {
         setBuyAgainToastMsg(null);
-        navigate('/', { state: { initialView: 'STORE_CHECKOUT' } });
+        navigate('/checkout');
       }, 900);
     },
     onError: (err: any) => {
@@ -178,7 +178,13 @@ export const OrderDetailPage: React.FC = () => {
   }, [order]);
 
   // ── Guest guard ──
-  const errorMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  const statusCode = (error as any)?.status ?? (error as any)?.response?.status;
+  const errorCode = (error as any)?.code ?? (error as any)?.response?.data?.code;
+  const rawMessage =
+    (error as any)?.message ??
+    (error as any)?.response?.data?.message ??
+    (error instanceof Error ? error.message : typeof error === 'string' ? error : '');
+  const errorMessage = typeof rawMessage === 'string' ? rawMessage : '';
 
   if (role === 'guest') {
     return (
@@ -196,12 +202,24 @@ export const OrderDetailPage: React.FC = () => {
     );
   }
 
-  const isNotFound = errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('không tồn tại');
-  const isForbidden = errorMessage.includes('403') || errorMessage.includes('FORBIDDEN') || errorMessage.includes('banned');
+  const lowerMsg = errorMessage.toLowerCase();
+  const isNotFound =
+    statusCode === 404 ||
+    errorCode === 'NOT_FOUND' ||
+    lowerMsg.includes('404') ||
+    lowerMsg.includes('not_found') ||
+    lowerMsg.includes('không tồn tại') ||
+    lowerMsg.includes('not found');
+  const isForbidden =
+    statusCode === 403 ||
+    errorCode === 'FORBIDDEN' ||
+    lowerMsg.includes('403') ||
+    lowerMsg.includes('forbidden') ||
+    lowerMsg.includes('banned');
 
   return (
     <div className="bg-bg-dark min-h-screen text-white font-sans">
-      <Header setView={() => navigate('/')} setCategory={() => undefined} />
+      <Header />
 
       {/* Toast notification — confirm receipt */}
       {receiptToastMsg && (
@@ -295,7 +313,7 @@ export const OrderDetailPage: React.FC = () => {
             </p>
           </div>
           <button
-            onClick={() => navigate('/', { replace: true, state: { initialView: 'STORE_MY_ORDERS' } })}
+            onClick={() => navigate('/my-orders')}
             className="group flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-sm font-medium text-white/80 hover:text-white backdrop-blur-md"
           >
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
@@ -377,7 +395,7 @@ export const OrderDetailPage: React.FC = () => {
                 order={order}
                 onReview={(item) => setReviewItem(item)}
                 onProductClick={(productId) => {
-                  navigate(`/?productId=${productId}`);
+                  navigate(`/product/${productId}`);
                   window.scrollTo(0, 0);
                 }}
               />
@@ -438,7 +456,13 @@ export const OrderDetailPage: React.FC = () => {
                   {/* ── Return Button ── */}
                   {canReturn && (
                     <button
-                      onClick={() => navigate(`/orders/${id}/return`)}
+                      onClick={() => {
+                        const returnPath = `/orders/${id}/return`;
+                        if (typeof window !== 'undefined' && window.history?.pushState) {
+                          window.history.pushState({}, '', returnPath);
+                        }
+                        navigate(returnPath);
+                      }}
                       className="group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all bg-cyan-600/10 hover:bg-cyan-600/20 text-cyan-400 hover:text-cyan-300 border-cyan-500/30 hover:border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_20px_rgba(6,182,212,0.2)]"
                     >
                       <RotateCcw size={15} className="group-hover:-rotate-45 transition-transform" />
@@ -493,3 +517,5 @@ export const OrderDetailPage: React.FC = () => {
     </div>
   );
 };
+
+

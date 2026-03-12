@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ViewState } from '@/types';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useCart } from '@/common/contexts/CartContext';
 
-interface PaymentQRProps {
-    setView: (v: ViewState) => void;
-    totalAmount?: number;
-}
+const PaymentQR: React.FC = () => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { cartTotal } = useCart();
+    const stateTotal = (location.state as { totalAmount?: number } | null)?.totalAmount;
+    const totalAmount = typeof stateTotal === 'number' ? stateTotal : cartTotal;
 
-const PaymentQR: React.FC<PaymentQRProps> = ({ setView, totalAmount = 825000 }) => {
     // Basic countdown timer (15 minutes)
     const [timeLeft, setTimeLeft] = useState(15 * 60);
 
@@ -59,7 +61,7 @@ const PaymentQR: React.FC<PaymentQRProps> = ({ setView, totalAmount = 825000 }) 
                     <div className="flex-1 px-4">
                         <h1 className="text-base md:text-lg font-bold text-gray-100 uppercase tracking-wide">Thanh toán bằng QR</h1>
                     </div>
-                    <button onClick={() => setView('STORE_CHECKOUT')} className="text-blue-400 hover:text-blue-300 transition-colors text-xs font-medium whitespace-nowrap px-3 py-1 border border-blue-500/30 rounded hover:bg-blue-500/10">
+                    <button onClick={() => navigate('/checkout')} className="text-blue-400 hover:text-blue-300 transition-colors text-xs font-medium whitespace-nowrap px-3 py-1 border border-blue-500/30 rounded hover:bg-blue-500/10">
                         &larr; Đổi phương thức khác
                     </button>
                 </div>
@@ -153,7 +155,7 @@ const PaymentQR: React.FC<PaymentQRProps> = ({ setView, totalAmount = 825000 }) 
                     <div className="mt-8 w-full flex justify-end">
                         <button
                             onClick={() => {
-                                setView('STORE_ORDER_SUCCESS');
+                                navigate('/order-success');
                             }}
                             className="bg-blue-600 hover:bg-blue-500 text-white font-bold rounded px-6 py-3 text-xs uppercase tracking-widest transition-colors shadow-[0_0_15px_rgba(37,99,235,0.4)]"
                         >
@@ -168,3 +170,5 @@ const PaymentQR: React.FC<PaymentQRProps> = ({ setView, totalAmount = 825000 }) 
 }
 
 export default PaymentQR;
+
+

@@ -1,13 +1,9 @@
 import React from 'react';
-import { ViewState, CategoryType } from '@/types';
+import { useNavigate } from 'react-router-dom';
 import { Logo } from '@/common/components/Logo';
 
-interface OrderSuccessProps {
-    setView: (v: ViewState) => void;
-    setCategory?: (c: CategoryType) => void;
-}
-
-const OrderSuccess: React.FC<OrderSuccessProps> = ({ setView }) => {
+const OrderSuccess: React.FC = () => {
+    const navigate = useNavigate();
     const [orderData, setOrderData] = React.useState({
         fullName: 'Khách hàng',
         email: 'Không rõ',
@@ -24,7 +20,7 @@ const OrderSuccess: React.FC<OrderSuccessProps> = ({ setView }) => {
         if (orderDataRaw) {
             setOrderData(JSON.parse(orderDataRaw));
         }
-    }, [setView]);
+    }, []);
 
     return (
         <div className="min-h-screen bg-bg-dark text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -90,13 +86,13 @@ const OrderSuccess: React.FC<OrderSuccessProps> = ({ setView }) => {
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
                     <button
-                        onClick={() => setView('STORE_HOME')}
+                        onClick={() => navigate('/')}
                         className="w-full sm:w-auto px-10 h-12 bg-primary text-white font-bold text-xs uppercase tracking-widest hover:bg-red-700 transition-colors rounded-sm"
                     >
                         Tiếp tục mua hàng
                     </button>
                     <button
-                        onClick={() => setView('STORE_MY_ORDERS')}
+                        onClick={() => navigate('/my-orders')}
                         className="w-full sm:w-auto px-8 h-12 border border-border-dark text-gray-300 font-bold text-xs uppercase tracking-widest hover:border-white hover:text-white transition-colors rounded-sm"
                     >
                         Xem đơn hàng
@@ -109,3 +105,4 @@ const OrderSuccess: React.FC<OrderSuccessProps> = ({ setView }) => {
 }
 
 export default OrderSuccess;
+

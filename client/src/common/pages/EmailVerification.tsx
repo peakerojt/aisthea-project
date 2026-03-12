@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ViewState } from '@/types';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '@/common/layouts/AuthLayout';
 import { authService } from '@/common/services/auth.service';
 import { useAuth } from '@/common/contexts/AuthContext';
@@ -9,18 +9,20 @@ import XCircle from 'lucide-react/dist/esm/icons/x-circle';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 
 interface EmailVerificationProps {
-    setView: (view: ViewState) => void;
     email?: string;
     token?: string; // Keep for backward compatibility, but won't use for code-based flow
 }
 
-export const EmailVerification: React.FC<EmailVerificationProps> = ({ setView, email }) => {
+export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) => {
     const { refreshSession } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
     const [status, setStatus] = useState<'pending' | 'verifying' | 'success' | 'error'>('pending');
     const [message, setMessage] = useState('');
     const [isResending, setIsResending] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(0);
-    const [userEmail, setUserEmail] = useState(email || '');
+    const stateEmail = (location.state as { email?: string } | null)?.email;
+    const [userEmail, setUserEmail] = useState(email || stateEmail || sessionStorage.getItem('pendingVerificationEmail') || '');
 
     // 6-digit code input state
     const [code, setCode] = useState<string[]>(['', '', '', '', '', '']);
@@ -120,7 +122,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ setView, e
 
             // Redirect to landing page after short delay
             setTimeout(() => {
-                setView('STORE_HOME');
+                navigate('/');
             }, 1500);
         } catch (error: unknown) {
             setStatus('error');
@@ -157,7 +159,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ setView, e
         return (
             <AuthLayout
                 backgroundImage="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2000"
-                setView={setView}
+                
             >
                 <div className="flex flex-col items-center justify-center py-20">
                     <Loader2 className="w-16 h-16 text-primary animate-spin mb-6" />
@@ -173,7 +175,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ setView, e
         return (
             <AuthLayout
                 backgroundImage="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2000"
-                setView={setView}
+                
             >
                 <div className="flex flex-col items-center justify-center py-16">
                     <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mb-6">
@@ -192,7 +194,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ setView, e
         return (
             <AuthLayout
                 backgroundImage="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2000"
-                setView={setView}
+                
             >
                 <div className="flex flex-col items-center justify-center py-16">
                     <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center mb-6">
@@ -229,7 +231,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ setView, e
                         </button>
 
                         <button
-                            onClick={() => setView('AUTH_LOGIN')}
+                            onClick={() => navigate('/login')}
                             className="w-full text-gray-400 hover:text-white text-sm py-2 transition-colors"
                         >
                             Back to Login
@@ -244,7 +246,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ setView, e
     return (
         <AuthLayout
             backgroundImage="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2000"
-            setView={setView}
+            
         >
             <div className="flex flex-col items-center py-10">
                 <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mb-6">
@@ -317,14 +319,14 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ setView, e
 
                     <div className="flex items-center justify-center gap-4 pt-4">
                         <button
-                            onClick={() => setView('AUTH_LOGIN')}
+                            onClick={() => navigate('/login')}
                             className="text-gray-400 hover:text-white text-sm transition-colors"
                         >
                             Back to Login
                         </button>
                         <span className="text-gray-700">|</span>
                         <button
-                            onClick={() => setView('AUTH_SIGNUP')}
+                            onClick={() => navigate('/signup')}
                             className="text-gray-400 hover:text-white text-sm transition-colors"
                         >
                             Use Different Email
@@ -335,3 +337,5 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ setView, e
         </AuthLayout>
     );
 };
+
+

@@ -1,12 +1,11 @@
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { RecentOrder, formatVND, STATUS_VI } from '@/common/services/dashboard.service';
-import { ViewState } from '@/types';
 
 interface RecentOrdersProps {
     orders: RecentOrder[];
     isLoading: boolean;
-    setView?: (view: ViewState) => void;
 }
 
 const SkeletonRow: React.FC = () => (
@@ -19,24 +18,23 @@ const SkeletonRow: React.FC = () => (
     </tr>
 );
 
-export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading, setView }) => {
+export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading }) => {
+    const navigate = useNavigate();
     return (
         <div className="bg-surface-dark border border-white/5 rounded-lg overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
                 <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                    Đơn hàng gần đây
+                    �on h�ng g?n d�y
                 </h3>
-                {setView && (
-                    <button
-                        onClick={() => setView('ADMIN_ORDERS' as ViewState)}
-                        className="text-xs text-white/40 hover:text-primary transition-colors flex items-center gap-1 cursor-pointer"
-                    >
-                        Xem tất cả
-                        <ExternalLink className="w-3 h-3" />
-                    </button>
-                )}
+                <button
+                    onClick={() => navigate('/admin/orders')}
+                    className="text-xs text-white/40 hover:text-primary transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                    Xem t?t c?
+                    <ExternalLink className="w-3 h-3" />
+                </button>
             </div>
 
             {/* Table */}
@@ -45,19 +43,19 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading, s
                     <thead>
                         <tr className="border-b border-white/5">
                             <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">
-                                Mã đơn
+                                M� don
                             </th>
                             <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">
-                                Khách hàng
+                                Kh�ch h�ng
                             </th>
                             <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">
-                                Tổng tiền
+                                T?ng ti?n
                             </th>
                             <th className="px-4 py-3 text-center font-semibold text-white/30 uppercase tracking-widest">
-                                Trạng thái
+                                Tr?ng th�i
                             </th>
                             <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">
-                                Ngày
+                                Ng�y
                             </th>
                         </tr>
                     </thead>
@@ -67,7 +65,7 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading, s
                         ) : orders.length === 0 ? (
                             <tr>
                                 <td colSpan={5} className="px-4 py-12 text-center text-white/20">
-                                    Chưa có đơn hàng nào
+                                    Chua c� don h�ng n�o
                                 </td>
                             </tr>
                         ) : (
@@ -75,13 +73,13 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading, s
                                 const rawStatus = order.status?.toUpperCase() ?? 'PENDING';
                                 const statusInfo =
                                     STATUS_VI[rawStatus] ??
-                                    { label: order.status ?? '—', color: 'text-white/40 bg-white/5 border-white/10' };
+                                    { label: order.status ?? '�', color: 'text-white/40 bg-white/5 border-white/10' };
                                 const dateStr = order.createdAt
                                     ? new Date(order.createdAt).toLocaleDateString('vi-VN', {
                                         day: '2-digit',
                                         month: '2-digit',
                                     })
-                                    : '—';
+                                    : '�';
 
                                 return (
                                     <tr

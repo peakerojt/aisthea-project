@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
-import { ViewState } from '@/types';
+import { useNavigate } from 'react-router-dom';
 
-interface ForgotPasswordPageProps {
-    setView: (view: ViewState) => void;
-}
-
-export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ setView }) => {
+export const ForgotPasswordPage: React.FC = () => {
+    const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState('');
@@ -50,7 +47,7 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ setView 
                             {message}
                         </div>
                         <button
-                            onClick={() => setView('AUTH_LOGIN')}
+                            onClick={() => navigate('/login')}
                             className="w-full py-3 bg-none border border-border-light text-text-secondary hover:text-white hover:border-white transition-colors rounded-md font-medium"
                         >
                             Back to Login
@@ -89,7 +86,7 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ setView 
                         <div className="text-center mt-4">
                             <button
                                 type="button"
-                                onClick={() => setView('AUTH_LOGIN')}
+                                onClick={() => navigate('/login')}
                                 className="text-text-secondary hover:text-white text-sm transition-colors"
                             >
                                 Back to Login
@@ -101,3 +98,4 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ setView 
         </div>
     );
 };
+

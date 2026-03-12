@@ -13,13 +13,13 @@ vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: '1', name: 'A' } }),
 }));
 
-vi.mock('../../services/return.service', () => ({
+vi.mock('@/common/services/return.service', () => ({
   returnService: {
     create: (...args: any[]) => createMock(...args),
   },
 }));
 
-vi.mock('../../services/order.service', () => ({
+vi.mock('@/common/services/order.service', () => ({
   orderService: {
     getOrderById: (...args: any[]) => getOrderByIdMock(...args),
   },
@@ -27,15 +27,15 @@ vi.mock('../../services/order.service', () => ({
 
 const renderPage = () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const setView = vi.fn();
+  const onSuccess = vi.fn();
 
   render(
     <QueryClientProvider client={qc}>
-      <CreateReturnRequest setView={setView} orderIdForReturn={100} />
+      <CreateReturnRequest onSuccess={onSuccess} orderIdForReturn={100} />
     </QueryClientProvider>,
   );
 
-  return { setView };
+  return { onSuccess };
 };
 
 describe('CreateReturnRequest', () => {
@@ -71,7 +71,7 @@ describe('CreateReturnRequest', () => {
   });
 
   it('submits selected item', async () => {
-    const { setView } = renderPage();
+    const { onSuccess } = renderPage();
     createMock.mockResolvedValue({ data: { success: true } });
 
     expect(await screen.findByText('Yêu cầu trả hàng')).toBeInTheDocument();
@@ -82,7 +82,7 @@ describe('CreateReturnRequest', () => {
 
     await waitFor(() => {
       expect(createMock).toHaveBeenCalledTimes(1);
-      expect(setView).toHaveBeenCalledWith('STORE_MY_RETURNS');
+      expect(onSuccess).toHaveBeenCalled();
     });
   });
 });

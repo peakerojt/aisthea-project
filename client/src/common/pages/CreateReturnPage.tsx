@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CreateReturnRequest } from '@/store/pages/CreateReturnRequest';
 import { ReturnDetail } from '@/store/pages/ReturnDetail';
-import { ViewState } from '@/types';
 
 /**
  * Wrapper cho react-router: /orders/:id/return
@@ -16,35 +15,33 @@ export const CreateReturnPage: React.FC = () => {
     const [returnId, setReturnId] = useState(0);
     const [view, setView] = useState<'create' | 'detail'>('create');
 
-    const handleSetView = (v: ViewState) => {
-        if (v === 'STORE_MY_RETURNS') {
-            navigate(-1);
-        } else if (v === 'STORE_RETURN_DETAIL') {
+    const handleSuccess = (rid?: number) => {
+        if (rid) {
+            setReturnId(rid);
             setView('detail');
         } else {
-            navigate(-1);
+            navigate('/my-orders');
         }
     };
 
-    const handleSetReturnId = (rid: number) => {
-        setReturnId(rid);
-        setView('detail');
+    const handleBackToOrders = () => {
+        navigate('/my-orders');
     };
 
     if (view === 'detail' && returnId > 0) {
         return (
             <ReturnDetail
                 returnId={returnId}
-                setView={handleSetView}
+                onBack={() => navigate(-1)}
             />
         );
     }
 
     return (
         <CreateReturnRequest
-            setView={handleSetView}
             orderIdForReturn={orderId}
-            setReturnId={handleSetReturnId}
+            onSuccess={handleSuccess}
+            onBackToOrders={handleBackToOrders}
         />
     );
 };

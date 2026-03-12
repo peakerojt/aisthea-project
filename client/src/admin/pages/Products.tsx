@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ViewState } from '@/types';
+import { useNavigate } from 'react-router-dom';
 import { useProductsAPI, useUpdateProductMutation, useDeleteProductMutation } from '@/common/hooks/useProducts';
 import { deleteProductById } from '@/common/services/product.service';
 import { Trash2, Edit2, AlertCircle, CheckCircle2, Archive, Loader2, UploadCloud } from 'lucide-react';
 import { BulkImportExportModal } from '@/admin/components/BulkImportExportModal';
 
-export const Products: React.FC<{ setView: (v: ViewState, productId?: number) => void }> = ({ setView }) => {
+export const Products: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const { data: qProducts, isLoading: loading, error: qError, refetch: refreshProducts } = useProductsAPI();
   const products: any[] = qProducts || [];
@@ -261,7 +262,7 @@ export const Products: React.FC<{ setView: (v: ViewState, productId?: number) =>
             {t('products:toolbar.importExport')}
           </button>
           <button
-            onClick={() => setView('ADMIN_CREATE_PRODUCT')}
+            onClick={() => navigate('/admin/products/create')}
             className="bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-[0.1em] px-6 py-3 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-2"
           >
             <span className="material-symbols-outlined text-[18px]">add</span>
@@ -526,7 +527,7 @@ export const Products: React.FC<{ setView: (v: ViewState, productId?: number) =>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
-                            onClick={() => setView('ADMIN_EDIT_PRODUCT', Number(p.id))}
+                            onClick={() => navigate(`/admin/products/${p.id}/edit`)}
                             className="text-white/40 hover:text-primary transition-colors p-2 rounded hover:bg-white/10"
                             title={t('products:page.edit')}
                           >

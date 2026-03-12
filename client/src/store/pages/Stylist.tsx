@@ -1,16 +1,10 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
-import { ViewState, CategoryType } from '@/types';
 import { fetchWeatherByCity, fetchWeatherByCoords } from '@/common/api/weather.api';
 import { WeatherResponse } from '@/types/weather';
 import { fetchProducts, Product, getPrimaryImage } from '@/common/services/product.service';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
-
-interface StoreStylistProps {
-   setView: (v: ViewState) => void;
-   setCategory: (c: CategoryType) => void;
-   onProductClick: (product: Product) => void;
-}
 
 const QUICK_CITIES = [
    { label: 'Hanoi', query: 'Hanoi, VN' },
@@ -35,7 +29,8 @@ const SEASON_KEYWORDS: Record<string, string[]> = {
    mild: ['shirt', 'blazer', 'cardigan', 'pants', 'dress'],
 };
 
-export const Stylist: React.FC<StoreStylistProps> = ({ setView, setCategory, onProductClick }) => {
+export const Stylist: React.FC = () => {
+   const navigate = useNavigate();
    const [weather, setWeather] = useState<WeatherResponse | null>(null);
    const [loadingWeather, setLoadingWeather] = useState(false);
    const [loadingProducts, setLoadingProducts] = useState(false);
@@ -114,7 +109,7 @@ export const Stylist: React.FC<StoreStylistProps> = ({ setView, setCategory, onP
 
    return (
       <div className="bg-bg-dark text-white font-sans min-h-screen flex flex-col overflow-x-hidden">
-         <Header setView={setView} setCategory={setCategory} />
+         <Header />
 
          <main className="flex-1 w-full max-w-[1440px] mx-auto px-6 md:px-12 pt-28 pb-20">
             <section className="grid lg:grid-cols-[1.2fr_0.8fr] gap-8 items-start mb-12">
@@ -215,7 +210,7 @@ export const Stylist: React.FC<StoreStylistProps> = ({ setView, setCategory, onP
                         return (
                            <button
                               key={product.productId}
-                              onClick={() => onProductClick(product)}
+                           onClick={() => navigate(`/product/${product.productId}`)}
                               className="text-left bg-black/40 border border-white/10 rounded-sm overflow-hidden hover:border-white/30 transition-colors"
                            >
                               <div className="aspect-[4/5] bg-black/60 overflow-hidden">

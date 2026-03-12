@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeft, Package, MapPin, CreditCard, User, Clock,
     CheckCircle2, XCircle, Truck, ShoppingBag, Loader2, AlertCircle,
     ChevronRight, Copy, Check, RotateCcw,
 } from 'lucide-react';
-import { ViewState } from '@/types';
 import { adminOrderService, AdminOrderDetail as OrderDetailType } from '@/common/services/order.service';
 import { formatVND, getOrderStatusColor } from '@/admin/pages/Orders';
 import { OrderActionPanel } from '@/admin/components/OrderActionPanel';
@@ -103,11 +103,13 @@ const Toast: React.FC<{ toast: ToastState | null }> = ({ toast }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface AdminOrderDetailProps {
-    orderId: number | null;
-    setView: (view: ViewState) => void;
+    orderId?: number | null;
 }
 
-export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, setView }) => {
+export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+    const routeId = id ? Number(id) : null;
     const [order, setOrder] = useState<OrderDetailType | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -131,17 +133,18 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, setView 
     };
 
     const loadOrder = useCallback(async () => {
-        if (!orderId) { setError('Không tìm thấy mã đơn.'); setLoading(false); return; }
+        const effectiveId = routeId ?? orderId;
+        if (!effectiveId) { setError('Không tìm thấy mã đơn.'); setLoading(false); return; }
         setLoading(true); setError(null);
         try {
-            const o = await adminOrderService.getDetail(orderId);
+            const o = await adminOrderService.getDetail(effectiveId);
             setOrder(o);
-            loadRefunds(orderId);
+            loadRefunds(effectiveId);
         } catch (error) {
             const e = error as Error | { message?: string; error?: string; data?: unknown }; setError(e.message || 'Không thể tải chi tiết đơn hàng.');
         }
         finally { setLoading(false); }
-    }, [orderId, loadRefunds]);
+    }, [orderId, routeId, loadRefunds]);
 
     useEffect(() => { loadOrder(); }, [loadOrder]);
 
@@ -173,7 +176,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, setView 
                     <p className="text-base font-bold text-white mb-1">Không tìm thấy đơn hàng</p>
                     <p className="text-sm text-white/50">{error}</p>
                 </div>
-                <button onClick={() => setView('ADMIN_ORDERS')} className="text-xs text-primary font-bold uppercase tracking-widest hover:underline cursor-pointer">
+                <button onClick={() => navigate('/admin/orders')} className="text-xs text-primary font-bold uppercase tracking-widest hover:underline cursor-pointer">
                     Quay lại danh sách
                 </button>
             </div>
@@ -196,7 +199,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, setView 
                         {/* Breadcrumb */}
                         <div className="flex items-center gap-2">
                             <button
-                                onClick={() => setView('ADMIN_ORDERS')}
+                                onClick={() => navigate('/admin/orders')}
                                 className="flex items-center gap-1.5 text-sm text-white/40 hover:text-white transition-colors cursor-pointer group"
                             >
                                 <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
@@ -477,3 +480,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId, setView 
         </>
     );
 };
+
+
+
+

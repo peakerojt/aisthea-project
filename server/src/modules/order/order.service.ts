@@ -531,10 +531,13 @@ export async function createOrder(
     });
 
     // ── Step 3: Create the Order record ──────────────────────────────────────
+    // orderCode is unique and SQL Server allows only a single NULL in a unique column.
+    // Always populate it (mirror orderNumber for now) to avoid duplicate-NULL collisions.
     const order = await (tx.order.create as any)({
       data: {
         userId: currentUser.userId,
         orderNumber,
+        orderCode: orderNumber,
         customerName,
         customerPhone,
         shippingCity,

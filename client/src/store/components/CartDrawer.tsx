@@ -2,14 +2,13 @@ import React, { useEffect, useRef } from 'react';
 import { X, ShoppingBag, Trash2, Plus, Minus, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCart } from '@/common/contexts/CartContext';
-import { ViewState, CartItem } from '@/types';
+import { CartItem } from '@/types';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
 
 interface CartDrawerProps {
     isOpen: boolean;
     onClose: () => void;
     onCheckout: () => void;
-    setView?: (view: ViewState) => void;
     cartItems?: CartItem[];
     updateQuantity?: (id: string, newQuantity: number) => void;
     removeItem?: (id: string) => void;
