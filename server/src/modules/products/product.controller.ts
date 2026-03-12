@@ -1,99 +1,85 @@
 import { Request, Response, NextFunction } from 'express';
+import { AppError } from '../../middlewares/error.middleware';
 import { productService } from './product.service';
-import { ProductFilter } from './product.repository';
+import type { ProductFilter } from './product.repository';
 import type { ProductQueryDto } from './product.validator';
 
-/**
- * Thin controller — parses request, delegates to service, returns standard envelope.
- * No business logic, no Prisma imports.
- */
+const parseProductId = (rawId: string): number => {
+  const id = Number(rawId);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new AppError(400, 'INVALID_ID', 'common:errors.validation');
+  }
+  return id;
+};
+
+const toProductFilters = (query: ProductQueryDto): ProductFilter => ({
+  categorySlug: query.category,
+  brandId: query.brand,
+  search: query.search,
+  minPrice: query.minPrice,
+  maxPrice: query.maxPrice,
+  status: query.status ?? 'Active',
+  page: query.page,
+  limit: query.limit,
+});
+
 export const productController = {
-    // GET /api/products
-    getAll: async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const q = req.query;
-            const filters: ProductFilter = {
-                categorySlug: q.category as string | undefined,
-                brandId: q.brand ? Number(q.brand) : undefined,
-                search: q.search as string | undefined,
-                minPrice: q.minPrice ? Number(q.minPrice) : undefined,
-                maxPrice: q.maxPrice ? Number(q.maxPrice) : undefined,
-                status: (q.status as string | undefined) ?? 'Active',
-                page: q.page ? Number(q.page) : 1,
-                limit: q.limit ? Math.min(Number(q.limit), 100) : 20,
-            };
-            const result = await productService.getProducts(filters);
-            res.json(result);
-        } catch (err) {
-            next(err);
-        }
-    },
+  getAll: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const query = req.query as unknown as ProductQueryDto;
+      const result = await productService.getProducts(toProductFilters(query));
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
 
-    // GET /api/products/:id
-    getOne: async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const id = parseInt(req.params.id as string, 10);
-            if (isNaN(id)) {
-                return res.status(400).json({ success: false, errorCode: 'INVALID_ID', message: 'Invalid product ID.' });
-            }
-            // Return product directly — client's fetchProductById expects the product object
-            const product = await productService.getProductById(id);
-            res.json(product);
-        } catch (err) {
-            next(err);
-        }
-    },
+  getOne: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = parseProductId(req.params.id as string);
+      const product = await productService.getProductById(id);
+      res.json(product);
+    } catch (error) {
+      next(error);
+    }
+  },
 
-    // GET /api/products/:id/edit
-    getForEdit: async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const id = parseInt(req.params.id as string, 10);
-            if (isNaN(id)) {
-                return res.status(400).json({ success: false, errorCode: 'INVALID_ID', message: 'Invalid product ID.' });
-            }
-            // fetchProductForEdit on client expects the product object directly
-            const product = await productService.getProductForEdit(id);
-            res.json(product);
-        } catch (err) {
-            next(err);
-        }
-    },
+  getForEdit: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = parseProductId(req.params.id as string);
+      const product = await productService.getProductForEdit(id);
+      res.json(product);
+    } catch (error) {
+      next(error);
+    }
+  },
 
-    // POST /api/products
-    create: async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const result = await productService.createProduct(req.body);
-            res.status(201).json({ success: true, data: result, message: 'Product created successfully.' });
-        } catch (err) {
-            next(err);
-        }
-    },
+  create: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await productService.createProduct(req.body);
+      res.status(201).json({ success: true, data: result, message: 'Product created successfully.' });
+    } catch (error) {
+      next(error);
+    }
+  },
 
-    // PUT /api/products/:id
-    update: async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const id = parseInt(req.params.id as string, 10);
-            if (isNaN(id)) {
-                return res.status(400).json({ success: false, errorCode: 'INVALID_ID', message: 'Invalid product ID.' });
-            }
-            const result = await productService.updateProduct(id, req.body);
-            res.json({ success: true, data: result, message: 'Product updated successfully.' });
-        } catch (err) {
-            next(err);
-        }
-    },
+  update: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = parseProductId(req.params.id as string);
+      const result = await productService.updateProduct(id, req.body);
+      res.json({ success: true, data: result, message: 'Product updated successfully.' });
+    } catch (error) {
+      next(error);
+    }
+  },
 
-    // DELETE /api/products/:id
-    delete: async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const id = parseInt(req.params.id as string, 10);
-            if (isNaN(id)) {
-                return res.status(400).json({ success: false, errorCode: 'INVALID_ID', message: 'Invalid product ID.' });
-            }
-            const result = await productService.deleteProduct(id);
-            res.json({ success: true, data: result, message: result.message });
-        } catch (err) {
-            next(err);
-        }
-    },
+  delete: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = parseProductId(req.params.id as string);
+      const result = await productService.deleteProduct(id);
+      res.json({ success: true, data: result, message: result.message });
+    } catch (error) {
+      next(error);
+    }
+  },
 };

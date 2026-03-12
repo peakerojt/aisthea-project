@@ -1,6 +1,5 @@
 import { api } from '@/common/utils/api';
 import {
-    ProductFilters,
     Product,
     ProductImage,
     CreateProductPayload,

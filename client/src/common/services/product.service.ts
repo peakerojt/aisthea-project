@@ -1,6 +1,6 @@
 import { productApi } from '@/common/api/product.api';
 
-// ─── Create Product Types ─────────────────────────────────────────────────────
+// â”€â”€â”€ Create Product Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // ... existing types remain untouched ...
 export interface CreateVariantPayload {
     sku: string;
@@ -50,6 +50,28 @@ export interface ProductImage {
     isPrimary: boolean;
 }
 
+export interface FlatVariantAttribute {
+    attributeName?: string;
+    attributeValue?: string;
+    value?: string;
+    attribute?: {
+        name?: string;
+    };
+}
+
+export interface NestedVariantAttribute {
+    attributeValue?: string;
+    attribute?: {
+        name?: string;
+    };
+    value?: {
+        value?: string;
+        attribute?: {
+            name?: string;
+        };
+    };
+}
+
 export interface ProductVariant {
     variantId: number;
     productId: number;
@@ -58,8 +80,8 @@ export interface ProductVariant {
     stockQuantity: number;
     isDefault: boolean;
     images?: ProductImage[];
-    variantAttributes?: Record<string, unknown>[];
-    attributes?: Record<string, unknown>[]; // Thuộc tính trả về từ Stored Procedure sp_GetProductDetails
+    variantAttributes?: NestedVariantAttribute[];
+    attributes?: FlatVariantAttribute[];
 }
 
 export interface Product {
@@ -209,7 +231,7 @@ export const getStockStatus = (stockQuantity: number): 'In Stock' | 'Low Stock' 
     return 'In Stock';
 };
 
-// ─── Full product data for edit form ──────────────────────────────────────────
+// â”€â”€â”€ Full product data for edit form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ExistingVariant {
     variantId: number;
@@ -294,7 +316,7 @@ export const updateProduct = async (
     }
 };
 
-// ─── Smart Delete ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Smart Delete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface SmartDeleteResponse {
     success: boolean;
@@ -311,7 +333,7 @@ export const deleteProductById = async (id: number): Promise<SmartDeleteResponse
     }
 };
 
-// ─── Bulk Import / Export ──────────────────────────────────────────────────────
+// â”€â”€â”€ Bulk Import / Export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ImportError {
     row: number;
@@ -357,5 +379,6 @@ export const exportAllProducts = async (): Promise<void> => {
 export const importProducts = async (file: File): Promise<ImportReport> => {
     return await productApi.import(file);
 };
+
 
 

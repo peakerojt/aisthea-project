@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { productController } from './product.controller';
 import { authenticateToken, requirePermission } from '../../middlewares/auth.middleware';
 import { validate } from '../../middlewares/validate.middleware';
@@ -37,7 +37,7 @@ router.get('/meta/brands', cacheMiddleware(CACHE_TTL.BRANDS), getAllBrands);
 router.get('/', cacheMiddleware(CACHE_TTL.PRODUCTS), validate(productQuerySchema, 'query'), productController.getAll);
 
 /** GET /api/products/:id/edit  (admin) — MUST be before /:id */
-router.get('/:id/edit', authenticateToken, requirePermission('MANAGE_PRODUCTS'), productController.getForEdit)
+router.get('/:id/edit', authenticateToken, requirePermission('MANAGE_PRODUCTS'), productController.getForEdit);
 
 // ─── Product Images — MUST be before /:id ────────────────────────────────────
 // GET /api/products/:productId/images
@@ -59,7 +59,10 @@ router.get('/:id', productController.getOne);
 // ─── Protected Admin Routes ───────────────────────────────────────────────────
 
 /** POST /api/products */
-const invalidateProductCache = (_req: any, _res: any, next: any) => { invalidateCache('/api/products'); next(); };
+const invalidateProductCache = (_req: Request, _res: Response, next: NextFunction) => {
+    invalidateCache('/api/products');
+    next();
+};
 router.post(
     '/',
     authenticateToken,
@@ -74,6 +77,7 @@ router.put(
     '/:id',
     authenticateToken,
     requirePermission('MANAGE_PRODUCTS'),
+    invalidateProductCache,
     validate(updateProductSchema),
     productController.update,
 );
@@ -83,6 +87,7 @@ router.delete(
     '/:id',
     authenticateToken,
     requirePermission('MANAGE_PRODUCTS'),
+    invalidateProductCache,
     productController.delete,
 );
 

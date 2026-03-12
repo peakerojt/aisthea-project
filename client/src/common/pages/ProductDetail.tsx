@@ -4,11 +4,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ProductImageGallery } from '@/common/components/ProductImageGallery';
-import { fetchProductById, fetchProducts, Product as ApiProductType, ProductVariant } from '@/common/services/product.service';
+import {
+  fetchProductById,
+  fetchProducts,
+  Product as ApiProductType,
+  ProductVariant,
+  FlatVariantAttribute,
+  NestedVariantAttribute,
+  ProductImage,
+} from '@/common/services/product.service';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
 import { useProductsAPI } from '@/common/hooks/useProducts';
 import { useAuth } from '@/common/contexts/AuthContext';
-import { ProductCard } from '@/common/components/ProductCard';
 import { Header } from '@/store/components/Header';
 import { getReviewsByProduct } from "@/common/services/review.service";
 import { getGuestCart, saveGuestCart } from '@/common/services/cart.service';
@@ -24,6 +31,80 @@ interface ReviewItem {
   user?: { fullName: string };
 }
 
+interface ProductCardItem {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+  images?: { imageUrl: string; thumbnailUrl?: string }[];
+  category: string;
+  status: 'In Stock' | 'Out of Stock';
+}
+
+interface RecommendationItem {
+  id: number;
+  name: string;
+  price: number;
+  images: { imageUrl: string; thumbnailUrl?: string }[];
+}
+
+const SIZE_ATTRIBUTE_NAMES = new Set(['size', 'kich thuoc', 'kích thước']);
+const COLOR_ATTRIBUTE_NAMES = new Set(['color', 'mau', 'màu', 'màu sắc']);
+
+const normalizeText = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd');
+
+const getVariantAttributeValue = (
+  variant: ProductVariant,
+  candidates: Set<string>,
+): string | undefined => {
+  const fromFlat = variant.attributes?.find((attr) => {
+    const name = normalizeText(attr.attributeName ?? attr.attribute?.name ?? '');
+    return candidates.has(name);
+  });
+  if (fromFlat) {
+    return fromFlat.attributeValue ?? fromFlat.value;
+  }
+
+  const fromNested = variant.variantAttributes?.find((attr) => {
+    const name = normalizeText(attr.value?.attribute?.name ?? attr.attribute?.name ?? '');
+    return candidates.has(name);
+  });
+
+  return fromNested?.value?.value ?? fromNested?.attributeValue;
+};
+
+type PrimaryAttributeInput = {
+  attributeName?: string;
+  attributeValue?: string;
+};
+
+const isPrimaryAttributeInput = (
+  attribute: PrimaryAttributeInput,
+): attribute is Required<PrimaryAttributeInput> =>
+  Boolean(attribute.attributeName && attribute.attributeValue);
+
+const toPrimaryAttributeInput = (variant: ProductVariant): PrimaryAttributeInput[] => {
+  const fromFlat =
+    variant.attributes?.map((attribute: FlatVariantAttribute) => ({
+      attributeName: attribute.attributeName ?? attribute.attribute?.name,
+      attributeValue: attribute.attributeValue ?? attribute.value,
+    })) ?? [];
+
+  const fromNested =
+    variant.variantAttributes?.map((attribute: NestedVariantAttribute) => ({
+      attributeName: attribute.attribute?.name ?? attribute.value?.attribute?.name,
+      attributeValue: attribute.value?.value ?? attribute.attributeValue,
+    })) ?? [];
+
+  return [...fromFlat, ...fromNested].filter(isPrimaryAttributeInput);
+};
+
 export const ProductDetail: React.FC = () => {
   const { t } = useTranslation('products');
   const navigate = useNavigate();
@@ -38,65 +119,48 @@ export const ProductDetail: React.FC = () => {
   const recentRef = React.useRef<HTMLDivElement>(null);
 
   const [activeVariant, setActiveVariant] = useState<ProductVariant | null>(null);
-  const [galleryIndex, setGalleryIndex] = useState(0);
-
-  const initialProduct = (productDetails ?? (paramId ? { productId: paramId, id: paramId } : undefined)) as
-    | (Partial<ApiProductType> & {
-        productId?: number | string;
-        id?: number | string;
-        ref?: string;
-        img?: string;
-        image?: string;
-        price?: number;
-        category?: string | { name: string };
-      })
-    | undefined;
-
   const productId = useMemo(() => {
-    if (productDetails?.productId) return Number(productDetails.productId);
-    if (paramId) return Number(paramId);
-    const fallbackId = initialProduct?.productId ?? initialProduct?.id;
-    return fallbackId ? Number(fallbackId) : null;
-  }, [productDetails?.productId, paramId, initialProduct]);
+    if (!paramId || !Number.isFinite(paramId)) return null;
+    return paramId;
+  }, [paramId]);
 
   const { data: rawAPIProducts = [] } = useProductsAPI();
-  // Map API Product[] to the ProductItem shape used by suggestedProducts
-  const products = rawAPIProducts.map(p => ({
-    id: p.productId.toString(),
-    name: p.name,
-    price: Number(p.variants?.[0]?.price ?? p.basePrice),
-    image: p.images?.[0]?.thumbnailUrl || p.images?.[0]?.imageUrl || '',
-    images: p.images?.map(img => ({ imageUrl: img.imageUrl, thumbnailUrl: img.thumbnailUrl || img.imageUrl })),
-    category: p.category?.name || '',
-    status: (p.variants?.[0]?.stockQuantity ?? 0) === 0 ? 'Out of Stock' : 'In Stock',
-  }));
+  const products = useMemo<ProductCardItem[]>(() => {
+    return rawAPIProducts.map((product) => ({
+      id: product.productId.toString(),
+      name: product.name,
+      price: Number(product.variants?.[0]?.price ?? product.basePrice),
+      image: product.images?.[0]?.thumbnailUrl || product.images?.[0]?.imageUrl || '',
+      images: product.images?.map((image) => ({
+        imageUrl: image.imageUrl,
+        thumbnailUrl: image.thumbnailUrl || image.imageUrl,
+      })),
+      category: product.category?.name || '',
+      status: (product.variants?.[0]?.stockQuantity ?? 0) === 0 ? 'Out of Stock' : 'In Stock',
+    }));
+  }, [rawAPIProducts]);
 
   const { user } = useAuth();
   const { showToast, showCartToast } = useToast();
   const { addItem } = useCart();
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
 
-  // Normalize product data for consistent rendering while fetching
   const basicInfo = useMemo(() => {
     return {
-      ...initialProduct,
-      image: initialProduct?.image || initialProduct?.img || '',
-      ref: initialProduct?.ref || `SKU-${Date.now()}`,
-      id: initialProduct?.id || initialProduct?.productId || `temp-${Date.now()}`,
-      name: initialProduct?.name || 'Unknown Product',
-      price: initialProduct?.price || (initialProduct as any)?.basePrice || 0,
-      category:
-        typeof initialProduct?.category === 'string'
-          ? initialProduct.category
-          : initialProduct?.category?.name || '',
+      image: productDetails?.images?.[0]?.thumbnailUrl || productDetails?.images?.[0]?.imageUrl || '',
+      ref: `SKU-${productId ?? 'unknown'}`,
+      id: productDetails?.productId ?? productId ?? 'temp-product',
+      name: productDetails?.name || 'Unknown Product',
+      price: Number(productDetails?.basePrice ?? 0),
+      category: productDetails?.category?.name || '',
     };
-  }, [initialProduct]);
+  }, [productDetails, productId]);
 
   const currentActiveId = useMemo(() => {
-    return (productDetails?.productId || basicInfo.id)?.toString();
-  }, [productDetails, basicInfo]);
+    return (productDetails?.productId ?? productId ?? basicInfo.id)?.toString();
+  }, [productDetails?.productId, productId, basicInfo.id]);
 
-  // ── Review fetch ──────────────────────────────────────────────────────────
+  // â”€â”€ Review fetch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     if (!productId) return;
 
@@ -129,9 +193,11 @@ export const ProductDetail: React.FC = () => {
         setIsLoading(true);
         const details = await fetchProductById(productId);
         setProductDetails(details);
-        if (details.categoryId) {
-          const related = await fetchProducts({ category: details.category?.name });
+        if (details.category?.slug) {
+          const related = await fetchProducts({ category: details.category.slug });
           setRelatedProducts(related.filter(p => p.productId !== productId).slice(0, 8));
+        } else {
+          setRelatedProducts([]);
         }
       } catch (error) {
         console.error('Failed to load product details:', error);
@@ -168,7 +234,7 @@ export const ProductDetail: React.FC = () => {
     }
   };
 
-  // ── Suggested products ────────────────────────────────────────────────────
+  // â”€â”€ Suggested products â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const suggestedProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
     const currentCategory = (
@@ -200,52 +266,42 @@ export const ProductDetail: React.FC = () => {
     return combined.sort(() => 0.5 - Math.random());
   }, [products, productDetails, basicInfo, currentActiveId]);
 
-  // ── All recommendations: merge suggested + related, deduplicated ──────────
+  // â”€â”€ All recommendations: merge suggested + related, deduplicated â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // suggestedProducts are ProductItem (have .id), relatedProducts are ApiProductType (have .productId)
-  const allRecommendations = useMemo(() => {
-    const seen = new Set<number | string>();
-    type RecItem = {
-      id?: number | string;
-      productId?: number;
-      name: string;
-      basePrice?: number;
-      price?: number;
-      images?: { imageUrl: string; thumbnailUrl?: string }[];
-    };
-    const merged: RecItem[] = [];
+  const allRecommendations = useMemo<RecommendationItem[]>(() => {
+    const seen = new Set<number>();
+    const merged: RecommendationItem[] = [];
 
-    for (const p of suggestedProducts) {
-      const id = p.id;
-      if (id !== undefined && !seen.has(id)) {
-        seen.add(id);
-        merged.push({
-          id: p.id,
-          name: p.name,
-          basePrice: p.price,
-          price: p.price,
-          images: p.images,
-        });
-      }
+    for (const product of suggestedProducts) {
+      const id = Number(product.id);
+      if (!Number.isFinite(id) || seen.has(id)) continue;
+
+      seen.add(id);
+      merged.push({
+        id,
+        name: product.name,
+        price: product.price,
+        images: product.images ?? [],
+      });
     }
-    for (const p of relatedProducts) {
-      const id = p.productId;
-      if (id !== undefined && !seen.has(id)) {
-        seen.add(id);
-        merged.push({
-          id: p.productId,
-          productId: p.productId,
-          name: p.name,
-          basePrice: p.basePrice,
-          price: p.basePrice,
-          images: p.images,
-        });
-      }
+
+    for (const product of relatedProducts) {
+      const id = product.productId;
+      if (!id || seen.has(id)) continue;
+
+      seen.add(id);
+      merged.push({
+        id,
+        name: product.name,
+        price: Number(product.basePrice),
+        images: product.images ?? [],
+      });
     }
+
     return merged.slice(0, 10);
-
   }, [suggestedProducts, relatedProducts]);
 
-  // ── Add to cart ───────────────────────────────────────────────────────────
+  // â”€â”€ Add to cart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleAddToCart = useCallback(async (variant: ProductVariant, qty: number) => {
     if (!variant?.variantId) return;
 
@@ -255,28 +311,9 @@ export const ProductDetail: React.FC = () => {
       if (existing) {
         existing.quantity += qty;
       } else {
-        const sizeAttr =
-          variant.attributes?.find(
-            a => a.attributeName === 'Size' || a.attributeName === 'Kích thước'
-          ) ||
-          variant.variantAttributes?.find(
-            (a: any) =>
-              a.value?.attribute?.name === 'Size' ||
-              a.value?.attribute?.name === 'Kích thước'
-          );
-        const colorAttr =
-          variant.attributes?.find(
-            a =>
-              a.attributeName === 'Color' ||
-              a.attributeName === 'Màu' ||
-              a.attributeName === 'Màu sắc'
-          ) ||
-          variant.variantAttributes?.find(
-            (a: any) =>
-              a.value?.attribute?.name === 'Color' ||
-              a.value?.attribute?.name === 'Màu' ||
-              a.value?.attribute?.name === 'Màu sắc'
-          );
+        const sizeValue = getVariantAttributeValue(variant, SIZE_ATTRIBUTE_NAMES) ?? 'N/A';
+        const colorValue = getVariantAttributeValue(variant, COLOR_ATTRIBUTE_NAMES) ?? 'N/A';
+
         guestItems.push({
           variantId: variant.variantId,
           quantity: qty,
@@ -284,16 +321,8 @@ export const ProductDetail: React.FC = () => {
           price: Number(variant.price || productDetails?.basePrice || basicInfo.price),
           imageUrl: basicInfo.image || productDetails?.images?.[0]?.imageUrl || '',
           stockQuantity: variant.stockQuantity ?? 99999,
-          size:
-            sizeAttr?.attributeValue ||
-            (sizeAttr as any)?.value?.value ||
-            (sizeAttr as any)?.value ||
-            'N/A',
-          color:
-            colorAttr?.attributeValue ||
-            (colorAttr as any)?.value?.value ||
-            (colorAttr as any)?.value ||
-            'N/A',
+          size: sizeValue,
+          color: colorValue,
         });
       }
       saveGuestCart(guestItems);
@@ -336,44 +365,38 @@ export const ProductDetail: React.FC = () => {
     }
   }, [user, productDetails, basicInfo, addItem, showToast, showCartToast, t]);
 
-  // ── Variant change → sync gallery ─────────────────────────────────────────
+  // â”€â”€ Variant change â†’ sync gallery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleVariantChange = useCallback((variant: ProductVariant | null) => {
     setActiveVariant(variant);
-    // Reset gallery index when switching variants
-    setGalleryIndex(0);
   }, []);
 
   const galleryImages = useMemo(() => {
-    let images = productDetails?.images || [];
-    const variants = productDetails?.variants;
-    if (!activeVariant || !images.length || !variants) return images;
+    const images: ProductImage[] = productDetails?.images ?? [];
+    const variants = productDetails?.variants ?? [];
+    if (!activeVariant || images.length === 0 || variants.length === 0) return images;
 
-    // Use the flexible helper — same logic as groupVariantsHelper / EditProduct
+    // Use the flexible helper â€” same logic as groupVariantsHelper / EditProduct
     // It prefers a known color attribute, otherwise falls back to the first attribute.
-    const selectedPrimaryVal = getPrimaryAttrValue(
-      (activeVariant.attributes as any[]) ?? (activeVariant.variantAttributes as any[]) ?? []
-    );
+    const selectedPrimaryVal = getPrimaryAttrValue(toPrimaryAttributeInput(activeVariant));
 
     if (!selectedPrimaryVal) return images;
 
     // Collect ALL variantIds whose primary attribute value matches the selection
-    const matchingVariantIds = (variants as any[])
-      .filter(v => {
-        const val = getPrimaryAttrValue(
-          (v.attributes as any[]) ?? (v.variantAttributes as any[]) ?? []
-        );
-        return val === selectedPrimaryVal;
+    const matchingVariantIds = variants
+      .filter((variant) => {
+        const value = getPrimaryAttrValue(toPrimaryAttributeInput(variant));
+        return value === selectedPrimaryVal;
       })
-      .map((v: any) => v.variantId);
+      .map((variant) => variant.variantId);
 
-    const specificImages = images.filter((img: any) => img.variantId && matchingVariantIds.includes(img.variantId));
+    const specificImages = images.filter(
+      (image) => image.variantId != null && matchingVariantIds.includes(image.variantId),
+    );
     // Fallback to general (non-variant) images when no specific images are found
-    return specificImages.length > 0
-      ? specificImages
-      : images.filter((img: any) => !img.variantId);
+    return specificImages.length > 0 ? specificImages : images.filter((image) => image.variantId == null);
   }, [productDetails?.images, productDetails?.variants, activeVariant]);
 
-  // ── Internal navigation helper ────────────────────────────────────────────
+  // â”€â”€ Internal navigation helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function detailsTrigger(p: { productId?: number; id?: number | string }) {
     const fetchId = Number(p.productId || p.id);
     if (!Number.isFinite(fetchId)) return;
@@ -385,7 +408,7 @@ export const ProductDetail: React.FC = () => {
     window.scrollTo(0, 0);
   }
 
-  // ── Share ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Share â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleShare = async () => {
     const url = window.location.href;
     if (navigator.share) {
@@ -405,7 +428,7 @@ export const ProductDetail: React.FC = () => {
     }
   };
 
-  // ── Accordion items ───────────────────────────────────────────────────────
+  // â”€â”€ Accordion items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const accordionItems = [
     {
       label: t('pdp.accordion.features'),
@@ -427,19 +450,19 @@ export const ProductDetail: React.FC = () => {
     t('pdp.viewLabels.2'),
   ];
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // RENDER
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <div className="flex flex-col min-h-screen w-full bg-bg-dark text-white">
 
-      {/* ── Header (fixed, full-width) ──────────────────────────────────── */}
+      {/* â”€â”€ Header (fixed, full-width) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <Header />
 
       {/* Two-column zone (sticky gallery + scrollable details) */}
       <div className="flex flex-col lg:flex-row w-full mt-[4rem]">
 
-        {/* LEFT — Sticky Gallery */}
+        {/* LEFT â€” Sticky Gallery */}
         <div className="w-full lg:w-[48%] xl:w-1/2 lg:sticky lg:top-[4rem] lg:self-start lg:h-[calc(100vh-4rem)] bg-black relative z-40 overflow-hidden">
           {isLoading ? (
             <div className="w-full h-[55vw] lg:h-full bg-black animate-pulse" />
@@ -468,7 +491,7 @@ export const ProductDetail: React.FC = () => {
           </button>
         </div>
 
-        {/* RIGHT — Scrollable product details */}
+        {/* RIGHT â€” Scrollable product details */}
         <div className="w-full lg:w-[52%] xl:w-1/2 flex flex-col bg-bg-dark
                         lg:h-[calc(100vh-4rem)] lg:overflow-y-auto">
           <div className="pl-6 pr-10 py-10 lg:pl-10 lg:pr-14 xl:pl-16 xl:pr-24 flex flex-col gap-8">
@@ -506,17 +529,17 @@ export const ProductDetail: React.FC = () => {
             {/* Divider */}
             <div className="h-px bg-border-dark/40" />
 
-            {/* ── Variant Selector ─────────────────────────────────────── */}
+            {/* â”€â”€ Variant Selector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <ProductVariantSelector
-              variants={productDetails?.variants || initialProduct?.variants || []}
+              variants={productDetails?.variants ?? []}
               basePrice={Number(productDetails?.basePrice || basicInfo.price)}
-              images={productDetails?.images as unknown as { imageUrl: string }[]}
+              images={productDetails?.images ?? []}
               onVariantChange={handleVariantChange}
               onAddToCart={handleAddToCart}
               showQuantity={true}
             />
 
-            {/* ── Stylist CTA ───────────────────────────────────────────── */}
+            {/* â”€â”€ Stylist CTA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="bg-surface-dark/30 border border-border-dark/50 p-4 rounded-sm
                             flex flex-col sm:flex-row items-center justify-between gap-3
                             group hover:border-primary/30 transition-colors">
@@ -543,7 +566,7 @@ export const ProductDetail: React.FC = () => {
               </button>
             </div>
 
-            {/* ── Accordion ─────────────────────────────────────────────── */}
+            {/* â”€â”€ Accordion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="flex flex-col divide-y divide-border-dark border-y border-border-dark">
               {accordionItems.map(item => (
                 <details key={item.label} className="group py-5 cursor-pointer">
@@ -563,7 +586,7 @@ export const ProductDetail: React.FC = () => {
             </div>
 
 
-            {/* ── Customer Reviews ──────────────────────────────────────── */}
+            {/* â”€â”€ Customer Reviews â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="mt-4 pb-10">
               <h2 className="text-base font-bold uppercase tracking-wider mb-4 flex items-center gap-3">
                 <Star size={14} className="text-primary" />
@@ -596,11 +619,11 @@ export const ProductDetail: React.FC = () => {
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          FULL-WIDTH sections — below the two-column hero
-      ══════════════════════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          FULL-WIDTH sections â€” below the two-column hero
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
 
-      {/* ── Recently Viewed — full-width carousel with side arrows ──────── */}
+      {/* â”€â”€ Recently Viewed â€” full-width carousel with side arrows â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <AnimatePresence>
         {recentProducts.length > 0 && (
           <motion.section
@@ -700,7 +723,7 @@ export const ProductDetail: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* ── You Might Also Like — full-width carousel with side arrows ───── */}
+      {/* â”€â”€ You Might Also Like â€” full-width carousel with side arrows â”€â”€â”€â”€â”€ */}
       {allRecommendations.length > 0 && (
         <section className="w-full border-t border-border-dark/30 bg-bg-dark py-14 lg:py-20">
           <div className="px-6 lg:px-16 xl:px-24">
@@ -758,10 +781,10 @@ export const ProductDetail: React.FC = () => {
                 className="flex gap-4 overflow-x-auto no-scrollbar pb-2"
               >
                 {allRecommendations.map((item, idx) => {
-                  const pid = item.productId ?? (item as any).id;
-                  const name = item.name ?? (item as any).name;
-                  const price = item.basePrice ?? (item as any).price;
-                  const images = item.images ?? (item as any).images;
+                  const pid = item.id;
+                  const name = item.name;
+                  const price = item.price;
+                  const images = item.images;
                   const primaryImg = getCloudinaryProductCard(images?.[0]?.imageUrl || '');
                   const secondaryImg = getCloudinaryProductCard(
                     images?.[1]?.imageUrl || images?.[0]?.imageUrl || ''
@@ -850,6 +873,8 @@ export const ProductDetail: React.FC = () => {
     </div>
   );
 };
+
+
 
 
 
