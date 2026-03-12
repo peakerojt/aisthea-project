@@ -19,6 +19,7 @@ import {
     addToCartApi,
     updateCartItemApi,
     removeCartItemApi,
+    mergeCartApi,
     clearCartApi,
 } from '@/common/services/cart.service';
 
@@ -118,7 +119,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
         setIsLoading(true);
         try {
-            const { mergeCartApi } = await import('@/common/services/cart.service');
             const merged = await mergeCartApi(
                 localItems.map(({ variantId, quantity }) => ({ variantId, quantity }))
             );

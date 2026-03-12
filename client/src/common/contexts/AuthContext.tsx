@@ -10,6 +10,12 @@ interface User {
   permissions: string[];
 }
 
+type SessionError = Error & {
+  status?: number;
+  code?: string;
+};
+
+const EXPECTED_SESSION_ERROR_CODES = new Set(['TOKEN_EXPIRED', 'INVALID_TOKEN']);
 
 export type UserRole = 'guest' | 'customer' | 'admin';
 
@@ -67,13 +73,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setPermissions([]);
       }
     } catch (error: unknown) {
-      // Cleanly handle expected auth errors (e.g. 401 Unauthorized for guests)
-      const errObj = error as { message?: string };
-      const errorMessage = errObj?.message || '';
+      // Expected for guests/expired sessions: backend returns 401 and optional auth code.
+      const errObj = error as SessionError;
       const isExpectedError =
-        errorMessage.includes('No authentication token found') ||
-        errorMessage.includes('User not found') ||
-        errorMessage.includes('401');
+        errObj?.status === 401 ||
+        (typeof errObj?.code === 'string' && EXPECTED_SESSION_ERROR_CODES.has(errObj.code));
 
       if (!isExpectedError) {
         console.error('Failed to check session:', error);
@@ -81,6 +85,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setUser(null);
       setRole('guest');
+      setPermissions([]);
     } finally {
       setIsLoading(false);
     }

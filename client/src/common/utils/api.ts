@@ -51,6 +51,12 @@ class ApiClient {
                     error: `HTTP ${response.status}: ${response.statusText}`,
                 }));
                 const errorMessage = errorData.error || errorData.message || `Request failed with status ${response.status}`;
+                const errorCode =
+                    typeof errorData.code === 'string'
+                        ? errorData.code
+                        : typeof errorData.errorCode === 'string'
+                            ? errorData.errorCode
+                            : undefined;
 
                 // Global Toast Trigger for server/app errors
                 if (response.status >= 500) {
@@ -78,8 +84,13 @@ class ApiClient {
                 }
 
                 // Tag the error so the catch block knows it's already handled
-                const err = new Error(errorMessage) as Error & { status: number; skipAuthRedirect?: boolean };
+                const err = new Error(errorMessage) as Error & {
+                    status: number;
+                    code?: string;
+                    skipAuthRedirect?: boolean;
+                };
                 err.status = response.status;
+                err.code = errorCode;
                 err.skipAuthRedirect = skipAuthRedirect;
                 throw err;
             }
