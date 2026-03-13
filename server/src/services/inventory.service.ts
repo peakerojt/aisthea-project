@@ -7,8 +7,8 @@
  *
  * Reason constants (matches InventoryLog.Reason in schema):
  *   CHECKOUT          — stock deducted when an order is placed
- *   RESTOCK           — stock added via purchase / receiving
- *   CANCELLED_RESTORE — stock returned when an order is cancelled
+ *   PURCHASE_RECEIPT  — stock added from purchase-order receiving
+ *   RETURN_RESTORE    — stock returned when an order is cancelled or returned
  *   MANUAL_ADJUST     — admin manually editing stock quantity
  */
 
@@ -37,8 +37,7 @@ export interface CheckoutItem {
 
 export type InventoryLogReason =
   | 'CHECKOUT'
-  | 'RESTOCK'
-  | 'CANCELLED_RESTORE'
+  | 'PURCHASE_RECEIPT'
   | 'RETURN_RESTORE'
   | 'MANUAL_ADJUST';
 
@@ -171,7 +170,7 @@ export async function atomicCancelRestore(
         changeQuantity: +item.quantity,
         previousStock,
         newStock,
-        reason: 'CANCELLED_RESTORE' satisfies InventoryLogReason,
+        reason: 'RETURN_RESTORE' satisfies InventoryLogReason,
         note: `Cancelled order #${orderId}`,
       },
     });

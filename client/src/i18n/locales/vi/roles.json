@@ -26,7 +26,7 @@
         "description": "Super Admin mặc định có toàn bộ quyền hạn và không thể bị chỉnh sửa."
     },
     "summary": {
-        "text": "Vai trò <1>{{roleName}}</1> hiện có <2>{{active}}</2> / {{total}} quyền hạn được kích hoạt."
+        "text": "Vai trò <0>{{roleName}}</0> hiện có <1>{{active}}</1> / {{total}} quyền hạn được kích hoạt."
     },
     "empty": {
         "noPermissions": "Chưa có quyền hạn nào được định nghĩa.",

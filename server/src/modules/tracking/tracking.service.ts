@@ -1,6 +1,7 @@
 import { AppError } from '../../middlewares/error.middleware';
 import { emitOrderStatusUpdated } from '../../socket';
 import { canTransition } from '../../shared/orderTracking.constants';
+import { getShipmentSummary } from '../../shared/order-state';
 import { prisma } from '../../utils/prisma';
 import { trackingRepository } from './tracking.repository';
 import { UpdateOrderStatusInput } from './tracking.validator';
@@ -55,21 +56,21 @@ function hydrateTimeline(order: any, isPublic = false) {
 
 function toTrackingPayload(order: any, isPublic = false) {
   const currentStatus = normalizeStatus(order.status);
+  const shipment = getShipmentSummary(order.shipment);
 
   return {
     orderId: order.orderId,
-    orderCode: order.orderCode || order.orderNumber,
+    orderCode: order.orderNumber,
     currentStatus,
     currentStatusLabelKey: `tracking:status.${currentStatus}`,
-    // Top-level logistics fields (from Order model)
-    carrier: order.carrier ?? order.shipment?.carrier ?? null,
-    trackingNumber: isPublic ? null : (order.trackingNumber ?? order.shipment?.trackingNumber ?? null),
-    estimatedDeliveryDate: order.shipment?.eta ?? null,
+    carrier: shipment.carrier,
+    trackingNumber: isPublic ? null : shipment.trackingNumber,
+    estimatedDeliveryDate: shipment.estimatedDeliveryDate,
     // Shipment sub-object
     shipment: order.shipment
       ? {
-        carrier: order.shipment.carrier ?? order.carrier ?? null,
-        trackingNumber: isPublic ? null : (order.shipment.trackingNumber ?? order.trackingNumber ?? null),
+        carrier: shipment.carrier,
+        trackingNumber: isPublic ? null : shipment.trackingNumber,
         lastKnownLocation: order.shipment.lastKnownLocation,
         eta: order.shipment.eta,
       }
@@ -142,14 +143,10 @@ export const trackingService = {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Update Order status + logistics fields (carrier, trackingNumber, estimatedDeliveryDate)
-      const orderUpdateData: Record<string, any> = { status: payload.status };
-      if (payload.carrier) orderUpdateData.carrier = payload.carrier;
-      if (payload.trackingNumber) orderUpdateData.trackingNumber = payload.trackingNumber;
-
+      // 1. Update Order status
       const updated = await tx.order.update({
         where: { orderId },
-        data: orderUpdateData,
+        data: { status: payload.status },
       });
 
       // 2. Create history entry
@@ -185,8 +182,8 @@ export const trackingService = {
                 ? new Date(payload.eta)
                 : undefined,
             lastKnownLocation: payload.location,
-            carrier: payload.carrier ?? order.carrier,
-            trackingNumber: payload.trackingNumber ?? order.trackingNumber,
+            carrier: payload.carrier ?? null,
+            trackingNumber: payload.trackingNumber ?? null,
           },
         });
       }
@@ -204,8 +201,8 @@ export const trackingService = {
       userId: latest?.userId,
       status: normalizeStatus(result.status || payload.status),
       timeline,
-      carrier: latest?.carrier ?? latest?.shipment?.carrier ?? null,
-      trackingNumber: latest?.trackingNumber ?? latest?.shipment?.trackingNumber ?? null,
+      carrier: latest?.shipment?.carrier ?? null,
+      trackingNumber: latest?.shipment?.trackingNumber ?? null,
       estimatedDeliveryDate: latest?.shipment?.eta ?? null,
     });
 

@@ -12,12 +12,12 @@ import { adminOrderService, AdminOrder } from '@/common/services/order.service';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STATUS_TABS = [
-  { key: 'ALL', translationKey: 'filters.all' },
-  { key: 'Pending', translationKey: 'status.Pending' },
-  { key: 'Processing', translationKey: 'status.Processing' },
-  { key: 'Shipping', translationKey: 'status.Shipping' },
-  { key: 'Delivered', translationKey: 'status.Delivered' },
-  { key: 'Cancelled', translationKey: 'status.Cancelled' },
+  { key: 'ALL' },
+  { key: 'Pending' },
+  { key: 'Processing' },
+  { key: 'Shipping' },
+  { key: 'Delivered' },
+  { key: 'Cancelled' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -259,7 +259,9 @@ export const Orders: React.FC = () => {
                   : 'text-white/40 hover:text-white/70'}
               `}
             >
-              {t(tab.translationKey)}
+              {tab.key === 'ALL'
+                ? t('filters.all')
+                : t(`status.${tab.key.toUpperCase()}`)}
               {activeTab === tab.key && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full" />
               )}

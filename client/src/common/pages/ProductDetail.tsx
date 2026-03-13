@@ -24,6 +24,9 @@ import { useCart } from '@/common/contexts/CartContext';
 import { ProductVariantSelector } from '@/common/components/ProductVariantSelector';
 import { getPrimaryAttrValue } from '@/common/utils/groupVariantsHelper';
 
+const RECENTLY_VIEWED_KEY = 'aisthea_recently_viewed_v1';
+const MAX_RECENTLY_VIEWED = 10;
+
 interface ReviewItem {
   reviewId: number;
   rating: number;
@@ -209,6 +212,45 @@ export const ProductDetail: React.FC = () => {
     window.scrollTo(0, 0);
   }, [productId]);
 
+  useEffect(() => {
+    const stored = localStorage.getItem(RECENTLY_VIEWED_KEY);
+    if (!stored) return;
+
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        setRecentProducts(parsed.filter(item => item && typeof item.productId === 'number'));
+      }
+    } catch (error) {
+      console.error('Failed to parse recently viewed products:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!productDetails?.productId) return;
+
+    let parsed: ApiProductType[] = [];
+    const stored = localStorage.getItem(RECENTLY_VIEWED_KEY);
+
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+        if (Array.isArray(data)) {
+          parsed = data as ApiProductType[];
+        }
+      } catch (error) {
+        console.error('Failed to parse recently viewed products:', error);
+      }
+    }
+
+    const deduped = parsed.filter(
+      item => item && item.productId !== productDetails.productId,
+    );
+    const next = [productDetails, ...deduped].slice(0, MAX_RECENTLY_VIEWED);
+    localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(next));
+    setRecentProducts(next.filter(item => item.productId !== productDetails.productId));
+  }, [productDetails]);
+
   // Preload all product images so color-switch is instant
   useEffect(() => {
     if (!productDetails?.images?.length) return;
@@ -228,6 +270,16 @@ export const ProductDetail: React.FC = () => {
     if (carouselRef.current) {
       const scrollAmount = carouselRef.current.clientWidth * 0.8;
       carouselRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  const scrollRecent = (direction: 'left' | 'right') => {
+    if (recentRef.current) {
+      const scrollAmount = recentRef.current.clientWidth * 0.8;
+      recentRef.current.scrollBy({
         left: direction === 'left' ? -scrollAmount : scrollAmount,
         behavior: 'smooth',
       });
@@ -631,31 +683,37 @@ export const ProductDetail: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4 }}
-            className="w-full border-t border-border-dark/30 bg-surface-dark/10 py-10"
+            className="w-full border-t border-border-dark/30 bg-bg-dark py-14 lg:py-20"
           >
             <div className="px-6 lg:px-16 xl:px-24">
 
               {/* Section header */}
-              <div className="flex items-center justify-between gap-4 mb-5">
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 whitespace-nowrap">
+              <div className="flex items-end justify-between mb-8 gap-6">
+                <div className="flex flex-col gap-2">
+                  <span className="text-primary text-[10px] font-black tracking-[0.4em] uppercase">
                     {t('pdp.recentlyViewed')}
                   </span>
-                  <div className="h-px flex-1 bg-border-dark/30" />
+                  <h2 className="text-2xl lg:text-4xl font-black uppercase tracking-tight text-white leading-none">
+                    {t('pdp.recentlyViewed').toUpperCase()}
+                  </h2>
+                  <div className="h-1 w-10 bg-primary mt-1" />
                 </div>
-                {/* Nav arrows */}
+
+                {/* Header nav arrows */}
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
-                    onClick={() => recentRef.current?.scrollBy({ left: -(recentRef.current.clientWidth * 0.75), behavior: 'smooth' })}
-                    className="w-8 h-8 flex items-center justify-center rounded-full border border-border-dark
-                               hover:border-white hover:text-white text-gray-500 transition-all active:scale-90"
+                    onClick={() => scrollRecent('left')}
+                    className="w-9 h-9 flex items-center justify-center rounded-full
+                               border border-border-dark hover:border-white hover:text-white
+                               text-gray-400 transition-all active:scale-90"
                   >
                     <span className="material-symbols-outlined text-lg">arrow_back</span>
                   </button>
                   <button
-                    onClick={() => recentRef.current?.scrollBy({ left: recentRef.current.clientWidth * 0.75, behavior: 'smooth' })}
-                    className="w-8 h-8 flex items-center justify-center rounded-full border border-border-dark
-                               hover:border-white hover:text-white text-gray-500 transition-all active:scale-90"
+                    onClick={() => scrollRecent('right')}
+                    className="w-9 h-9 flex items-center justify-center rounded-full
+                               border border-border-dark hover:border-white hover:text-white
+                               text-gray-400 transition-all active:scale-90"
                   >
                     <span className="material-symbols-outlined text-lg">arrow_forward</span>
                   </button>
@@ -663,59 +721,109 @@ export const ProductDetail: React.FC = () => {
               </div>
 
               {/* Carousel with side overlay buttons */}
-              <div className="relative group/carousel">
-                {/* Left arrow overlay */}
+              <div className="relative group/recent">
+                {/* Left edge arrow */}
                 <button
-                  onClick={() => recentRef.current?.scrollBy({ left: -(recentRef.current.clientWidth * 0.75), behavior: 'smooth' })}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 -translate-x-3
-                             w-9 h-9 flex items-center justify-center
+                  onClick={() => scrollRecent('left')}
+                  className="absolute left-0 top-[40%] -translate-y-1/2 z-10 -translate-x-3
+                             w-10 h-10 flex items-center justify-center
                              bg-black/70 backdrop-blur-sm border border-border-dark/60
                              hover:border-white hover:text-white text-gray-400
-                             rounded-full transition-all opacity-0 group-hover/carousel:opacity-100 active:scale-90"
+                             rounded-full transition-all opacity-0 group-hover/recent:opacity-100 active:scale-90"
                 >
-                  <span className="material-symbols-outlined text-base">chevron_left</span>
+                  <span className="material-symbols-outlined">chevron_left</span>
                 </button>
 
-                {/* Scrollable row */}
-                <div ref={recentRef} className="flex gap-4 overflow-x-auto no-scrollbar pb-1">
-                  {recentProducts.map(rp => (
-                    <button
-                      key={rp.productId}
-                      onClick={() => detailsTrigger(rp as { productId?: number; id?: number | string })}
-                      className="flex-shrink-0 flex items-center gap-4 p-4 w-[280px]
-                                 bg-surface-dark/20 border border-border-dark/20
-                                 hover:border-primary/50 transition-all rounded-sm group"
-                    >
-                      <div className="w-20 h-20 overflow-hidden bg-surface-dark ring-1 ring-white/5 flex-shrink-0 rounded-sm">
-                        <img
-                          src={getCloudinaryProductCard(rp.images?.[0]?.imageUrl || '')}
-                          alt={rp.name}
-                          className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
-                        />
-                      </div>
-                      <div className="flex flex-col items-start gap-1.5 min-w-0">
-                        <span className="text-[11px] font-bold text-white uppercase tracking-wide
-                                         group-hover:text-primary transition-colors line-clamp-2 text-left leading-snug">
-                          {rp.name}
-                        </span>
-                        <span className="text-xs text-gray-400 font-semibold">
-                          {new Intl.NumberFormat('vi-VN').format(rp.basePrice)}đ
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+                {/* Horizontal scroll row */}
+                <div
+                  ref={recentRef}
+                  className="flex gap-4 overflow-x-auto no-scrollbar pb-2"
+                >
+                  {recentProducts.map((item, idx) => {
+                    const pid = item.productId;
+                    const name = item.name;
+                    const price = Number(item.basePrice);
+                    const images = item.images ?? [];
+                    const primaryImg = getCloudinaryProductCard(images?.[0]?.imageUrl || '');
+                    const secondaryImg = getCloudinaryProductCard(
+                      images?.[1]?.imageUrl || images?.[0]?.imageUrl || ''
+                    );
+
+                    return (
+                      <motion.div
+                        key={`recent-${pid}-${idx}`}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.05, duration: 0.3 }}
+                        className="group flex-shrink-0 flex flex-col gap-3 cursor-pointer w-[200px] sm:w-[220px] lg:w-[240px]"
+                        onClick={() => {
+                          detailsTrigger({ productId: pid, id: pid });
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                      >
+                        {/* Image */}
+                        <div className="relative aspect-[3/4] overflow-hidden bg-surface-dark">
+                          <img
+                            src={primaryImg}
+                            alt={name}
+                            className="absolute inset-0 w-full h-full object-cover
+                                       transition-all duration-700 group-hover:scale-[1.04] group-hover:opacity-0"
+                          />
+                          <img
+                            src={secondaryImg}
+                            alt={name}
+                            className="absolute inset-0 w-full h-full object-cover
+                                       transition-all duration-700 scale-[1.04] opacity-0 group-hover:opacity-100"
+                          />
+                          <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                          {/* Quick action strip */}
+                          <div className="absolute bottom-0 left-0 right-0 flex flex-col
+                                          translate-y-full group-hover:translate-y-0
+                                          transition-transform duration-500 overflow-hidden">
+                            <button className="h-10 bg-white text-black text-[9px] font-black uppercase tracking-widest
+                                               hover:bg-primary hover:text-white transition-colors">
+                              XEM NHANH
+                            </button>
+                            <button className="h-10 bg-black/80 text-white text-[9px] font-black uppercase tracking-widest
+                                               hover:bg-black transition-colors">
+                              THÊM VÀO GIỎ
+                            </button>
+                          </div>
+
+                          {price > 2000000 && (
+                            <div className="absolute top-2 left-2 text-[8px] font-black text-primary
+                                            border border-primary/40 px-1.5 py-0.5 bg-black/60 backdrop-blur-sm rounded-sm">
+                              {t('pdp.youMightLike.memberBadge').toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex flex-col gap-1">
+                          <h3 className="text-[11px] font-bold text-white group-hover:text-primary
+                                         transition-colors uppercase tracking-wider truncate">
+                            {name}
+                          </h3>
+                          <p className="text-[11px] font-medium text-gray-500">
+                            {new Intl.NumberFormat('vi-VN').format(price)}đ
+                          </p>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
 
-                {/* Right arrow overlay */}
+                {/* Right edge arrow */}
                 <button
-                  onClick={() => recentRef.current?.scrollBy({ left: recentRef.current.clientWidth * 0.75, behavior: 'smooth' })}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 translate-x-3
-                             w-9 h-9 flex items-center justify-center
+                  onClick={() => scrollRecent('right')}
+                  className="absolute right-0 top-[40%] -translate-y-1/2 z-10 translate-x-3
+                             w-10 h-10 flex items-center justify-center
                              bg-black/70 backdrop-blur-sm border border-border-dark/60
                              hover:border-white hover:text-white text-gray-400
-                             rounded-full transition-all opacity-0 group-hover/carousel:opacity-100 active:scale-90"
+                             rounded-full transition-all opacity-0 group-hover/recent:opacity-100 active:scale-90"
                 >
-                  <span className="material-symbols-outlined text-base">chevron_right</span>
+                  <span className="material-symbols-outlined">chevron_right</span>
                 </button>
               </div>
             </div>

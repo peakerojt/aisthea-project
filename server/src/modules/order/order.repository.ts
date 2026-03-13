@@ -41,6 +41,26 @@ export interface OrderStatusHistoryEntry {
   changedAt: Date;
 }
 
+export interface OrderPayment {
+  paymentId: number;
+  orderId: number;
+  paymentMethod: string;
+  amount: { toNumber(): number } | number;
+  status: string;
+  paymentDate: Date | null;
+  transactionCode: string | null;
+  note: string | null;
+}
+
+export interface OrderShipment {
+  shipmentId: number;
+  orderId: number;
+  carrier: string | null;
+  trackingNumber: string | null;
+  eta: Date | null;
+  lastKnownLocation: string | null;
+}
+
 export interface OrderUser {
   userId: number;
   email: string;
@@ -60,17 +80,15 @@ export interface OrderWithRelations {
   shippingDistrict: string;
   shippingWard: string | null;
   shippingAddressDetail: string;
-  trackingNumber: string | null;
-  carrier: string | null;
   totalAmount: { toNumber(): number } | number;
   status: string | null;
   paymentMethod: string | null;
-  paymentStatus: string | null;
   createdAt: Date | null;
   note: string | null;
   items: OrderItem[];
   user: OrderUser | null;
-  payments: unknown[];
+  payments: OrderPayment[];
+  shipment: OrderShipment | null;
   statusHistory: OrderStatusHistoryEntry[];
 }
 
@@ -89,6 +107,7 @@ const orderInclude = {
     },
   },
   payments: true,
+  shipment: true,
   statusHistory: true,
 } as const;
 
@@ -190,6 +209,11 @@ export async function findManyOrders(filters: OrderFilter) {
             email: true,
             fullName: true,
             avatarUrl: true,
+          },
+        },
+        payments: {
+          select: {
+            status: true,
           },
         },
         _count: {

@@ -1,4 +1,4 @@
-/* =============================================================
+﻿/* =============================================================
    MASTER DATABASE SETUP SCRIPT - AISTHEA
 
    ─── HƯỚNG DẪN CHẠY TRONG SSMS ────────────────────────────
@@ -34,7 +34,7 @@ GO
 
 PRINT '> STEP 2/2 - Seed Data (Products, Categories, Images)';
 GO
-:r $(BasePath)\03_seed_data_standard.sql
+:r $(BasePath)\03_seed_data_standard_fixed.sql
 GO
 
 PRINT '==============================================';

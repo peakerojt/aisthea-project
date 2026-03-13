@@ -1,6 +1,6 @@
-
+﻿
 /* =============================================================
-   FILE: server/database/03_seed_data_standard.sql
+   FILE: server/database/03_seed_data_standard_fixed.sql
    DESCRIPTION: Dữ liệu chuẩn được generate từ DATA/CSV files
    Generated: 2026-03-11T07:48:38.788Z
    ============================================================= */

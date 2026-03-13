@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { roleService, RoleItem, PermissionItem } from '@/admin/services/role.service';
 import { ShieldCheck, Lock, Save, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Checkbox } from '@/admin/components/checkbox';
@@ -308,7 +308,19 @@ export const Roles: React.FC = () => {
             <div className="flex items-center gap-3 px-5 py-3 bg-white/3 border border-white/8 rounded-xl">
                 <ShieldCheck size={16} className="text-primary/70 shrink-0" />
                 <p className="text-white/50 text-xs">
-                    {t('summary.text', { roleName: selectedRole?.roleName, active: checkedIds.size, total: permissions.length })}
+                    <Trans
+                        i18nKey="summary.text"
+                        t={t}
+                        values={{
+                            roleName: selectedRole?.roleName ?? '-',
+                            active: checkedIds.size,
+                            total: permissions.length,
+                        }}
+                        components={[
+                            <strong className="text-white/80 font-semibold" />,
+                            <strong className="text-white/80 font-semibold" />,
+                        ]}
+                    />
                 </p>
             </div>
 

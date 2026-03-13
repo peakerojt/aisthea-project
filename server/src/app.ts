@@ -18,7 +18,7 @@ import categoryModuleRoutes from './modules/categories/category.routes';
 import reviewModuleRoutes from './modules/reviews/review.routes';
 import cartModuleRoutes from './modules/cart/cart.routes';
 import inventoryModuleRoutes from './modules/inventory/inventory.routes';
-import warehouseModuleRoutes from './modules/warehouses/warehouse.routes';
+import purchaseOrderModuleRoutes from './modules/purchase-orders/purchase-order.routes';
 import couponModuleRoutes from './modules/coupons/coupon.routes';
 import userModuleRoutes from './modules/users/user.routes';
 import dashboardModuleRoutes from './modules/dashboard/dashboard.routes';
@@ -85,7 +85,7 @@ export function createApp() {
   app.use('/api/reviews', reviewModuleRoutes);
   app.use('/api/cart', cartModuleRoutes);
   app.use('/api/inventory', inventoryModuleRoutes);
-  app.use('/api/warehouses', warehouseModuleRoutes);
+  app.use('/api/purchase-orders', purchaseOrderModuleRoutes);
   app.use('/api/coupons', couponModuleRoutes);
   app.use('/api/users', userModuleRoutes);
   app.use('/api/dashboard', dashboardModuleRoutes);

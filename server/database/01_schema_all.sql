@@ -1,8 +1,8 @@
-/* =============================================================
+﻿/* =============================================================
    FILE: server/database/01_schema_all.sql
    PROJECT: AISTHEA
    DATABASE: AISTHEA (SQL Server / T-SQL)
-   DESCRIPTION: Full schema — synchronized with prisma/schema.prisma
+   DESCRIPTION: Full schema â€” synchronized with prisma/schema.prisma
    
    TABLES (31):
      Users, EmailVerificationTokens, PasswordResetTokens,
@@ -13,9 +13,7 @@
      Coupons, Orders, OrderItems, OrderStatusHistory,
      Shipments, Payments, Refunds,
      Reviews, InventoryLogs, OrderReturns,
-     Warehouses, Inventory, InventoryReservations,
-     InventoryTransactions, StockAdjustments, StockTransfers,
-     PurchaseOrders
+     PurchaseOrders, PurchaseOrderItems
    ============================================================= */
 
 USE AISTHEA;
@@ -31,118 +29,21 @@ PRINT '============================================================';
 GO
 
 /* =============================================================
-   HELPER FUNCTION: Remove Vietnamese diacritics for search
+   LEVEL 0 â€” No Dependencies
    ============================================================= */
 
-IF OBJECT_ID('dbo.fn_RemoveDiacritics', 'FN') IS NOT NULL
-    DROP FUNCTION dbo.fn_RemoveDiacritics;
-GO
-
-CREATE FUNCTION dbo.fn_RemoveDiacritics(@input NVARCHAR(MAX))
-RETURNS NVARCHAR(850)
-WITH SCHEMABINDING
-AS
-BEGIN
-    DECLARE @result NVARCHAR(MAX) = @input;
-    -- Vietnamese vowels lowercase
-    SET @result = REPLACE(@result, N'à', 'a'); SET @result = REPLACE(@result, N'á', 'a');
-    SET @result = REPLACE(@result, N'ả', 'a'); SET @result = REPLACE(@result, N'ã', 'a');
-    SET @result = REPLACE(@result, N'ạ', 'a'); SET @result = REPLACE(@result, N'â', 'a');
-    SET @result = REPLACE(@result, N'ầ', 'a'); SET @result = REPLACE(@result, N'ấ', 'a');
-    SET @result = REPLACE(@result, N'ẩ', 'a'); SET @result = REPLACE(@result, N'ẫ', 'a');
-    SET @result = REPLACE(@result, N'ậ', 'a'); SET @result = REPLACE(@result, N'ă', 'a');
-    SET @result = REPLACE(@result, N'ằ', 'a'); SET @result = REPLACE(@result, N'ắ', 'a');
-    SET @result = REPLACE(@result, N'ẳ', 'a'); SET @result = REPLACE(@result, N'ẵ', 'a');
-    SET @result = REPLACE(@result, N'ặ', 'a');
-    SET @result = REPLACE(@result, N'è', 'e'); SET @result = REPLACE(@result, N'é', 'e');
-    SET @result = REPLACE(@result, N'ẻ', 'e'); SET @result = REPLACE(@result, N'ẽ', 'e');
-    SET @result = REPLACE(@result, N'ẹ', 'e'); SET @result = REPLACE(@result, N'ê', 'e');
-    SET @result = REPLACE(@result, N'ề', 'e'); SET @result = REPLACE(@result, N'ế', 'e');
-    SET @result = REPLACE(@result, N'ể', 'e'); SET @result = REPLACE(@result, N'ễ', 'e');
-    SET @result = REPLACE(@result, N'ệ', 'e');
-    SET @result = REPLACE(@result, N'ì', 'i'); SET @result = REPLACE(@result, N'í', 'i');
-    SET @result = REPLACE(@result, N'ỉ', 'i'); SET @result = REPLACE(@result, N'ĩ', 'i');
-    SET @result = REPLACE(@result, N'ị', 'i');
-    SET @result = REPLACE(@result, N'ò', 'o'); SET @result = REPLACE(@result, N'ó', 'o');
-    SET @result = REPLACE(@result, N'ỏ', 'o'); SET @result = REPLACE(@result, N'õ', 'o');
-    SET @result = REPLACE(@result, N'ọ', 'o'); SET @result = REPLACE(@result, N'ô', 'o');
-    SET @result = REPLACE(@result, N'ồ', 'o'); SET @result = REPLACE(@result, N'ố', 'o');
-    SET @result = REPLACE(@result, N'ổ', 'o'); SET @result = REPLACE(@result, N'ỗ', 'o');
-    SET @result = REPLACE(@result, N'ộ', 'o'); SET @result = REPLACE(@result, N'ơ', 'o');
-    SET @result = REPLACE(@result, N'ờ', 'o'); SET @result = REPLACE(@result, N'ớ', 'o');
-    SET @result = REPLACE(@result, N'ở', 'o'); SET @result = REPLACE(@result, N'ỡ', 'o');
-    SET @result = REPLACE(@result, N'ợ', 'o');
-    SET @result = REPLACE(@result, N'ù', 'u'); SET @result = REPLACE(@result, N'ú', 'u');
-    SET @result = REPLACE(@result, N'ủ', 'u'); SET @result = REPLACE(@result, N'ũ', 'u');
-    SET @result = REPLACE(@result, N'ụ', 'u'); SET @result = REPLACE(@result, N'ư', 'u');
-    SET @result = REPLACE(@result, N'ừ', 'u'); SET @result = REPLACE(@result, N'ứ', 'u');
-    SET @result = REPLACE(@result, N'ử', 'u'); SET @result = REPLACE(@result, N'ữ', 'u');
-    SET @result = REPLACE(@result, N'ự', 'u');
-    SET @result = REPLACE(@result, N'ỳ', 'y'); SET @result = REPLACE(@result, N'ý', 'y');
-    SET @result = REPLACE(@result, N'ỷ', 'y'); SET @result = REPLACE(@result, N'ỹ', 'y');
-    SET @result = REPLACE(@result, N'ỵ', 'y');
-    SET @result = REPLACE(@result, N'đ', 'd');
-    -- Uppercase
-    SET @result = REPLACE(@result, N'À', 'A'); SET @result = REPLACE(@result, N'Á', 'A');
-    SET @result = REPLACE(@result, N'Ả', 'A'); SET @result = REPLACE(@result, N'Ã', 'A');
-    SET @result = REPLACE(@result, N'Ạ', 'A'); SET @result = REPLACE(@result, N'Â', 'A');
-    SET @result = REPLACE(@result, N'Ầ', 'A'); SET @result = REPLACE(@result, N'Ấ', 'A');
-    SET @result = REPLACE(@result, N'Ẩ', 'A'); SET @result = REPLACE(@result, N'Ẫ', 'A');
-    SET @result = REPLACE(@result, N'Ậ', 'A'); SET @result = REPLACE(@result, N'Ă', 'A');
-    SET @result = REPLACE(@result, N'Ằ', 'A'); SET @result = REPLACE(@result, N'Ắ', 'A');
-    SET @result = REPLACE(@result, N'Ẳ', 'A'); SET @result = REPLACE(@result, N'Ẵ', 'A');
-    SET @result = REPLACE(@result, N'Ặ', 'A');
-    SET @result = REPLACE(@result, N'È', 'E'); SET @result = REPLACE(@result, N'É', 'E');
-    SET @result = REPLACE(@result, N'Ẻ', 'E'); SET @result = REPLACE(@result, N'Ẽ', 'E');
-    SET @result = REPLACE(@result, N'Ẹ', 'E'); SET @result = REPLACE(@result, N'Ê', 'E');
-    SET @result = REPLACE(@result, N'Ề', 'E'); SET @result = REPLACE(@result, N'Ế', 'E');
-    SET @result = REPLACE(@result, N'Ể', 'E'); SET @result = REPLACE(@result, N'Ễ', 'E');
-    SET @result = REPLACE(@result, N'Ệ', 'E');
-    SET @result = REPLACE(@result, N'Ì', 'I'); SET @result = REPLACE(@result, N'Í', 'I');
-    SET @result = REPLACE(@result, N'Ỉ', 'I'); SET @result = REPLACE(@result, N'Ĩ', 'I');
-    SET @result = REPLACE(@result, N'Ị', 'I');
-    SET @result = REPLACE(@result, N'Ò', 'O'); SET @result = REPLACE(@result, N'Ó', 'O');
-    SET @result = REPLACE(@result, N'Ỏ', 'O'); SET @result = REPLACE(@result, N'Õ', 'O');
-    SET @result = REPLACE(@result, N'Ọ', 'O'); SET @result = REPLACE(@result, N'Ô', 'O');
-    SET @result = REPLACE(@result, N'Ồ', 'O'); SET @result = REPLACE(@result, N'Ố', 'O');
-    SET @result = REPLACE(@result, N'Ổ', 'O'); SET @result = REPLACE(@result, N'Ỗ', 'O');
-    SET @result = REPLACE(@result, N'Ộ', 'O'); SET @result = REPLACE(@result, N'Ơ', 'O');
-    SET @result = REPLACE(@result, N'Ờ', 'O'); SET @result = REPLACE(@result, N'Ớ', 'O');
-    SET @result = REPLACE(@result, N'Ở', 'O'); SET @result = REPLACE(@result, N'Ỡ', 'O');
-    SET @result = REPLACE(@result, N'Ợ', 'O');
-    SET @result = REPLACE(@result, N'Ù', 'U'); SET @result = REPLACE(@result, N'Ú', 'U');
-    SET @result = REPLACE(@result, N'Ủ', 'U'); SET @result = REPLACE(@result, N'Ũ', 'U');
-    SET @result = REPLACE(@result, N'Ụ', 'U'); SET @result = REPLACE(@result, N'Ư', 'U');
-    SET @result = REPLACE(@result, N'Ừ', 'U'); SET @result = REPLACE(@result, N'Ứ', 'U');
-    SET @result = REPLACE(@result, N'Ử', 'U'); SET @result = REPLACE(@result, N'Ữ', 'U');
-    SET @result = REPLACE(@result, N'Ự', 'U');
-    SET @result = REPLACE(@result, N'Ỳ', 'Y'); SET @result = REPLACE(@result, N'Ý', 'Y');
-    SET @result = REPLACE(@result, N'Ỷ', 'Y'); SET @result = REPLACE(@result, N'Ỹ', 'Y');
-    SET @result = REPLACE(@result, N'Ỵ', 'Y');
-    SET @result = REPLACE(@result, N'Đ', 'D');
-    RETURN CAST(LOWER(@result) AS NVARCHAR(850));
-END
-GO
-
-PRINT '✓ Created function: dbo.fn_RemoveDiacritics';
-GO
-
-/* =============================================================
-   LEVEL 0 — No Dependencies
-   ============================================================= */
-
--- ── Roles ─────────────────────────────────────────────────────
+-- â”€â”€ Roles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Roles')
 BEGIN
     CREATE TABLE Roles (
         RoleId   INT           IDENTITY(1,1) PRIMARY KEY,
         RoleName NVARCHAR(50)  NOT NULL UNIQUE
     );
-    PRINT '✓ Roles';
+    PRINT 'âœ“ Roles';
 END
 GO
 
--- ── Users ─────────────────────────────────────────────────────
+-- â”€â”€ Users â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Users')
 BEGIN
     CREATE TABLE Users (
@@ -163,11 +64,11 @@ BEGIN
     CREATE NONCLUSTERED INDEX IX_Users_Email_Status ON Users(Email, Status);
     CREATE NONCLUSTERED INDEX IX_Users_Phone        ON Users(Phone) WHERE Phone IS NOT NULL;
     CREATE NONCLUSTERED INDEX IX_Users_Status       ON Users(Status);
-    PRINT '✓ Users';
+    PRINT 'âœ“ Users';
 END
 GO
 
--- ── Permissions ───────────────────────────────────────────────
+-- â”€â”€ Permissions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Permissions')
 BEGIN
     CREATE TABLE Permissions (
@@ -177,11 +78,11 @@ BEGIN
         Description  NVARCHAR(255) NOT NULL
     );
     CREATE NONCLUSTERED INDEX IX_Permissions_Module ON Permissions(Module);
-    PRINT '✓ Permissions';
+    PRINT 'âœ“ Permissions';
 END
 GO
 
--- ── Brands ───────────────────────────────────────────────────
+-- â”€â”€ Brands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Brands')
 BEGIN
     CREATE TABLE Brands (
@@ -189,22 +90,22 @@ BEGIN
         Name        NVARCHAR(100) NOT NULL UNIQUE,
         Description NVARCHAR(255) NULL
     );
-    PRINT '✓ Brands';
+    PRINT 'âœ“ Brands';
 END
 GO
 
--- ── Attributes ───────────────────────────────────────────────
+-- â”€â”€ Attributes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Attributes')
 BEGIN
     CREATE TABLE Attributes (
         AttributeId INT          IDENTITY(1,1) PRIMARY KEY,
         Name        NVARCHAR(50) NOT NULL UNIQUE
     );
-    PRINT '✓ Attributes';
+    PRINT 'âœ“ Attributes';
 END
 GO
 
--- ── Coupons ──────────────────────────────────────────────────
+-- â”€â”€ Coupons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Coupons')
 BEGIN
     CREATE TABLE Coupons (
@@ -223,33 +124,16 @@ BEGIN
         CreatedAt         DATETIME2     NOT NULL DEFAULT GETDATE(),
         UpdatedAt         DATETIME2     NOT NULL DEFAULT GETDATE()
     );
-    CREATE NONCLUSTERED INDEX IX_Coupons_Code     ON Coupons(Code);
     CREATE NONCLUSTERED INDEX IX_Coupons_IsActive ON Coupons(IsActive);
-    PRINT '✓ Coupons';
-END
-GO
-
--- ── Warehouses ───────────────────────────────────────────────
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Warehouses')
-BEGIN
-    CREATE TABLE Warehouses (
-        WarehouseId INT           IDENTITY(1,1) PRIMARY KEY,
-        Name        NVARCHAR(100) NOT NULL,
-        Address     NVARCHAR(255) NULL,
-        IsActive    BIT           NOT NULL DEFAULT 1,
-        CreatedAt   DATETIME2     NOT NULL DEFAULT GETDATE(),
-        UpdatedAt   DATETIME2     NOT NULL DEFAULT GETDATE()
-    );
-    CREATE NONCLUSTERED INDEX IX_Warehouses_IsActive ON Warehouses(IsActive);
-    PRINT '✓ Warehouses';
+    PRINT 'âœ“ Coupons';
 END
 GO
 
 /* =============================================================
-   LEVEL 1 — Depends on Level 0
+   LEVEL 1 â€” Depends on Level 0
    ============================================================= */
 
--- ── EmailVerificationTokens ──────────────────────────────────
+-- â”€â”€ EmailVerificationTokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'EmailVerificationTokens')
 BEGIN
     CREATE TABLE EmailVerificationTokens (
@@ -261,11 +145,12 @@ BEGIN
         CONSTRAINT FK_EmailVerificationTokens_Users
             FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
     );
-    PRINT '✓ EmailVerificationTokens';
+    CREATE NONCLUSTERED INDEX IX_EmailVerificationTokens_UserId ON EmailVerificationTokens(UserId);
+    PRINT 'âœ“ EmailVerificationTokens';
 END
 GO
 
--- ── PasswordResetTokens ──────────────────────────────────────
+-- â”€â”€ PasswordResetTokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'PasswordResetTokens')
 BEGIN
     CREATE TABLE PasswordResetTokens (
@@ -277,11 +162,12 @@ BEGIN
         CONSTRAINT FK_PasswordResetTokens_Users
             FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
     );
-    PRINT '✓ PasswordResetTokens';
+    CREATE NONCLUSTERED INDEX IX_PasswordResetTokens_UserId ON PasswordResetTokens(UserId);
+    PRINT 'âœ“ PasswordResetTokens';
 END
 GO
 
--- ── UserRoles ────────────────────────────────────────────────
+-- â”€â”€ UserRoles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'UserRoles')
 BEGIN
     CREATE TABLE UserRoles (
@@ -291,11 +177,11 @@ BEGIN
         CONSTRAINT FK_UserRoles_Users FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE,
         CONSTRAINT FK_UserRoles_Roles FOREIGN KEY (RoleId) REFERENCES Roles(RoleId) ON DELETE CASCADE
     );
-    PRINT '✓ UserRoles';
+    PRINT 'âœ“ UserRoles';
 END
 GO
 
--- ── RolePermissions ──────────────────────────────────────────
+-- â”€â”€ RolePermissions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'RolePermissions')
 BEGIN
     CREATE TABLE RolePermissions (
@@ -307,11 +193,11 @@ BEGIN
         CONSTRAINT FK_RolePermissions_Permissions
             FOREIGN KEY (PermissionId) REFERENCES Permissions(PermissionId) ON DELETE CASCADE
     );
-    PRINT '✓ RolePermissions';
+    PRINT 'âœ“ RolePermissions';
 END
 GO
 
--- ── UserLogins ───────────────────────────────────────────────
+-- â”€â”€ UserLogins â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'UserLogins')
 BEGIN
     CREATE TABLE UserLogins (
@@ -329,11 +215,11 @@ BEGIN
             FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
     );
     CREATE NONCLUSTERED INDEX IX_UserLogins_UserId ON UserLogins(UserId);
-    PRINT '✓ UserLogins';
+    PRINT 'âœ“ UserLogins';
 END
 GO
 
--- ── Addresses ────────────────────────────────────────────────
+-- â”€â”€ Addresses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Addresses')
 BEGIN
     CREATE TABLE Addresses (
@@ -348,11 +234,12 @@ BEGIN
         CONSTRAINT FK_Addresses_Users
             FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
     );
-    PRINT '✓ Addresses';
+    CREATE NONCLUSTERED INDEX IX_Addresses_UserId_IsDefault ON Addresses(UserId, IsDefault);
+    PRINT 'âœ“ Addresses';
 END
 GO
 
--- ── Categories (self-referencing) ────────────────────────────
+-- â”€â”€ Categories (self-referencing) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Categories')
 BEGIN
     CREATE TABLE Categories (
@@ -365,11 +252,12 @@ BEGIN
         CONSTRAINT FK_Categories_Parent
             FOREIGN KEY (ParentId) REFERENCES Categories(CategoryId)
     );
-    PRINT '✓ Categories';
+    CREATE NONCLUSTERED INDEX IX_Categories_ParentId ON Categories(ParentId) WHERE ParentId IS NOT NULL;
+    PRINT 'âœ“ Categories';
 END
 GO
 
--- ── AttributeValues ──────────────────────────────────────────
+-- â”€â”€ AttributeValues â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'AttributeValues')
 BEGIN
     CREATE TABLE AttributeValues (
@@ -379,11 +267,11 @@ BEGIN
         CONSTRAINT FK_AttributeValues_Attributes
             FOREIGN KEY (AttributeId) REFERENCES Attributes(AttributeId) ON DELETE CASCADE
     );
-    PRINT '✓ AttributeValues';
+    PRINT 'âœ“ AttributeValues';
 END
 GO
 
--- ── Orders ───────────────────────────────────────────────────
+-- â”€â”€ Orders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- Valid Status: Pending | Processing | Shipping | Delivered | Cancelled
 --               Return_Requested | Returned
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Orders')
@@ -391,7 +279,6 @@ BEGIN
     CREATE TABLE Orders (
         OrderId               INT           IDENTITY(1,1) PRIMARY KEY,
         UserId                INT           NULL,
-        OrderCode             NVARCHAR(50)  NULL UNIQUE,
         OrderNumber           NVARCHAR(50)  NOT NULL UNIQUE,
         CustomerName          NVARCHAR(100) NOT NULL,
         CustomerEmail         NVARCHAR(100) NULL,
@@ -400,14 +287,11 @@ BEGIN
         ShippingDistrict      NVARCHAR(50)  NOT NULL,
         ShippingWard          NVARCHAR(50)  NULL,
         ShippingAddressDetail NVARCHAR(200) NOT NULL,
-        TrackingNumber        NVARCHAR(100) NULL,
-        Carrier               NVARCHAR(50)  NULL,
         TotalAmount           DECIMAL(18,2) NOT NULL,
         DiscountAmount        DECIMAL(18,2) NULL DEFAULT 0,
         CouponId              INT           NULL,
         Status                NVARCHAR(20)  DEFAULT 'Pending',
         PaymentMethod         NVARCHAR(50)  DEFAULT 'COD',
-        PaymentStatus         NVARCHAR(20)  DEFAULT 'Unpaid',
         Note                  NVARCHAR(500) NULL,
         CreatedAt             DATETIME2     DEFAULT GETDATE(),
         UpdatedAt             DATETIME2     DEFAULT GETDATE(),
@@ -415,19 +299,17 @@ BEGIN
         CONSTRAINT FK_Orders_Coupons FOREIGN KEY (CouponId) REFERENCES Coupons(CouponId)
     );
     CREATE NONCLUSTERED INDEX IX_Orders_CreatedAt   ON Orders(CreatedAt);
-    CREATE NONCLUSTERED INDEX IX_Orders_OrderNumber ON Orders(OrderNumber);
-    CREATE NONCLUSTERED INDEX IX_Orders_OrderCode   ON Orders(OrderCode) WHERE OrderCode IS NOT NULL;
     CREATE NONCLUSTERED INDEX IX_Orders_Status      ON Orders(Status);
     CREATE NONCLUSTERED INDEX IX_Orders_UserId      ON Orders(UserId) WHERE UserId IS NOT NULL;
-    PRINT '✓ Orders';
+    PRINT 'âœ“ Orders';
 END
 GO
 
 /* =============================================================
-   LEVEL 2 — Depends on Level 1
+   LEVEL 2 â€” Depends on Level 1
    ============================================================= */
 
--- ── Products ─────────────────────────────────────────────────
+-- â”€â”€ Products â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Products')
 BEGIN
     CREATE TABLE Products (
@@ -442,9 +324,6 @@ BEGIN
         IsDeleted             BIT            DEFAULT 0,
         DeletedAt             DATETIME2      NULL,
         CreatedAt             DATETIME2      DEFAULT GETDATE(),
-        -- Computed columns for Vietnamese search (persisted for indexing)
-        NameNormalized        AS dbo.fn_RemoveDiacritics(Name)        PERSISTED,
-        DescriptionNormalized AS dbo.fn_RemoveDiacritics(Description) PERSISTED,
         CONSTRAINT FK_Products_Categories FOREIGN KEY (CategoryId) REFERENCES Categories(CategoryId),
         CONSTRAINT FK_Products_Brands     FOREIGN KEY (BrandId)    REFERENCES Brands(BrandId)
     );
@@ -453,13 +332,11 @@ BEGIN
     CREATE NONCLUSTERED INDEX IX_Products_BasePrice      ON Products(BasePrice);
     CREATE NONCLUSTERED INDEX IX_Products_Name           ON Products(Name);
     CREATE NONCLUSTERED INDEX IX_Products_Status         ON Products(Status);
-    CREATE NONCLUSTERED INDEX IX_Products_NameNormalized        ON Products(NameNormalized)        WHERE IsDeleted = 0 AND Status = 'Active';
-    CREATE NONCLUSTERED INDEX IX_Products_DescriptionNormalized ON Products(DescriptionNormalized) WHERE IsDeleted = 0 AND Status = 'Active';
-    PRINT '✓ Products';
+    PRINT 'âœ“ Products';
 END
 GO
 
--- ── Payments ─────────────────────────────────────────────────
+-- â”€â”€ Payments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Payments')
 BEGIN
     CREATE TABLE Payments (
@@ -474,15 +351,16 @@ BEGIN
         CONSTRAINT FK_Payments_Orders
             FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) ON DELETE CASCADE
     );
-    PRINT '✓ Payments';
+    CREATE NONCLUSTERED INDEX IX_Payments_OrderId ON Payments(OrderId);
+    PRINT 'âœ“ Payments';
 END
 GO
 
 /* =============================================================
-   LEVEL 3 — Depends on Level 2
+   LEVEL 3 â€” Depends on Level 2
    ============================================================= */
 
--- ── ProductVariants ──────────────────────────────────────────
+-- â”€â”€ ProductVariants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ProductVariants')
 BEGIN
     CREATE TABLE ProductVariants (
@@ -499,11 +377,11 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_ProductVariants_ProductId    ON ProductVariants(ProductId)    WHERE IsDeleted = 0;
     CREATE NONCLUSTERED INDEX IX_ProductVariants_StockQuantity ON ProductVariants(StockQuantity);
-    PRINT '✓ ProductVariants';
+    PRINT 'âœ“ ProductVariants';
 END
 GO
 
--- ── Carts ────────────────────────────────────────────────────
+-- â”€â”€ Carts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Carts')
 BEGIN
     CREATE TABLE Carts (
@@ -515,11 +393,11 @@ BEGIN
         CONSTRAINT FK_Carts_Users
             FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
     );
-    PRINT '✓ Carts';
+    PRINT 'âœ“ Carts';
 END
 GO
 
--- ── OrderItems ───────────────────────────────────────────────
+-- â”€â”€ OrderItems â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'OrderItems')
 BEGIN
     CREATE TABLE OrderItems (
@@ -536,11 +414,11 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_OrderItems_OrderId   ON OrderItems(OrderId);
     CREATE NONCLUSTERED INDEX IX_OrderItems_VariantId ON OrderItems(VariantId) WHERE VariantId IS NOT NULL;
-    PRINT '✓ OrderItems';
+    PRINT 'âœ“ OrderItems';
 END
 GO
 
--- ── OrderStatusHistory ────────────────────────────────────────
+-- â”€â”€ OrderStatusHistory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'OrderStatusHistory')
 BEGIN
     CREATE TABLE OrderStatusHistory (
@@ -556,11 +434,11 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_OrderStatusHistory_OrderId           ON OrderStatusHistory(OrderId);
     CREATE NONCLUSTERED INDEX IX_OrderStatusHistory_OrderId_ChangedAt ON OrderStatusHistory(OrderId, ChangedAt);
-    PRINT '✓ OrderStatusHistory';
+    PRINT 'âœ“ OrderStatusHistory';
 END
 GO
 
--- ── Shipments ────────────────────────────────────────────────
+-- â”€â”€ Shipments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Shipments')
 BEGIN
     CREATE TABLE Shipments (
@@ -576,11 +454,11 @@ BEGIN
             FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) ON DELETE CASCADE
     );
     CREATE NONCLUSTERED INDEX IX_Shipments_TrackingNumber ON Shipments(TrackingNumber) WHERE TrackingNumber IS NOT NULL;
-    PRINT '✓ Shipments';
+    PRINT 'âœ“ Shipments';
 END
 GO
 
--- ── OrderReturns ─────────────────────────────────────────────
+-- â”€â”€ OrderReturns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- Status: PENDING_APPROVAL | APPROVED | REJECTED | COMPLETED
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'OrderReturns')
 BEGIN
@@ -597,14 +475,13 @@ BEGIN
         CONSTRAINT FK_OrderReturns_Orders FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) ON DELETE CASCADE,
         CONSTRAINT FK_OrderReturns_Users  FOREIGN KEY (UserId)  REFERENCES Users(UserId)   ON DELETE SET NULL
     );
-    CREATE NONCLUSTERED INDEX IX_OrderReturns_OrderId ON OrderReturns(OrderId);
     CREATE NONCLUSTERED INDEX IX_OrderReturns_Status  ON OrderReturns(Status);
     CREATE NONCLUSTERED INDEX IX_OrderReturns_UserId  ON OrderReturns(UserId) WHERE UserId IS NOT NULL;
-    PRINT '✓ OrderReturns';
+    PRINT 'âœ“ OrderReturns';
 END
 GO
 
--- ── Refunds ──────────────────────────────────────────────────
+-- â”€â”€ Refunds â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- type: FULL | PARTIAL
 -- method: ORIGINAL_GATEWAY | BANK_TRANSFER | STORE_WALLET
 -- status: PENDING | PROCESSING | SUCCESS | FAILED
@@ -629,17 +506,17 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_Refunds_OrderId ON Refunds(OrderId);
     CREATE NONCLUSTERED INDEX IX_Refunds_Status  ON Refunds(Status);
-    PRINT '✓ Refunds';
+    PRINT 'âœ“ Refunds';
 END
 GO
 
 GO
 
 /* =============================================================
-   LEVEL 4 — Depends on Level 3
+   LEVEL 4 â€” Depends on Level 3
    ============================================================= */
 
--- ── VariantAttributes ────────────────────────────────────────
+-- â”€â”€ VariantAttributes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'VariantAttributes')
 BEGIN
     CREATE TABLE VariantAttributes (
@@ -649,13 +526,12 @@ BEGIN
         CONSTRAINT FK_VariantAttributes_Variants FOREIGN KEY (VariantId) REFERENCES ProductVariants(VariantId) ON DELETE CASCADE,
         CONSTRAINT FK_VariantAttributes_Values   FOREIGN KEY (ValueId)   REFERENCES AttributeValues(ValueId)   ON DELETE CASCADE
     );
-    CREATE NONCLUSTERED INDEX IX_VariantAttributes_ValueId   ON VariantAttributes(ValueId);
-    CREATE NONCLUSTERED INDEX IX_VariantAttributes_VariantId ON VariantAttributes(VariantId);
-    PRINT '✓ VariantAttributes';
+    CREATE NONCLUSTERED INDEX IX_VariantAttributes_ValueId ON VariantAttributes(ValueId);
+    PRINT 'âœ“ VariantAttributes';
 END
 GO
 
--- ── ProductImages ────────────────────────────────────────────
+-- â”€â”€ ProductImages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ProductImages')
 BEGIN
     CREATE TABLE ProductImages (
@@ -672,11 +548,11 @@ BEGIN
         ON ProductImages(ProductId) INCLUDE (ImageUrl, ThumbnailUrl, IsPrimary);
     CREATE NONCLUSTERED INDEX IX_ProductImages_VariantId
         ON ProductImages(VariantId) WHERE VariantId IS NOT NULL;
-    PRINT '✓ ProductImages';
+    PRINT 'âœ“ ProductImages';
 END
 GO
 
--- ── CartItems ────────────────────────────────────────────────
+-- â”€â”€ CartItems â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'CartItems')
 BEGIN
     CREATE TABLE CartItems (
@@ -689,13 +565,12 @@ BEGIN
         CONSTRAINT FK_CartItems_Variants FOREIGN KEY (VariantId) REFERENCES ProductVariants(VariantId) ON DELETE CASCADE,
         CONSTRAINT UQ_CartItems_Cart_Variant UNIQUE (CartId, VariantId)
     );
-    CREATE NONCLUSTERED INDEX IX_CartItems_CartId    ON CartItems(CartId);
     CREATE NONCLUSTERED INDEX IX_CartItems_VariantId ON CartItems(VariantId);
-    PRINT '✓ CartItems';
+    PRINT 'âœ“ CartItems';
 END
 GO
 
--- ── Reviews ──────────────────────────────────────────────────
+-- â”€â”€ Reviews â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Reviews')
 BEGIN
     CREATE TABLE Reviews (
@@ -713,12 +588,12 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_Reviews_ProductId ON Reviews(ProductId);
     CREATE NONCLUSTERED INDEX IX_Reviews_UserId    ON Reviews(UserId);
-    PRINT '✓ Reviews';
+    PRINT 'âœ“ Reviews';
 END
 GO
 
--- ── InventoryLogs ────────────────────────────────────────────
--- Reason: CHECKOUT | RESTOCK | CANCELLED_RESTORE | MANUAL_ADJUST
+-- â”€â”€ InventoryLogs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Reason: CHECKOUT | PURCHASE_RECEIPT | RETURN_RESTORE | MANUAL_ADJUST
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'InventoryLogs')
 BEGIN
     CREATE TABLE InventoryLogs (
@@ -726,7 +601,7 @@ BEGIN
         VariantId      INT           NOT NULL,
         OrderId        INT           NULL,
         UserId         INT           NULL,
-        ChangeQuantity INT           NOT NULL,   -- negative = deduct, positive = restock
+        ChangeQuantity INT           NOT NULL,   -- negative = deduct, positive = receipt/restore
         PreviousStock  INT           NOT NULL,
         NewStock       INT           NOT NULL,
         Reason         NVARCHAR(30)  NOT NULL,
@@ -738,156 +613,64 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_InventoryLogs_VariantId ON InventoryLogs(VariantId);
     CREATE NONCLUSTERED INDEX IX_InventoryLogs_OrderId   ON InventoryLogs(OrderId) WHERE OrderId IS NOT NULL;
-    PRINT '✓ InventoryLogs';
+    PRINT 'âœ“ InventoryLogs';
 END
 GO
 
 /* =============================================================
-   LEVEL 5 — Warehouse / Multi-location Inventory
+   LEVEL 5 - Single-store procurement
    ============================================================= */
 
--- ── Inventory (Warehouse × Variant) ──────────────────────────
--- available_stock (app-layer) = Quantity - ReservedQuantity
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Inventory')
-BEGIN
-    CREATE TABLE Inventory (
-        InventoryId      INT       IDENTITY(1,1) PRIMARY KEY,
-        WarehouseId      INT       NOT NULL,
-        VariantId        INT       NOT NULL,
-        Quantity         INT       NOT NULL DEFAULT 0,
-        ReservedQuantity INT       NOT NULL DEFAULT 0,
-        CreatedAt        DATETIME2 NOT NULL DEFAULT GETDATE(),
-        UpdatedAt        DATETIME2 NOT NULL DEFAULT GETDATE(),
-        CONSTRAINT UQ_Inventory_Warehouse_Variant UNIQUE (WarehouseId, VariantId),
-        CONSTRAINT FK_Inventory_Warehouses FOREIGN KEY (WarehouseId) REFERENCES Warehouses(WarehouseId) ON DELETE CASCADE,
-        CONSTRAINT FK_Inventory_Variants   FOREIGN KEY (VariantId)   REFERENCES ProductVariants(VariantId) ON DELETE CASCADE
-    );
-    CREATE NONCLUSTERED INDEX IX_Inventory_VariantId   ON Inventory(VariantId);
-    CREATE NONCLUSTERED INDEX IX_Inventory_WarehouseId ON Inventory(WarehouseId);
-    PRINT '✓ Inventory';
-END
-GO
-
--- ── InventoryReservations ─────────────────────────────────────
--- status: ACTIVE | RELEASED | FULFILLED
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'InventoryReservations')
-BEGIN
-    CREATE TABLE InventoryReservations (
-        ReservationId INT           IDENTITY(1,1) PRIMARY KEY,
-        InventoryId   INT           NOT NULL,
-        OrderId       INT           NOT NULL,
-        Quantity      INT           NOT NULL,
-        Status        NVARCHAR(20)  NOT NULL DEFAULT 'ACTIVE',
-        ExpiresAt     DATETIME2     NOT NULL,
-        CreatedAt     DATETIME2     NOT NULL DEFAULT GETDATE(),
-        UpdatedAt     DATETIME2     NOT NULL DEFAULT GETDATE(),
-        CONSTRAINT FK_InventoryReservations_Inventory FOREIGN KEY (InventoryId) REFERENCES Inventory(InventoryId) ON DELETE CASCADE,
-        CONSTRAINT FK_InventoryReservations_Orders    FOREIGN KEY (OrderId)     REFERENCES Orders(OrderId) ON DELETE CASCADE
-    );
-    CREATE NONCLUSTERED INDEX IX_InventoryReservations_InventoryId ON InventoryReservations(InventoryId);
-    CREATE NONCLUSTERED INDEX IX_InventoryReservations_OrderId     ON InventoryReservations(OrderId);
-    CREATE NONCLUSTERED INDEX IX_InventoryReservations_Status      ON InventoryReservations(Status);
-    PRINT '✓ InventoryReservations';
-END
-GO
-
--- ── InventoryTransactions ────────────────────────────────────
--- type: IN | OUT | ADJUST | TRANSFER_IN | TRANSFER_OUT
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'InventoryTransactions')
-BEGIN
-    CREATE TABLE InventoryTransactions (
-        TransactionId INT           IDENTITY(1,1) PRIMARY KEY,
-        InventoryId   INT           NOT NULL,
-        Type          NVARCHAR(20)  NOT NULL,
-        Quantity      INT           NOT NULL,
-        Note          NVARCHAR(500) NULL,
-        CreatedBy     INT           NULL,
-        CreatedAt     DATETIME2     NOT NULL DEFAULT GETDATE(),
-        CONSTRAINT FK_InventoryTransactions_Inventory
-            FOREIGN KEY (InventoryId) REFERENCES Inventory(InventoryId) ON DELETE CASCADE
-    );
-    CREATE NONCLUSTERED INDEX IX_InventoryTransactions_InventoryId ON InventoryTransactions(InventoryId);
-    CREATE NONCLUSTERED INDEX IX_InventoryTransactions_Type        ON InventoryTransactions(Type);
-    PRINT '✓ InventoryTransactions';
-END
-GO
-
--- ── StockAdjustments ─────────────────────────────────────────
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StockAdjustments')
-BEGIN
-    CREATE TABLE StockAdjustments (
-        AdjustmentId INT           IDENTITY(1,1) PRIMARY KEY,
-        WarehouseId  INT           NOT NULL,
-        VariantId    INT           NOT NULL,
-        Quantity     INT           NOT NULL,      -- positive = add, negative = remove
-        Reason       NVARCHAR(255) NOT NULL,
-        AdjustedBy   INT           NULL,
-        AdjustedAt   DATETIME2     NOT NULL DEFAULT GETDATE(),
-        CONSTRAINT FK_StockAdjustments_Warehouses FOREIGN KEY (WarehouseId) REFERENCES Warehouses(WarehouseId) ON DELETE CASCADE,
-        CONSTRAINT FK_StockAdjustments_Variants   FOREIGN KEY (VariantId)   REFERENCES ProductVariants(VariantId) ON DELETE CASCADE
-    );
-    CREATE NONCLUSTERED INDEX IX_StockAdjustments_WarehouseId ON StockAdjustments(WarehouseId);
-    CREATE NONCLUSTERED INDEX IX_StockAdjustments_VariantId   ON StockAdjustments(VariantId);
-    PRINT '✓ StockAdjustments';
-END
-GO
-
--- ── StockTransfers ───────────────────────────────────────────
--- status: PENDING | COMPLETED | CANCELLED
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StockTransfers')
-BEGIN
-    CREATE TABLE StockTransfers (
-        TransferId      INT          IDENTITY(1,1) PRIMARY KEY,
-        FromWarehouseId INT          NOT NULL,
-        ToWarehouseId   INT          NOT NULL,
-        VariantId       INT          NOT NULL,
-        Quantity        INT          NOT NULL,
-        Status          NVARCHAR(20) NOT NULL DEFAULT 'PENDING',
-        TransferredBy   INT          NULL,
-        CreatedAt       DATETIME2    NOT NULL DEFAULT GETDATE(),
-        UpdatedAt       DATETIME2    NOT NULL DEFAULT GETDATE(),
-        CONSTRAINT FK_StockTransfers_FromWarehouse FOREIGN KEY (FromWarehouseId) REFERENCES Warehouses(WarehouseId),
-        CONSTRAINT FK_StockTransfers_ToWarehouse   FOREIGN KEY (ToWarehouseId)   REFERENCES Warehouses(WarehouseId),
-        CONSTRAINT FK_StockTransfers_Variants      FOREIGN KEY (VariantId)       REFERENCES ProductVariants(VariantId) ON DELETE CASCADE
-    );
-    CREATE NONCLUSTERED INDEX IX_StockTransfers_FromWarehouse ON StockTransfers(FromWarehouseId);
-    CREATE NONCLUSTERED INDEX IX_StockTransfers_ToWarehouse   ON StockTransfers(ToWarehouseId);
-    CREATE NONCLUSTERED INDEX IX_StockTransfers_Status        ON StockTransfers(Status);
-    PRINT '✓ StockTransfers';
-END
-GO
-
--- ── PurchaseOrders ───────────────────────────────────────────
--- status: PENDING | RECEIVED | CANCELLED
+-- PurchaseOrders
+-- status: PENDING | PARTIALLY_RECEIVED | RECEIVED | CANCELLED
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'PurchaseOrders')
 BEGIN
     CREATE TABLE PurchaseOrders (
-        PurchaseOrderId INT            IDENTITY(1,1) PRIMARY KEY,
-        WarehouseId     INT            NOT NULL,
-        Supplier        NVARCHAR(100)  NOT NULL,
-        Status          NVARCHAR(20)   NOT NULL DEFAULT 'PENDING',
-        TotalCost       DECIMAL(18,2)  NULL,
-        Notes           NVARCHAR(1000) NULL,
-        OrderedAt       DATETIME2      NOT NULL DEFAULT GETDATE(),
-        ReceivedAt      DATETIME2      NULL,
-        CreatedBy       INT            NULL,
-        UpdatedAt       DATETIME2      NOT NULL DEFAULT GETDATE(),
-        CONSTRAINT FK_PurchaseOrders_Warehouses
-            FOREIGN KEY (WarehouseId) REFERENCES Warehouses(WarehouseId) ON DELETE CASCADE
+        PurchaseOrderId     INT            IDENTITY(1,1) PRIMARY KEY,
+        PurchaseOrderNumber NVARCHAR(50)   NOT NULL UNIQUE,
+        Supplier            NVARCHAR(100)  NOT NULL,
+        Status              NVARCHAR(20)   NOT NULL DEFAULT 'PENDING',
+        Notes               NVARCHAR(1000) NULL,
+        OrderedAt           DATETIME2      NOT NULL DEFAULT GETDATE(),
+        ReceivedAt          DATETIME2      NULL,
+        CreatedBy           INT            NULL,
+        UpdatedAt           DATETIME2      NOT NULL DEFAULT GETDATE()
     );
-    CREATE NONCLUSTERED INDEX IX_PurchaseOrders_WarehouseId ON PurchaseOrders(WarehouseId);
-    CREATE NONCLUSTERED INDEX IX_PurchaseOrders_Status      ON PurchaseOrders(Status);
-    PRINT '✓ PurchaseOrders';
+    CREATE NONCLUSTERED INDEX IX_PurchaseOrders_OrderedAt ON PurchaseOrders(OrderedAt);
+    CREATE NONCLUSTERED INDEX IX_PurchaseOrders_Status    ON PurchaseOrders(Status);
+    PRINT 'PurchaseOrders created';
+END
+GO
+
+-- PurchaseOrderItems
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'PurchaseOrderItems')
+BEGIN
+    CREATE TABLE PurchaseOrderItems (
+        PurchaseOrderItemId INT           IDENTITY(1,1) PRIMARY KEY,
+        PurchaseOrderId     INT           NOT NULL,
+        VariantId           INT           NOT NULL,
+        OrderedQty          INT           NOT NULL,
+        ReceivedQty         INT           NOT NULL DEFAULT 0,
+        UnitCost            DECIMAL(18,2) NOT NULL,
+        CONSTRAINT FK_PurchaseOrderItems_PurchaseOrders
+            FOREIGN KEY (PurchaseOrderId) REFERENCES PurchaseOrders(PurchaseOrderId) ON DELETE CASCADE,
+        CONSTRAINT FK_PurchaseOrderItems_ProductVariants
+            FOREIGN KEY (VariantId) REFERENCES ProductVariants(VariantId)
+    );
+    CREATE UNIQUE INDEX UQ_PurchaseOrderItems_Order_Variant
+        ON PurchaseOrderItems(PurchaseOrderId, VariantId);
+    CREATE NONCLUSTERED INDEX IX_PurchaseOrderItems_VariantId ON PurchaseOrderItems(VariantId);
+    PRINT 'PurchaseOrderItems created';
 END
 GO
 
 /* =============================================================
-   UNIQUE FILTERED INDEX — ProductImages (one primary per product)
+   UNIQUE FILTERED INDEX â€” ProductImages (one primary per product)
    ============================================================= */
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_ProductImages_Primary' AND object_id = OBJECT_ID('ProductImages'))
 BEGIN
     CREATE UNIQUE INDEX UX_ProductImages_Primary ON ProductImages(ProductId) WHERE IsPrimary = 1;
-    PRINT '✓ Index: UX_ProductImages_Primary';
+    PRINT 'âœ“ Index: UX_ProductImages_Primary';
 END
 GO
 
@@ -896,7 +679,7 @@ GO
    ============================================================= */
 PRINT '';
 PRINT '============================================================';
-PRINT '  Schema ready — 36 objects created (tables + indexes)';
+PRINT '  Schema ready - simplified single-store schema';
 PRINT '  Synchronized with: server/prisma/schema.prisma';
 PRINT '============================================================';
 GO

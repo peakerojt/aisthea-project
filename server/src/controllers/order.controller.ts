@@ -12,6 +12,7 @@ import {
 } from '../config/orderStatus.config';
 import { ERROR_CODES, SUCCESS_MESSAGES } from '../utils/constants/responseKeys';
 import { logger } from '../lib/logger';
+import { deriveOrderPaymentStatus, getShipmentSummary } from '../shared/order-state';
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
@@ -37,13 +38,14 @@ function resolveVariantImage(item: any): string | null {
 type OrderRow = Awaited<ReturnType<typeof findManyOrders>>['data'][number];
 
 function formatOrderSummary(order: OrderRow) {
+  const paymentStatus = deriveOrderPaymentStatus(order.payments);
   return {
     orderId: order.orderId,
     orderNumber: order.orderNumber,
     customerName: order.customerName,
     customerPhone: order.customerPhone,
     status: order.status,
-    paymentStatus: order.paymentStatus,
+    paymentStatus,
     paymentMethod: order.paymentMethod,
     totalAmount: order.totalAmount?.toString() ?? '0',
     createdAt: order.createdAt?.toISOString(),
@@ -132,24 +134,28 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
           },
         },
         payments: true,
+        shipment: true,
         statusHistory: { orderBy: { changedAt: 'asc' } },
       },
     });
 
     if (!order) return res.status(404).json({ success: false, errorCode: 'ORDER_NOT_FOUND', message: 'Order not found' });
 
+    const shipment = getShipmentSummary(order.shipment);
+    const paymentStatus = deriveOrderPaymentStatus(order.payments);
+
     res.json({
       orderId: order.orderId,
       orderNumber: order.orderNumber,
       status: order.status,
-      paymentStatus: order.paymentStatus,
+      paymentStatus,
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount?.toString() ?? '0',
       discountAmount: order.discountAmount?.toString() ?? '0',
       note: order.note,
       createdAt: order.createdAt?.toISOString(),
-      trackingNumber: order.trackingNumber,
-      carrier: order.carrier,
+      trackingNumber: shipment.trackingNumber,
+      carrier: shipment.carrier,
       shippingAddress: {
         recipientName: order.customerName,
         phone: order.customerPhone,
@@ -267,24 +273,28 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
           },
         },
         payments: true,
+        shipment: true,
         statusHistory: { orderBy: { changedAt: 'asc' } },
       },
     });
 
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
+    const shipment = getShipmentSummary(order.shipment);
+    const paymentStatus = deriveOrderPaymentStatus(order.payments);
+
     res.json({
       orderId: order.orderId,
       orderNumber: order.orderNumber,
       status: order.status,
-      paymentStatus: order.paymentStatus,
+      paymentStatus,
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount.toString(),
       discountAmount: order.discountAmount?.toString() ?? '0',
       createdAt: order.createdAt?.toISOString(),
       updatedAt: order.updatedAt?.toISOString() ?? order.createdAt?.toISOString(),
-      trackingNumber: order.trackingNumber,
-      carrier: order.carrier,
+      trackingNumber: shipment.trackingNumber,
+      carrier: shipment.carrier,
       shippingAddress: {
         recipientName: order.customerName,
         phone: order.customerPhone,

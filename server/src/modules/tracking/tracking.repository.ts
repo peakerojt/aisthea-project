@@ -8,18 +8,15 @@ const ORDER_INCLUDE = {
 
 export const trackingRepository = {
   /**
-   * Public lookup: match by orderNumber (or orderCode) AND phone or email.
-   * Security: Both orderCode AND contact must match exactly.
+   * Public lookup: match by orderNumber AND phone or email.
+   * Security: Both order number and contact must match exactly.
    */
   async findOrderByCodeAndContact(orderCode: string, contact: string) {
     const isEmail = contact.includes('@');
 
     const order = await prisma.order.findFirst({
       where: {
-        OR: [
-          { orderNumber: orderCode },
-          { orderCode: orderCode },
-        ],
+        orderNumber: orderCode,
         AND: isEmail
           ? { customerEmail: contact }
           : { customerPhone: contact },
@@ -32,7 +29,7 @@ export const trackingRepository = {
 
     return {
       ...order,
-      orderCode: order.orderCode || order.orderNumber,
+      orderCode: order.orderNumber,
       customerEmail: order.customerEmail || null,
     };
   },
@@ -45,13 +42,13 @@ export const trackingRepository = {
       take: 50,
       include: {
         items: { orderBy: { orderItemId: 'asc' } },
+        shipment: true,
       },
     });
 
     return orders.map((order) => ({
       ...order,
-      shipment: null,
-      orderCode: order.orderCode || order.orderNumber,
+      orderCode: order.orderNumber,
     }));
   },
 
@@ -65,7 +62,7 @@ export const trackingRepository = {
 
     return {
       ...order,
-      orderCode: order.orderCode || order.orderNumber,
+      orderCode: order.orderNumber,
       customerEmail: order.customerEmail || null,
     };
   },

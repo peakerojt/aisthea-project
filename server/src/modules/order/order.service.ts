@@ -10,6 +10,7 @@ import {
   INVENTORY_RESTORE_STATUSES,
 } from '../../config/orderStatus.config';
 import { emitOrderStatusUpdated } from '../../socket';
+import { deriveOrderPaymentStatus, normalizeOrderStatus } from '../../shared/order-state';
 
 export type Role = 'Admin' | 'Customer' | string;
 
@@ -70,9 +71,6 @@ export interface OrderDetailDto {
 
 const isAdmin = (user: CurrentUser) => user.roles.includes('Admin');
 
-const normalizeStatus = (status: string | null | undefined) =>
-  (status || '').toLowerCase();
-
 const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto => {
   const itemsTotal = order.items.reduce((sum, item) => {
     const unit = Number(item.unitPrice);
@@ -88,13 +86,13 @@ const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto =
     .slice()
     .sort((a, b) => (a.changedAt?.getTime() ?? 0) - (b.changedAt?.getTime() ?? 0))
     .map((h) => ({
-      status: normalizeStatus(h.status),
+      status: normalizeOrderStatus(h.status),
       at: h.changedAt ? h.changedAt.toISOString() : new Date().toISOString(),
     }));
 
   if (timeline.length === 0 && order.createdAt && order.status) {
     timeline.push({
-      status: normalizeStatus(order.status),
+      status: normalizeOrderStatus(order.status),
       at: order.createdAt.toISOString(),
     });
   }
@@ -125,9 +123,9 @@ const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto =
   return {
     id: String(order.orderId),
     orderCode: order.orderNumber,
-    status: normalizeStatus(order.status),
+    status: normalizeOrderStatus(order.status),
     paymentMethod: order.paymentMethod,
-    paymentStatus: normalizeStatus(order.paymentStatus),
+    paymentStatus: normalizeOrderStatus(deriveOrderPaymentStatus(order.payments)),
     createdAt: order.createdAt ? order.createdAt.toISOString() : null,
     customer: {
       name: order.customerName,
@@ -188,7 +186,7 @@ export async function cancelOrderForUser(orderIdRaw: string, currentUser: Curren
     throw new AppError(403, 'FORBIDDEN', 'orders:errors.forbidden');
   }
 
-  const currentStatus = normalizeStatus(existing.status);
+  const currentStatus = normalizeOrderStatus(existing.status);
   if (currentStatus !== 'pending') {
     throw new AppError(400, 'ORDER_CANNOT_BE_CANCELLED', 'orders:errors.cannotCancel');
   }
@@ -313,8 +311,6 @@ export async function updateOrderStatusAdmin(
 
     const orderData: Record<string, any> = { status: newStatus };
     if (note !== undefined) orderData.note = note;
-    if (carrier) orderData.carrier = carrier;
-    if (trackingNumber) orderData.trackingNumber = trackingNumber;
 
     await tx.order.update({ where: { orderId: parsedId }, data: orderData });
 
@@ -357,8 +353,8 @@ export async function updateOrderStatusAdmin(
         userId: latest.userId ?? undefined,
         status: newStatus,
         timeline,
-        carrier: carrier ?? latest.carrier ?? latest.shipment?.carrier ?? null,
-        trackingNumber: trackingNumber ?? latest.trackingNumber ?? latest.shipment?.trackingNumber ?? null,
+        carrier: carrier ?? latest.shipment?.carrier ?? null,
+        trackingNumber: trackingNumber ?? latest.shipment?.trackingNumber ?? null,
         estimatedDeliveryDate: latest.shipment?.eta ?? null,
       });
     }
@@ -523,13 +519,10 @@ export async function createOrder(
     });
 
     // ── Step 3: Create the Order record ──────────────────────────────────────
-    // orderCode is unique and SQL Server allows only a single NULL in a unique column.
-    // Always populate it (mirror orderNumber for now) to avoid duplicate-NULL collisions.
     const order = await (tx.order.create as any)({
       data: {
         userId: currentUser.userId,
         orderNumber,
-        orderCode: orderNumber,
         customerName,
         customerPhone,
         shippingCity,
@@ -539,7 +532,6 @@ export async function createOrder(
         totalAmount,
         status: 'Pending',
         paymentMethod,
-        paymentStatus: 'Unpaid',
         note: note ?? null,
       },
       select: { orderId: true },
