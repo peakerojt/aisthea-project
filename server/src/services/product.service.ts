@@ -1,4 +1,5 @@
 
+import { Prisma } from '../generated/client';
 import { prisma } from '../utils/prisma';
 import { cloudinaryService } from './cloudinary.service';
 import { logger } from '../lib/logger';
@@ -47,67 +48,65 @@ export const getProducts = async (filters?: {
     limit?: number;
     sort?: string;
 }) => {
-    // Use optimized view instead of complex joins
-    // Build WHERE clause dynamically
-    const conditions: string[] = ['1=1']; // Always true base condition
-    const params: any[] = [];
+    // Build WHERE clause with parameterized SQL to prevent injection
+    const conditions: Prisma.Sql[] = [Prisma.sql`1=1`];
 
     if (filters?.categorySlug) {
-        conditions.push('categorySlug = @P' + (params.length + 1));
-        params.push(filters.categorySlug);
+        conditions.push(Prisma.sql`categorySlug = ${filters.categorySlug}`);
     }
 
     if (filters?.brandId) {
-        conditions.push('brandName IS NOT NULL'); // Could enhance by adding BrandId to view
+        // View currently lacks BrandId; keep existing behaviour but still parameterize when available
+        conditions.push(Prisma.sql`brandName IS NOT NULL`);
     }
 
     if (filters?.search) {
-        conditions.push(`(NameNormalized LIKE '%' + dbo.fn_RemoveDiacritics(@P${params.length + 1}) + '%' OR DescriptionNormalized LIKE '%' + dbo.fn_RemoveDiacritics(@P${params.length + 1}) + '%')`);
-        params.push(filters.search);
+        // Use fn_RemoveDiacritics while keeping search term parameterized
+        const term = filters.search;
+        conditions.push(
+            Prisma.sql`(NameNormalized LIKE '%' + dbo.fn_RemoveDiacritics(${term}) + '%' OR DescriptionNormalized LIKE '%' + dbo.fn_RemoveDiacritics(${term}) + '%')`,
+        );
     }
 
-    if (filters?.minPrice) {
-        conditions.push('minPrice >= @P' + (params.length + 1));
-        params.push(filters.minPrice);
+    if (filters?.minPrice !== undefined) {
+        conditions.push(Prisma.sql`minPrice >= ${filters.minPrice}`);
     }
 
-    if (filters?.maxPrice) {
-        conditions.push('maxPrice <= @P' + (params.length + 1));
-        params.push(filters.maxPrice);
+    if (filters?.maxPrice !== undefined) {
+        conditions.push(Prisma.sql`maxPrice <= ${filters.maxPrice}`);
     }
 
-    const whereClause = conditions.join(' AND ');
+    const whereClause = Prisma.join(conditions, ' AND ');
 
-    let orderByClause = 'createdAt DESC';
-    if (filters?.sort) {
-        const [sortField, sortDir] = filters.sort.split('_');
-        const direction = sortDir === 'asc' ? 'ASC' : 'DESC';
-        if (sortField === 'price') {
-            orderByClause = `minPrice ${direction}`;
-        } else if (sortField === 'name') {
-            orderByClause = `name ${direction}`;
-        } else if (sortField === 'createdAt') {
-            orderByClause = `createdAt ${direction}`;
-        }
-    }
+    // Allowlist sorting to avoid raw ORDER BY injection
+    const [sortFieldRaw, sortDirRaw] = (filters?.sort ?? '').split('_');
+    const sortColumn =
+        sortFieldRaw === 'price'
+            ? Prisma.sql`minPrice`
+            : sortFieldRaw === 'name'
+                ? Prisma.sql`name`
+                : Prisma.sql`createdAt`;
+    const sortDirection = sortDirRaw === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+    const orderByClause = Prisma.sql`${sortColumn} ${sortDirection}`;
 
     const page = filters?.page || 1;
     const limit = filters?.limit || 20;
     const offset = (page - 1) * limit;
 
-    const countQuery = `SELECT COUNT(*) as total FROM vw_ProductCatalog WHERE ${whereClause}`;
-    const totalResult: any[] = await prisma.$queryRawUnsafe(countQuery, ...params);
+    const totalResult = await prisma.$queryRaw<{ total: bigint }[]>`
+        SELECT COUNT(*) as total
+        FROM vw_ProductCatalog
+        WHERE ${whereClause}
+    `;
     const total = Number(totalResult[0]?.total || 0);
 
-    const query = `
-        SELECT * FROM vw_ProductCatalog 
-        WHERE ${whereClause} 
+    const products = await prisma.$queryRaw<any[]>`
+        SELECT * FROM vw_ProductCatalog
+        WHERE ${whereClause}
         ORDER BY ${orderByClause}
-        OFFSET ${offset} ROWS 
+        OFFSET ${offset} ROWS
         FETCH NEXT ${limit} ROWS ONLY
     `;
-
-    const products: any[] = await prisma.$queryRawUnsafe(query, ...params);
 
     // Transform data to match frontend expectations
     const data = products.map(p => ({

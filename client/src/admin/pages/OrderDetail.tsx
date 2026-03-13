@@ -15,6 +15,7 @@ import { RefundDialog } from '@/admin/components/RefundDialog';
 import { OrderFinancials } from '@/admin/components/OrderFinancials';
 import { adminRefundService, RefundRecord } from '@/admin/services/refund.service';
 import { getImageUrl } from '@/common/utils/cloudinary';
+import { useTranslation } from 'react-i18next';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design System (ui-ux-pro-max: luxury dark ecommerce admin)
@@ -51,7 +52,7 @@ const SectionTitle: React.FC<{ icon: React.ElementType; title: string }> = ({ ic
 );
 
 /* Copy button for order number */
-const CopyButton: React.FC<{ text: string }> = ({ text }) => {
+const CopyButton: React.FC<{ text: string; copiedLabel: string; copyLabel: string }> = ({ text, copiedLabel, copyLabel }) => {
     const [copied, setCopied] = useState(false);
     const handleCopy = () => {
         navigator.clipboard.writeText(text).then(() => {
@@ -65,7 +66,7 @@ const CopyButton: React.FC<{ text: string }> = ({ text }) => {
             className="flex items-center gap-1 px-2 py-1 rounded-lg border border-white/10 text-white/30 hover:text-white/70 hover:border-white/20 transition-all text-[10px]"
         >
             {copied ? <Check size={11} /> : <Copy size={11} />}
-            {copied ? 'Đã copy' : 'Copy'}
+            {copied ? copiedLabel : copyLabel}
         </button>
     );
 };
@@ -107,6 +108,7 @@ interface AdminOrderDetailProps {
 }
 
 export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
+    const { t } = useTranslation('pages', { keyPrefix: 'adminOrderDetail' });
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const routeId = id ? Number(id) : null;
@@ -134,23 +136,23 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
     const loadOrder = useCallback(async () => {
         const effectiveId = routeId ?? orderId;
-        if (!effectiveId) { setError('Không tìm thấy mã đơn.'); setLoading(false); return; }
+        if (!effectiveId) { setError(t('errors.missingOrderId')); setLoading(false); return; }
         setLoading(true); setError(null);
         try {
             const o = await adminOrderService.getDetail(effectiveId);
             setOrder(o);
             loadRefunds(effectiveId);
         } catch (error) {
-            const e = error as Error | { message?: string; error?: string; data?: unknown }; setError(e.message || 'Không thể tải chi tiết đơn hàng.');
+            const e = error as Error | { message?: string; error?: string; data?: unknown }; setError(e.message || t('errors.loadFailed'));
         }
         finally { setLoading(false); }
-    }, [orderId, routeId, loadRefunds]);
+    }, [orderId, routeId, loadRefunds, t]);
 
     useEffect(() => { loadOrder(); }, [loadOrder]);
 
     const fmt = (iso?: string) => iso
         ? new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
-        : '—';
+        : t('common.emptyDate');
 
     // ── Loading ─────────────────────────────────────────────────────────────
 
@@ -161,7 +163,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                     <div className="absolute inset-0 rounded-full border-4 border-white/[0.05]" />
                     <div className="absolute inset-0 rounded-full border-4 border-t-primary border-l-transparent border-r-transparent border-b-transparent animate-spin" />
                 </div>
-                <p className="text-sm text-white/40 font-medium">Đang tải chi tiết đơn hàng...</p>
+                <p className="text-sm text-white/40 font-medium">{t('states.loading')}</p>
             </div>
         </div>
     );
@@ -173,11 +175,11 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                     <AlertCircle size={24} className="text-red-400" />
                 </div>
                 <div>
-                    <p className="text-base font-bold text-white mb-1">Không tìm thấy đơn hàng</p>
+                    <p className="text-base font-bold text-white mb-1">{t('states.notFoundTitle')}</p>
                     <p className="text-sm text-white/50">{error}</p>
                 </div>
                 <button onClick={() => navigate('/admin/orders')} className="text-xs text-primary font-bold uppercase tracking-widest hover:underline cursor-pointer">
-                    Quay lại danh sách
+                    {t('actions.backToList')}
                 </button>
             </div>
         </div>
@@ -203,14 +205,14 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                 className="flex items-center gap-1.5 text-sm text-white/40 hover:text-white transition-colors cursor-pointer group"
                             >
                                 <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
-                                Đơn hàng
+                                {t('breadcrumb.orders')}
                             </button>
                             <ChevronRight size={13} className="text-white/20" />
                             <div className="flex items-center gap-2">
                                 <span className="text-sm font-bold text-white font-mono tracking-wide">
                                     {order.orderNumber}
                                 </span>
-                                <CopyButton text={order.orderNumber} />
+                                <CopyButton text={order.orderNumber} copiedLabel={t('actions.copied')} copyLabel={t('actions.copy')} />
                             </div>
                         </div>
 
@@ -226,7 +228,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 hover:bg-cyan-500/20 transition-all text-[11px] font-bold uppercase tracking-wider cursor-pointer"
                                 >
                                     <RotateCcw size={11} />
-                                    Hoàn tiền
+                                    {t('actions.refund')}
                                 </button>
                             )}
 
@@ -245,11 +247,11 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                 <div className="max-w-[1400px] mx-auto px-6 py-7">
                     {/* Order metadata row */}
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mb-6 text-[11px] text-white/35 font-mono">
-                        <span>Đặt lúc {fmt(order.createdAt)}</span>
+                        <span>{t('meta.placedAt', { date: fmt(order.createdAt) })}</span>
                         {order.trackingNumber && (
                             <>
                                 <span className="text-white/15">·</span>
-                                <span>{order.carrier ?? 'Vận chuyển'}: <span className="text-white/60">{order.trackingNumber}</span></span>
+                                <span>{order.carrier ?? t('labels.shipping')}: <span className="text-white/60">{order.trackingNumber}</span></span>
                             </>
                         )}
                         <span className="text-white/15">·</span>
@@ -264,7 +266,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
                             {/* ── Product Items Card ─────────────────────────────────── */}
                             <Card>
-                                <SectionTitle icon={ShoppingBag} title={`Sản phẩm · ${order.items.length} mặt hàng`} />
+                                <SectionTitle icon={ShoppingBag} title={t('sections.products', { count: order.items.length })} />
 
                                 <div className="divide-y divide-white/[0.04]">
                                     {order.items.map((item) => (
@@ -300,7 +302,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                                     </div>
                                                 </div>
                                                 <p className="text-[11px] text-white/35 mt-1">
-                                                    Đơn giá: {formatVND(item.unitPrice)}
+                                                    {t('labels.unitPrice')}: {formatVND(item.unitPrice)}
                                                 </p>
                                             </div>
 
@@ -315,12 +317,12 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                 {/* Order total */}
                                 <div className="px-5 py-4 border-t border-white/[0.06] bg-white/[0.015] rounded-b-2xl">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs text-white/40 font-medium uppercase tracking-wider">Tổng đơn hàng</span>
+                                        <span className="text-xs text-white/40 font-medium uppercase tracking-wider">{t('labels.orderTotal')}</span>
                                         <div className="text-right">
                                             <p className="text-2xl font-black text-white tracking-tight">{formatVND(order.totalAmount)}</p>
                                             <p className={`text-[11px] font-semibold mt-0.5 ${order.paymentStatus === 'Paid' ? 'text-emerald-400' : 'text-amber-400'
                                                 }`}>
-                                                {order.paymentStatus === 'Paid' ? '✓ Đã thanh toán' : '⏳ Chưa thanh toán'}
+                                                {order.paymentStatus === 'Paid' ? t('payment.paid') : t('payment.unpaid')}
                                             </p>
                                         </div>
                                     </div>
@@ -333,7 +335,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                     <div className="px-5 py-4 flex items-start gap-3">
                                         <div className="w-1 h-full min-h-[40px] rounded-full bg-amber-500/50 shrink-0 mt-0.5" />
                                         <div>
-                                            <p className="text-[11px] font-bold text-amber-400/80 uppercase tracking-widest mb-1.5">Ghi chú đơn hàng</p>
+                                            <p className="text-[11px] font-bold text-amber-400/80 uppercase tracking-widest mb-1.5">{t('labels.orderNote')}</p>
                                             <p className="text-sm text-white/70 leading-relaxed">{order.note}</p>
                                         </div>
                                     </div>
@@ -343,7 +345,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                             {/* ── Payment details ────────────────────────────────────── */}
                             {order.payments && order.payments.length > 0 && (
                                 <Card>
-                                    <SectionTitle icon={CreditCard} title="Chi tiết thanh toán" />
+                                    <SectionTitle icon={CreditCard} title={t('sections.paymentDetails')} />
                                     <div className="p-5 space-y-3">
                                         {order.payments.map((p) => (
                                             <div key={p.paymentId} className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-none">
@@ -354,7 +356,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                                 <div className="text-right">
                                                     <p className="text-sm font-bold text-white">{formatVND(p.amount)}</p>
                                                     <span className={`text-[10px] font-bold uppercase tracking-wide ${p.status === 'Completed' ? 'text-emerald-400' : 'text-amber-400'
-                                                        }`}>{p.status === 'Completed' ? 'Thành công' : p.status}</span>
+                                                        }`}>{p.status === 'Completed' ? t('payment.completed') : p.status}</span>
                                                 </div>
                                             </div>
                                         ))}
@@ -368,7 +370,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
                             {/* ── Customer card ─────────────────────────────────────── */}
                             <Card>
-                                <SectionTitle icon={User} title="Khách hàng" />
+                                <SectionTitle icon={User} title={t('sections.customer')} />
                                 <div className="p-5">
                                     {order.user ? (
                                         <div className="flex items-center gap-3">
@@ -390,7 +392,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                         <div>
                                             <p className="text-sm font-bold text-white">{order.shippingAddress.recipientName}</p>
                                             <p className="text-[11px] text-white/40 mt-0.5">{order.shippingAddress.phone}</p>
-                                            <p className="text-[11px] text-white/35 mt-0.5">Khách lẻ (không có tài khoản)</p>
+                                            <p className="text-[11px] text-white/35 mt-0.5">{t('labels.guestCustomer')}</p>
                                         </div>
                                     )}
                                 </div>
@@ -398,7 +400,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
                             {/* ── Shipping address card ─────────────────────────────── */}
                             <Card>
-                                <SectionTitle icon={MapPin} title="Địa chỉ giao hàng" />
+                                <SectionTitle icon={MapPin} title={t('sections.shippingAddress')} />
                                 <div className="p-5 space-y-3">
                                     <div>
                                         <p className="text-sm font-bold text-white">{order.shippingAddress.recipientName}</p>
@@ -415,7 +417,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                         <div className="flex items-center gap-2 pt-1">
                                             <Truck size={12} className="text-cyan-400 shrink-0" />
                                             <div>
-                                                <p className="text-[10px] text-white/35 uppercase tracking-wider">{order.carrier ?? 'Tracking'}</p>
+                                                <p className="text-[10px] text-white/35 uppercase tracking-wider">{order.carrier ?? t('labels.tracking')}</p>
                                                 <p className="text-[12px] text-cyan-400 font-mono font-semibold">{order.trackingNumber}</p>
                                             </div>
                                         </div>
@@ -425,10 +427,10 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
                             {/* ── Payment summary card ──────────────────────────────── */}
                             <Card>
-                                <SectionTitle icon={CreditCard} title="Thanh toán" />
+                                <SectionTitle icon={CreditCard} title={t('sections.payment')} />
                                 <div className="p-5 space-y-3">
                                     {[
-                                        { label: 'Phương thức', value: order.paymentMethod ?? 'COD' },
+                                        { label: t('payment.method'), value: order.paymentMethod ?? 'COD' },
                                     ].map(({ label, value }) => (
                                         <div key={label} className="flex items-center justify-between">
                                             <span className="text-[12px] text-white/40">{label}</span>
@@ -437,12 +439,12 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                     ))}
 
                                     <div className="flex items-center justify-between pt-1 border-t border-white/[0.05]">
-                                        <span className="text-[12px] text-white/40">Trạng thái</span>
+                                        <span className="text-[12px] text-white/40">{t('payment.status')}</span>
                                         <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${order.paymentStatus === 'Paid'
                                             ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                                             : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                                             }`}>
-                                            {order.paymentStatus === 'Paid' ? '✓ Đã thanh toán' : '⏳ Chưa thanh toán'}
+                                            {order.paymentStatus === 'Paid' ? t('payment.paid') : t('payment.unpaid')}
                                         </span>
                                     </div>
                                 </div>
@@ -450,7 +452,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
                             {/* ── Status Timeline ───────────────────────────────────── */}
                             <Card>
-                                <SectionTitle icon={Clock} title="Lịch sử trạng thái" />
+                                <SectionTitle icon={Clock} title={t('sections.statusHistory')} />
                                 <OrderTimeline history={statusHistory} />
                             </Card>
 
@@ -471,7 +473,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                         onClose={() => setShowRefundDialog(false)}
                         onSuccess={(newRefund) => {
                             setRefunds(prev => [newRefund, ...prev]);
-                            showToast('Lệnh hoàn tiền đã được gửi tới cổng thanh toán thành công.', 'success');
+                            showToast(t('toast.refundRequested'), 'success');
                             loadOrder();
                         }}
                     />

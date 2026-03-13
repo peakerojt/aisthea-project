@@ -35,7 +35,9 @@ export function notFoundHandler(req: Request, res: Response) {
 
   res.status(404).json({
     success: false,
+    statusCode: 404,
     errorCode: 'NOT_FOUND',
+    code: 'NOT_FOUND',
     messageKey: 'common:errors.notFoundRoute',
     message,
   });
@@ -60,6 +62,7 @@ export function errorHandler(error: Error, req: Request, res: Response, _next: N
       success: false,
       statusCode: error.statusCode,
       errorCode: error.errorCode,
+      code: error.errorCode,
       messageKey: error.messageKey,
       message,
       ...(isProd ? {} : { details: error.details }), // Hide sensitive details in prod if needed, or keep them. Often AppError details are safe (like validation mismatches)
@@ -79,6 +82,7 @@ export function errorHandler(error: Error, req: Request, res: Response, _next: N
     success: false,
     statusCode: 500,
     errorCode: 'INTERNAL_SERVER_ERROR',
+    code: 'INTERNAL_SERVER_ERROR',
     messageKey: 'common:errors.internalServer',
     message: t(locale, 'common:errors.internalServer'),
     ...(isProd ? {} : { stack: error.stack }), // Only send stack trace in local dev mode

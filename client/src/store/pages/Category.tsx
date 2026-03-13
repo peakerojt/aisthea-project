@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
+import { useTranslation } from 'react-i18next';
 
 const CATEGORY_IMAGES = {
   Men: {
@@ -30,6 +31,7 @@ const TRENDING_DATA = {
 };
 
 export const Category: React.FC = () => {
+  const { t } = useTranslation('pages', { keyPrefix: 'category' });
   const navigate = useNavigate();
   const { gender = 'men' } = useParams<{ gender: string }>();
   const category = (gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase()) as keyof typeof CATEGORY_IMAGES;
@@ -65,7 +67,7 @@ export const Category: React.FC = () => {
               </h2>
               <div className="overflow-hidden h-0 group-hover:h-8 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-out">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white mt-2">
-                  Shop Now <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                  {t('shopNow')} <span className="material-symbols-outlined text-sm">arrow_forward</span>
                 </div>
               </div>
             </div>
@@ -78,13 +80,13 @@ export const Category: React.FC = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
           <div>
-            <span className="text-primary text-xs font-bold uppercase tracking-[0.2em] mb-3 block">Curated For You</span>
-            <h3 className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-white">Trending Now</h3>
+            <span className="text-primary text-xs font-bold uppercase tracking-[0.2em] mb-3 block">{t('curatedForYou')}</span>
+            <h3 className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-white">{t('trendingNow')}</h3>
           </div>
           <div className="flex items-center gap-4">
             <div className="relative group">
               <button className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest border border-white/20 px-6 py-3 hover:bg-white hover:text-black transition-all rounded-sm">
-                Sort by Popularity <span className="material-symbols-outlined text-base">expand_more</span>
+                {t('sortByPopularity')} <span className="material-symbols-outlined text-base">expand_more</span>
               </button>
             </div>
             <button className="w-[42px] h-[42px] border border-white/20 flex items-center justify-center hover:bg-white hover:text-black transition-all rounded-sm">
@@ -114,7 +116,7 @@ export const Category: React.FC = () => {
                 <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
                 <button className="absolute bottom-0 left-0 w-full py-4 bg-white text-black text-xs font-bold uppercase tracking-widest translate-y-full group-hover:translate-y-0 transition-transform duration-300 flex items-center justify-center shadow-xl z-20 hover:bg-gray-100">
-                  Quick View
+                  {t('quickView')}
                 </button>
               </div>
 
@@ -134,7 +136,7 @@ export const Category: React.FC = () => {
             onClick={() => navigate('/collection')}
             className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.25em] border-b border-white pb-2 hover:text-primary hover:border-primary transition-all group"
           >
-            View All Collections <span className="material-symbols-outlined text-base transition-transform group-hover:translate-x-1">arrow_forward</span>
+            {t('viewAllCollections')} <span className="material-symbols-outlined text-base transition-transform group-hover:translate-x-1">arrow_forward</span>
           </button>
         </div>
       </section>

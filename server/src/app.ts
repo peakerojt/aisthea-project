@@ -5,9 +5,10 @@ import passport from 'passport';
 import { configureGoogleStrategy } from './config/passport.config';
 
 // ─── Security ─────────────────────────────────────────────────────────────────
-import { applyHelmet, globalRateLimiter } from './middlewares/security.middleware';
+import { applyCsrfProtection, applyHelmet, globalRateLimiter } from './middlewares/security.middleware';
 import { localeMiddleware } from './middlewares/locale.middleware';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
+import { responseNormalizer } from './middlewares/response.middleware';
 
 // ─── Modular Architecture — new module routes ─────────────────────────────────
 import authModuleRoutes from './modules/auth/auth.routes';
@@ -29,6 +30,7 @@ import outfitRoutes from './modules/outfit/outfit.routes';
 // ─── Legacy module routes (migrated but still in /modules sub-folder) ─────────
 import orderModuleRoutes from './modules/order/order.route';
 import trackingRouter from './modules/tracking/tracking.route';
+import { trackingController } from './modules/tracking/tracking.controller';
 import itemsRouter from './modules/items/items.route';
 import returnOrderRoutes from './modules/return-order/routes/return-request.routes';
 
@@ -58,7 +60,7 @@ export function createApp() {
       origin: env.clientUrl,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'x-lang', 'accept-language'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-lang', 'accept-language', 'x-csrf-token'],
     }),
   );
 
@@ -66,9 +68,11 @@ export function createApp() {
   app.use(cookieParser());
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
+  app.use(applyCsrfProtection(env.clientUrl, env.nodeEnv));
 
   // ── Locale ────────────────────────────────────────────────────────────────────
   app.use(localeMiddleware);
+  app.use('/api', responseNormalizer);
 
   // ── Global rate limiter ───────────────────────────────────────────────────────
   app.use('/api/', globalRateLimiter);
@@ -91,6 +95,9 @@ export function createApp() {
   app.use('/api/outfit', outfitRoutes);
 
   // ── Order routes — ORDERING MATTERS: named paths before catch-all /:id ────────
+  // Backward-compatible tracking endpoints expected by legacy i18n tests.
+  app.get('/api/orders/my', authenticateToken, trackingController.getMyOrders);
+  app.patch('/api/admin/orders/:id/status', authenticateToken, trackingController.adminUpdateOrderStatus);
   app.use('/api/orders', orderRoutes);            // /admin, /my, /my/:id, POST /, PATCH /:id/status
   app.post('/api/orders/:id/return', authenticateToken, postReturnRequest);
   app.get('/api/orders/:id/return', authenticateToken, getOrderReturn);
@@ -118,3 +125,4 @@ export function createApp() {
 
   return app;
 }
+

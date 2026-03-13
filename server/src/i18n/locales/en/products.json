@@ -1,0 +1,6 @@
+{
+  "errors": {
+    "invalidAttribute": "Invalid variant attribute payload.",
+    "notFound": "Product not found."
+  }
+}

@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
 import { api } from '@/common/utils/api';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
+import { useTranslation } from 'react-i18next';
 
 interface Product {
   id: string;
@@ -60,6 +61,7 @@ const CATEGORY_MAPPING: Record<string, Record<string, string[]>> = {
 
 // ProductGridCard — handles per-card image loading state + fade-in
 const ProductGridCard: React.FC<{ product: Product; onProductClick: (p: Product | import('@/common/services/product.service').Product | import('@/types').ProductItem) => void; index: number }> = ({ product, onProductClick, index }) => {
+  const { t } = useTranslation('pages', { keyPrefix: 'collection' });
   const [imgLoaded, setImgLoaded] = React.useState(false);
   const isAboveFold = index < 4; // First row — already preloaded
 
@@ -91,7 +93,7 @@ const ProductGridCard: React.FC<{ product: Product; onProductClick: (p: Product 
         <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
         <button className="absolute bottom-0 left-0 right-0 h-11 bg-white text-black text-xs font-bold uppercase tracking-widest hover:bg-gray-100 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center shadow-xl">
-          Add to Bag
+          {t('card.addToBag')}
         </button>
       </div>
 
@@ -100,7 +102,7 @@ const ProductGridCard: React.FC<{ product: Product; onProductClick: (p: Product 
           <h3 className="text-sm font-bold text-white group-hover:text-primary transition-colors uppercase tracking-wide leading-tight">{product.name}</h3>
           <p className="text-sm font-bold text-white whitespace-nowrap">{formatPrice(product.price)}đ</p>
         </div>
-        {product.tag === 'Sale' && <p className="text-xs text-primary font-bold uppercase">Extra 20% Off</p>}
+        {product.tag === 'Sale' && <p className="text-xs text-primary font-bold uppercase">{t('card.extraOff')}</p>}
       </div>
     </div>
   );
@@ -109,6 +111,7 @@ const ProductGridCard: React.FC<{ product: Product; onProductClick: (p: Product 
 const ITEMS_PER_PAGE = 8;
 
 export const Collection: React.FC = () => {
+  const { t } = useTranslation('pages', { keyPrefix: 'collection' });
   const navigate = useNavigate();
   const { gender, name: collectionName } = useParams<{ gender?: string; name?: string }>();
   const [searchParams] = useSearchParams();
@@ -171,7 +174,8 @@ export const Collection: React.FC = () => {
         setProducts(transformedProducts);
       } catch (err) {
         console.error('Failed to fetch products:', err);
-        setError('Không thể tải sản phẩm. Vui lòng thử lại sau.');
+        setError(t('errors.loadProducts'));
+
       } finally {
         setLoading(false);
       }
@@ -260,7 +264,7 @@ export const Collection: React.FC = () => {
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsFilterDrawerOpen(false)}></div>
             <div className="relative w-full max-w-sm bg-surface-dark h-full shadow-2xl p-8 overflow-y-auto animate-fade-in border-l border-white/10">
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-xl font-bold uppercase tracking-widest">Filters</h2>
+                <h2 className="text-xl font-bold uppercase tracking-widest">{t('filters.title')}</h2>
                 <button onClick={() => setIsFilterDrawerOpen(false)} className="hover:text-primary transition-colors">
                   <span className="material-symbols-outlined text-3xl">close</span>
                 </button>
@@ -269,7 +273,7 @@ export const Collection: React.FC = () => {
               <div className="space-y-8">
                 {/* Sort */}
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Sort By</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">{t('filters.sortBy')}</h3>
                   <div className="space-y-3">
                     {['Featured', 'Newest', 'Price: Low to High', 'Price: High to Low'].map(option => (
                       <label key={option} className="flex items-center gap-3 cursor-pointer group">
@@ -277,7 +281,7 @@ export const Collection: React.FC = () => {
                           {sortOption === option && <div className="w-2 h-2 rounded-full bg-primary"></div>}
                         </div>
                         <input type="radio" name="sort" className="hidden" checked={sortOption === option} onChange={() => setSortOption(option)} />
-                        <span className={`text-sm ${sortOption === option ? 'text-white font-bold' : 'text-gray-400 group-hover:text-white'}`}>{option}</span>
+                        <span className={`text-sm ${sortOption === option ? 'text-white font-bold' : 'text-gray-400 group-hover:text-white'}`}>{option === 'Featured' ? t('sort.featured') : option === 'Newest' ? t('sort.newest') : option === 'Price: Low to High' ? t('sort.priceLowToHigh') : t('sort.priceHighToLow')}</span>
                       </label>
                     ))}
                   </div>
@@ -285,7 +289,7 @@ export const Collection: React.FC = () => {
 
                 {/* Price Range */}
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Khoảng giá</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">{t('filters.priceRange')}</h3>
                   <div className="flex items-center justify-between text-sm mb-4 font-mono">
                     <span>{formatPrice(priceRange[0])}đ</span>
                     <span>{formatPrice(priceRange[1])}đ</span>
@@ -303,7 +307,7 @@ export const Collection: React.FC = () => {
 
                 {/* Sizes */}
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Size</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">{t('filters.size')}</h3>
                   <div className="grid grid-cols-4 gap-2">
                     {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map(size => (
                       <button
@@ -327,14 +331,14 @@ export const Collection: React.FC = () => {
                   }}
                   className="w-full py-4 border border-white/10 text-xs font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-colors mt-8"
                 >
-                  Reset All Filters
+                  {t('filters.resetAll')}
                 </button>
 
                 <button
                   onClick={() => setIsFilterDrawerOpen(false)}
                   className="w-full py-4 bg-primary text-white text-xs font-bold uppercase tracking-widest hover:bg-red-700 transition-colors shadow-lg shadow-primary/20"
                 >
-                  View {filteredProducts.length} Results
+                  {t('filters.viewResults', { count: filteredProducts.length })}
                 </button>
               </div>
             </div>
@@ -348,10 +352,10 @@ export const Collection: React.FC = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-bg-dark via-bg-dark/20 to-transparent"></div>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 pt-20 animate-fade-in-up">
           <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-4">
-            {searchTerm ? 'Kết quả tìm kiếm' : `${collection} Collection`}
+            {searchTerm ? t('hero.searchResults') : t('hero.collectionTitle', { collection })}
           </h1>
           <p className="max-w-2xl text-gray-300 text-lg leading-relaxed">
-            {searchTerm ? `Tìm thấy ${filteredProducts.length} sản phẩm phù hợp với "${searchTerm}"` : 'Bộ sưu tập thiết yếu cho tủ đồ hiện đại. Khám phá những thiết kế vượt thời gian với chất liệu cao cấp.'}
+            {searchTerm ? t('hero.searchDescription', { count: filteredProducts.length, term: searchTerm }) : t('hero.defaultDescription')}
           </p>
         </div>
       </div>
@@ -369,18 +373,18 @@ export const Collection: React.FC = () => {
                     onClick={() => setActiveCategoryFilter(filter)}
                     className={`text-sm font-bold uppercase tracking-widest transition-colors pb-1 whitespace-nowrap ${activeCategoryFilter === filter ? 'text-white border-b-2 border-white' : 'text-gray-500 hover:text-white border-b-2 border-transparent'}`}
                   >
-                    {filter === 'All' ? 'Tất cả' : filter}
+                    {filter === 'All' ? t('filters.all') : filter}
                   </button>
                 ))}
               </div>
               <div className="flex items-center gap-4 ml-auto">
-                <span className="text-xs font-bold uppercase tracking-widest text-gray-500">{filteredProducts.length} Sản phẩm {totalPages > 1 && `(Trang ${currentPage}/${totalPages})`}</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-500">{t('filters.productCount', { count: filteredProducts.length })}{totalPages > 1 && ` (${t('filters.page', { current: currentPage, total: totalPages })})`}</span>
                 <div className="h-4 w-px bg-white/20"></div>
                 <button
                   onClick={() => setIsFilterDrawerOpen(true)}
                   className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white hover:text-primary transition-colors"
                 >
-                  Bộ lọc <span className="material-symbols-outlined text-base">tune</span>
+                  {t('filters.trigger')} <span className="material-symbols-outlined text-base">tune</span>
                 </button>
               </div>
             </div>
@@ -402,13 +406,13 @@ export const Collection: React.FC = () => {
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-40 min-h-[50vh] text-center">
               <span className="material-symbols-outlined text-5xl text-red-500 mb-4">error_outline</span>
-              <h3 className="text-xl font-bold uppercase tracking-wide text-white mb-2">Error Loading Products</h3>
+              <h3 className="text-xl font-bold uppercase tracking-wide text-white mb-2">{t('errors.heading')}</h3>
               <p className="text-gray-400 mb-6 max-w-md">{error}</p>
               <button
                 onClick={() => window.location.reload()}
                 className="px-6 py-3 bg-white text-black text-xs font-bold uppercase tracking-widest hover:bg-gray-200 transition-colors"
               >
-                Try Again
+                {t('errors.retry')}
               </button>
             </div>
           ) : filteredProducts.length > 0 ? (
@@ -425,11 +429,9 @@ export const Collection: React.FC = () => {
           ) : (
             <div className="flex flex-col items-center justify-center py-20 min-h-[40vh] text-center">
               <span className="material-symbols-outlined text-6xl text-white/10 mb-6">search_off</span>
-              <h3 className="text-xl font-bold uppercase tracking-[0.2em] text-white mb-3">Không tìm thấy sản phẩm</h3>
+              <h3 className="text-xl font-bold uppercase tracking-[0.2em] text-white mb-3">{t('empty.title')}</h3>
               <p className="text-gray-500 mb-8 max-w-md mx-auto">
-                {searchTerm
-                  ? `Chúng tôi không tìm thấy sản phẩm nào khớp với "${searchTerm}". Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc.`
-                  : "Chưa có sản phẩm nào trong bộ sưu tập này. Vui lòng quay lại sau."}
+                {searchTerm ? t('empty.withSearch', { term: searchTerm }) : t('empty.default')}
               </p>
               <button
                 onClick={() => {
@@ -439,9 +441,7 @@ export const Collection: React.FC = () => {
                   setActiveCategoryFilter('All');
                 }}
                 className="px-10 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-red-700 transition-all shadow-lg shadow-primary/20"
-              >
-                Xóa tất cả tìm kiếm & bộ lọc
-              </button>
+              >{t('empty.resetSearchAndFilters')}</button>
             </div>
           )}
 

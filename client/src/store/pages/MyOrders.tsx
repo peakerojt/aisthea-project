@@ -5,8 +5,10 @@ import { useAuth } from '@/common/contexts/AuthContext';
 import { orderService, Order } from '@/common/services/order.service';
 import { Search } from 'lucide-react';
 import { formatVietnamTime } from '@/common/utils/formatDate';
+import { useTranslation } from 'react-i18next';
 
 export const MyOrders: React.FC = () => {
+  const { t } = useTranslation('pages', { keyPrefix: 'myOrders' });
   const { role } = useAuth();
   const navigate = useNavigate();
 
@@ -18,13 +20,13 @@ export const MyOrders: React.FC = () => {
 
   const statusTabs = useMemo(
     () => [
-      { label: 'All', value: '' },
-      { label: 'Pending', value: 'Pending' },
-      { label: 'Shipping', value: 'Shipping' },
-      { label: 'Delivered', value: 'Delivered' },
-      { label: 'Cancelled', value: 'Cancelled' }
+      { label: t('tabs.all'), value: '' },
+      { label: t('tabs.pending'), value: 'Pending' },
+      { label: t('tabs.shipping'), value: 'Shipping' },
+      { label: t('tabs.delivered'), value: 'Delivered' },
+      { label: t('tabs.cancelled'), value: 'Cancelled' }
     ],
-    []
+    [t]
   );
 
   const loadOrders = async () => {
@@ -35,7 +37,7 @@ export const MyOrders: React.FC = () => {
       setOrders(res.orders || []);
     } catch (e: unknown) {
       const error = e as { message?: string };
-      setError(error?.message || 'Failed to load orders');
+      setError(error?.message || t('errors.loadOrders'));
       setOrders([]);
     } finally {
       setIsLoading(false);
@@ -62,8 +64,8 @@ export const MyOrders: React.FC = () => {
       <div className="pt-32 px-6 md:px-12 max-w-5xl mx-auto">
         <div className="flex items-end justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-black uppercase tracking-tighter">My Orders</h1>
-            <p className="text-white/40 text-xs uppercase tracking-widest mt-2">View your order history and details</p>
+            <h1 className="text-4xl font-black uppercase tracking-tighter">{t('title')}</h1>
+            <p className="text-white/40 text-xs uppercase tracking-widest mt-2">{t('subtitle')}</p>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -71,14 +73,12 @@ export const MyOrders: React.FC = () => {
               className="flex items-center gap-2 px-4 py-3 border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 transition-colors text-xs font-bold uppercase tracking-widest rounded"
             >
               <Search size={13} />
-              Tra cứu đơn hàng
+              {t('actions.trackOrder')}
             </button>
             <button
               onClick={() => navigate('/profile')}
               className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
-            >
-              Back to Account
-            </button>
+            >{t('actions.backToAccount')}</button>
           </div>
         </div>
 
@@ -100,9 +100,7 @@ export const MyOrders: React.FC = () => {
             <button
               onClick={loadOrders}
               className="text-xs font-bold uppercase tracking-widest px-3 py-2 rounded border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-colors"
-            >
-              Refresh
-            </button>
+            >{t('actions.refresh')}</button>
           </div>
 
           <div className="p-6">
@@ -113,17 +111,15 @@ export const MyOrders: React.FC = () => {
             )}
 
             {isLoading ? (
-              <div className="text-sm text-white/50">Loading orders...</div>
+              <div className="text-sm text-white/50">{t('states.loading')}</div>
             ) : orders.length === 0 ? (
               <div className="bg-black/20 rounded p-10 text-center border border-white/5">
                 <span className="material-symbols-outlined text-5xl text-white/20 mb-2">receipt_long</span>
-                <p className="text-gray-500 text-sm">No orders found.</p>
+                <p className="text-gray-500 text-sm">{t('states.empty')}</p>
                 <button
                   onClick={() => navigate('/collection')}
                   className="mt-4 text-xs font-bold uppercase tracking-widest text-primary hover:text-white transition-colors"
-                >
-                  Start Shopping
-                </button>
+                >{t('actions.startShopping')}</button>
               </div>
             ) : (
               <div className="space-y-3">
@@ -133,17 +129,17 @@ export const MyOrders: React.FC = () => {
                       <div className="flex items-center gap-3 flex-wrap">
                         <span className="font-mono text-sm text-white">#{o.orderNumber}</span>
                         <span className="text-[10px] uppercase tracking-widest text-white/40">{o.createdAt ? formatVietnamTime(o.createdAt) : ''}</span>
-                        <span className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-white/70">{o.status || 'Unknown'}</span>
-                        <span className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-white/50">{o.paymentStatus || 'N/A'}</span>
+                        <span className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-white/70">{o.status || t('states.unknown')}</span>
+                        <span className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-white/50">{o.paymentStatus || t('states.none')}</span>
                       </div>
                       <div className="mt-2 text-sm text-white/70">
-                        Total: <span className="text-white font-semibold">{o.totalAmount}</span>
+{t('labels.total')}: <span className="text-white font-semibold">{o.totalAmount}</span>
                         <span className="text-white/30 mx-2">•</span>
-                        Items: <span className="text-white font-semibold">{o.itemCount}</span>
+{t('labels.items')}: <span className="text-white font-semibold">{o.itemCount}</span>
                       </div>
                       {(o.trackingNumber || o.carrier) && (
                         <div className="mt-2 text-xs text-white/40">
-                          {o.carrier ? `${o.carrier}` : 'Carrier'} {o.trackingNumber ? `• ${o.trackingNumber}` : ''}
+                          {o.carrier ? `${o.carrier}` : t('labels.carrier')} {o.trackingNumber ? `• ${o.trackingNumber}` : ''}
                         </div>
                       )}
                     </div>
@@ -152,9 +148,7 @@ export const MyOrders: React.FC = () => {
                       <button
                         onClick={() => goToOrderDetailPage(o.orderId)}
                         className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors"
-                      >
-                        View
-                      </button>
+                      >{t('actions.view')}</button>
                     </div>
                   </div>
                 ))}

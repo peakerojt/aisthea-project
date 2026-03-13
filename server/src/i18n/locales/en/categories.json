@@ -1,0 +1,8 @@
+{
+  "errors": {
+    "circularParent": "Invalid parent selection because it creates a circular hierarchy.",
+    "notFound": "Category not found.",
+    "hasChildren": "Cannot delete category because it still has child categories.",
+    "hasProducts": "Cannot delete category because it still has products."
+  }
+}

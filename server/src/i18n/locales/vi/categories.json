@@ -1,0 +1,8 @@
+{
+  "errors": {
+    "circularParent": "Danh mục cha không hợp lệ vì gây vòng lặp cây danh mục.",
+    "notFound": "Không tìm thấy danh mục.",
+    "hasChildren": "Không thể xóa danh mục vì vẫn còn danh mục con.",
+    "hasProducts": "Không thể xóa danh mục vì vẫn còn sản phẩm."
+  }
+}

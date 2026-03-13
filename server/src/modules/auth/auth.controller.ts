@@ -1,27 +1,51 @@
 import { Request, Response, NextFunction } from 'express';
-import { registerUser, loginUser } from '../../services/auth.service';
+import {
+    registerUser,
+    loginUser,
+    persistRefreshToken,
+    getStoredRefreshTokenHash,
+    revokeStoredRefreshToken,
+} from '../../services/auth.service';
 import { verifyEmailToken, resendVerificationEmail } from '../../services/verification.service';
 import { env } from '../../lib/env';
 import { logger } from '../../lib/logger';
 import { prisma } from '../../lib/prisma';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import { setCsrfCookie } from '../../middlewares/security.middleware';
 
 /**
  * Auth controller — thin wrappers around existing auth service functions.
  * All business logic remains unchanged in auth.service.ts and verification.service.ts.
  */
 export const authController = {
+    csrfToken: (req: Request, res: Response) => {
+        const csrfToken = req.cookies?.csrfToken || setCsrfCookie(res, env.nodeEnv);
+        res.json({
+            success: true,
+            messageKey: 'common:success.ok',
+            message: 'Request processed successfully.',
+            data: { csrfToken },
+        });
+    },
+
     register: async (req: Request, res: Response, next: NextFunction) => {
         try {
             const newUser = await registerUser(req.body);
             res.status(201).json({
                 success: true,
+                messageKey: 'auth:success.registered',
                 message: 'Registration successful! Please check your email to verify your account.',
                 data: { requiresVerification: true, email: newUser.email },
             });
         } catch (err: any) {
             if (err.message === 'Email already exists') {
-                return res.status(409).json({ success: false, errorCode: 'EMAIL_EXISTS', message: err.message });
+                return res.status(409).json({
+                    success: false,
+                    errorCode: 'EMAIL_EXISTS',
+                    messageKey: 'auth:errors.emailExists',
+                    message: err.message,
+                });
             }
             next(err);
         }
@@ -43,6 +67,7 @@ export const authController = {
             // Set cookies server-side
             res.cookie('refreshToken', result.refreshToken, { ...cookieOpts, maxAge: 7 * 24 * 60 * 60 * 1000 });
             res.cookie('accessToken', result.accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 });
+            setCsrfCookie(res, env.nodeEnv);
 
             // Return the same shape as before: { user, accessToken }
             // The client AuthContext destructures `{ user: userData, accessToken }` directly.
@@ -52,13 +77,28 @@ export const authController = {
             );
         } catch (err: any) {
             if (err.message === 'Invalid email or password') {
-                return res.status(401).json({ success: false, errorCode: 'INVALID_CREDENTIALS', message: err.message });
+                return res.status(401).json({
+                    success: false,
+                    errorCode: 'INVALID_CREDENTIALS',
+                    messageKey: 'auth:errors.invalidCredentials',
+                    message: err.message,
+                });
             }
             if (err.message === 'Please verify your email before logging in') {
-                return res.status(403).json({ success: false, errorCode: 'EMAIL_NOT_VERIFIED', message: err.message });
+                return res.status(403).json({
+                    success: false,
+                    errorCode: 'EMAIL_NOT_VERIFIED',
+                    messageKey: 'auth:errors.emailNotVerified',
+                    message: err.message,
+                });
             }
             if (err.message === 'Your account has been banned') {
-                return res.status(403).json({ success: false, errorCode: 'ACCOUNT_BANNED', message: err.message });
+                return res.status(403).json({
+                    success: false,
+                    errorCode: 'ACCOUNT_BANNED',
+                    messageKey: 'auth:errors.accountBanned',
+                    message: err.message,
+                });
             }
             next(err);
         }
@@ -69,21 +109,36 @@ export const authController = {
             const { code } = req.body;
             const result = await verifyEmailToken(code);
 
+            // Store hashed refresh token for reuse detection
+            await persistRefreshToken(result.userId, result.refreshToken);
+
             const cookieOpts = { httpOnly: true, secure: env.nodeEnv === 'production', sameSite: 'lax' as const, path: '/' };
             res.cookie('accessToken', result.accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 });
             res.cookie('refreshToken', result.refreshToken, { ...cookieOpts, maxAge: 7 * 24 * 60 * 60 * 1000 });
+            setCsrfCookie(res, env.nodeEnv);
 
             res.json({
                 success: true,
+                messageKey: 'auth:success.emailVerified',
                 message: 'Email verified successfully!',
                 data: { userId: result.userId, email: result.email, fullName: result.fullName, avatarUrl: result.avatarUrl, roles: result.roles },
             });
         } catch (err: any) {
             if (err.message === 'Invalid verification token') {
-                return res.status(400).json({ success: false, errorCode: 'INVALID_TOKEN', message: err.message });
+                return res.status(400).json({
+                    success: false,
+                    errorCode: 'INVALID_TOKEN',
+                    messageKey: 'auth:errors.invalidToken',
+                    message: err.message,
+                });
             }
             if (err.message?.includes('expired')) {
-                return res.status(400).json({ success: false, errorCode: 'TOKEN_EXPIRED', message: err.message });
+                return res.status(400).json({
+                    success: false,
+                    errorCode: 'TOKEN_EXPIRED',
+                    messageKey: 'auth:errors.tokenExpired',
+                    message: err.message,
+                });
             }
             next(err);
         }
@@ -92,10 +147,19 @@ export const authController = {
     resendVerification: async (req: Request, res: Response, next: NextFunction) => {
         try {
             await resendVerificationEmail(req.body.email);
-            res.json({ success: true, message: 'Verification email sent. Please check your inbox.' });
+            res.json({
+                success: true,
+                messageKey: 'auth:success.verificationEmailSent',
+                message: 'Verification email sent. Please check your inbox.',
+            });
         } catch (err: any) {
             if (err.message === 'No account found with this email') {
-                return res.status(404).json({ success: false, errorCode: 'USER_NOT_FOUND', message: err.message });
+                return res.status(404).json({
+                    success: false,
+                    errorCode: 'USER_NOT_FOUND',
+                    messageKey: 'common:errors.notFound',
+                    message: err.message,
+                });
             }
             next(err);
         }
@@ -105,7 +169,11 @@ export const authController = {
         try {
             const { createPasswordResetToken } = await import('../../services/password.service');
             await createPasswordResetToken(req.body.email);
-            res.json({ success: true, message: 'If an account exists with this email, a password reset link has been sent.' });
+            res.json({
+                success: true,
+                messageKey: 'auth:success.passwordResetSent',
+                message: 'If an account exists with this email, a password reset link has been sent.',
+            });
         } catch (err) {
             next(err);
         }
@@ -138,16 +206,30 @@ export const authController = {
         try {
             const token = req.cookies.resetToken || req.body.token;
             if (!token) {
-                return res.status(400).json({ success: false, errorCode: 'MISSING_TOKEN', message: 'Reset token is required.' });
+                return res.status(400).json({
+                    success: false,
+                    errorCode: 'MISSING_TOKEN',
+                    messageKey: 'auth:errors.missingToken',
+                    message: 'Reset token is required.',
+                });
             }
             const { resetPassword: resetPasswordService } = await import('../../services/password.service');
             await resetPasswordService(token, req.body.newPassword);
             res.clearCookie('resetToken', { path: '/' });
-            res.json({ success: true, message: 'Password reset successfully. You may now log in.' });
+            res.json({
+                success: true,
+                messageKey: 'auth:success.passwordReset',
+                message: 'Password reset successfully. You may now log in.',
+            });
         } catch (err: any) {
             if (err.message?.includes('expired') || err.message?.includes('Invalid')) {
                 res.clearCookie('resetToken', { path: '/' });
-                return res.status(400).json({ success: false, errorCode: 'INVALID_TOKEN', message: err.message });
+                return res.status(400).json({
+                    success: false,
+                    errorCode: 'INVALID_TOKEN',
+                    messageKey: 'auth:errors.invalidToken',
+                    message: err.message,
+                });
             }
             next(err);
         }
@@ -157,7 +239,12 @@ export const authController = {
         try {
             const refreshToken = req.cookies.refreshToken;
             if (!refreshToken) {
-                return res.status(401).json({ success: false, errorCode: 'MISSING_TOKEN', message: 'No refresh token.' });
+                return res.status(401).json({
+                    success: false,
+                    errorCode: 'MISSING_TOKEN',
+                    messageKey: 'auth:errors.missingToken',
+                    message: 'No refresh token.',
+                });
             }
 
             const decoded = jwt.verify(refreshToken, env.refreshSecret) as any;
@@ -167,11 +254,30 @@ export const authController = {
             });
 
             if (!user) {
-                return res.status(401).json({ success: false, errorCode: 'USER_NOT_FOUND', message: 'User not found.' });
+                return res.status(401).json({
+                    success: false,
+                    errorCode: 'USER_NOT_FOUND',
+                    messageKey: 'common:errors.notFound',
+                    message: 'User not found.',
+                });
+            }
+
+            // Validate against stored hashed refresh token
+            const storedRefreshTokenHash = await getStoredRefreshTokenHash(user.userId);
+            if (!storedRefreshTokenHash || !(await bcrypt.compare(refreshToken, storedRefreshTokenHash))) {
+                return res.status(401).json({
+                    success: false,
+                    errorCode: 'REFRESH_TOKEN_REVOKED',
+                    messageKey: 'auth:errors.refreshTokenRevoked',
+                    message: 'Refresh token is no longer valid.',
+                });
             }
 
             const roles = user.userRoles.map((ur: any) => ur.role.roleName);
             const newAccessToken = jwt.sign({ userId: user.userId, email: user.email, roles }, env.jwtSecret, { expiresIn: env.jwtExpiresIn as any });
+            const newRefreshToken = jwt.sign({ userId: user.userId }, env.refreshSecret, { expiresIn: env.refreshExpiresIn as any });
+
+            await persistRefreshToken(user.userId, newRefreshToken);
 
             res.cookie('accessToken', newAccessToken, {
                 httpOnly: true,
@@ -180,8 +286,21 @@ export const authController = {
                 maxAge: 15 * 60 * 1000,
                 path: '/',
             });
+            res.cookie('refreshToken', newRefreshToken, {
+                httpOnly: true,
+                secure: env.nodeEnv === 'production',
+                sameSite: 'lax',
+                maxAge: 7 * 24 * 60 * 60 * 1000,
+                path: '/',
+            });
+            setCsrfCookie(res, env.nodeEnv);
 
-            res.json({ success: true, data: { accessToken: newAccessToken }, message: 'Token refreshed.' });
+            res.json({
+                success: true,
+                data: { accessToken: newAccessToken },
+                messageKey: 'auth:success.tokenRefreshed',
+                message: 'Token refreshed.',
+            });
         } catch (err) {
             next(err);
         }
@@ -191,7 +310,13 @@ export const authController = {
         try {
             const accessToken = req.cookies.accessToken;
             if (!accessToken) {
-                return res.status(401).json({ success: false, isAuthenticated: false, errorCode: 'NO_TOKEN', message: 'No authentication token.' });
+                return res.status(401).json({
+                    success: false,
+                    isAuthenticated: false,
+                    errorCode: 'NO_TOKEN',
+                    messageKey: 'auth:errors.missingToken',
+                    message: 'No authentication token.',
+                });
             }
 
             const decoded = jwt.verify(accessToken, env.jwtSecret) as any;
@@ -205,7 +330,13 @@ export const authController = {
             });
 
             if (!user) {
-                return res.status(401).json({ success: false, isAuthenticated: false, errorCode: 'USER_NOT_FOUND', message: 'User not found.' });
+                return res.status(401).json({
+                    success: false,
+                    isAuthenticated: false,
+                    errorCode: 'USER_NOT_FOUND',
+                    messageKey: 'common:errors.notFound',
+                    message: 'User not found.',
+                });
             }
 
             const roles = user.userRoles.map((ur: any) => ur.role.roleName);
@@ -219,19 +350,41 @@ export const authController = {
             });
         } catch (err: any) {
             if (err.name === 'TokenExpiredError') {
-                return res.status(401).json({ success: false, isAuthenticated: false, errorCode: 'TOKEN_EXPIRED', message: 'Token expired.' });
+                return res.status(401).json({
+                    success: false,
+                    isAuthenticated: false,
+                    errorCode: 'TOKEN_EXPIRED',
+                    messageKey: 'auth:errors.tokenExpired',
+                    message: 'Token expired.',
+                });
             }
             next(err);
         }
     },
 
-    logout: (_req: Request, res: Response) => {
+    logout: async (req: Request, res: Response) => {
+        // Best-effort revoke stored refresh token
+        const refreshToken = req.cookies?.refreshToken;
+        if (refreshToken) {
+            try {
+                const decoded = jwt.verify(refreshToken, env.refreshSecret) as any;
+                await revokeStoredRefreshToken(decoded.userId);
+            } catch (error) {
+                logger.warn('[authController] logout revoke skipped', { error });
+            }
+        }
+
         res.clearCookie('accessToken', { path: '/' });
         res.clearCookie('refreshToken', { path: '/' });
-        res.json({ success: true, message: 'Logged out successfully.' });
+        res.clearCookie('csrfToken', { path: '/' });
+        res.json({
+            success: true,
+            messageKey: 'auth:success.loggedOut',
+            message: 'Logged out successfully.',
+        });
     },
 
-    googleCallback: (req: Request, res: Response) => {
+    googleCallback: async (req: Request, res: Response) => {
         const user = req.user as any;
         const clientUrl = env.clientUrl;
 
@@ -244,9 +397,12 @@ export const authController = {
         const accessToken = jwt.sign({ userId: user.userId, email: user.email, roles }, env.jwtSecret, { expiresIn: '15m' });
         const refreshToken = jwt.sign({ userId: user.userId }, env.refreshSecret, { expiresIn: '7d' });
 
+        await persistRefreshToken(user.userId, refreshToken);
+
         const cookieOpts = { httpOnly: true, secure: env.nodeEnv === 'production', sameSite: 'lax' as const, path: '/' };
         res.cookie('accessToken', accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 });
         res.cookie('refreshToken', refreshToken, { ...cookieOpts, maxAge: 7 * 24 * 60 * 60 * 1000 });
+        setCsrfCookie(res, env.nodeEnv);
 
         res.redirect(`${clientUrl}/auth/callback`);
     },

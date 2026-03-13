@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { authController } from './auth.controller';
 import { validate } from '../../middlewares/validate.middleware';
 import { authRateLimiter } from '../../middlewares/security.middleware';
-import { authenticateToken } from '../../middlewares/auth.middleware';
 import {
     registerSchema,
     loginSchema,
@@ -14,6 +13,9 @@ import {
 import passport from 'passport';
 
 const router = Router();
+
+/** GET /api/auth/csrf-token */
+router.get('/csrf-token', authController.csrfToken);
 
 // ─── Public Auth Routes ───────────────────────────────────────────────────────
 
@@ -53,3 +55,4 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
 router.get('/google/callback', passport.authenticate('google', { session: false, failureRedirect: '/login' }), authController.googleCallback);
 
 export default router;
+

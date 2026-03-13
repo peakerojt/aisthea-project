@@ -12,6 +12,7 @@ import { OrderTimeline } from '@/admin/components/OrderTimeline';
 import { ReviewModal } from '@/common/components/ReviewModal';
 import { RotateCcw, XCircle, ArrowLeft, PackageCheck, Loader2, MapPin, ShoppingCart } from 'lucide-react';
 import { useCart } from '@/common/contexts/CartContext';
+import { useTranslation } from 'react-i18next';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -49,6 +50,7 @@ const canTrackOrderStatus = (status: string | null | undefined) => {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const OrderDetailPage: React.FC = () => {
+  const { t } = useTranslation('pages', { keyPrefix: 'orderDetail' });
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -109,7 +111,7 @@ export const OrderDetailPage: React.FC = () => {
     mutationFn: () => orderService.confirmReceipt(id || ''),
     onSuccess: () => {
       setConfirmReceiptDialog(false);
-      setReceiptToastMsg('Cảm ơn bạn đã mua sắm! Vui lòng đánh giá sản phẩm nhé. 🎉');
+      setReceiptToastMsg(t('toast.receiptSuccess'));
       refetch();
       setTimeout(() => setReceiptToastMsg(''), 4000);
     },
@@ -122,11 +124,11 @@ export const OrderDetailPage: React.FC = () => {
   // so that CartContext.dbItems stays in sync before navigating to Checkout.
   const buyAgainMutation = useMutation({
     mutationFn: async () => {
-      if (!order?.items?.length) throw new Error('No items');
+      if (!order?.items?.length) throw new Error(t('errors.noItems'));
       // Filter only items that have a known variantId.
       const itemsWithVariant = order.items.filter((it) => it.variantId);
       if (itemsWithVariant.length === 0)
-        throw new Error('Không thể xác định sản phẩm để thêm vào giỏ.');
+        throw new Error(t('errors.cannotIdentifyItems'));
       // Add items sequentially via CartContext to avoid race conditions on dbItems state.
       for (const it of itemsWithVariant) {
         await addItemToCart(it.variantId!, it.quantity);
@@ -138,7 +140,7 @@ export const OrderDetailPage: React.FC = () => {
       const count = order?.items?.filter((it) => it.variantId).length ?? 0;
       setBuyAgainToastMsg({
         type: 'success',
-        text: `Đã thêm ${count} sản phẩm vào giỏ hàng! 🛒 Đang chuyển tới thanh toán...`,
+        text: t('toast.buyAgainSuccess', { count }),
       });
       // Short delay so user sees the toast, then navigate to Checkout.
       setTimeout(() => {
@@ -149,7 +151,7 @@ export const OrderDetailPage: React.FC = () => {
     onError: (err: any) => {
       setBuyAgainToastMsg({
         type: 'error',
-        text: err?.response?.data?.message ?? err?.message ?? 'Không thể thêm vào giỏ hàng.',
+        text: err?.response?.data?.message ?? err?.message ?? t('errors.buyAgainFailed'),
       });
       setTimeout(() => setBuyAgainToastMsg(null), 5000);
     },
@@ -190,12 +192,12 @@ export const OrderDetailPage: React.FC = () => {
     return (
       <div className="bg-bg-dark min-h-screen text-white flex items-center justify-center">
         <div className="text-center">
-          <p className="text-sm text-white/60 mb-4">Vui lòng đăng nhập để xem chi tiết đơn hàng.</p>
+          <p className="text-sm text-white/60 mb-4">{t('guest.message')}</p>
           <button
             onClick={() => navigate('/auth/login')}
             className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
           >
-            Đăng nhập
+            {t('guest.login')}
           </button>
         </div>
       </div>
@@ -262,9 +264,9 @@ export const OrderDetailPage: React.FC = () => {
                 <PackageCheck size={20} className="text-emerald-400" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white mb-1">Xác nhận đã nhận hàng?</h3>
+                <h3 className="text-sm font-bold text-white mb-1">{t('confirmReceipt.title')}</h3>
                 <p className="text-xs text-white/60 leading-relaxed">
-                  Bạn xác nhận đã nhận được sản phẩm nguyên vẹn và không có vấn đề gì?
+                  {t('confirmReceipt.description')}
                 </p>
               </div>
             </div>
@@ -275,7 +277,7 @@ export const OrderDetailPage: React.FC = () => {
                 disabled={confirmReceiptMutation.isPending}
                 className="flex-1 py-2.5 rounded-xl border border-white/15 text-white/60 hover:text-white hover:border-white/30 text-xs font-semibold uppercase tracking-wider transition-all"
               >
-                Chưa nhận
+                {t('confirmReceipt.actions.notYet')}
               </button>
               <button
                 onClick={() => confirmReceiptMutation.mutate()}
@@ -285,10 +287,10 @@ export const OrderDetailPage: React.FC = () => {
                 {confirmReceiptMutation.isPending ? (
                   <span className="flex items-center justify-center gap-1.5">
                     <Loader2 size={12} className="animate-spin" />
-                    Đang xử lý...
+                    {t('common.processing')}
                   </span>
                 ) : (
-                  'Đã nhận hàng'
+                  t('confirmReceipt.actions.confirm')
                 )}
               </button>
             </div>
@@ -307,9 +309,9 @@ export const OrderDetailPage: React.FC = () => {
       <div className="pt-32 px-6 md:px-12 max-w-6xl mx-auto pb-24">
         <div className="flex items-end justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-black uppercase tracking-tighter">Chi tiết đơn hàng</h1>
+            <h1 className="text-4xl font-black uppercase tracking-tighter">{t('hero.title')}</h1>
             <p className="text-white/40 text-xs uppercase tracking-widest mt-2">
-              Tất cả thông tin đơn hàng của bạn ở một nơi
+              {t('hero.subtitle')}
             </p>
           </div>
           <button
@@ -317,7 +319,7 @@ export const OrderDetailPage: React.FC = () => {
             className="group flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-sm font-medium text-white/80 hover:text-white backdrop-blur-md"
           >
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            Quay lại
+            {t('actions.back')}
           </button>
         </div>
 
@@ -346,40 +348,40 @@ export const OrderDetailPage: React.FC = () => {
           <div className="mt-4">
             {isNotFound ? (
               <div className="bg-surface-dark border border-white/10 rounded-sm p-6 text-center">
-                <h2 className="text-lg font-semibold text-white mb-2">Đơn hàng không tồn tại</h2>
+                <h2 className="text-lg font-semibold text-white mb-2">{t('errors.notFoundTitle')}</h2>
                 <p className="text-sm text-white/60 mb-4">
-                  Có thể mã đơn hàng đã bị sai hoặc đơn hàng đã bị xóa.
+                  {t('errors.notFoundDescription')}
                 </p>
                 <button
                   onClick={() => navigate('/')}
                   className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
                 >
-                  Về trang chủ
+                  {t('actions.goHome')}
                 </button>
               </div>
             ) : isForbidden ? (
               <div className="bg-surface-dark border border-red-500/30 rounded-sm p-6 text-center">
-                <h2 className="text-lg font-semibold text-red-300 mb-2">Không có quyền truy cập</h2>
+                <h2 className="text-lg font-semibold text-red-300 mb-2">{t('errors.forbiddenTitle')}</h2>
                 <p className="text-sm text-red-200/80 mb-4">
-                  Bạn không thể xem chi tiết đơn hàng này.
+                  {t('errors.forbiddenDescription')}
                 </p>
                 <button
                   onClick={() => navigate('/')}
                   className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
                 >
-                  Về trang chủ
+                  {t('actions.goHome')}
                 </button>
               </div>
             ) : (
               <div className="bg-surface-dark border border-red-500/20 rounded-sm p-6">
                 <p className="text-sm text-red-200 mb-4">
-                  Không thể tải chi tiết đơn hàng. {errorMessage}
+                  {t('errors.loadFailed')} {errorMessage}
                 </p>
                 <button
                   onClick={() => refetch()}
                   className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
                 >
-                  Thử lại
+                  {t('actions.retry')}
                 </button>
               </div>
             )}
@@ -405,12 +407,12 @@ export const OrderDetailPage: React.FC = () => {
               <OrderTimeline history={(order.timeline ?? []).map((t) => ({ status: t.status, changedAt: t.at }))} />
               {order.note && (
                 <div className="bg-surface-dark border border-white/5 rounded-sm p-6">
-                  <div className="text-[10px] uppercase tracking-widest text-white/40">Ghi chú</div>
+                  <div className="text-[10px] uppercase tracking-widest text-white/40">{t('labels.note')}</div>
                   <p className="mt-2 text-sm text-white/70 whitespace-pre-line">{order.note}</p>
                 </div>
               )}
               <div className="bg-surface-dark border border-white/5 rounded-sm p-6">
-                <div className="text-[10px] uppercase tracking-widest text-white/40">Hành động</div>
+                <div className="text-[10px] uppercase tracking-widest text-white/40">{t('labels.actions')}</div>
                 <div className="flex flex-col gap-3 mt-4">
 
                   {/* ── Track Order Button (from feature/order-tracking-PhamAnhHao) ── */}
@@ -420,7 +422,7 @@ export const OrderDetailPage: React.FC = () => {
                       className="group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.1)] hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]"
                     >
                       <MapPin size={15} className="group-hover:scale-110 transition-transform" />
-                      Theo dõi đơn hàng
+                      {t('actions.trackOrder')}
                     </button>
                   )}
 
@@ -431,7 +433,7 @@ export const OrderDetailPage: React.FC = () => {
                       className="group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 hover:border-emerald-500/50 text-emerald-400 hover:text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_25px_rgba(16,185,129,0.2)]"
                     >
                       <PackageCheck size={15} className="group-hover:scale-110 transition-transform" />
-                      Đã nhận được hàng
+                      {t('actions.confirmReceived')}
                     </button>
                   )}
 
@@ -449,7 +451,7 @@ export const OrderDetailPage: React.FC = () => {
                         size={15}
                         className={cancelMutation.isPending ? 'opacity-50' : 'group-hover:scale-110 transition-transform'}
                       />
-                      {cancelMutation.isPending ? 'Đang xử lý...' : 'Hủy đơn hàng'}
+                      {cancelMutation.isPending ? t('common.processing') : t('actions.cancelOrder')}
                     </button>
                   )}
 
@@ -466,7 +468,7 @@ export const OrderDetailPage: React.FC = () => {
                       className="group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all bg-cyan-600/10 hover:bg-cyan-600/20 text-cyan-400 hover:text-cyan-300 border-cyan-500/30 hover:border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_20px_rgba(6,182,212,0.2)]"
                     >
                       <RotateCcw size={15} className="group-hover:-rotate-45 transition-transform" />
-                      Yêu cầu trả hàng
+                      {t('actions.requestReturn')}
                     </button>
                   )}
 
@@ -486,12 +488,12 @@ export const OrderDetailPage: React.FC = () => {
                         {buyAgainMutation.isPending ? (
                           <span className="flex items-center gap-1.5">
                             <Loader2 size={13} className="animate-spin" />
-                            Đang thêm vào giỏ...
+                            {t('common.addingToCart')}
                           </span>
                         ) : (
                           <>
                             <ShoppingCart size={15} className="group-hover:scale-110 transition-transform" />
-                            Mua Lại
+                            {t('actions.buyAgain')}
                           </>
                         )}
                       </button>
@@ -503,9 +505,9 @@ export const OrderDetailPage: React.FC = () => {
                 {!canTrack && !canConfirmReceipt && !canCancel && !canReturn && (
                   <div className="mt-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.05]">
                     <p className="text-[11px] text-white/40 leading-relaxed">
-                      Chỉ có thể hủy đơn khi <strong className="text-white/60">Chờ xác nhận</strong>, theo dõi/xác nhận nhận hàng khi{' '}
-                      <strong className="text-white/60">Đang giao</strong>, hoặc hoàn đơn trong 7 ngày sau khi{' '}
-                      <strong className="text-white/60">Giao thành công</strong>.
+                      {t('hint.prefix')} <strong className="text-white/60">{t('hint.pending')}</strong>, {t('hint.middle')}{' '}
+                      <strong className="text-white/60">{t('hint.shipping')}</strong>, {t('hint.suffix')}{' '}
+                      <strong className="text-white/60">{t('hint.delivered')}</strong>.
                     </p>
                   </div>
                 )}

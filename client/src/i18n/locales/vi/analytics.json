@@ -1,62 +1,78 @@
 {
-    "page": {
-        "title": "Phân tích & Báo cáo",
-        "subtitle": "Admin Portal • Analytics",
-        "apply": "Áp dụng",
-        "exportCSV": "Xuất báo cáo (CSV)"
-    },
-    "kpi": {
-        "currentRevenue": "Doanh thu kỳ này",
-        "revenueGrowth": "{{sign}}{{value}}% so với kỳ trước",
-        "totalOrders": "Tổng đơn hàng",
-        "completedOrders": "{{count}} đơn hoàn thành",
-        "avgOrderValue": "Giá trị đơn TB",
-        "avgOrderSub": "Dựa trên đơn hoàn thành",
-        "topCustomers": "Khách hàng mua",
-        "topCustomersSub": "Top 5 chi tiêu nhiều nhất"
-    },
-    "charts": {
-        "revenueByCategory": "Doanh thu theo danh mục",
-        "revenueByCategorySub": "Doanh thu từ đơn hoàn thành, phân theo danh mục sản phẩm",
-        "statusFunnel": "Tỉ lệ trạng thái đơn hàng",
-        "statusFunnelSub": "Phân bổ đơn hàng theo trạng thái trong kỳ",
-        "monthlyTrend": "Doanh thu & Số lượng đơn hàng theo tháng",
-        "monthlyTrendSub": "Tổng hợp xu hướng doanh thu (vùng) và số đơn (cột) trên cùng biểu đồ",
-        "noData": "Chưa có dữ liệu",
-        "noMonthlyData": "Chưa có dữ liệu theo tháng"
-    },
-    "tables": {
-        "topCustomersTitle": "Khách hàng chi tiêu nhiều nhất",
-        "topCustomersRank": "#",
-        "topCustomersName": "Khách hàng",
-        "topCustomersSpent": "Chi tiêu",
-        "topCustomersOrders": "Đơn",
-        "cancelledTitle": "Sản phẩm bị hủy nhiều nhất",
-        "cancelledSub": "Phân tích hủy đơn — quan trọng cho chiến lược kinh doanh",
-        "cancelledRank": "#",
-        "cancelledProduct": "Sản phẩm",
-        "cancelledCount": "Số lần hủy",
-        "cancelledLost": "DT mất",
-        "cancelTimes": "{{count}} lần",
-        "noData": "Chưa có dữ liệu",
-        "noCancelled": "Không có sản phẩm bị hủy"
-    },
-    "orderStatuses": {
-        "PENDING": "Chờ xử lý",
-        "CONFIRMED": "Đã xác nhận",
-        "PROCESSING": "Đang xử lý",
-        "SHIPPED": "Đang giao",
-        "SHIPPING": "Đang giao",
-        "DELIVERED": "Đã giao hàng",
-        "COMPLETED": "Hoàn thành",
-        "CANCELLED": "Đã hủy",
-        "RETURN_REQUESTED": "Yêu cầu hoàn trả",
-        "RETURNED": "Đã hoàn trả",
-        "REFUNDED": "Đã hoàn tiền",
-        "UNKNOWN": "Không xác định"
-    },
-    "orderUnit": "{{count}} đơn",
-    "feedback": {
-        "loadError": "Không thể tải dữ liệu."
-    }
+  "page": {
+    "title": "Phân tích và báo cáo",
+    "subtitle": "Cổng quản trị • Phân tích",
+    "apply": "Áp dụng",
+    "exportCSV": "Xuất báo cáo (CSV)"
+  },
+  "kpi": {
+    "currentRevenue": "Doanh thu kỳ này",
+    "revenueGrowth": "{{sign}}{{value}}% so với kỳ trước",
+    "totalOrders": "Tổng đơn hàng",
+    "completedOrders": "{{count}} đơn hoàn thành",
+    "avgOrderValue": "Giá trị đơn trung bình",
+    "avgOrderSub": "Dựa trên các đơn hoàn thành",
+    "topCustomers": "Khách hàng chi tiêu cao",
+    "topCustomersSub": "Top 5 khách hàng chi tiêu nhiều nhất",
+    "revenue": "Doanh thu"
+  },
+  "charts": {
+    "revenueByCategory": "Doanh thu theo danh mục",
+    "revenueByCategorySub": "Doanh thu từ đơn hoàn thành, phân theo danh mục sản phẩm",
+    "statusFunnel": "Tỷ lệ trạng thái đơn hàng",
+    "statusFunnelSub": "Phân bổ đơn hàng theo trạng thái trong kỳ",
+    "monthlyTrend": "Doanh thu và số lượng đơn hàng theo tháng",
+    "monthlyTrendSub": "Tổng hợp xu hướng doanh thu (vùng) và số đơn (cột) trên cùng biểu đồ",
+    "noData": "Chưa có dữ liệu",
+    "noMonthlyData": "Chưa có dữ liệu theo tháng",
+    "orders": "Đơn hàng",
+    "orderUnit": "đơn",
+    "revenue": "Doanh thu"
+  },
+  "tables": {
+    "topCustomersTitle": "Khách hàng chi tiêu nhiều nhất",
+    "topCustomersRank": "#",
+    "topCustomersName": "Khách hàng",
+    "topCustomersSpent": "Chi tiêu",
+    "topCustomersOrders": "Đơn",
+    "cancelledTitle": "Sản phẩm bị hủy nhiều nhất",
+    "cancelledSub": "Phân tích hủy đơn — dữ liệu quan trọng cho chiến lược kinh doanh",
+    "cancelledRank": "#",
+    "cancelledProduct": "Sản phẩm",
+    "cancelledCount": "Số lần hủy",
+    "cancelledLost": "Doanh thu mất",
+    "cancelTimes": "{{count}} lần",
+    "noData": "Chưa có dữ liệu",
+    "noCancelled": "Không có sản phẩm bị hủy"
+  },
+  "orderStatuses": {
+    "PENDING": "Chờ xử lý",
+    "CONFIRMED": "Đã xác nhận",
+    "PROCESSING": "Đang xử lý",
+    "SHIPPED": "Đang giao",
+    "SHIPPING": "Đang giao",
+    "DELIVERED": "Đã giao hàng",
+    "COMPLETED": "Hoàn thành",
+    "CANCELLED": "Đã hủy",
+    "RETURN_REQUESTED": "Yêu cầu hoàn trả",
+    "RETURNED": "Đã hoàn trả",
+    "REFUNDED": "Đã hoàn tiền",
+    "UNKNOWN": "Không xác định"
+  },
+  "orderUnit": "{{count}} đơn",
+  "feedback": {
+    "loadError": "Không thể tải dữ liệu."
+  },
+  "aiInsights": {
+    "badge": "Phân tích AI",
+    "live": "Trực tiếp",
+    "message": "Cập nhật tự động từ dữ liệu thời gian thực"
+  },
+  "retention": {
+    "title": "Tỷ lệ khách quay lại",
+    "subtitle": "Phân bổ khách mới và khách quay lại",
+    "newCustomers": "Khách mới",
+    "returningCustomers": "Khách quay lại",
+    "noData": "Chưa có dữ liệu"
+  }
 }

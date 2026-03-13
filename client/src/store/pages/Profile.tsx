@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { userService, UserProfile, Address, RecentOrder } from '@/store/services/user.service';
 import { getImageUrl } from '@/common/utils/cloudinary';
+import { useTranslation } from 'react-i18next';
 
 export const Profile: React.FC = () => {
+  const { t } = useTranslation('pages', { keyPrefix: 'profile' });
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
@@ -40,11 +42,7 @@ export const Profile: React.FC = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Load profile data
-  useEffect(() => {
-    loadProfileData();
-  }, []);
-
-  const loadProfileData = async () => {
+  const loadProfileData = useCallback(async () => {
     try {
       setLoading(true);
       const [profileData, addressesData, ordersData] = await Promise.all([
@@ -61,12 +59,16 @@ export const Profile: React.FC = () => {
         phone: profileData.phone || '',
       });
     } catch (error) {
-            const err = error as Error | { message?: string; error?: string; data?: unknown };
-      setError(err.message || 'Failed to load profile');
+      const err = error as Error | { message?: string; error?: string; data?: unknown };
+      setError(err.message || t('errors.loadProfile'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
+
+  useEffect(() => {
+    loadProfileData();
+  }, [loadProfileData]);
 
   const handleLogout = async () => {
     await logout();
@@ -84,8 +86,8 @@ export const Profile: React.FC = () => {
       setProfile(updatedProfile);
       setIsEditingProfile(false);
     } catch (error) {
-            const err = error as Error | { message?: string; error?: string; data?: unknown };
-      alert(err.message || 'Failed to update profile');
+      const err = error as Error | { message?: string; error?: string; data?: unknown };
+      alert(err.message || t('errors.updateProfile'));
     }
   };
 
@@ -106,13 +108,13 @@ export const Profile: React.FC = () => {
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file (JPEG, PNG, GIF, or WebP)');
+      alert(t('avatar.errors.invalidType'));
       return;
     }
 
     // Validate file size (5MB limit for Cloudinary)
     if (file.size > 5 * 1024 * 1024) {
-      alert('Image size must be less than 5MB');
+      alert(t('avatar.errors.maxSize'));
       return;
     }
 
@@ -132,23 +134,23 @@ export const Profile: React.FC = () => {
       const response = await userService.uploadAvatar(avatarPreview);
       await loadProfileData();
       setAvatarPreview(null);
-      alert((response as any).message || 'Avatar uploaded successfully to cloud storage!');
+      alert((response as any).message || t('avatar.messages.uploadSuccess'));
     } catch (error) {
-            const err = error as Error | { message?: string; error?: string; data?: unknown };
-      alert(err.message || 'Failed to upload avatar');
+      const err = error as Error | { message?: string; error?: string; data?: unknown };
+      alert(err.message || t('avatar.errors.uploadFailed'));
     } finally {
       setUploadingAvatar(false);
     }
   };
 
   const handleDeleteAvatar = async () => {
-    if (!confirm('Are you sure you want to delete your avatar?')) return;
+    if (!confirm(t('avatar.confirmDelete'))) return;
 
     try {
       await userService.deleteAvatar();
       await loadProfileData();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to delete avatar');
+      alert(err instanceof Error ? err.message : t('avatar.errors.deleteFailed'));
     }
   };
 
@@ -189,18 +191,18 @@ export const Profile: React.FC = () => {
       await loadProfileData();
       setShowAddressForm(false);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to save address');
+      alert(err instanceof Error ? err.message : t('addresses.errors.saveFailed'));
     }
   };
 
   const handleDeleteAddress = async (addressId: number) => {
-    if (!confirm('Are you sure you want to delete this address?')) return;
+    if (!confirm(t('addresses.confirmDelete'))) return;
 
     try {
       await userService.deleteAddress(addressId);
       await loadProfileData();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to delete address');
+      alert(err instanceof Error ? err.message : t('addresses.errors.deleteFailed'));
     }
   };
 
@@ -209,7 +211,7 @@ export const Profile: React.FC = () => {
       await userService.setDefaultAddress(addressId);
       await loadProfileData();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to set default address');
+      alert(err instanceof Error ? err.message : t('addresses.errors.defaultFailed'));
     }
   };
 
@@ -220,7 +222,7 @@ export const Profile: React.FC = () => {
         <div className="pt-32 px-6 md:px-12 max-w-5xl mx-auto flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <span className="material-symbols-outlined text-6xl text-primary animate-spin mb-4">progress_activity</span>
-            <p className="text-gray-400">Loading profile...</p>
+            <p className="text-gray-400">{t('states.loading')}</p>
           </div>
         </div>
       </div>
@@ -233,7 +235,7 @@ export const Profile: React.FC = () => {
         <Header />
         <div className="pt-32 px-6 md:px-12 max-w-5xl mx-auto">
           <div className="bg-red-500/10 border border-red-500/20 p-6 rounded text-center">
-            <p className="text-red-400">{error || 'Failed to load profile'}</p>
+            <p className="text-red-400">{error || t('errors.loadProfile')}</p>
           </div>
         </div>
       </div>
@@ -247,7 +249,7 @@ export const Profile: React.FC = () => {
       <div className="pt-32 px-6 md:px-12 max-w-5xl mx-auto pb-20">
         {/* Page Header */}
         <div className="mb-12 animate-fade-in">
-          <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2">My Profile</h1>
+          <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2">{t('title')}</h1>
           <div className="h-1 w-16 bg-primary"></div>
         </div>
 
@@ -260,7 +262,7 @@ export const Profile: React.FC = () => {
                 {profile.avatarUrl || avatarPreview ? (
                   <img
                     src={avatarPreview || getImageUrl(profile.avatarUrl)}
-                    alt="Avatar"
+                    alt={t('avatar.alt')}
                     className="w-32 h-32 rounded-full object-cover border-4 border-white/10"
                   />
                 ) : (
@@ -300,13 +302,13 @@ export const Profile: React.FC = () => {
                     disabled={uploadingAvatar}
                     className="px-4 py-2 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest transition-colors disabled:opacity-50"
                   >
-                    {uploadingAvatar ? 'Uploading...' : 'Save'}
+                    {uploadingAvatar ? t('avatar.actions.uploading') : t('common.save')}
                   </button>
                   <button
                     onClick={() => setAvatarPreview(null)}
                     className="px-4 py-2 border border-white/20 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                 </div>
               )}
@@ -322,7 +324,7 @@ export const Profile: React.FC = () => {
                 </span>
                 {profile.googleId && (
                   <span className="inline-block px-3 py-1 bg-white/10 rounded text-xs font-bold uppercase tracking-widest text-blue-400">
-                    Google Account
+                    {t('labels.googleAccount')}
                   </span>
                 )}
               </div>
@@ -330,7 +332,7 @@ export const Profile: React.FC = () => {
               {/* Profile Completeness */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs uppercase tracking-widest font-bold text-gray-400">Profile Completeness</span>
+                  <span className="text-xs uppercase tracking-widest font-bold text-gray-400">{t('labels.profileCompleteness')}</span>
                   <span className="text-xs font-bold text-primary">{profile.completeness}%</span>
                 </div>
                 <div className="w-full bg-black/40 rounded-full h-2 overflow-hidden">
@@ -341,7 +343,7 @@ export const Profile: React.FC = () => {
                 </div>
                 {profile.completeness < 100 && (
                   <p className="text-xs text-gray-500 mt-2">
-                    Complete your profile to unlock all features
+                    {t('labels.completenessHint')}
                   </p>
                 )}
               </div>
@@ -357,7 +359,7 @@ export const Profile: React.FC = () => {
           >
             <div className="flex items-center gap-4">
               <span className="material-symbols-outlined text-primary">person</span>
-              <h3 className="text-lg font-bold uppercase tracking-wide">Personal Information</h3>
+              <h3 className="text-lg font-bold uppercase tracking-wide">{t('sections.personal')}</h3>
             </div>
             <span className={`material-symbols-outlined transition-transform ${expandedSection === 'personal' ? 'rotate-180' : ''}`}>
               expand_more
@@ -369,28 +371,28 @@ export const Profile: React.FC = () => {
               {!isEditingProfile ? (
                 <div className="space-y-4">
                   <div>
-                    <label className="text-xs uppercase tracking-widest font-bold text-gray-400">Full Name</label>
+                    <label className="text-xs uppercase tracking-widest font-bold text-gray-400">{t('fields.fullName')}</label>
                     <p className="text-lg">{profile.fullName}</p>
                   </div>
                   <div>
-                    <label className="text-xs uppercase tracking-widest font-bold text-gray-400">Email</label>
+                    <label className="text-xs uppercase tracking-widest font-bold text-gray-400">{t('fields.email')}</label>
                     <p className="text-lg">{profile.email}</p>
                   </div>
                   <div>
-                    <label className="text-xs uppercase tracking-widest font-bold text-gray-400">Phone</label>
-                    <p className="text-lg">{profile.phone || 'Not provided'}</p>
+                    <label className="text-xs uppercase tracking-widest font-bold text-gray-400">{t('fields.phone')}</label>
+                    <p className="text-lg">{profile.phone || t('states.notProvided')}</p>
                   </div>
                   <button
                     onClick={() => setIsEditingProfile(true)}
                     className="mt-4 px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold uppercase tracking-widest transition-colors"
                   >
-                    Edit Information
+                    {t('actions.editInfo')}
                   </button>
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">Full Name</label>
+                    <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">{t('fields.fullName')}</label>
                     <input
                       type="text"
                       value={profileForm.fullName}
@@ -399,7 +401,7 @@ export const Profile: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">Phone</label>
+                    <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">{t('fields.phone')}</label>
                     <input
                       type="tel"
                       value={profileForm.phone}
@@ -412,13 +414,13 @@ export const Profile: React.FC = () => {
                       onClick={handleSaveProfile}
                       className="px-6 py-3 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest transition-colors"
                     >
-                      Save Changes
+                      {t('actions.saveChanges')}
                     </button>
                     <button
                       onClick={handleCancelEditProfile}
                       className="px-6 py-3 border border-white/20 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors"
                     >
-                      Cancel
+                      {t('common.cancel')}
                     </button>
                   </div>
                 </div>
@@ -435,7 +437,7 @@ export const Profile: React.FC = () => {
           >
             <div className="flex items-center gap-4">
               <span className="material-symbols-outlined text-primary">location_on</span>
-              <h3 className="text-lg font-bold uppercase tracking-wide">Addresses ({addresses.length})</h3>
+              <h3 className="text-lg font-bold uppercase tracking-wide">{t('sections.addresses', { count: addresses.length })}</h3>
             </div>
             <span className={`material-symbols-outlined transition-transform ${expandedSection === 'addresses' ? 'rotate-180' : ''}`}>
               expand_more
@@ -446,45 +448,45 @@ export const Profile: React.FC = () => {
             <div className="px-8 py-6 border-t border-white/10 animate-fade-in">
               {showAddressForm ? (
                 <div className="bg-black/20 p-6 rounded mb-6 border border-white/5">
-                  <h4 className="text-sm font-bold uppercase tracking-widest mb-4">{editingAddressId ? 'Edit Address' : 'Add New Address'}</h4>
+                  <h4 className="text-sm font-bold uppercase tracking-widest mb-4">{editingAddressId ? t('addresses.actions.edit') : t('addresses.actions.addNew')}</h4>
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                     <div className="md:col-span-6">
-                      <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">Recipient Name</label>
+                      <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">{t('addresses.fields.recipientName')}</label>
                       <input type="text" value={addressForm.recipientName} onChange={(e) => setAddressForm({ ...addressForm, recipientName: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
                     </div>
                     <div className="md:col-span-6">
-                      <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">Phone</label>
+                      <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">{t('addresses.fields.phone')}</label>
                       <input type="tel" value={addressForm.phone} onChange={(e) => setAddressForm({ ...addressForm, phone: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
                     </div>
                     <div className="md:col-span-8">
-                      <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">Address Line</label>
+                      <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">{t('addresses.fields.addressLine')}</label>
                       <input type="text" value={addressForm.addressLine} onChange={(e) => setAddressForm({ ...addressForm, addressLine: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
                     </div>
                     <div className="md:col-span-4">
-                      <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">City</label>
+                      <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">{t('addresses.fields.city')}</label>
                       <input type="text" value={addressForm.city} onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
                     </div>
                     <div className="md:col-span-12">
-                      <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">District</label>
+                      <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">{t('addresses.fields.district')}</label>
                       <input type="text" value={addressForm.district} onChange={(e) => setAddressForm({ ...addressForm, district: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
                     </div>
                   </div>
                   <div className="flex gap-3 mt-6">
-                    <button onClick={handleSaveAddress} className="px-6 py-3 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest transition-colors">Save Address</button>
-                    <button onClick={() => setShowAddressForm(false)} className="px-6 py-3 border border-white/20 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors">Cancel</button>
+                    <button onClick={handleSaveAddress} className="px-6 py-3 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest transition-colors">{t('addresses.actions.save')}</button>
+                    <button onClick={() => setShowAddressForm(false)} className="px-6 py-3 border border-white/20 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors">{t('common.cancel')}</button>
                   </div>
                 </div>
               ) : null}
               {addresses.length === 0 ? (
                 <div className="text-center py-12">
                   <span className="material-symbols-outlined text-6xl text-white/20 mb-4">location_off</span>
-                  <p className="text-gray-500 mb-6">No addresses saved yet</p>
-                  <button onClick={handleAddAddress} className="px-6py-3 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest transition-colors">Add Address</button>
+                  <p className="text-gray-500 mb-6">{t('addresses.empty')}</p>
+                  <button onClick={handleAddAddress} className="px-6 py-3 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest transition-colors">{t('addresses.actions.add')}</button>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {!showAddressForm && (
-                    <button onClick={handleAddAddress} className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold uppercase tracking-widest transition-colors mb-4">+ Add New</button>
+                    <button onClick={handleAddAddress} className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold uppercase tracking-widest transition-colors mb-4">+ {t('addresses.actions.addNew')}</button>
                   )}
                   {addresses.map((address) => (
                     <div key={address.addressId} className="bg-black/20 p-6 rounded border border-white/5">
@@ -493,14 +495,14 @@ export const Profile: React.FC = () => {
                           <h5 className="font-bold text-lg mb-1">{address.recipientName}</h5>
                           <p className="text-sm text-gray-400">{address.phone}</p>
                         </div>
-                        {address.isDefault && <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded text-xs font-bold uppercase tracking-widest">Default</span>}
+                        {address.isDefault && <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded text-xs font-bold uppercase tracking-widest">{t('addresses.labels.default')}</span>}
                       </div>
                       <p className="text-sm text-gray-300 mb-1">{address.addressLine}</p>
                       <p className="text-sm text-gray-400">{address.district && `${address.district}, `}{address.city}</p>
                       <div className="flex gap-3 mt-4">
-                        <button onClick={() => handleEditAddress(address)} className="text-xs font-bold uppercase tracking-widest text-primary hover:text-white transition-colors">Edit</button>
-                        {!address.isDefault && <button onClick={() => handleSetDefaultAddress(address.addressId)} className="text-xs font-bold uppercase tracking-widest text-blue-400 hover:text-white transition-colors">Set Default</button>}
-                        <button onClick={() => handleDeleteAddress(address.addressId)} className="text-xs font-bold uppercase tracking-widest text-red-400 hover:text-white transition-colors">Delete</button>
+                        <button onClick={() => handleEditAddress(address)} className="text-xs font-bold uppercase tracking-widest text-primary hover:text-white transition-colors">{t('actions.edit')}</button>
+                        {!address.isDefault && <button onClick={() => handleSetDefaultAddress(address.addressId)} className="text-xs font-bold uppercase tracking-widest text-blue-400 hover:text-white transition-colors">{t('addresses.actions.setDefault')}</button>}
+                        <button onClick={() => handleDeleteAddress(address.addressId)} className="text-xs font-bold uppercase tracking-widest text-red-400 hover:text-white transition-colors">{t('actions.delete')}</button>
                       </div>
                     </div>
                   ))}
@@ -515,7 +517,7 @@ export const Profile: React.FC = () => {
           <button onClick={() => toggleSection('orders')} className="w-full px-8 py-6 flex items-center justify-between hover:bg-white/5 transition-colors">
             <div className="flex items-center gap-4">
               <span className="material-symbols-outlined text-primary">shopping_bag</span>
-              <h3 className="text-lg font-bold uppercase tracking-wide">Recent Orders</h3>
+              <h3 className="text-lg font-bold uppercase tracking-wide">{t('sections.recentOrders')}</h3>
             </div>
             <span className={`material-symbols-outlined transition-transform ${expandedSection === 'orders' ? 'rotate-180' : ''}`}>expand_more</span>
           </button>
@@ -524,8 +526,8 @@ export const Profile: React.FC = () => {
               {recentOrders.length === 0 ? (
                 <div className="text-center py-12">
                   <span className="material-symbols-outlined text-6xl text-white/20 mb-4">shopping_bag</span>
-                  <p className="text-gray-500 mb-6">No orders yet</p>
-                  <button onClick={() => navigate('/collection')} className="px-6 py-3 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest transition-colors">Start Shopping</button>
+                  <p className="text-gray-500 mb-6">{t('recentOrders.empty')}</p>
+                  <button onClick={() => navigate('/collection')} className="px-6 py-3 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest transition-colors">{t('recentOrders.actions.startShopping')}</button>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -533,7 +535,7 @@ export const Profile: React.FC = () => {
                     <div key={order.orderId} className="bg-black/20 p-6 rounded border border-white/5">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h5 className="font-bold text-sm uppercase tracking-wide mb-1">Order #{order.orderNumber}</h5>
+                          <h5 className="font-bold text-sm uppercase tracking-wide mb-1">{t('recentOrders.orderNumber', { orderNumber: order.orderNumber })}</h5>
                           <p className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleDateString()}</p>
                         </div>
                         <div className="text-right">
@@ -545,7 +547,7 @@ export const Profile: React.FC = () => {
                       </div>
                     </div>
                   ))}
-                  <button onClick={() => navigate('/my-orders')} className="w-full px-6 py-3 border border-white/20 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors">View All Orders</button>
+                  <button onClick={() => navigate('/my-orders')} className="w-full px-6 py-3 border border-white/20 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors">{t('recentOrders.actions.viewAll')}</button>
                 </div>
               )}
             </div>
@@ -557,9 +559,9 @@ export const Profile: React.FC = () => {
           <div className="px-8 py-6">
             <div className="flex items-center gap-4 mb-6">
               <span className="material-symbols-outlined text-primary">security</span>
-              <h3 className="text-lg font-bold uppercase tracking-wide">Account</h3>
+              <h3 className="text-lg font-bold uppercase tracking-wide">{t('sections.account')}</h3>
             </div>
-            <button onClick={handleLogout} className="px-8 py-3 border border-white/20 hover:bg-white hover:text-black transition-all text-xs font-bold uppercase tracking-widest">Sign Out</button>
+            <button onClick={handleLogout} className="px-8 py-3 border border-white/20 hover:bg-white hover:text-black transition-all text-xs font-bold uppercase tracking-widest">{t('actions.signOut')}</button>
           </div>
         </div>
 

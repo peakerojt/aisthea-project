@@ -19,6 +19,7 @@ import messagesVI from '@/i18n/locales/vi/messages.json';
 import enumsVI from '@/i18n/locales/vi/enums.json';
 import trackingVI from '@/i18n/locales/vi/tracking.json';
 import cartVI from '@/i18n/locales/vi/cart.json';
+import pagesVI from '@/i18n/locales/vi/pages.json';
 
 // ── i18next initialisation ──────────────────────────────────────────────────
 i18n
@@ -47,6 +48,7 @@ i18n
                 enums: enumsVI,
                 tracking: trackingVI,
                 cart: cartVI,
+                pages: pagesVI,
             },
         },
 

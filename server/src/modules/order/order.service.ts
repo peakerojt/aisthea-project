@@ -2,6 +2,7 @@ import { findOrderByIdWithRelations, OrderWithRelations } from './order.reposito
 import { prisma } from '../../utils/prisma';
 import { atomicCancelRestore, atomicCheckoutDeduction } from '../../services/inventory.service';
 import { logger } from '../../lib/logger';
+import { AppError } from '../../middlewares/error.middleware';
 import {
   ORDER_STATUS,
   getValidNextStatuses,
@@ -65,17 +66,6 @@ export interface OrderDetailDto {
   pricing: OrderPricingDto;
   timeline: OrderTimelineItem[];
   note: string | null;
-}
-
-export class AppError extends Error {
-  public readonly code: string;
-  public readonly status: number;
-
-  constructor(code: string, message: string, status: number) {
-    super(message);
-    this.code = code;
-    this.status = status;
-  }
 }
 
 const isAdmin = (user: CurrentUser) => user.roles.includes('Admin');
@@ -168,16 +158,16 @@ const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto =
 export async function getOrderDetailForUser(orderIdRaw: string, currentUser: CurrentUser): Promise<OrderDetailDto> {
   const parsedId = Number(orderIdRaw);
   if (!Number.isFinite(parsedId) || parsedId <= 0) {
-    throw new AppError('BAD_REQUEST', 'Invalid order id', 400);
+    throw new AppError(400, 'BAD_REQUEST', 'orders:errors.invalidOrderId');
   }
 
   const order = await findOrderByIdWithRelations(parsedId);
   if (!order) {
-    throw new AppError('NOT_FOUND', 'Order not found', 404);
+    throw new AppError(404, 'NOT_FOUND', 'orders:errors.notFound');
   }
 
   if (!isAdmin(currentUser) && order.userId !== currentUser.userId) {
-    throw new AppError('FORBIDDEN', 'You are not allowed to access this order', 403);
+    throw new AppError(403, 'FORBIDDEN', 'orders:errors.forbidden');
   }
 
   return mapOrderToDto(order);
@@ -186,25 +176,21 @@ export async function getOrderDetailForUser(orderIdRaw: string, currentUser: Cur
 export async function cancelOrderForUser(orderIdRaw: string, currentUser: CurrentUser): Promise<OrderDetailDto> {
   const parsedId = Number(orderIdRaw);
   if (!Number.isFinite(parsedId) || parsedId <= 0) {
-    throw new AppError('BAD_REQUEST', 'Invalid order id', 400);
+    throw new AppError(400, 'BAD_REQUEST', 'orders:errors.invalidOrderId');
   }
 
   const existing = await findOrderByIdWithRelations(parsedId);
   if (!existing) {
-    throw new AppError('NOT_FOUND', 'Order not found', 404);
+    throw new AppError(404, 'NOT_FOUND', 'orders:errors.notFound');
   }
 
   if (!isAdmin(currentUser) && existing.userId !== currentUser.userId) {
-    throw new AppError('FORBIDDEN', 'You are not allowed to modify this order', 403);
+    throw new AppError(403, 'FORBIDDEN', 'orders:errors.forbidden');
   }
 
   const currentStatus = normalizeStatus(existing.status);
   if (currentStatus !== 'pending') {
-    throw new AppError(
-      'ORDER_CANNOT_BE_CANCELLED',
-      'Order can only be cancelled when status is pending',
-      400,
-    );
+    throw new AppError(400, 'ORDER_CANNOT_BE_CANCELLED', 'orders:errors.cannotCancel');
   }
 
   // ─── Atomic cancel + stock restore transaction ────────────────────────────
@@ -270,17 +256,17 @@ export async function updateOrderStatusAdmin(
   }
 ) {
   if (!isAdmin(currentUser)) {
-    throw new AppError('FORBIDDEN', 'You are not allowed to update order status', 403);
+    throw new AppError(403, 'FORBIDDEN', 'orders:errors.forbidden');
   }
 
   const parsedId = Number(orderIdRaw);
   if (!Number.isFinite(parsedId) || parsedId <= 0) {
-    throw new AppError('BAD_REQUEST', 'Invalid order id', 400);
+    throw new AppError(400, 'BAD_REQUEST', 'orders:errors.invalidOrderId');
   }
 
   const { status: newStatus, note, carrier, trackingNumber, estimatedDeliveryDate } = payload;
   if (!newStatus) {
-    throw new AppError('BAD_REQUEST', 'Status is required', 400);
+    throw new AppError(400, 'BAD_REQUEST', 'orders:errors.statusRequired');
   }
 
   const order = await prisma.order.findUnique({
@@ -293,16 +279,21 @@ export async function updateOrderStatusAdmin(
   });
 
   if (!order) {
-    throw new AppError('NOT_FOUND', 'Order not found', 404);
+    throw new AppError(404, 'NOT_FOUND', 'orders:errors.notFound');
   }
 
   const currentStatus = order.status ?? ORDER_STATUS.PENDING;
 
   if (!isValidTransition(currentStatus, newStatus)) {
     throw new AppError(
+      400,
       'INVALID_STATUS_TRANSITION',
-      `Cannot transition from ${currentStatus} to ${newStatus}. Allowed: ${getValidNextStatuses(currentStatus).join(', ')}`,
-      400
+      'orders:errors.invalidTransition',
+      {
+        from: currentStatus,
+        to: newStatus,
+        allowed: getValidNextStatuses(currentStatus).join(', '),
+      },
     );
   }
 
@@ -445,7 +436,7 @@ export async function createOrder(
   } = dto;
 
   if (!items || items.length === 0) {
-    throw new AppError('CART_EMPTY', 'Cannot create an order with no items', 400);
+    throw new AppError(400, 'CART_EMPTY', 'orders:errors.cartEmpty');
   }
 
   // Generate a human-readable order number before entering the transaction
@@ -491,19 +482,20 @@ export async function createOrder(
 
       if (!variant) {
         throw new AppError(
-          'VARIANT_NOT_FOUND',
-          `Product variant with ID ${item.variantId} does not exist`,
           400,
+          'VARIANT_NOT_FOUND',
+          'products:errors.notFound',
+          { variantId: item.variantId },
         );
       }
 
       const available: number = variant.stockQuantity;
       if (available < item.quantity) {
-        const name: string = variant.product?.name ?? `VariantId ${item.variantId}`;
         throw new AppError(
-          'OUT_OF_STOCK',
-          `"${name}" only has ${available} item(s) in stock but ${item.quantity} were requested`,
           400,
+          'OUT_OF_STOCK',
+          'orders:errors.outOfStock',
+          { variantId: item.variantId, available, requested: item.quantity },
         );
       }
     }
@@ -607,6 +599,6 @@ export async function createOrder(
   const order = await findOrderByIdWithRelations(newOrderId);
   if (!order) {
     // Should never happen unless the DB is in a very unusual state
-    throw new AppError('INTERNAL_ERROR', 'Order was created but could not be retrieved', 500);
+    throw new AppError(500, 'INTERNAL_ERROR', 'common:errors.internalServer');
   }  return mapOrderToDto(order);
 }

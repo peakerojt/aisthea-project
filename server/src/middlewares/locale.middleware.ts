@@ -5,7 +5,9 @@ const ACCEPT_LANGUAGE_SEPARATOR = ',';
 
 function getFirstLanguageFromAcceptLanguage(headerValue?: string): string | undefined {
   if (!headerValue) return undefined;
-  return headerValue.split(ACCEPT_LANGUAGE_SEPARATOR)[0]?.trim();
+  const firstToken = headerValue.split(ACCEPT_LANGUAGE_SEPARATOR)[0]?.trim();
+  if (!firstToken) return undefined;
+  return firstToken.split(';')[0]?.trim();
 }
 
 export function resolveRequestLocale(req: Request): AppLocale {

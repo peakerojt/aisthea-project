@@ -1,0 +1,9 @@
+{
+  "errors": {
+    "orderItemNotFound": "Không tìm thấy sản phẩm trong đơn hàng.",
+    "notOrderOwner": "Bạn không sở hữu đơn hàng này.",
+    "itemNotDelivered": "Chỉ có thể đánh giá sản phẩm đã giao.",
+    "productMismatch": "Sản phẩm không khớp với mục đã mua.",
+    "alreadyExists": "Bạn đã đánh giá sản phẩm này."
+  }
+}

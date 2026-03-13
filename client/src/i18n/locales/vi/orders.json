@@ -34,13 +34,7 @@
         "COMPLETED": "Hoàn thành",
         "CANCELLED": "Đã hủy",
         "RETURN_REQUESTED": "Yêu cầu trả hàng",
-        "RETURNED": "Đã trả hàng",
-        "Pending": "Chờ xác nhận",
-        "Processing": "Đang xử lý",
-        "Shipping": "Đang giao hàng",
-        "Delivered": "Đã giao hàng",
-        "Cancelled": "Đã hủy",
-        "Returned": "Đã trả hàng"
+        "RETURNED": "Đã trả hàng"
     },
     "statusBadge": {
         "PENDING": "Chờ",
@@ -50,13 +44,7 @@
         "COMPLETED": "Hoàn thành",
         "CANCELLED": "Đã hủy",
         "RETURN_REQUESTED": "Yêu cầu trả hàng",
-        "RETURNED": "Đã trả hàng",
-        "Pending": "Chờ xác nhận",
-        "Processing": "Đang xử lý",
-        "Shipping": "Đang giao hàng",
-        "Delivered": "Đã giao hàng",
-        "Cancelled": "Đã hủy",
-        "Returned": "Đã trả hàng"
+        "RETURNED": "Đã trả hàng"
     },
     "filters": {
         "all": "Tất cả",

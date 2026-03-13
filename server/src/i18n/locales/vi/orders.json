@@ -1,0 +1,16 @@
+{
+  "errors": {
+    "invalidOrderId": "Mã đơn hàng không hợp lệ.",
+    "notFound": "Không tìm thấy đơn hàng.",
+    "forbidden": "Bạn không có quyền truy cập đơn hàng này.",
+    "cannotCancel": "Chỉ có thể hủy đơn hàng ở trạng thái chờ xác nhận.",
+    "statusRequired": "Trạng thái đơn hàng là bắt buộc.",
+    "invalidTransition": "Chuyển đổi trạng thái đơn hàng không hợp lệ.",
+    "cartEmpty": "Không thể tạo đơn hàng khi giỏ hàng trống.",
+    "outOfStock": "Số lượng yêu cầu vượt quá tồn kho hiện tại."
+  },
+  "success": {
+    "statusUpdated": "Cập nhật trạng thái đơn hàng thành công.",
+    "created": "Tạo đơn hàng thành công."
+  }
+}

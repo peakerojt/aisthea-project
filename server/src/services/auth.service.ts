@@ -1,11 +1,14 @@
 
-import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma';
 import { RegisterInput, LoginInput } from '../utils/schemas/auth.schema';
 import { createVerificationToken } from './verification.service';
 import { logger } from '../lib/logger';
+import bcrypt from 'bcryptjs';
 
+const LOCAL_LOGIN_PROVIDER = 'LOCAL';
+
+const getLocalProviderKey = (userId: number) => `local:${userId}`;
 
 export const registerUser = async (input: RegisterInput) => {
     const { email, password, fullName } = input;
@@ -135,6 +138,9 @@ export const loginUser = async (input: LoginInput) => {
         { expiresIn: '7d' }
     );
 
+    // Persist hashed refresh token for rotation / revocation
+    await persistRefreshToken(user.userId, refreshToken);
+
     logger.info('User login successful', { userId: user.userId, email: user.email, roles });
 
     return {
@@ -148,6 +154,72 @@ export const loginUser = async (input: LoginInput) => {
         accessToken,
         refreshToken,
     };
+};
+
+/**
+ * Store hashed refresh token on the user record for reuse detection/revocation.
+ */
+export const persistRefreshToken = async (userId: number, refreshToken: string) => {
+    const hashed = await bcrypt.hash(refreshToken, 10);
+    await prisma.userLogin.upsert({
+        where: {
+            loginProvider_providerKey: {
+                loginProvider: LOCAL_LOGIN_PROVIDER,
+                providerKey: getLocalProviderKey(userId),
+            },
+        },
+        update: {
+            refreshToken: hashed,
+            tokenExpiry: null,
+            accessToken: null,
+        },
+        create: {
+            loginProvider: LOCAL_LOGIN_PROVIDER,
+            providerKey: getLocalProviderKey(userId),
+            userId,
+            refreshToken: hashed,
+            tokenExpiry: null,
+            accessToken: null,
+            providerDisplayName: 'Local',
+        },
+    });
+};
+
+export const getStoredRefreshTokenHash = async (userId: number): Promise<string | null> => {
+    const login = await prisma.userLogin.findUnique({
+        where: {
+            loginProvider_providerKey: {
+                loginProvider: LOCAL_LOGIN_PROVIDER,
+                providerKey: getLocalProviderKey(userId),
+            },
+        },
+        select: { refreshToken: true },
+    });
+
+    return login?.refreshToken ?? null;
+};
+
+export const revokeStoredRefreshToken = async (userId: number) => {
+    await prisma.userLogin.upsert({
+        where: {
+            loginProvider_providerKey: {
+                loginProvider: LOCAL_LOGIN_PROVIDER,
+                providerKey: getLocalProviderKey(userId),
+            },
+        },
+        update: {
+            refreshToken: null,
+        },
+        create: {
+            loginProvider: LOCAL_LOGIN_PROVIDER,
+            providerKey: getLocalProviderKey(userId),
+            userId,
+            refreshToken: null,
+            tokenExpiry: null,
+            accessToken: null,
+            providerDisplayName: 'Local',
+        },
+    });
 };
 
 // ============================================

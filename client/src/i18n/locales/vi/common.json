@@ -1,57 +1,89 @@
 {
-    "actions": {
-        "save": "Lưu thay đổi",
-        "cancel": "Hủy",
-        "delete": "Xóa",
-        "add": "Thêm mới",
-        "edit": "Chỉnh sửa",
-        "search": "Tìm kiếm",
-        "confirm": "Xác nhận",
-        "close": "Đóng",
-        "back": "Quay lại",
-        "export": "Xuất dữ liệu",
-        "import": "Nhập dữ liệu",
-        "refresh": "Làm mới",
-        "filter": "Lọc",
-        "reset": "Đặt lại",
-        "view": "Xem chi tiết",
-        "submit": "Gửi",
-        "create": "Tạo mới",
-        "update": "Cập nhật"
+  "actions": {
+    "save": "Lưu thay đổi",
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "add": "Thêm mới",
+    "edit": "Chỉnh sửa",
+    "search": "Tìm kiếm",
+    "confirm": "Xác nhận",
+    "close": "Đóng",
+    "back": "Quay lại",
+    "export": "Xuất dữ liệu",
+    "import": "Nhập dữ liệu",
+    "refresh": "Làm mới",
+    "filter": "Lọc",
+    "reset": "Đặt lại",
+    "view": "Xem chi tiết",
+    "submit": "Gửi",
+    "create": "Tạo mới",
+    "update": "Cập nhật"
+  },
+  "status": {
+    "success": "Thành công",
+    "error": "Thất bại",
+    "loading": "Đang tải…",
+    "saving": "Đang lưu…",
+    "deleting": "Đang xóa…",
+    "processing": "Đang xử lý…",
+    "empty": "Không có dữ liệu"
+  },
+  "feedback": {
+    "saveSuccess": "Lưu thay đổi thành công",
+    "saveError": "Lưu thất bại. Vui lòng thử lại",
+    "deleteSuccess": "Xóa thành công",
+    "deleteError": "Xóa thất bại. Vui lòng thử lại",
+    "deleteConfirm": "Bạn có chắc muốn xóa mục này không? Hành động này không thể hoàn tác.",
+    "createSuccess": "Tạo mới thành công",
+    "updateSuccess": "Cập nhật thành công"
+  },
+  "table": {
+    "noResults": "Không tìm thấy kết quả",
+    "showing": "Hiển thị {{from}}–{{to}} trong {{total}} kết quả",
+    "perPage": "Hàng mỗi trang"
+  },
+  "pagination": {
+    "previous": "Trước",
+    "next": "Tiếp theo",
+    "page": "Trang {{page}} / {{total}}"
+  },
+  "time": {
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua",
+    "thisWeek": "Tuần này",
+    "thisMonth": "Tháng này",
+    "dateRange": "Khoảng thời gian"
+  },
+  "footer": {
+    "support": "Hỗ trợ",
+    "quick_links": "Liên kết nhanh",
+    "about_desc": "AISTHEA - thương hiệu thời trang tối giản và hiện đại.",
+    "contact_newsletter": "Đăng ký nhận tin khuyến mãi mới nhất.",
+    "email_placeholder": "Nhập email của bạn",
+    "secure_payment": "Thanh toán bảo mật",
+    "copyright": "Bản quyền thuộc AISTHEA",
+    "quickLinks": {
+      "home": "Trang chủ",
+      "products": "Sản phẩm",
+      "collection": "Bộ sưu tập",
+      "stylist": "Tư vấn phong cách"
     },
-    "status": {
-        "success": "Thành công",
-        "error": "Thất bại",
-        "loading": "Đang tải…",
-        "saving": "Đang lưu…",
-        "deleting": "Đang xóa…",
-        "processing": "Đang xử lý…",
-        "empty": "Không có dữ liệu"
+    "supportLinks": {
+      "howToBuy": "Hướng dẫn mua hàng",
+      "returns": "Chính sách đổi trả",
+      "privacy": "Chính sách bảo mật",
+      "faq": "Câu hỏi thường gặp"
     },
-    "feedback": {
-        "saveSuccess": "Lưu thay đổi thành công",
-        "saveError": "Lưu thất bại. Vui lòng thử lại",
-        "deleteSuccess": "Xóa thành công",
-        "deleteError": "Xóa thất bại. Vui lòng thử lại",
-        "deleteConfirm": "Bạn có chắc muốn xóa mục này không? Hành động này không thể hoàn tác.",
-        "createSuccess": "Tạo mới thành công",
-        "updateSuccess": "Cập nhật thành công"
+    "social": {
+      "facebook": "Facebook",
+      "instagram": "Instagram"
     },
-    "table": {
-        "noResults": "Không tìm thấy kết quả",
-        "showing": "Hiển thị {{from}}–{{to}} trong {{total}} kết quả",
-        "perPage": "Hàng mỗi trang"
+    "contact": {
+      "address": "Khu đô thị FPT City, Phường Hòa Hải, Quận Ngũ Hành Sơn, TP. Đà Nẵng"
     },
-    "pagination": {
-        "previous": "Trước",
-        "next": "Tiếp theo",
-        "page": "Trang {{page}} / {{total}}"
-    },
-    "time": {
-        "today": "Hôm nay",
-        "yesterday": "Hôm qua",
-        "thisWeek": "Tuần này",
-        "thisMonth": "Tháng này",
-        "dateRange": "Khoảng thời gian"
+    "newsletter": {
+      "success": "Đăng ký thành công!",
+      "subscribeAria": "Đăng ký nhận tin"
     }
+  }
 }

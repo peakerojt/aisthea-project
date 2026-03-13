@@ -6,6 +6,7 @@ import { useAuth } from '@/common/contexts/AuthContext';
 import { api } from '@/common/utils/api';
 import { CouponModal } from '@/common/components/CouponModal';
 import { useCart } from '@/common/contexts/CartContext';
+import { useTranslation } from 'react-i18next';
 
 interface CheckoutProps {
     cart?: CartItem[];
@@ -25,6 +26,7 @@ interface AppliedCoupon {
 
 // Remote API used for VN Locations (63 Provinces)
 const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
+    const { t } = useTranslation('pages', { keyPrefix: 'checkout' });
     const defaultForm = {
         email: '',
         fullName: '',
@@ -78,7 +80,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                 || variant?.product?.images?.[0]?.thumbnailUrl
                 || variant?.product?.images?.[0]?.imageUrl
                 || '';
-            const name = item.name || item.productName || variant?.product?.name || 'Sản phẩm';
+            const name = item.name || item.productName || variant?.product?.name || t('fallback.productName');
             const ref = item.ref || variant?.sku || variant?.product?.slug || '';
             const color = item.color || item.variantName || '';
             const size = item.size || item.variantName || variant?.sku || '';
@@ -192,9 +194,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
     };
 
     const getShippingZoneName = (zone: number) => {
-        if (zone === 1) return '(Giao nội thành Đà Nẵng)';
-        if (zone === 2) return '(Giao lân cận)';
-        if (zone === 3) return '(Giao toàn quốc)';
+        if (zone === 1) return t('shipping.zone.innerCity');
+        if (zone === 2) return t('shipping.zone.nearby');
+        if (zone === 3) return t('shipping.zone.nationwide');
         return '';
     };
 
@@ -245,7 +247,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
             setCouponInput('');
         } catch (err: unknown) {
             const error = err as { message?: string; data?: { error?: string } };
-            setCouponError(error.message || error.data?.error || 'Mã giảm giá không hợp lệ.');
+            setCouponError(error.message || error.data?.error || t('coupon.invalidCode'));
         } finally {
             setIsApplyingCoupon(false);
         }
@@ -274,20 +276,20 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
     };
 
     const validateForm = () => {
-        if (!formData.email) return 'Vui lòng nhập Email.';
-        if (!formData.email.includes('@')) return 'Email phải chứa định dạng @.';
-        if (/\s/.test(formData.email)) return 'Email không được chứa khoảng trắng.';
-        if (!formData.fullName) return 'Vui lòng nhập Họ và tên.';
-        if (formData.fullName.length < 2) return 'Họ và tên phải có ít nhất 2 ký tự.';
-        if (/[@#$]/.test(formData.fullName)) return 'Họ và tên không được chứa ký tự đặc biệt như @, #, $.';
-        if (!formData.phone) return 'Vui lòng nhập Số điện thoại.';
-        if (!/^[0]\d{9}$/.test(formData.phone)) return 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0.';
-        if (!formData.address) return 'Vui lòng nhập Địa chỉ cụ thể.';
-        if (formData.address.length <= 5) return 'Địa chỉ phải có độ dài lớn hơn 5 ký tự.';
-        if (!formData.city) return 'Vui lòng chọn Tỉnh thành.';
-        if (!formData.district) return 'Vui lòng chọn Quận huyện.';
-        if (!formData.ward) return 'Vui lòng chọn Phường xã.';
-        if (formData.note && formData.note.length > 500) return 'Ghi chú không được vượt quá 500 ký tự.';
+        if (!formData.email) return t('validation.emailRequired');
+        if (!formData.email.includes('@')) return t('validation.emailFormat');
+        if (/\s/.test(formData.email)) return t('validation.emailNoSpaces');
+        if (!formData.fullName) return t('validation.fullNameRequired');
+        if (formData.fullName.length < 2) return t('validation.fullNameMin');
+        if (/[@#$]/.test(formData.fullName)) return t('validation.fullNameNoSpecial');
+        if (!formData.phone) return t('validation.phoneRequired');
+        if (!/^[0]\d{9}$/.test(formData.phone)) return t('validation.phoneFormat');
+        if (!formData.address) return t('validation.addressRequired');
+        if (formData.address.length <= 5) return t('validation.addressLength');
+        if (!formData.city) return t('validation.cityRequired');
+        if (!formData.district) return t('validation.districtRequired');
+        if (!formData.ward) return t('validation.wardRequired');
+        if (formData.note && formData.note.length > 500) return t('validation.noteMax');
         return null;
     };
 
@@ -296,7 +298,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
         setError('');
 
         if (cart.length === 0) {
-            setError('Giỏ hàng trống. Vui lòng thêm sản phẩm trước khi chuyển tới trang thanh toán.');
+            setError(t('errors.emptyCart'));
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
@@ -311,7 +313,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
         setLoading(true);
         try {
             if (!user) {
-                setError('Vui lòng đăng nhập để thực hiện đặt hàng.');
+                setError(t('errors.loginRequired'));
                 setLoading(false);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
@@ -352,7 +354,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                     }
                 } catch (vnpErr) {
                     console.error('Failed to get VNPAY URL:', vnpErr);
-                    setError('Không thể tạo link thanh toán VNPAY.');
+                    setError(t('errors.vnpayUrlFailed'));
                 }
             } else {
                 navigate('/order-success');
@@ -361,7 +363,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
         } catch (err: unknown) {
             console.error("Order creation error:", err);
             const error = err as { message?: string; data?: { error?: string } };
-            const errorMessage = error.message || error.data?.error || 'Đã xảy ra lỗi khi đặt hàng.';
+            const errorMessage = error.message || error.data?.error || t('errors.placeOrderFailed');
             setError(errorMessage);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
@@ -383,7 +385,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                             <div className="mb-8 p-4 bg-red-900/40 border border-red-500/50 rounded-sm text-red-100 text-sm flex items-start gap-2">
                                 <span className="material-symbols-outlined text-red-400 mt-[2px] text-lg">error</span>
                                 <div>
-                                    <span className="font-bold block tracking-wide">Please check your information</span>
+                                    <span className="font-bold block tracking-wide">{t('errors.checkInfo')}</span>
                                     <span>{error}</span>
                                 </div>
                             </div>
@@ -392,7 +394,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                         {/* 1. Contact Info */}
                         <div className="mb-12 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
                             <div className="mb-6 border-b border-border-dark pb-2">
-                                <h2 className="text-xl font-bold uppercase tracking-wide">Thông tin nhận hàng</h2>
+                                <h2 className="text-xl font-bold uppercase tracking-wide">{t('sections.contactInfo')}</h2>
                             </div>
 
                             <div className="space-y-4">
@@ -400,7 +402,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                     <input
                                         type="email"
                                         name="email"
-                                        placeholder="Email (Bắt buộc)"
+                                        placeholder={t('placeholders.emailRequired')}
                                         value={formData.email}
                                         onChange={handleInputChange}
                                         className="w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors peer"
@@ -410,7 +412,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                 <input
                                     type="text"
                                     name="fullName"
-                                    placeholder="Họ và tên (Bắt buộc)"
+                                    placeholder={t('placeholders.fullNameRequired')}
                                     value={formData.fullName}
                                     onChange={handleInputChange}
                                     className="w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors"
@@ -419,7 +421,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                     <input
                                         type="tel"
                                         name="phone"
-                                        placeholder="Số điện thoại (Bắt buộc)"
+                                        placeholder={t('placeholders.phoneRequired')}
                                         value={formData.phone}
                                         onChange={handleInputChange}
                                         className="w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors"
@@ -430,12 +432,12 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
 
                         {/* 2. Shipping Info */}
                         <div className="mb-12 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-                            <h2 className="text-xl font-bold uppercase tracking-wide mb-6 border-b border-border-dark pb-2">Vận chuyển</h2>
+                            <h2 className="text-xl font-bold uppercase tracking-wide mb-6 border-b border-border-dark pb-2">{t('sections.shipping')}</h2>
                             <div className="space-y-4">
                                 <input
                                     type="text"
                                     name="address"
-                                    placeholder="Địa chỉ cụ thể (Thôn, xóm, số nhà, ngõ...)"
+                                    placeholder={t('placeholders.addressRequired')}
                                     value={formData.address}
                                     onChange={handleInputChange}
                                     className="w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors"
@@ -449,7 +451,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                         className="w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors text-white cursor-pointer appearance-none"
                                         style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
                                     >
-                                        <option value="" disabled>1. Chọn Tỉnh/Thành</option>
+                                        <option value="" disabled>{t('placeholders.selectProvince')}</option>
                                         {provinces.map(city => (
                                             <option key={city.code} value={city.code}>{city.name}</option>
                                         ))}
@@ -463,7 +465,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                         className={`w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors appearance-none ${!selectedCityCode ? 'opacity-50 cursor-not-allowed text-gray-500' : 'text-white cursor-pointer'}`}
                                         style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
                                     >
-                                        <option value="" disabled>2. Chọn Quận/Huyện</option>
+                                        <option value="" disabled>{t('placeholders.selectDistrict')}</option>
                                         {districts.map(dist => (
                                             <option key={dist.code} value={dist.code}>{dist.name}</option>
                                         ))}
@@ -477,7 +479,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                         className={`w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors appearance-none ${!selectedDistrictCode ? 'opacity-50 cursor-not-allowed text-gray-500' : 'text-white cursor-pointer'}`}
                                         style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
                                     >
-                                        <option value="" disabled>3. Chọn Phường/Xã</option>
+                                        <option value="" disabled>{t('placeholders.selectWard')}</option>
                                         {wards.map(w => (
                                             <option key={w.code} value={w.code}>{w.name}</option>
                                         ))}
@@ -486,7 +488,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
 
                                 <textarea
                                     name="note"
-                                    placeholder="Ghi chú (tùy chọn - Tối đa 500 ký tự)"
+                                    placeholder={t('placeholders.noteOptional')}
                                     rows={3}
                                     maxLength={500}
                                     value={formData.note}
@@ -497,11 +499,11 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
 
                                 {/* THÊM: Khu vực Chọn Shipping Method (Radio Cards) */}
                                 <div className="mt-6 pt-4 border-t border-border-dark">
-                                    <h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-gray-300">Phương thức vận chuyển</h3>
+                                    <h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-gray-300">{t('shipping.methodTitle')}</h3>
 
                                     {!selectedCityCode ? (
                                         <div className="p-4 border border-dashed border-yellow-500/50 bg-yellow-500/10 rounded-sm">
-                                            <p className="text-yellow-500 text-sm font-medium text-center">Vui lòng chọn Tỉnh/Thành để xem phương thức vận chuyển</p>
+                                            <p className="text-yellow-500 text-sm font-medium text-center">{t('shipping.selectProvinceFirst')}</p>
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -520,17 +522,17 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                                 )}
                                                 <div className="flex flex-col h-full justify-between gap-2">
                                                     <div>
-                                                        <h4 className="font-bold text-white text-base">Giao Tiêu Chuẩn</h4>
-                                                        <p className="text-xs text-gray-400 mt-1">Nhận hàng sau 3-4 ngày</p>
+                                                        <h4 className="font-bold text-white text-base">{t('shipping.standard.title')}</h4>
+                                                        <p className="text-xs text-gray-400 mt-1">{t('shipping.standard.eta')}</p>
                                                     </div>
                                                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-dark/50">
                                                         <span className={`text-sm font-bold ${calculateShippingFee('STANDARD', zone, subtotal) === 0 ? 'text-green-500' : 'text-white'}`}>
                                                             {calculateShippingFee('STANDARD', zone, subtotal) === 0
-                                                                ? 'Miễn phí'
-                                                                : calculateShippingFee('STANDARD', zone, subtotal).toLocaleString('vi-VN') + ' ₫'}
+                                                                ? t('shipping.free')
+                                                                : `${calculateShippingFee('STANDARD', zone, subtotal).toLocaleString('vi-VN')} đ`}
                                                         </span>
                                                         {subtotal > 500000 && (
-                                                            <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Freeship</span>
+                                                            <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{t('shipping.freeShipBadge')}</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -551,12 +553,12 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                                 )}
                                                 <div className="flex flex-col h-full justify-between gap-2">
                                                     <div>
-                                                        <h4 className="font-bold text-white text-base">Giao Hoả Tốc</h4>
-                                                        <p className="text-xs text-gray-400 mt-1">{zone === 1 ? 'Nhận hàng trong ngày' : 'Nhận hàng sau 1-2 ngày'}</p>
+                                                        <h4 className="font-bold text-white text-base">{t('shipping.express.title')}</h4>
+                                                        <p className="text-xs text-gray-400 mt-1">{zone === 1 ? t('shipping.express.etaInner') : t('shipping.express.etaOther')}</p>
                                                     </div>
                                                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-dark/50">
                                                         <span className="text-sm font-bold text-white">
-                                                            {calculateShippingFee('EXPRESS', zone, subtotal).toLocaleString('vi-VN')} ₫
+                                                            {calculateShippingFee('EXPRESS', zone, subtotal).toLocaleString('vi-VN')} đ
                                                         </span>
                                                     </div>
                                                 </div>
@@ -569,7 +571,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
 
                         {/* 3. Payment Methods */}
                         <div className="mb-12 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
-                            <h2 className="text-xl font-bold uppercase tracking-wide mb-6 border-b border-border-dark pb-2">Thanh toán</h2>
+                            <h2 className="text-xl font-bold uppercase tracking-wide mb-6 border-b border-border-dark pb-2">{t('sections.payment')}</h2>
 
                             <div className="border border-border-dark rounded-sm overflow-hidden bg-surface-dark">
                                 {/* VNPAY Option */}
@@ -583,7 +585,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                             onChange={handleInputChange}
                                             className="w-4 h-4 accent-primary"
                                         />
-                                        <span className="text-sm font-medium">Thanh toán qua VNPAY-QR</span>
+                                        <span className="text-sm font-medium">{t('payment.vnpay')}</span>
                                     </div>
                                     <img src="https://vnpay.vn/s1/img/vnpay-logo.svg" alt="VNPAY" className="h-6 brightness-200" />
                                 </label>
@@ -601,7 +603,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                             onChange={handleInputChange}
                                             className="w-4 h-4 accent-primary"
                                         />
-                                        <span className="text-sm font-medium">Thanh toán khi giao hàng (COD)</span>
+                                        <span className="text-sm font-medium">{t('payment.cod')}</span>
                                     </div>
                                     <span className="material-symbols-outlined text-gray-400">local_shipping</span>
                                 </label>
@@ -614,7 +616,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                 {/* Right Column: Order Summary */}
                 <div className="w-full md:w-2/5 lg:w-1/3 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
                     <div className="bg-surface-dark border border-border-dark rounded-sm p-6 lg:p-8 sticky top-32 shadow-xl">
-                        <h2 className="text-lg font-bold uppercase tracking-wide mb-6 pb-4 border-b border-border-dark">Đơn hàng ({cart.length} sản phẩm)</h2>
+                        <h2 className="text-lg font-bold uppercase tracking-wide mb-6 pb-4 border-b border-border-dark">{t('summary.title', { count: cart.length })}</h2>
 
                         {/* Item List */}
                         <div className="space-y-4 mb-8 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
@@ -628,7 +630,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                         <h3 className="text-sm font-bold truncate text-gray-200">{item.name}</h3>
                                         <p className="text-xs text-gray-500">{item.size} / {item.color}</p>
                                     </div>
-                                    <p className="text-sm font-medium whitespace-nowrap">{(item.price * item.quantity).toLocaleString('vi-VN')} ₫</p>
+                                    <p className="text-sm font-medium whitespace-nowrap">{(item.price * item.quantity).toLocaleString('vi-VN')} đ</p>
                                 </div>
                             ))}
                         </div>
@@ -644,7 +646,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                     >
                                         <span className="flex items-center gap-2 font-bold text-sm">
                                             <span className="material-symbols-outlined text-xl">local_activity</span>
-                                            Chọn hoặc nhập mã giảm giá
+                                            {t('coupon.chooseOrEnter')}
                                         </span>
                                         <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">arrow_forward_ios</span>
                                     </button>
@@ -662,7 +664,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                             onClick={handleRemoveCoupon}
                                             className="text-gray-400 hover:text-red-400 text-xs font-bold uppercase transition-colors"
                                         >
-                                            Gỡ bỏ
+                                            {t('coupon.remove')}
                                         </button>
                                     </div>
                                     {couponSuccessMsg && <p className="text-green-400/80 text-xs mt-1">{couponSuccessMsg}</p>}
@@ -673,44 +675,44 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                         {/* CẬP NHẬT: CHI TIẾT TẠM TÍNH */}
                         <div className="space-y-3 pt-6 border-t border-border-dark text-sm">
                             <div className="flex justify-between text-gray-400">
-                                <span>Tạm tính</span>
-                                <span className="text-white">{subtotal.toLocaleString('vi-VN')} ₫</span>
+                                <span>{t('summary.subtotal')}</span>
+                                <span className="text-white">{subtotal.toLocaleString('vi-VN')} đ</span>
                             </div>
                             <div className="flex justify-between items-start text-gray-400">
                                 <div className="flex flex-col">
-                                    <span>Phí vận chuyển</span>
+                                    <span>{t('summary.shippingFee')}</span>
                                     {selectedCityCode && (
                                         <span className="text-[11px] text-gray-500 mt-0.5">{getShippingZoneName(zone)}</span>
                                     )}
                                 </div>
                                 <span className={`text-right ${shippingFee === 0 && selectedCityCode ? 'text-green-500 font-bold' : 'text-white'}`}>
-                                    {!selectedCityCode ? '---' : (shippingFee === 0 ? 'Miễn phí' : `${shippingFee.toLocaleString('vi-VN')} ₫`)}
+                                    {!selectedCityCode ? '---' : (shippingFee === 0 ? t('shipping.free') : `${shippingFee.toLocaleString('vi-VN')} đ`)}
                                 </span>
                             </div>
                             {/* Dòng hiển thị tiền giảm giá nếu có voucher */}
                             {appliedCoupon && (
                                 <div className="flex justify-between text-green-400 font-medium animate-fade-in-up">
-                                    <span>Giảm giá ({appliedCoupon.coupon.code})</span>
-                                    <span>-{appliedCoupon.discountAmount.toLocaleString('vi-VN')} ₫</span>
+                                    <span>{t('summary.discount', { code: appliedCoupon.coupon.code })}</span>
+                                    <span>-{appliedCoupon.discountAmount.toLocaleString('vi-VN')} đ</span>
                                 </div>
                             )}
                         </div>
 
                         <div className="flex justify-between items-center mt-6 pt-6 border-t border-border-dark">
-                            <span className="text-base font-bold uppercase tracking-tighter">Tổng cộng</span>
-                            <span className="text-2xl font-black text-primary">{total.toLocaleString('vi-VN')} ₫</span>
+                            <span className="text-base font-bold uppercase tracking-tighter">{t('summary.total')}</span>
+                            <span className="text-2xl font-black text-primary">{total.toLocaleString('vi-VN')} đ</span>
                         </div>
 
                         <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
                             <button onClick={() => navigate('/cart')} className="text-xs font-bold uppercase text-gray-400 hover:text-white flex items-center gap-1 transition-colors w-full sm:w-auto justify-center">
-                                <span className="material-symbols-outlined text-[16px]">arrow_back_ios</span> Quay về giỏ hàng
+                                <span className="material-symbols-outlined text-[16px]">arrow_back_ios</span> {t('actions.backToCart')}
                             </button>
                             <button
                                 onClick={handlePlaceOrder}
                                 disabled={loading}
                                 className={`flex-1 bg-primary text-white font-bold text-sm uppercase tracking-widest h-12 rounded-sm transition-all shadow-lg flex items-center justify-center gap-2 ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-700 shadow-primary/20'}`}
                             >
-                                {loading ? 'Đang xử lý...' : 'ĐẶT HÀNG'}
+                                {loading ? t('actions.processing') : t('actions.placeOrder')}
                             </button>
                         </div>
                     </div>
