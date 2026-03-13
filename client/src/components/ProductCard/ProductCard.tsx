@@ -79,7 +79,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     return (
         <div
             className={`group cursor-pointer flex flex-col gap-4 ${className}`}
-            onClick={onClick}
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (onClick) onClick();
+            }}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
         >

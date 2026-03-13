@@ -100,11 +100,25 @@ export const getProducts = async (filters?: {
     }));
 };
 
-export const searchProducts = async (searchTerm: string, maxResults: number = 50) => {
-    // Call sp_SearchProducts for intelligent Vietnamese-aware search
-    const results: any[] = await prisma.$queryRaw`EXEC sp_SearchProducts @SearchTerm = ${searchTerm}, @MaxResults = ${maxResults}`;
+export const searchProducts = async (
+    searchTerm: string,
+    maxResults: number = 50,
+    sort: "ASC" | "DESC" | null = null
+) => {
 
-    return results;
+    const results: any[] = await prisma.$queryRaw`
+        EXEC sp_SearchProducts @SearchTerm = ${searchTerm}, @MaxResults = ${maxResults}
+    `;
+
+    if (sort === "ASC") {
+        results.sort((a, b) => Number(a.basePrice) - Number(b.basePrice));
+    }
+
+    if (sort === "DESC") {
+        results.sort((a, b) => Number(b.basePrice) - Number(a.basePrice));
+    }
+
+    return results.slice(0, maxResults);
 };
 
 export const getProductById = async (id: number) => {

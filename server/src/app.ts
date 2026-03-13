@@ -27,7 +27,7 @@ import returnRoutes from './routes/return.routes';
 import refundRoutes from './routes/refund.routes';
 import { authenticateToken } from './middlewares/auth.middleware';
 import { postReturnRequest, getOrderReturn } from './controllers/return.controller';
-
+import chatRoutes from "./routes/chat.routes";
 
 dotenv.config();
 
@@ -80,6 +80,8 @@ export function createApp() {
   app.use('/api', trackingRouter);
 
   app.use('/api/users', userRoutes);
+
+  app.use("/api/chat", chatRoutes);
 
   app.get('/', (_req: Request, res: Response) => {
     res.send('<h1>Server SQL Server đã kết nối thành công! 🚀</h1>');

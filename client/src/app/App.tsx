@@ -36,6 +36,7 @@ import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '../pages/auth/ResetPasswordPage';
 import { fetchCart, addToCartApi, updateCartItemApi, removeCartItemApi } from '../services/cart.service';
 import { getCloudinaryProductCard } from '../utils/cloudinary';
+import { ChatWidget } from "../components/ChatWidget";
 
 const App: React.FC = () => {
   const { role } = useAuth();
@@ -244,6 +245,7 @@ const App: React.FC = () => {
       {view === 'AUTH_RESET_PASSWORD' && <ResetPasswordPage setView={setView} />}
       {view === 'EMAIL_VERIFICATION' && <EmailVerification setView={setView} email={sessionStorage.getItem('pendingVerificationEmail') || undefined} />}
       {view === 'ADMIN_TRACKING' && <AdminTracking setView={setView} setCategory={handleCategoryClick} />}
+      {!isAdminView && <ChatWidget productId={selectedProduct?.productId || null} />}
     </div>
   );
 };

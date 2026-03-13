@@ -78,6 +78,25 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ setView, setCatego
     fetchReviews();
   }, [productId]);
 
+  // Open product detail
+  useEffect(() => {
+    const handleOpenProduct = (event: any) => {
+      const productId = event.detail.productId;
+
+      setView("STORE_HOME");
+
+      setTimeout(() => {
+        setView("STORE_DETAIL", productId);
+      }, 10);
+    };
+
+    window.addEventListener("openProductDetail", handleOpenProduct);
+
+    return () => {
+      window.removeEventListener("openProductDetail", handleOpenProduct);
+    };
+  }, [setView]);
+
   // Fallback default product if none selected
   if (!initialProduct) {
     return <div className="min-h-screen bg-bg-dark text-white flex items-center justify-center">Product not found.</div>;
