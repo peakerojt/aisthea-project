@@ -29,6 +29,8 @@ model User {
   inventoryLogs InventoryLog[]
   orderReturns  OrderReturn[]
   cart          Cart?        // 1-to-1: mỗi user có tối đa một giỏ hàng
+  stockMovements StockMovement[]
+  goodsReceipts  GoodsReceipt[]
 
   @@index([email, status], map: "IX_Users_Email_Status")
   @@index([phone], map: "IX_Users_Phone")
@@ -200,6 +202,9 @@ model ProductVariant {
   variantAttributes VariantAttribute[]
   inventoryLogs      InventoryLog[]
   purchaseOrderItems PurchaseOrderItem[]
+  inventorySnapshot  Inventory?
+  stockMovements     StockMovement[]
+  goodsReceiptItems  GoodsReceiptItem[]
 
   @@index([productId], map: "IX_ProductVariants_ProductId")
   @@index([stockQuantity], map: "IX_ProductVariants_StockQuantity")
@@ -498,6 +503,11 @@ model PurchaseOrder {
   purchaseOrderId     Int                 @id @default(autoincrement()) @map("PurchaseOrderId")
   purchaseOrderNumber String              @unique(map: "UQ_PurchaseOrders_Number") @map("PurchaseOrderNumber") @db.NVarChar(50)
   supplier            String              @map("Supplier") @db.NVarChar(100)
+  expectedReceivedAt  DateTime?           @map("ExpectedReceivedAt")
+  invoiceNumber       String?             @map("InvoiceNumber") @db.NVarChar(100)
+  supplierContactName String?             @map("SupplierContactName") @db.NVarChar(100)
+  supplierPhone       String?             @map("SupplierPhone") @db.NVarChar(20)
+  supplierEmail       String?             @map("SupplierEmail") @db.NVarChar(100)
   status              String              @default("PENDING") @map("Status") @db.NVarChar(20)
   notes               String?             @map("Notes") @db.NVarChar(1000)
   orderedAt           DateTime            @default(now()) @map("OrderedAt")
@@ -505,6 +515,7 @@ model PurchaseOrder {
   createdBy           Int?                @map("CreatedBy")
   updatedAt           DateTime            @default(now()) @updatedAt @map("UpdatedAt")
   items               PurchaseOrderItem[]
+  goodsReceipts       GoodsReceipt[]
 
   @@index([orderedAt], map: "IX_PurchaseOrders_OrderedAt")
   @@index([status], map: "IX_PurchaseOrders_Status")
@@ -520,8 +531,70 @@ model PurchaseOrderItem {
   unitCost            Decimal        @map("UnitCost") @db.Decimal(18, 2)
   purchaseOrder       PurchaseOrder  @relation(fields: [purchaseOrderId], references: [purchaseOrderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_PurchaseOrderItems_PurchaseOrders")
   variant             ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: NoAction, onUpdate: NoAction, map: "FK_PurchaseOrderItems_ProductVariants")
+  goodsReceiptItems   GoodsReceiptItem[]
 
   @@unique([purchaseOrderId, variantId], map: "UQ_PurchaseOrderItems_Order_Variant")
   @@index([variantId], map: "IX_PurchaseOrderItems_VariantId")
   @@map("PurchaseOrderItems")
+}
+
+model Inventory {
+  variantId          Int            @id @map("VariantId")
+  availableQuantity  Int            @default(0) @map("AvailableQuantity")
+  reservedQuantity   Int            @default(0) @map("ReservedQuantity")
+  incomingQuantity   Int            @default(0) @map("IncomingQuantity")
+  updatedAt          DateTime       @default(now()) @updatedAt @map("UpdatedAt")
+  variant            ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Inventory_ProductVariants")
+
+  @@index([availableQuantity], map: "IX_Inventory_AvailableQuantity")
+  @@map("Inventory")
+}
+
+model StockMovement {
+  stockMovementId Int            @id @default(autoincrement()) @map("StockMovementId")
+  variantId       Int            @map("VariantId")
+  type            String         @map("Type") @db.NVarChar(20)
+  quantity        Int            @map("Quantity")
+  referenceType   String?        @map("ReferenceType") @db.NVarChar(30)
+  referenceId     Int?           @map("ReferenceId")
+  note            String?        @map("Note") @db.NVarChar(500)
+  createdBy       Int?           @map("CreatedBy")
+  createdAt       DateTime       @default(now()) @map("CreatedAt")
+  variant         ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_StockMovements_ProductVariants")
+  user            User?          @relation(fields: [createdBy], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_StockMovements_Users")
+
+  @@index([variantId, createdAt], map: "IX_StockMovements_Variant_CreatedAt")
+  @@index([referenceType, referenceId], map: "IX_StockMovements_Reference")
+  @@map("StockMovements")
+}
+
+model GoodsReceipt {
+  goodsReceiptId  Int                @id @default(autoincrement()) @map("GoodsReceiptId")
+  purchaseOrderId Int                @map("PurchaseOrderId")
+  receiptNumber   String             @unique(map: "UQ_GoodsReceipts_ReceiptNumber") @map("ReceiptNumber") @db.NVarChar(60)
+  notes           String?            @map("Notes") @db.NVarChar(1000)
+  createdBy       Int?               @map("CreatedBy")
+  createdAt       DateTime           @default(now()) @map("CreatedAt")
+  purchaseOrder   PurchaseOrder      @relation(fields: [purchaseOrderId], references: [purchaseOrderId], onDelete: NoAction, onUpdate: NoAction, map: "FK_GoodsReceipts_PurchaseOrders")
+  user            User?              @relation(fields: [createdBy], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_GoodsReceipts_Users")
+  items           GoodsReceiptItem[]
+
+  @@index([purchaseOrderId, createdAt], map: "IX_GoodsReceipts_PurchaseOrder_CreatedAt")
+  @@map("GoodsReceipts")
+}
+
+model GoodsReceiptItem {
+  goodsReceiptItemId  Int               @id @default(autoincrement()) @map("GoodsReceiptItemId")
+  goodsReceiptId      Int               @map("GoodsReceiptId")
+  purchaseOrderItemId Int?              @map("PurchaseOrderItemId")
+  variantId           Int               @map("VariantId")
+  quantityReceived    Int               @map("QuantityReceived")
+  unitCost            Decimal           @map("UnitCost") @db.Decimal(18, 2)
+  goodsReceipt        GoodsReceipt      @relation(fields: [goodsReceiptId], references: [goodsReceiptId], onDelete: Cascade, onUpdate: NoAction, map: "FK_GoodsReceiptItems_GoodsReceipts")
+  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [purchaseOrderItemId], onDelete: SetNull, onUpdate: NoAction, map: "FK_GoodsReceiptItems_PurchaseOrderItems")
+  variant             ProductVariant    @relation(fields: [variantId], references: [variantId], onDelete: NoAction, onUpdate: NoAction, map: "FK_GoodsReceiptItems_ProductVariants")
+
+  @@index([goodsReceiptId], map: "IX_GoodsReceiptItems_GoodsReceiptId")
+  @@index([variantId], map: "IX_GoodsReceiptItems_VariantId")
+  @@map("GoodsReceiptItems")
 }

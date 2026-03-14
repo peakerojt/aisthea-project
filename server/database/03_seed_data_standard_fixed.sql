@@ -9,21 +9,44 @@ USE [AISTHEA];
 GO
 
 -- ============================================================
--- STEP 1: Clean up existing product data (reverse dependency)
+-- STEP 1: Clean up existing product/procurement data (reverse dependency)
 -- ============================================================
+-- Procurement tables must be deleted before ProductVariants
+IF OBJECT_ID('dbo.GoodsReceiptItems', 'U') IS NOT NULL DELETE FROM [GoodsReceiptItems];
+IF OBJECT_ID('dbo.GoodsReceipts', 'U') IS NOT NULL DELETE FROM [GoodsReceipts];
+IF OBJECT_ID('dbo.PurchaseOrderItems', 'U') IS NOT NULL DELETE FROM [PurchaseOrderItems];
+IF OBJECT_ID('dbo.PurchaseOrders', 'U') IS NOT NULL DELETE FROM [PurchaseOrders];
+
+-- Stock tracking tables (new inventory module)
+IF OBJECT_ID('dbo.StockMovements', 'U') IS NOT NULL DELETE FROM [StockMovements];
+IF OBJECT_ID('dbo.Inventory', 'U') IS NOT NULL DELETE FROM [Inventory];
+IF OBJECT_ID('dbo.InventoryLogs', 'U') IS NOT NULL DELETE FROM [InventoryLogs];
+
+-- Product-related children
 IF OBJECT_ID('dbo.VariantAttributes', 'U') IS NOT NULL DELETE FROM [VariantAttributes];
 IF OBJECT_ID('dbo.ProductImages', 'U') IS NOT NULL DELETE FROM [ProductImages];
-IF OBJECT_ID('dbo.ProductImages', 'U') IS NOT NULL DBCC CHECKIDENT ('[ProductImages]', RESEED, 0);
 IF OBJECT_ID('dbo.CartItems', 'U') IS NOT NULL DELETE FROM [CartItems];
+
+-- Product core
 IF OBJECT_ID('dbo.ProductVariants', 'U') IS NOT NULL DELETE FROM [ProductVariants];
-IF OBJECT_ID('dbo.ProductVariants', 'U') IS NOT NULL DBCC CHECKIDENT ('[ProductVariants]', RESEED, 0);
 IF OBJECT_ID('dbo.Products', 'U') IS NOT NULL DELETE FROM [Products];
-IF OBJECT_ID('dbo.Products', 'U') IS NOT NULL DBCC CHECKIDENT ('[Products]', RESEED, 0);
 IF OBJECT_ID('dbo.Categories', 'U') IS NOT NULL DELETE FROM [Categories];
-IF OBJECT_ID('dbo.Categories', 'U') IS NOT NULL DBCC CHECKIDENT ('[Categories]', RESEED, 0);
 IF OBJECT_ID('dbo.AttributeValues', 'U') IS NOT NULL DELETE FROM [AttributeValues];
-IF OBJECT_ID('dbo.AttributeValues', 'U') IS NOT NULL DBCC CHECKIDENT ('[AttributeValues]', RESEED, 0);
 IF OBJECT_ID('dbo.Attributes', 'U') IS NOT NULL DELETE FROM [Attributes];
+
+-- Identity reseed
+IF OBJECT_ID('dbo.GoodsReceiptItems', 'U') IS NOT NULL DBCC CHECKIDENT ('[GoodsReceiptItems]', RESEED, 0);
+IF OBJECT_ID('dbo.GoodsReceipts', 'U') IS NOT NULL DBCC CHECKIDENT ('[GoodsReceipts]', RESEED, 0);
+IF OBJECT_ID('dbo.PurchaseOrderItems', 'U') IS NOT NULL DBCC CHECKIDENT ('[PurchaseOrderItems]', RESEED, 0);
+IF OBJECT_ID('dbo.PurchaseOrders', 'U') IS NOT NULL DBCC CHECKIDENT ('[PurchaseOrders]', RESEED, 0);
+IF OBJECT_ID('dbo.StockMovements', 'U') IS NOT NULL DBCC CHECKIDENT ('[StockMovements]', RESEED, 0);
+IF OBJECT_ID('dbo.InventoryLogs', 'U') IS NOT NULL DBCC CHECKIDENT ('[InventoryLogs]', RESEED, 0);
+IF OBJECT_ID('dbo.ProductImages', 'U') IS NOT NULL DBCC CHECKIDENT ('[ProductImages]', RESEED, 0);
+IF OBJECT_ID('dbo.CartItems', 'U') IS NOT NULL DBCC CHECKIDENT ('[CartItems]', RESEED, 0);
+IF OBJECT_ID('dbo.ProductVariants', 'U') IS NOT NULL DBCC CHECKIDENT ('[ProductVariants]', RESEED, 0);
+IF OBJECT_ID('dbo.Products', 'U') IS NOT NULL DBCC CHECKIDENT ('[Products]', RESEED, 0);
+IF OBJECT_ID('dbo.Categories', 'U') IS NOT NULL DBCC CHECKIDENT ('[Categories]', RESEED, 0);
+IF OBJECT_ID('dbo.AttributeValues', 'U') IS NOT NULL DBCC CHECKIDENT ('[AttributeValues]', RESEED, 0);
 IF OBJECT_ID('dbo.Attributes', 'U') IS NOT NULL DBCC CHECKIDENT ('[Attributes]', RESEED, 0);
 GO
 

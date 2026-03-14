@@ -3,7 +3,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Logo } from '@/common/components/Logo';
 import { useAuth } from '@/common/contexts/AuthContext';
-import { LayoutDashboard, Shirt, ShoppingBag, Users, BarChart2, LogOut, PackagePlus, Tag, TicketPercent, ShieldCheck, RotateCcw, Warehouse } from 'lucide-react';
+import { LayoutDashboard, Shirt, ShoppingBag, Users, BarChart2, LogOut, PackagePlus, Tag, TicketPercent, ShieldCheck, RotateCcw } from 'lucide-react';
+import { preloadAdminRoute } from '@/app/routes/adminRoutes';
 
 const menuItems = [
   { icon: LayoutDashboard, labelKey: 'sidebar:nav.dashboard', path: '/admin' },
@@ -16,7 +17,6 @@ const menuItems = [
   { icon: BarChart2,       labelKey: 'sidebar:nav.analytics', path: '/admin/analytics' },
   { icon: TicketPercent,   labelKey: 'sidebar:nav.coupons',   path: '/admin/coupons' },
   { icon: ShieldCheck,     labelKey: 'sidebar:nav.roles',     path: '/admin/roles', label: 'Phân quyền' },
-  { icon: Warehouse,       labelKey: 'sidebar:nav.warehouses',path: '/admin/warehouses', label: 'Kho hàng' },
 ];
 
 export const Sidebar: React.FC = () => {
@@ -28,6 +28,18 @@ export const Sidebar: React.FC = () => {
     await logout();
     navigate('/');
   };
+
+  const handlePreload = React.useCallback((path: string) => {
+    preloadAdminRoute(path);
+  }, []);
+
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      preloadAdminRoute('/admin/restock');
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, []);
 
   return (
     <aside className="w-64 bg-black border-r border-white/10 flex flex-col h-screen sticky top-0">
@@ -54,6 +66,8 @@ export const Sidebar: React.FC = () => {
               key={item.path}
               to={item.path}
               end={item.path === '/admin'}
+              onMouseEnter={() => handlePreload(item.path)}
+              onFocus={() => handlePreload(item.path)}
               className={({ isActive }) =>
                 `w-full flex items-center gap-4 px-6 py-3 transition-all group relative ${
                   isActive
@@ -99,3 +113,4 @@ export const Sidebar: React.FC = () => {
     </aside>
   );
 };
+

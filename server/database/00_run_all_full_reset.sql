@@ -1,5 +1,9 @@
-﻿/* =============================================================
-   MASTER DATABASE SETUP SCRIPT - AISTHEA
+/* =============================================================
+   MASTER DATABASE SETUP SCRIPT (FULL RESET) - AISTHEA
+
+   WARNING:
+   - This script runs the destructive seed step.
+   - Existing product/procurement data will be deleted and re-seeded.
 
    ─── HƯỚNG DẪN CHẠY TRONG SSMS ────────────────────────────
 
@@ -24,7 +28,7 @@ USE AISTHEA;
 GO
 
 PRINT '==============================================';
-PRINT '  AISTHEA DATABASE SETUP STARTING...';
+PRINT '  AISTHEA DATABASE FULL RESET STARTING...';
 PRINT '==============================================';
 GO
 
@@ -38,12 +42,12 @@ GO
 :r $(BasePath)\04_purchase_order_fields.sql
 GO
 
-PRINT '> STEP 3/3 - Seed Data (SKIPPED to protect existing data)';
-PRINT '  Existing data is preserved. No DELETE/RESEED will run in this script.';
-PRINT '  If you need full reseed/reset, run: 00_run_all_full_reset.sql';
+PRINT '> STEP 3/3 - Seed Data (DESTRUCTIVE RESET)';
+GO
+:r $(BasePath)\03_seed_data_standard_fixed.sql
 GO
 
 PRINT '==============================================';
-PRINT '  AISTHEA DATABASE SETUP COMPLETE!';
+PRINT '  AISTHEA DATABASE FULL RESET COMPLETE!';
 PRINT '==============================================';
 GO

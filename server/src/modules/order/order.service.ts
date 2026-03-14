@@ -299,14 +299,15 @@ export async function updateOrderStatusAdmin(
 
   await prisma.$transaction(async (tx) => {
     if (shouldRestoreInventory) {
-      for (const item of order.items) {
-        if (item.variantId) {
-          await tx.productVariant.update({
-            where: { variantId: item.variantId },
-            data: { stockQuantity: { increment: item.quantity } },
-          });
-        }
-      }
+      await atomicCancelRestore(
+        parsedId,
+        currentUser.userId,
+        order.items.map((item) => ({
+          variantId: item.variantId,
+          quantity: item.quantity,
+        })),
+        tx,
+      );
     }
 
     const orderData: Record<string, any> = { status: newStatus };

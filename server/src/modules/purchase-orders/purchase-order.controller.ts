@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Prisma } from '../../generated/client';
 import { prisma } from '../../lib/prisma';
 import { logger } from '../../lib/logger';
+import { applyPurchaseReceiptStockChange } from '../../services/inventory.service';
 
 const PURCHASE_ORDER_STATUSES = {
   PENDING: 'PENDING',
@@ -17,6 +18,17 @@ interface PurchaseOrderCreateItemInput {
   variantId: number;
   orderedQty: number;
   unitCost: number;
+}
+
+interface PurchaseOrderCreateInput {
+  supplier?: string;
+  expectedReceivedAt?: string | null;
+  invoiceNumber?: string | null;
+  supplierContactName?: string | null;
+  supplierPhone?: string | null;
+  supplierEmail?: string | null;
+  notes?: string | null;
+  items?: PurchaseOrderCreateItemInput[];
 }
 
 interface PurchaseOrderReceiptInput {
@@ -39,11 +51,30 @@ interface PurchaseOrderMappedItem {
   currentStockQuantity: number | null;
 }
 
+const MAX_SUPPLIER_LENGTH = 100;
+const MAX_INVOICE_LENGTH = 100;
+const MAX_CONTACT_LENGTH = 100;
+const MAX_PHONE_LENGTH = 20;
+const MAX_EMAIL_LENGTH = 100;
+const MAX_NOTES_LENGTH = 1000;
+
+const PHONE_REGEX = /^[0-9+().\-\s]{6,20}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function parsePositiveInt(raw: string | string[] | undefined): number | null {
   const value = Array.isArray(raw) ? raw[0] : raw;
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) return null;
   return parsed;
+}
+
+function normalizeOptionalString(value: unknown, maxLength: number): string | null | 'INVALID' {
+  if (value == null) return null;
+  if (typeof value !== 'string') return 'INVALID';
+  const normalized = value.trim();
+  if (!normalized) return null;
+  if (normalized.length > maxLength) return 'INVALID';
+  return normalized;
 }
 
 function buildPurchaseOrderNumber() {
@@ -52,6 +83,14 @@ function buildPurchaseOrderNumber() {
     .toString()
     .padStart(4, '0');
   return `PO-${stamp}-${suffix}`;
+}
+
+function buildGoodsReceiptNumber() {
+  const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
+  const suffix = Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, '0');
+  return `GR-${stamp}-${suffix}`;
 }
 
 function normalizePurchaseOrderStatus(status: unknown): PurchaseOrderStatus | null {
@@ -106,6 +145,11 @@ function mapPurchaseOrder(order: any) {
     purchaseOrderId: order.purchaseOrderId,
     purchaseOrderNumber: order.purchaseOrderNumber,
     supplier: order.supplier,
+    expectedReceivedAt: order.expectedReceivedAt ?? null,
+    invoiceNumber: order.invoiceNumber ?? null,
+    supplierContactName: order.supplierContactName ?? null,
+    supplierPhone: order.supplierPhone ?? null,
+    supplierEmail: order.supplierEmail ?? null,
     status: order.status,
     notes: order.notes ?? null,
     orderedAt: order.orderedAt,
@@ -157,6 +201,8 @@ export async function listPurchaseOrders(req: Request, res: Response) {
       where.OR = [
         { purchaseOrderNumber: { contains: search } },
         { supplier: { contains: search } },
+        { invoiceNumber: { contains: search } },
+        { supplierContactName: { contains: search } },
       ];
     }
 
@@ -228,14 +274,63 @@ export async function getPurchaseOrderById(req: Request, res: Response) {
 
 export async function createPurchaseOrder(req: Request, res: Response) {
   try {
-    const { supplier, notes, items } = req.body as {
-      supplier?: string;
-      notes?: string | null;
-      items?: PurchaseOrderCreateItemInput[];
-    };
+    const {
+      supplier,
+      expectedReceivedAt,
+      invoiceNumber,
+      supplierContactName,
+      supplierPhone,
+      supplierEmail,
+      notes,
+      items,
+    } = req.body as PurchaseOrderCreateInput;
 
-    if (!supplier || typeof supplier !== 'string' || supplier.trim().length === 0) {
+    const normalizedSupplier = normalizeOptionalString(supplier, MAX_SUPPLIER_LENGTH);
+    if (normalizedSupplier === 'INVALID' || !normalizedSupplier) {
       return res.status(400).json({ success: false, message: 'Supplier is required.' });
+    }
+
+    const normalizedInvoiceNumber = normalizeOptionalString(invoiceNumber, MAX_INVOICE_LENGTH);
+    if (normalizedInvoiceNumber === 'INVALID') {
+      return res.status(400).json({ success: false, message: 'Invoice number must be <= 100 characters.' });
+    }
+
+    const normalizedSupplierContactName = normalizeOptionalString(supplierContactName, MAX_CONTACT_LENGTH);
+    if (normalizedSupplierContactName === 'INVALID') {
+      return res.status(400).json({ success: false, message: 'Supplier contact name must be <= 100 characters.' });
+    }
+
+    const normalizedSupplierPhone = normalizeOptionalString(supplierPhone, MAX_PHONE_LENGTH);
+    if (normalizedSupplierPhone === 'INVALID') {
+      return res.status(400).json({ success: false, message: 'Supplier phone must be <= 20 characters.' });
+    }
+    if (normalizedSupplierPhone && !PHONE_REGEX.test(normalizedSupplierPhone)) {
+      return res.status(400).json({ success: false, message: 'Supplier phone format is invalid.' });
+    }
+
+    const normalizedSupplierEmail = normalizeOptionalString(supplierEmail, MAX_EMAIL_LENGTH);
+    if (normalizedSupplierEmail === 'INVALID') {
+      return res.status(400).json({ success: false, message: 'Supplier email must be <= 100 characters.' });
+    }
+    if (normalizedSupplierEmail && !EMAIL_REGEX.test(normalizedSupplierEmail)) {
+      return res.status(400).json({ success: false, message: 'Supplier email format is invalid.' });
+    }
+
+    const normalizedNotes = normalizeOptionalString(notes, MAX_NOTES_LENGTH);
+    if (normalizedNotes === 'INVALID') {
+      return res.status(400).json({ success: false, message: 'Notes must be <= 1000 characters.' });
+    }
+
+    let parsedExpectedReceivedAt: Date | null = null;
+    if (expectedReceivedAt !== null && expectedReceivedAt !== undefined) {
+      if (typeof expectedReceivedAt !== 'string' || expectedReceivedAt.trim().length === 0) {
+        return res.status(400).json({ success: false, message: 'Expected received date must be a valid ISO date string.' });
+      }
+      const maybeDate = new Date(expectedReceivedAt);
+      if (Number.isNaN(maybeDate.getTime())) {
+        return res.status(400).json({ success: false, message: 'Expected received date must be a valid ISO date string.' });
+      }
+      parsedExpectedReceivedAt = maybeDate;
     }
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -275,9 +370,14 @@ export async function createPurchaseOrder(req: Request, res: Response) {
       const purchaseOrder = await tx.purchaseOrder.create({
         data: {
           purchaseOrderNumber,
-          supplier: supplier.trim(),
+          supplier: normalizedSupplier,
+          expectedReceivedAt: parsedExpectedReceivedAt,
+          invoiceNumber: normalizedInvoiceNumber,
+          supplierContactName: normalizedSupplierContactName,
+          supplierPhone: normalizedSupplierPhone,
+          supplierEmail: normalizedSupplierEmail,
           status: PURCHASE_ORDER_STATUSES.PENDING,
-          notes: typeof notes === 'string' ? notes.trim() || null : null,
+          notes: normalizedNotes,
           createdBy,
           items: {
             create: items.map((item) => ({
@@ -335,6 +435,13 @@ export async function receivePurchaseOrder(req: Request, res: Response) {
       items?: PurchaseOrderReceiptInput[];
       notes?: string | null;
     };
+
+    const normalizedNotes = typeof notes === 'string'
+      ? normalizeOptionalString(notes, MAX_NOTES_LENGTH)
+      : null;
+    if (normalizedNotes === 'INVALID') {
+      return res.status(400).json({ success: false, message: 'Notes must be <= 1000 characters.' });
+    }
 
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ success: false, message: 'At least one receipt item is required.' });
@@ -397,6 +504,19 @@ export async function receivePurchaseOrder(req: Request, res: Response) {
         purchaseOrder.items.map((item) => [item.variantId, item] as const),
       );
       const touchedIds = new Set<number>();
+      const receiptNote = purchaseOrder.invoiceNumber
+        ? `Received purchase order ${purchaseOrder.purchaseOrderNumber} (Invoice ${purchaseOrder.invoiceNumber})`
+        : `Received purchase order ${purchaseOrder.purchaseOrderNumber}`;
+
+      const goodsReceipt = await ((tx as any).goodsReceipt.create as any)({
+        data: {
+          purchaseOrderId,
+          receiptNumber: buildGoodsReceiptNumber(),
+          notes: normalizedNotes ?? purchaseOrder.notes ?? null,
+          createdBy: updatedBy,
+        },
+        select: { goodsReceiptId: true },
+      });
 
       for (const receipt of items) {
         const purchaseOrderItem =
@@ -415,36 +535,39 @@ export async function receivePurchaseOrder(req: Request, res: Response) {
           throw new Error('RECEIPT_EXCEEDS_ORDERED_QTY');
         }
 
-        const currentVariant = await tx.productVariant.findUnique({
-          where: { variantId: purchaseOrderItem.variantId },
-          select: { stockQuantity: true },
-        });
-        if (!currentVariant) {
-          throw new Error('VARIANT_NOT_FOUND');
-        }
-
         await tx.purchaseOrderItem.update({
           where: { purchaseOrderItemId: purchaseOrderItem.purchaseOrderItemId },
           data: { receivedQty: { increment: receipt.quantity } },
         });
 
-        await tx.productVariant.update({
-          where: { variantId: purchaseOrderItem.variantId },
-          data: { stockQuantity: { increment: receipt.quantity } },
-        });
-
-        await tx.inventoryLog.create({
+        await ((tx as any).goodsReceiptItem.create as any)({
           data: {
+            goodsReceiptId: goodsReceipt.goodsReceiptId,
+            purchaseOrderItemId: purchaseOrderItem.purchaseOrderItemId,
             variantId: purchaseOrderItem.variantId,
-            orderId: null,
-            userId: updatedBy,
-            changeQuantity: receipt.quantity,
-            previousStock: currentVariant.stockQuantity,
-            newStock: currentVariant.stockQuantity + receipt.quantity,
-            reason: 'PURCHASE_RECEIPT',
-            note: `Received purchase order ${purchaseOrder.purchaseOrderNumber}`,
+            quantityReceived: receipt.quantity,
+            unitCost: purchaseOrderItem.unitCost,
           },
         });
+
+        try {
+          await applyPurchaseReceiptStockChange(
+            tx,
+            {
+              variantId: purchaseOrderItem.variantId,
+              quantity: receipt.quantity,
+              userId: updatedBy,
+              goodsReceiptId: goodsReceipt.goodsReceiptId,
+              purchaseOrderId,
+              note: receiptNote,
+            },
+          );
+        } catch (error: any) {
+          if (error?.code === 'VARIANT_NOT_FOUND') {
+            throw new Error('VARIANT_NOT_FOUND');
+          }
+          throw error;
+        }
 
         touchedIds.add(purchaseOrderItem.purchaseOrderItemId);
       }
@@ -469,7 +592,7 @@ export async function receivePurchaseOrder(req: Request, res: Response) {
               ? PURCHASE_ORDER_STATUSES.PARTIALLY_RECEIVED
               : PURCHASE_ORDER_STATUSES.PENDING,
           receivedAt: isFullyReceived ? new Date() : null,
-          notes: typeof notes === 'string' ? notes.trim() || null : undefined,
+          notes: typeof notes === 'string' ? normalizedNotes : undefined,
         },
       });
 
@@ -538,6 +661,13 @@ export async function cancelPurchaseOrder(req: Request, res: Response) {
     }
 
     const { notes } = req.body as { notes?: string | null };
+    const normalizedNotes = typeof notes === 'string'
+      ? normalizeOptionalString(notes, MAX_NOTES_LENGTH)
+      : null;
+    if (normalizedNotes === 'INVALID') {
+      return res.status(400).json({ success: false, message: 'Notes must be <= 1000 characters.' });
+    }
+
     const existing = await prisma.purchaseOrder.findUnique({
       where: { purchaseOrderId },
     });
@@ -556,7 +686,7 @@ export async function cancelPurchaseOrder(req: Request, res: Response) {
       where: { purchaseOrderId },
       data: {
         status: PURCHASE_ORDER_STATUSES.CANCELLED,
-        notes: typeof notes === 'string' ? notes.trim() || null : undefined,
+        notes: typeof notes === 'string' ? normalizedNotes : undefined,
       },
     });
 

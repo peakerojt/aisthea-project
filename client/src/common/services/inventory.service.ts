@@ -31,12 +31,31 @@ export interface InventoryFilters {
     search?: string;
 }
 
+export interface InventoryMeta {
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+}
+
+export interface InventoryPageResponse {
+    data: InventoryVariant[];
+    meta: InventoryMeta;
+}
+
+export interface InventoryProgressSnapshot {
+    items: InventoryVariant[];
+    loadedPages: number;
+    totalPages: number;
+    isComplete: boolean;
+}
+
 // ─── Inventory Log types ──────────────────────────────────────────────────────
 
 export type InventoryLogReason =
     | 'CHECKOUT'
-    | 'RESTOCK'
-    | 'CANCELLED_RESTORE'
+    | 'PURCHASE_RECEIPT'
+    | 'RETURN_RESTORE'
     | 'MANUAL_ADJUST';
 
 export interface InventoryLogEntry {
@@ -59,6 +78,38 @@ export interface InventoryLogsResponse {
     items: InventoryLogEntry[];
 }
 
+export type StockMovementType = 'IMPORT' | 'SALE' | 'RETURN' | 'ADJUST' | 'CANCEL';
+
+export interface StockMovementEntry {
+    stockMovementId: number;
+    type: StockMovementType | string;
+    quantity: number;
+    referenceType: string | null;
+    referenceId: number | null;
+    note: string | null;
+    createdAt: string;
+    createdBy: string | null;
+}
+
+export interface StockMovementsResponse {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    items: StockMovementEntry[];
+}
+
+export interface InventorySummaryData {
+    totalVariants: number;
+    outOfStock: number;
+    lowStock: number;
+    incomingStock: number;
+}
+
+export interface InventorySummaryResponse {
+    data: InventorySummaryData;
+}
+
 import { inventoryApi } from '@/common/api/inventory.api';
 
 // ─── API Calls ────────────────────────────────────────────────────────────────
@@ -66,15 +117,109 @@ import { inventoryApi } from '@/common/api/inventory.api';
 export const fetchInventory = async (
     filters?: InventoryFilters
 ): Promise<InventoryVariant[]> => {
+    const res = await fetchInventoryPage(filters, 1, 200);
+    return res.data;
+};
+
+const normalizeMeta = (
+    meta: unknown,
+    page: number,
+    pageSize: number,
+    count: number,
+): InventoryMeta => {
+    const raw = (meta ?? {}) as Partial<InventoryMeta>;
+    const total = Number(raw.total ?? count);
+    const safePage = Number(raw.page ?? page);
+    const safePageSize = Number(raw.pageSize ?? pageSize);
+    const fallbackTotalPages = Math.max(1, Math.ceil((total || count) / Math.max(1, safePageSize)));
+    const totalPages = Number(raw.totalPages ?? fallbackTotalPages);
+
+    return {
+        total: Number.isFinite(total) ? total : count,
+        page: Number.isFinite(safePage) ? safePage : page,
+        pageSize: Number.isFinite(safePageSize) ? safePageSize : pageSize,
+        totalPages: Number.isFinite(totalPages) ? Math.max(1, totalPages) : 1,
+    };
+};
+
+export const fetchInventoryPage = async (
+    filters?: InventoryFilters,
+    page = 1,
+    pageSize = 50,
+): Promise<InventoryPageResponse> => {
     const params: Record<string, string> = {
-        pageSize: '200' // Request maximum allowed by backend
+        page: String(page),
+        pageSize: String(pageSize),
     };
     if (filters?.lowStock) params.lowStock = 'true';
     if (filters?.search && filters.search.trim() !== '') params.search = filters.search.trim();
 
-    // Backend getInventory now returns { data, meta } due to BE-3
     const res = await inventoryApi.fetch(params);
-    return res.data;
+    return {
+        data: res.data,
+        meta: normalizeMeta(res.meta, page, pageSize, res.data.length),
+    };
+};
+
+export const fetchAllInventory = async (
+    filters?: InventoryFilters,
+): Promise<InventoryVariant[]> => {
+    const pageSize = 200;
+    const baseParams: Record<string, string> = { pageSize: String(pageSize) };
+    if (filters?.lowStock) baseParams.lowStock = 'true';
+    if (filters?.search && filters.search.trim() !== '') baseParams.search = filters.search.trim();
+
+    const first = await inventoryApi.fetch({ ...baseParams, page: '1' });
+    const firstMeta = first.meta as InventoryMeta | undefined;
+    const totalPages = Math.max(1, Number(firstMeta?.totalPages ?? 1));
+
+    if (totalPages <= 1) return first.data;
+
+    const remaining = await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, idx) =>
+            inventoryApi.fetch({ ...baseParams, page: String(idx + 2) }),
+        ),
+    );
+
+    return [first, ...remaining].flatMap((r) => r.data);
+};
+
+export const fetchAllInventoryProgressive = async (
+    filters?: InventoryFilters,
+    onProgress?: (snapshot: InventoryProgressSnapshot) => void,
+): Promise<InventoryVariant[]> => {
+    const pageSize = 200;
+    const baseParams: Record<string, string> = { pageSize: String(pageSize) };
+    if (filters?.lowStock) baseParams.lowStock = 'true';
+    if (filters?.search && filters.search.trim() !== '') baseParams.search = filters.search.trim();
+
+    const first = await inventoryApi.fetch({ ...baseParams, page: '1' });
+    const firstMeta = first.meta as InventoryMeta | undefined;
+    const totalPages = Math.max(1, Number(firstMeta?.totalPages ?? 1));
+    let allItems = [...first.data];
+
+    onProgress?.({
+        items: allItems,
+        loadedPages: 1,
+        totalPages,
+        isComplete: totalPages === 1,
+    });
+
+    if (totalPages <= 1) return allItems;
+
+    for (let page = 2; page <= totalPages; page += 1) {
+        const next = await inventoryApi.fetch({ ...baseParams, page: String(page) });
+        allItems = [...allItems, ...next.data];
+
+        onProgress?.({
+            items: allItems,
+            loadedPages: page,
+            totalPages,
+            isComplete: page === totalPages,
+        });
+    }
+
+    return allItems;
 };
 
 export const bulkUpdateStock = async (
@@ -89,6 +234,18 @@ export const fetchInventoryLogs = async (
     limit = 20
 ): Promise<InventoryLogsResponse> => {
     return inventoryApi.fetchLogs(variantId, { page: String(page), limit: String(limit) });
+};
+
+export const fetchStockMovements = async (
+    variantId: number,
+    page = 1,
+    limit = 20,
+): Promise<StockMovementsResponse> => {
+    return inventoryApi.fetchMovements(variantId, { page: String(page), limit: String(limit) });
+};
+
+export const fetchInventorySummary = async (): Promise<InventorySummaryResponse> => {
+    return inventoryApi.fetchSummary();
 };
 
 // ─── Low Stock Alerts ─────────────────────────────────────────────────────────

@@ -47,6 +47,10 @@ const queryClient = new QueryClient({
   },
 });
 
+const withRouteSuspense = (element: React.ReactNode) => (
+  <Suspense fallback={<Spinner />}>{element}</Suspense>
+);
+
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
 root.render(
@@ -57,28 +61,26 @@ root.render(
           <QueryClientProvider client={queryClient}>
             <BrowserRouter>
               <AuthEventListener />
-              <Suspense fallback={<Spinner />}>
-                <Routes>
-                  <Route element={<StoreLayout />}>
-                    {storeRoutes.map(({ path, element }) => (
-                      <Route key={`store-${path}`} path={path} element={element} />
-                    ))}
-                    {authRoutes.map(({ path, element }) => (
-                      <Route key={`auth-${path}`} path={path} element={element} />
+              <Routes>
+                <Route element={<StoreLayout />}>
+                  {storeRoutes.map(({ path, element }) => (
+                    <Route key={`store-${path}`} path={path} element={withRouteSuspense(element)} />
+                  ))}
+                  {authRoutes.map(({ path, element }) => (
+                    <Route key={`auth-${path}`} path={path} element={withRouteSuspense(element)} />
+                  ))}
+                </Route>
+
+                <Route element={<AdminGuard />}>
+                  <Route element={<AdminLayout />}>
+                    {adminRoutes.map(({ path, element }) => (
+                      <Route key={`admin-${path}`} path={path} element={withRouteSuspense(element)} />
                     ))}
                   </Route>
+                </Route>
 
-                  <Route element={<AdminGuard />}>
-                    <Route element={<AdminLayout />}>
-                      {adminRoutes.map(({ path, element }) => (
-                        <Route key={`admin-${path}`} path={path} element={element} />
-                      ))}
-                    </Route>
-                  </Route>
-
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </Suspense>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
             </BrowserRouter>
           </QueryClientProvider>
         </CartProvider>
@@ -86,3 +88,4 @@ root.render(
     </ToastProvider>
   </React.StrictMode>,
 );
+

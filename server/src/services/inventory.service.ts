@@ -1,20 +1,14 @@
-/**
+﻿/**
  * inventory.service.ts
- * ─────────────────────────────────────────────────────────────────────────────
- * Concurrency-safe inventory operations.
- * All public functions accept a Prisma Interactive Transaction client (`tx`)
- * so they can be composed into a larger $transaction block by the caller.
  *
- * Reason constants (matches InventoryLog.Reason in schema):
- *   CHECKOUT          — stock deducted when an order is placed
- *   PURCHASE_RECEIPT  — stock added from purchase-order receiving
- *   RETURN_RESTORE    — stock returned when an order is cancelled or returned
- *   MANUAL_ADJUST     — admin manually editing stock quantity
+ * Shared inventory write helpers with dual-write behavior:
+ * - Legacy stock: ProductVariants.StockQuantity
+ * - Snapshot: Inventory.AvailableQuantity
+ * - Ledger: StockMovements
+ * - Compat log: InventoryLogs
  */
 
 import { Prisma } from '../generated/client';
-
-// ─── Error class shared across services ───────────────────────────────────────
 
 export class InventoryError extends Error {
   public readonly code: string;
@@ -27,12 +21,15 @@ export class InventoryError extends Error {
   }
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export interface CheckoutItem {
   variantId: number;
   quantity: number;
-  productName: string; // Used for Vietnamese error messages
+  productName: string;
+}
+
+export interface RestoreItem {
+  variantId: number | null;
+  quantity: number;
 }
 
 export type InventoryLogReason =
@@ -41,19 +38,214 @@ export type InventoryLogReason =
   | 'RETURN_RESTORE'
   | 'MANUAL_ADJUST';
 
-// ─── atomicCheckoutDeduction ──────────────────────────────────────────────────
+export type StockMovementType = 'IMPORT' | 'SALE' | 'RETURN' | 'ADJUST' | 'CANCEL';
+
+interface StockMovementCreateInput {
+  variantId: number;
+  type: StockMovementType;
+  quantity: number;
+  referenceType?: string | null;
+  referenceId?: number | null;
+  note?: string | null;
+  createdBy?: number | null;
+}
+
+interface InventorySnapshotInput {
+  variantId: number;
+  availableQuantity: number;
+}
+
+interface StockLogInput {
+  variantId: number;
+  orderId?: number | null;
+  userId?: number | null;
+  changeQuantity: number;
+  previousStock: number;
+  newStock: number;
+  reason: InventoryLogReason;
+  note?: string | null;
+}
+
+interface ManualAdjustInput {
+  variantId: number;
+  newQuantity: number;
+  userId?: number | null;
+  reason?: string;
+  note?: string | null;
+}
+
+interface PurchaseReceiptInput {
+  variantId: number;
+  quantity: number;
+  userId?: number | null;
+  goodsReceiptId?: number | null;
+  purchaseOrderId?: number | null;
+  note?: string | null;
+}
+
+const readVariantStock = async (
+  tx: Prisma.TransactionClient,
+  variantId: number,
+): Promise<number> => {
+  const variant = await (tx.productVariant.findUnique as any)({
+    where: { variantId },
+    select: { stockQuantity: true },
+  });
+
+  if (!variant) {
+    throw new InventoryError('VARIANT_NOT_FOUND', 'Product variant not found in the system.');
+  }
+
+  return Number(variant.stockQuantity ?? 0);
+};
+
+const syncInventorySnapshot = async (
+  tx: Prisma.TransactionClient,
+  input: InventorySnapshotInput,
+): Promise<void> => {
+  await ((tx as any).inventory.upsert as any)({
+    where: { variantId: input.variantId },
+    update: {
+      availableQuantity: input.availableQuantity,
+      updatedAt: new Date(),
+    },
+    create: {
+      variantId: input.variantId,
+      availableQuantity: input.availableQuantity,
+      reservedQuantity: 0,
+      incomingQuantity: 0,
+      updatedAt: new Date(),
+    },
+  });
+};
+
+const appendInventoryLog = async (
+  tx: Prisma.TransactionClient,
+  input: StockLogInput,
+): Promise<void> => {
+  await (tx.inventoryLog.create as any)({
+    data: {
+      variantId: input.variantId,
+      orderId: input.orderId ?? null,
+      userId: input.userId ?? null,
+      changeQuantity: input.changeQuantity,
+      previousStock: input.previousStock,
+      newStock: input.newStock,
+      reason: input.reason,
+      note: input.note ?? null,
+    },
+  });
+};
+
+export async function appendStockMovement(
+  tx: Prisma.TransactionClient,
+  input: StockMovementCreateInput,
+): Promise<void> {
+  await ((tx as any).stockMovement.create as any)({
+    data: {
+      variantId: input.variantId,
+      type: input.type,
+      quantity: input.quantity,
+      referenceType: input.referenceType ?? null,
+      referenceId: input.referenceId ?? null,
+      note: input.note ?? null,
+      createdBy: input.createdBy ?? null,
+    },
+  });
+}
+
+export async function applyPurchaseReceiptStockChange(
+  tx: Prisma.TransactionClient,
+  input: PurchaseReceiptInput,
+): Promise<{ previousStock: number; newStock: number }> {
+  await (tx.productVariant.update as any)({
+    where: { variantId: input.variantId },
+    data: { stockQuantity: { increment: input.quantity } },
+  });
+
+  const newStock = await readVariantStock(tx, input.variantId);
+  const previousStock = newStock - input.quantity;
+
+  await syncInventorySnapshot(tx, {
+    variantId: input.variantId,
+    availableQuantity: newStock,
+  });
+
+  await appendInventoryLog(tx, {
+    variantId: input.variantId,
+    orderId: null,
+    userId: input.userId ?? null,
+    changeQuantity: input.quantity,
+    previousStock,
+    newStock,
+    reason: 'PURCHASE_RECEIPT',
+    note: input.note,
+  });
+
+  await appendStockMovement(tx, {
+    variantId: input.variantId,
+    type: 'IMPORT',
+    quantity: input.quantity,
+    referenceType: input.goodsReceiptId ? 'GOODS_RECEIPT' : 'PURCHASE_ORDER',
+    referenceId: input.goodsReceiptId ?? input.purchaseOrderId ?? null,
+    note: input.note,
+    createdBy: input.userId ?? null,
+  });
+
+  return { previousStock, newStock };
+}
+
+export async function applyManualStockAdjustment(
+  tx: Prisma.TransactionClient,
+  input: ManualAdjustInput,
+): Promise<{ previousStock: number; newStock: number; changeQuantity: number }> {
+  if (input.newQuantity < 0) {
+    throw new InventoryError('INVALID_STOCK_QUANTITY', 'Stock quantity cannot be negative.');
+  }
+
+  const previousStock = await readVariantStock(tx, input.variantId);
+
+  await (tx.productVariant.update as any)({
+    where: { variantId: input.variantId },
+    data: { stockQuantity: input.newQuantity },
+  });
+
+  const newStock = input.newQuantity;
+  const changeQuantity = newStock - previousStock;
+
+  await syncInventorySnapshot(tx, {
+    variantId: input.variantId,
+    availableQuantity: newStock,
+  });
+
+  const normalizedReason = (input.reason?.trim() || 'MANUAL_ADJUST').toUpperCase();
+
+  await appendInventoryLog(tx, {
+    variantId: input.variantId,
+    orderId: null,
+    userId: input.userId ?? null,
+    changeQuantity,
+    previousStock,
+    newStock,
+    reason: normalizedReason as InventoryLogReason,
+    note: input.note ?? null,
+  });
+
+  await appendStockMovement(tx, {
+    variantId: input.variantId,
+    type: 'ADJUST',
+    quantity: changeQuantity,
+    referenceType: 'MANUAL_ADJUST',
+    referenceId: null,
+    note: input.note ?? input.reason ?? null,
+    createdBy: input.userId ?? null,
+  });
+
+  return { previousStock, newStock, changeQuantity };
+}
+
 /**
- * Deducts stock for all items in a checkout atomically within the given tx.
- *
- * Pro-Max approach: uses `where: { variantId, stockQuantity: { gte: quantity } }`
- * so the UPDATE itself acts as the stock check — eliminating race conditions.
- * If the record is not found (P2025) the stock is insufficient; throw immediately
- * and let the transaction roll back all previous deductions.
- *
- * @param orderId  — newly created order ID (for log FK)
- * @param userId   — the customer placing the order (for log FK)
- * @param items    — array of cart items to deduct
- * @param tx       — Prisma Interactive Transaction client
+ * Deducts stock for checkout with race-condition protection.
  */
 export async function atomicCheckoutDeduction(
   orderId: number,
@@ -62,24 +254,6 @@ export async function atomicCheckoutDeduction(
   tx: Prisma.TransactionClient,
 ) {
   for (const item of items) {
-    // 1. Read current stock so we can record previousStock in the log
-    const current = await (tx.productVariant.findUnique as any)({
-      where: { variantId: item.variantId },
-      select: { stockQuantity: true },
-    });
-
-    if (!current) {
-      throw new InventoryError(
-        'VARIANT_NOT_FOUND',
-        `Product variant not found in the system.`,
-        400,
-      );
-    }
-
-    const previousStock: number = current.stockQuantity;
-
-    // 2. Atomic decrement — WHERE clause includes `stockQuantity >= quantity`.
-    //    If stock is insufficient, Prisma throws P2025 (RecordNotFound).
     try {
       await (tx.productVariant.update as any)({
         where: {
@@ -94,45 +268,46 @@ export async function atomicCheckoutDeduction(
       if (err?.code === 'P2025') {
         throw new InventoryError(
           'INSUFFICIENT_STOCK',
-          `Product is out of stock or the requested quantity is unavailable.`,
-          400,
+          'Product is out of stock or the requested quantity is unavailable.',
         );
       }
       throw err;
     }
 
-    const newStock = previousStock - item.quantity;
+    const newStock = await readVariantStock(tx, item.variantId);
+    const previousStock = newStock + item.quantity;
 
-    // 3. Insert audit log within the same transaction
-    await (tx.inventoryLog.create as any)({
-      data: {
-        variantId: item.variantId,
-        orderId,
-        userId,
-        changeQuantity: -item.quantity,
-        previousStock,
-        newStock,
-        reason: 'CHECKOUT' satisfies InventoryLogReason,
-        note: `Placed order #${orderId}`,
-      },
+    await syncInventorySnapshot(tx, {
+      variantId: item.variantId,
+      availableQuantity: newStock,
+    });
+
+    await appendInventoryLog(tx, {
+      variantId: item.variantId,
+      orderId,
+      userId,
+      changeQuantity: -item.quantity,
+      previousStock,
+      newStock,
+      reason: 'CHECKOUT',
+      note: `Placed order #${orderId}`,
+    });
+
+    await appendStockMovement(tx, {
+      variantId: item.variantId,
+      type: 'SALE',
+      quantity: -item.quantity,
+      referenceType: 'ORDER',
+      referenceId: orderId,
+      note: `Placed order #${orderId}`,
+      createdBy: userId,
     });
   }
 }
 
-// ─── atomicCancelRestore ──────────────────────────────────────────────────────
 /**
- * Restores stock for all items in a cancelled/returned order atomically.
- *
- * @param orderId  — the order being cancelled
- * @param userId   — the user who triggered the cancellation (for log FK)
- * @param items    — order items that contain variantId and quantity
- * @param tx       — Prisma Interactive Transaction client
+ * Restores stock for cancelled/returned orders.
  */
-export interface RestoreItem {
-  variantId: number | null;
-  quantity: number;
-}
-
 export async function atomicCancelRestore(
   orderId: number,
   userId: number | null,
@@ -140,39 +315,44 @@ export async function atomicCancelRestore(
   tx: Prisma.TransactionClient,
 ) {
   for (const item of items) {
-    // Skip items whose variant has been deleted (variantId = null)
     if (!item.variantId) continue;
 
-    // Read current stock for the log
-    const current = await (tx.productVariant.findUnique as any)({
-      where: { variantId: item.variantId },
-      select: { stockQuantity: true },
+    try {
+      await (tx.productVariant.update as any)({
+        where: { variantId: item.variantId },
+        data: { stockQuantity: { increment: item.quantity } },
+      });
+    } catch {
+      continue;
+    }
+
+    const newStock = await readVariantStock(tx, item.variantId);
+    const previousStock = newStock - item.quantity;
+
+    await syncInventorySnapshot(tx, {
+      variantId: item.variantId,
+      availableQuantity: newStock,
     });
 
-    if (!current) continue; // Variant deleted; skip gracefully
-
-    const previousStock: number = current.stockQuantity;
-
-    // Increment stock back
-    await (tx.productVariant.update as any)({
-      where: { variantId: item.variantId },
-      data: { stockQuantity: { increment: item.quantity } },
+    await appendInventoryLog(tx, {
+      variantId: item.variantId,
+      orderId,
+      userId,
+      changeQuantity: item.quantity,
+      previousStock,
+      newStock,
+      reason: 'RETURN_RESTORE',
+      note: `Cancelled order #${orderId}`,
     });
 
-    const newStock = previousStock + item.quantity;
-
-    // Insert restore log
-    await (tx.inventoryLog.create as any)({
-      data: {
-        variantId: item.variantId,
-        orderId,
-        userId,
-        changeQuantity: +item.quantity,
-        previousStock,
-        newStock,
-        reason: 'RETURN_RESTORE' satisfies InventoryLogReason,
-        note: `Cancelled order #${orderId}`,
-      },
+    await appendStockMovement(tx, {
+      variantId: item.variantId,
+      type: 'CANCEL',
+      quantity: item.quantity,
+      referenceType: 'ORDER',
+      referenceId: orderId,
+      note: `Cancelled order #${orderId}`,
+      createdBy: userId,
     });
   }
 }

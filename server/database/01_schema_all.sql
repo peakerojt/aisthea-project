@@ -629,6 +629,11 @@ BEGIN
         PurchaseOrderId     INT            IDENTITY(1,1) PRIMARY KEY,
         PurchaseOrderNumber NVARCHAR(50)   NOT NULL UNIQUE,
         Supplier            NVARCHAR(100)  NOT NULL,
+        ExpectedReceivedAt  DATETIME2      NULL,
+        InvoiceNumber       NVARCHAR(100)  NULL,
+        SupplierContactName NVARCHAR(100)  NULL,
+        SupplierPhone       NVARCHAR(20)   NULL,
+        SupplierEmail       NVARCHAR(100)  NULL,
         Status              NVARCHAR(20)   NOT NULL DEFAULT 'PENDING',
         Notes               NVARCHAR(1000) NULL,
         OrderedAt           DATETIME2      NOT NULL DEFAULT GETDATE(),
@@ -639,6 +644,37 @@ BEGIN
     CREATE NONCLUSTERED INDEX IX_PurchaseOrders_OrderedAt ON PurchaseOrders(OrderedAt);
     CREATE NONCLUSTERED INDEX IX_PurchaseOrders_Status    ON PurchaseOrders(Status);
     PRINT 'PurchaseOrders created';
+END
+GO
+
+-- Keep existing databases in sync with prisma schema (idempotent)
+IF COL_LENGTH('PurchaseOrders', 'ExpectedReceivedAt') IS NULL
+BEGIN
+    ALTER TABLE PurchaseOrders ADD ExpectedReceivedAt DATETIME2 NULL;
+END
+GO
+
+IF COL_LENGTH('PurchaseOrders', 'InvoiceNumber') IS NULL
+BEGIN
+    ALTER TABLE PurchaseOrders ADD InvoiceNumber NVARCHAR(100) NULL;
+END
+GO
+
+IF COL_LENGTH('PurchaseOrders', 'SupplierContactName') IS NULL
+BEGIN
+    ALTER TABLE PurchaseOrders ADD SupplierContactName NVARCHAR(100) NULL;
+END
+GO
+
+IF COL_LENGTH('PurchaseOrders', 'SupplierPhone') IS NULL
+BEGIN
+    ALTER TABLE PurchaseOrders ADD SupplierPhone NVARCHAR(20) NULL;
+END
+GO
+
+IF COL_LENGTH('PurchaseOrders', 'SupplierEmail') IS NULL
+BEGIN
+    ALTER TABLE PurchaseOrders ADD SupplierEmail NVARCHAR(100) NULL;
 END
 GO
 
@@ -661,6 +697,103 @@ BEGIN
         ON PurchaseOrderItems(PurchaseOrderId, VariantId);
     CREATE NONCLUSTERED INDEX IX_PurchaseOrderItems_VariantId ON PurchaseOrderItems(VariantId);
     PRINT 'PurchaseOrderItems created';
+END
+GO
+
+-- Inventory snapshot (single-store)
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Inventory')
+BEGIN
+    CREATE TABLE Inventory (
+        VariantId          INT       NOT NULL PRIMARY KEY,
+        AvailableQuantity  INT       NOT NULL DEFAULT 0,
+        ReservedQuantity   INT       NOT NULL DEFAULT 0,
+        IncomingQuantity   INT       NOT NULL DEFAULT 0,
+        UpdatedAt          DATETIME2 NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_Inventory_ProductVariants
+            FOREIGN KEY (VariantId) REFERENCES ProductVariants(VariantId) ON DELETE CASCADE
+    );
+    CREATE NONCLUSTERED INDEX IX_Inventory_AvailableQuantity ON Inventory(AvailableQuantity);
+    PRINT 'Inventory created';
+END
+GO
+
+-- Backfill inventory snapshot from legacy ProductVariants.StockQuantity
+INSERT INTO Inventory (VariantId, AvailableQuantity, ReservedQuantity, IncomingQuantity, UpdatedAt)
+SELECT
+    pv.VariantId,
+    pv.StockQuantity,
+    0,
+    0,
+    GETDATE()
+FROM ProductVariants pv
+LEFT JOIN Inventory i ON i.VariantId = pv.VariantId
+WHERE i.VariantId IS NULL;
+GO
+
+-- Stock movement ledger
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StockMovements')
+BEGIN
+    CREATE TABLE StockMovements (
+        StockMovementId INT           IDENTITY(1,1) PRIMARY KEY,
+        VariantId       INT           NOT NULL,
+        Type            NVARCHAR(20)  NOT NULL,
+        Quantity        INT           NOT NULL,
+        ReferenceType   NVARCHAR(30)  NULL,
+        ReferenceId     INT           NULL,
+        Note            NVARCHAR(500) NULL,
+        CreatedBy       INT           NULL,
+        CreatedAt       DATETIME2     NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_StockMovements_ProductVariants
+            FOREIGN KEY (VariantId) REFERENCES ProductVariants(VariantId) ON DELETE CASCADE,
+        CONSTRAINT FK_StockMovements_Users
+            FOREIGN KEY (CreatedBy) REFERENCES Users(UserId) ON DELETE SET NULL
+    );
+    CREATE NONCLUSTERED INDEX IX_StockMovements_Variant_CreatedAt ON StockMovements(VariantId, CreatedAt);
+    CREATE NONCLUSTERED INDEX IX_StockMovements_Reference ON StockMovements(ReferenceType, ReferenceId);
+    PRINT 'StockMovements created';
+END
+GO
+
+-- Goods receipts header (linked to purchase orders)
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'GoodsReceipts')
+BEGIN
+    CREATE TABLE GoodsReceipts (
+        GoodsReceiptId  INT            IDENTITY(1,1) PRIMARY KEY,
+        PurchaseOrderId INT            NOT NULL,
+        ReceiptNumber   NVARCHAR(60)   NOT NULL UNIQUE,
+        Notes           NVARCHAR(1000) NULL,
+        CreatedBy       INT            NULL,
+        CreatedAt       DATETIME2      NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_GoodsReceipts_PurchaseOrders
+            FOREIGN KEY (PurchaseOrderId) REFERENCES PurchaseOrders(PurchaseOrderId),
+        CONSTRAINT FK_GoodsReceipts_Users
+            FOREIGN KEY (CreatedBy) REFERENCES Users(UserId) ON DELETE SET NULL
+    );
+    CREATE NONCLUSTERED INDEX IX_GoodsReceipts_PurchaseOrder_CreatedAt ON GoodsReceipts(PurchaseOrderId, CreatedAt);
+    PRINT 'GoodsReceipts created';
+END
+GO
+
+-- Goods receipts line items
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'GoodsReceiptItems')
+BEGIN
+    CREATE TABLE GoodsReceiptItems (
+        GoodsReceiptItemId  INT           IDENTITY(1,1) PRIMARY KEY,
+        GoodsReceiptId      INT           NOT NULL,
+        PurchaseOrderItemId INT           NULL,
+        VariantId           INT           NOT NULL,
+        QuantityReceived    INT           NOT NULL,
+        UnitCost            DECIMAL(18,2) NOT NULL,
+        CONSTRAINT FK_GoodsReceiptItems_GoodsReceipts
+            FOREIGN KEY (GoodsReceiptId) REFERENCES GoodsReceipts(GoodsReceiptId) ON DELETE CASCADE,
+        CONSTRAINT FK_GoodsReceiptItems_PurchaseOrderItems
+            FOREIGN KEY (PurchaseOrderItemId) REFERENCES PurchaseOrderItems(PurchaseOrderItemId) ON DELETE SET NULL,
+        CONSTRAINT FK_GoodsReceiptItems_ProductVariants
+            FOREIGN KEY (VariantId) REFERENCES ProductVariants(VariantId)
+    );
+    CREATE NONCLUSTERED INDEX IX_GoodsReceiptItems_GoodsReceiptId ON GoodsReceiptItems(GoodsReceiptId);
+    CREATE NONCLUSTERED INDEX IX_GoodsReceiptItems_VariantId ON GoodsReceiptItems(VariantId);
+    PRINT 'GoodsReceiptItems created';
 END
 GO
 

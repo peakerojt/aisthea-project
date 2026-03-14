@@ -304,6 +304,7 @@ const ColorSwatch: React.FC<{
     const cssColor = getSwatchColor(value);
     const disabled = availability !== 'available';
     const isOos = availability === 'oos';
+    const disabledSelected = disabled && selected;
 
     if (cssColor) {
         return (
@@ -313,11 +314,13 @@ const ColorSwatch: React.FC<{
                 disabled={disabled}
                 onClick={onClick}
                 className={`relative flex-shrink-0 rounded-full transition-all duration-200 focus-visible:outline-none
-                    ${selected
-                        ? 'ring-2 ring-offset-2 ring-offset-[#0a0a0a] ring-white scale-110 shadow-xl'
-                        : 'hover:scale-105'
+                    ${disabledSelected
+                        ? 'ring-1 ring-offset-1 ring-offset-[#0a0a0a] ring-white/15 scale-100 shadow-none'
+                        : selected
+                            ? 'ring-2 ring-offset-2 ring-offset-[#0a0a0a] ring-white scale-110 shadow-xl'
+                            : 'hover:scale-105'
                     }
-                    ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
+                    ${disabled ? 'opacity-35 cursor-not-allowed' : 'cursor-pointer'}
                 `}
                 style={{ width: 32, height: 32, backgroundColor: cssColor }}
             >
@@ -327,7 +330,7 @@ const ColorSwatch: React.FC<{
                         <line x1="2" y1="30" x2="30" y2="2" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" />
                     </svg>
                 )}
-                {selected && (
+                {selected && !disabled && (
                     <CheckCircle2 className="absolute -top-0.5 -right-0.5 w-3 h-3 text-white drop-shadow" />
                 )}
             </button>
@@ -342,11 +345,13 @@ const ColorSwatch: React.FC<{
             disabled={disabled}
             onClick={onClick}
             className={`relative flex-shrink-0 rounded-full transition-all duration-200 focus-visible:outline-none
-                ${selected
-                    ? 'ring-2 ring-offset-2 ring-offset-[#0a0a0a] ring-white scale-110 shadow-xl'
-                    : 'hover:scale-105'
+                ${disabledSelected
+                    ? 'ring-1 ring-offset-1 ring-offset-[#0a0a0a] ring-white/15 scale-100 shadow-none'
+                    : selected
+                        ? 'ring-2 ring-offset-2 ring-offset-[#0a0a0a] ring-white scale-110 shadow-xl'
+                        : 'hover:scale-105'
                 }
-                ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
+                ${disabled ? 'opacity-35 cursor-not-allowed' : 'cursor-pointer'}
             `}
             style={{ width: 32, height: 32, backgroundColor: cssColor }}
         >
@@ -357,7 +362,7 @@ const ColorSwatch: React.FC<{
                     <line x1="2" y1="30" x2="30" y2="2" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" />
                 </svg>
             )}
-            {selected && (
+            {selected && !disabled && (
                 <CheckCircle2 className="absolute -top-0.5 -right-0.5 w-3 h-3 text-white drop-shadow" />
             )}
         </button>
@@ -373,6 +378,7 @@ const SizePill: React.FC<{
 }> = ({ value, selected, availability, onClick }) => {
     const disabled = availability !== 'available';
     const isOos = availability === 'oos';
+    const disabledSelected = disabled && selected;
 
     return (
         <button
@@ -381,12 +387,14 @@ const SizePill: React.FC<{
             onClick={onClick}
             className={`relative h-10 min-w-[52px] px-3 rounded-lg text-[11px] font-bold tracking-wide
                 border transition-all duration-200 focus-visible:outline-none
-                ${selected
-                    ? 'border-white bg-white text-black shadow-lg shadow-white/10'
-                    : disabled
-                        ? 'border-white/[0.08] text-white/20 cursor-not-allowed'
-                        : 'border-white/15 text-white/60 hover:border-white/40 hover:text-white cursor-pointer'
-                }
+                ${disabledSelected
+                    ? 'border-white/[0.10] bg-white/[0.04] text-white/30 cursor-not-allowed opacity-45'
+                    : selected
+                        ? 'border-white bg-white text-black shadow-lg shadow-white/10'
+                        : disabled
+                            ? 'border-white/[0.08] text-white/20 cursor-not-allowed opacity-40'
+                            : 'border-white/15 text-white/60 hover:border-white/40 hover:text-white cursor-pointer'
+                    }
             `}
         >
             {value}
@@ -557,8 +565,9 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
     // ── Stock state ───────────────────────────────────────────────────────────
     const stockQty = resolvedVariant?.stockQuantity ?? null;
     const isFullySelected = axes.every(ax => selected[ax.name]);
-    const isOutOfStock = isFullySelected && (stockQty === 0);
-    const isInStock = isFullySelected && stockQty !== null && stockQty > 0;
+    const hasAnyStock = variants.some((variant) => Number(variant.stockQuantity ?? 0) > 0);
+    const isOutOfStock = isFullySelected ? stockQty === 0 : !hasAnyStock;
+    const isInStock = isFullySelected ? stockQty !== null && stockQty > 0 : hasAnyStock;
 
     // ── Select handler ────────────────────────────────────────────────────────
     const handleSelect = useCallback((attrName: string, value: string) => {
@@ -594,56 +603,59 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
         <div style={VN_FONT} className="flex flex-col gap-6">
 
             {/* ── Price block ────────────────────────────────────────────── */}
-            <div className="flex items-center gap-3 flex-wrap min-h-[2.75rem]">
-                <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait">
+                {isInStock ? (
                     <motion.span
-                        key={displayPrice}
-                        initial={{ opacity: 0, y: -8 }}
+                        key="in-stock-top"
+                        initial={{ opacity: 0, y: -6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 8 }}
-                        transition={{ duration: 0.18 }}
-                        className="text-xl font-black text-white tracking-tight"
+                        exit={{ opacity: 0, y: -6 }}
+                        transition={{ duration: 0.15 }}
+                        className="inline-flex w-fit items-center gap-1.5 text-[10px] font-bold text-emerald-400 whitespace-nowrap"
                     >
-                        {priceStr}đ
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                        {t('variantSelector.inStock')}
                     </motion.span>
-                </AnimatePresence>
+                ) : isOutOfStock ? (
+                    <motion.span
+                        key="out-of-stock-top"
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        transition={{ duration: 0.15 }}
+                        className="inline-flex w-fit items-center gap-1.5 text-[10px] font-bold text-red-400 whitespace-nowrap"
+                    >
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+                        {t('variantSelector.outOfStockBtn')}
+                    </motion.span>
+                ) : null}
+            </AnimatePresence>
+
+            <div className="inline-grid max-w-full grid-cols-[12.5ch_auto] items-center gap-x-3 min-h-[2.75rem]">
+                <div className="w-[12.5ch] overflow-hidden">
+                    <AnimatePresence mode="wait">
+                        <motion.span
+                            key={displayPrice}
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 8 }}
+                            transition={{ duration: 0.18 }}
+                            className="text-xl font-black text-white tracking-tight whitespace-nowrap tabular-nums"
+                        >
+                            {priceStr}đ
+                        </motion.span>
+                    </AnimatePresence>
+                </div>
+
+                {/* Spacer column to keep price width stable */}
+                <div className="min-w-[92px]" />
 
                 {/* Price range hint when no full selection yet */}
                 {!resolvedVariant && priceRange && (
-                    <span className="text-xs text-white/35 font-medium">
+                    <span className="col-span-2 text-xs text-white/35 font-medium truncate -mt-0.5">
                         {t('variantSelector.priceFrom', { min: VN_NUM.format(priceRange.min), max: VN_NUM.format(priceRange.max) })}
                     </span>
                 )}
-
-                {/* Stock badge — fixed-height container prevents layout shift */}
-                <AnimatePresence mode="wait">
-                    {isInStock && stockQty! < 10 ? (
-                        <motion.span
-                            key="low-stock"
-                            initial={{ opacity: 0, scale: 0.85 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.85 }}
-                            transition={{ duration: 0.15 }}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
-                                       bg-red-500/10 text-red-400 text-[10px] font-bold border border-red-500/20 whitespace-nowrap"
-                        >
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse flex-shrink-0" />
-                            {t('variantSelector.onlyNLeft', { count: stockQty! })}
-                        </motion.span>
-                    ) : isInStock && stockQty! >= 10 ? (
-                        <motion.span
-                            key="in-stock"
-                            initial={{ opacity: 0, scale: 0.85 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.85 }}
-                            transition={{ duration: 0.15 }}
-                            className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 whitespace-nowrap"
-                        >
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
-                            {t('variantSelector.inStock')}
-                        </motion.span>
-                    ) : null}
-                </AnimatePresence>
             </div>
 
 

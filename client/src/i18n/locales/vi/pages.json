@@ -555,52 +555,6 @@
       "viewDetails": "Xem chi tiết"
     }
   },
-  "adminWarehouses": {
-    "title": "Quản lý kho",
-    "form": {
-      "title": "Kho mới",
-      "nameLabel": "Tên kho *",
-      "addressLabel": "Địa chỉ",
-      "namePlaceholder": "Tên kho",
-      "addressPlaceholder": "Địa chỉ kho"
-    },
-    "status": {
-      "active": "Hoạt động",
-      "inactive": "Tạm ngưng"
-    },
-    "labels": {
-      "skusTracked": "SKU đang theo dõi"
-    },
-    "inventory": {
-      "title": "Tồn kho",
-      "empty": "Kho này chưa có tồn kho được theo dõi.",
-      "columns": {
-        "product": "Sản phẩm",
-        "sku": "SKU",
-        "onHand": "Tồn thực tế",
-        "reserved": "Đang giữ",
-        "available": "Khả dụng"
-      }
-    },
-    "actions": {
-      "newWarehouse": "Kho mới",
-      "create": "Tạo",
-      "creating": "Đang tạo...",
-      "cancel": "Hủy",
-      "viewInventory": "Xem tồn kho",
-      "activate": "Kích hoạt",
-      "deactivate": "Vô hiệu hóa"
-    },
-    "states": {
-      "loading": "Đang tải..."
-    },
-    "errors": {
-      "loadWarehouses": "Không thể tải danh sách kho.",
-      "loadInventory": "Không thể tải tồn kho.",
-      "createWarehouse": "Không thể tạo kho.",
-      "updateWarehouse": "Không thể cập nhật trạng thái kho."
-    }
-  },
   "trackingLookup": {
     "hero": {
       "badge": "Theo dõi đơn hàng",
