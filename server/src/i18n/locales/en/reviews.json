@@ -1,0 +1,9 @@
+{
+  "errors": {
+    "orderItemNotFound": "Order item not found.",
+    "notOrderOwner": "You do not own this order.",
+    "itemNotDelivered": "You can review only delivered items.",
+    "productMismatch": "Product does not match purchased item.",
+    "alreadyExists": "Review already exists for this item."
+  }
+}

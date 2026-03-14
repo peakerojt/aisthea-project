@@ -1,8 +1,6 @@
-
-import { PrismaClient } from '../generated/client';
-
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-export const prisma = new PrismaClient();
+/**
+ * Backward-compatible re-export.
+ * All existing code importing from '../utils/prisma' continues to work.
+ * The canonical singleton lives in '../lib/prisma'.
+ */
+export { prisma } from '../lib/prisma';

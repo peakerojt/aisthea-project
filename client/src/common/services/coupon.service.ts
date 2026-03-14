@@ -1,0 +1,86 @@
+// Removed api import for coupon.service.ts
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type CouponType = 'FIXED_AMOUNT' | 'PERCENTAGE';
+export type CouponStatus = 'ACTIVE' | 'EXPIRED' | 'DEPLETED' | 'UPCOMING' | 'INACTIVE';
+
+export interface Coupon {
+    couponId: number;
+    code: string;
+    type: CouponType;
+    value: number;
+    maxDiscountAmount: number | null;
+    minOrderValue: number;
+    startDate: string;
+    endDate: string;
+    usageLimit: number;
+    usedCount: number;
+    usagePerUser: number;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+    status: CouponStatus;
+}
+
+export interface CouponListResponse {
+    coupons: Coupon[];
+    pagination: {
+        page: number;
+        pageSize: number;
+        total: number;
+        totalPages: number;
+    };
+}
+
+export interface ValidateCouponResult {
+    coupon: Pick<Coupon, 'couponId' | 'code' | 'type' | 'value' | 'maxDiscountAmount' | 'minOrderValue'>;
+    discountAmount: number;
+    message: string;
+}
+
+export interface CreateCouponPayload {
+    code: string;
+    type: CouponType;
+    value: number;
+    maxDiscountAmount?: number | null;
+    minOrderValue?: number;
+    startDate: string;
+    endDate: string;
+    usageLimit: number;
+    usagePerUser?: number;
+    isActive?: boolean;
+}
+
+import { couponApi } from '@/common/api/coupon.api';
+
+// ─── API Calls ────────────────────────────────────────────────────────────────
+
+export const fetchCoupons = async (params?: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    isActive?: boolean;
+}): Promise<CouponListResponse> => {
+    const query: Record<string, string> = {};
+    if (params?.page) query.page = String(params.page);
+    if (params?.pageSize) query.pageSize = String(params.pageSize);
+    if (params?.search) query.search = params.search;
+    if (params?.isActive !== undefined) query.isActive = String(params.isActive);
+    return couponApi.fetch(query);
+};
+
+export const createCoupon = async (payload: CreateCouponPayload): Promise<Coupon> => {
+    return couponApi.create(payload);
+};
+
+export const updateCoupon = async (couponId: number, payload: Partial<CreateCouponPayload>): Promise<Coupon> => {
+    return couponApi.update(couponId, payload);
+};
+
+export const deleteCoupon = async (couponId: number): Promise<{ success: boolean; message: string }> => {
+    return couponApi.remove(couponId);
+};
+
+export const validateCoupon = async (code: string, cartSubtotal: number): Promise<ValidateCouponResult> => {
+    return couponApi.validate({ code, cartSubtotal });
+};

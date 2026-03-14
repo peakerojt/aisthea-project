@@ -1,36 +1,16 @@
-import { Response } from 'express';
+import { NextFunction, Response } from 'express';
 import { AuthRequest } from '../../middlewares/auth.middleware';
 import { orderIdParamSchema } from './order.validator';
-import { AppError, cancelOrderForUser, getOrderDetailForUser } from './order.service';
+import { AppError } from '../../middlewares/error.middleware';
+import { cancelOrderForUser, getOrderDetailForUser } from './order.service';
 
-const sendError = (res: Response, error: AppError | Error) => {
-  if (error instanceof AppError) {
-    return res.status(error.status).json({
-      success: false,
-      code: error.code,
-      message: error.message,
-    });
-  }
-
-  console.error('Unexpected error while handling order request:', error);
-  return res.status(500).json({
-    success: false,
-    code: 'INTERNAL_SERVER_ERROR',
-    message: 'Internal server error',
-  });
-};
-
-export const getOrderById = async (req: AuthRequest, res: Response) => {
+export const getOrderById = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = orderIdParamSchema.parse(req.params);
     const user = req.user;
 
     if (!user || typeof user.userId !== 'number' || !Array.isArray(user.roles)) {
-      return res.status(401).json({
-        success: false,
-        code: 'UNAUTHORIZED',
-        message: 'Authentication required',
-      });
+      throw new AppError(401, 'UNAUTHORIZED', 'common:errors.unauthorized');
     }
 
     const data = await getOrderDetailForUser(id, {
@@ -40,24 +20,25 @@ export const getOrderById = async (req: AuthRequest, res: Response) => {
 
     return res.json({
       success: true,
+      messageKey: 'common:success.ok',
+      message: 'Request processed successfully.',
       data,
     });
   } catch (error: any) {
-    return sendError(res, error);
+    if (error?.name === 'ZodError') {
+      return next(new AppError(400, 'VALIDATION_ERROR', 'common:errors.validation', undefined, error?.issues));
+    }
+    return next(error);
   }
 };
 
-export const cancelOrder = async (req: AuthRequest, res: Response) => {
+export const cancelOrder = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = orderIdParamSchema.parse(req.params);
     const user = req.user;
 
     if (!user || typeof user.userId !== 'number' || !Array.isArray(user.roles)) {
-      return res.status(401).json({
-        success: false,
-        code: 'UNAUTHORIZED',
-        message: 'Authentication required',
-      });
+      throw new AppError(401, 'UNAUTHORIZED', 'common:errors.unauthorized');
     }
 
     const data = await cancelOrderForUser(id, {
@@ -67,10 +48,15 @@ export const cancelOrder = async (req: AuthRequest, res: Response) => {
 
     return res.json({
       success: true,
+      messageKey: 'common:success.ok',
+      message: 'Request processed successfully.',
       data,
     });
   } catch (error: any) {
-    return sendError(res, error);
+    if (error?.name === 'ZodError') {
+      return next(new AppError(400, 'VALIDATION_ERROR', 'common:errors.validation', undefined, error?.issues));
+    }
+    return next(error);
   }
 };
 

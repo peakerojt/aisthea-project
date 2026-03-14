@@ -1,6 +1,16 @@
 import { findOrderByIdWithRelations, OrderWithRelations } from './order.repository';
 import { prisma } from '../../utils/prisma';
-import { atomicCancelRestore } from '../../services/inventory.service';
+import { atomicCancelRestore, atomicCheckoutDeduction } from '../../services/inventory.service';
+import { logger } from '../../lib/logger';
+import { AppError } from '../../middlewares/error.middleware';
+import {
+  ORDER_STATUS,
+  getValidNextStatuses,
+  isValidTransition,
+  INVENTORY_RESTORE_STATUSES,
+} from '../../config/orderStatus.config';
+import { emitOrderStatusUpdated } from '../../socket';
+import { deriveOrderPaymentStatus, normalizeOrderStatus } from '../../shared/order-state';
 
 export type Role = 'Admin' | 'Customer' | string;
 
@@ -59,21 +69,7 @@ export interface OrderDetailDto {
   note: string | null;
 }
 
-export class AppError extends Error {
-  public readonly code: string;
-  public readonly status: number;
-
-  constructor(code: string, message: string, status: number) {
-    super(message);
-    this.code = code;
-    this.status = status;
-  }
-}
-
 const isAdmin = (user: CurrentUser) => user.roles.includes('Admin');
-
-const normalizeStatus = (status: string | null | undefined) =>
-  (status || '').toLowerCase();
 
 const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto => {
   const itemsTotal = order.items.reduce((sum, item) => {
@@ -90,13 +86,13 @@ const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto =
     .slice()
     .sort((a, b) => (a.changedAt?.getTime() ?? 0) - (b.changedAt?.getTime() ?? 0))
     .map((h) => ({
-      status: normalizeStatus(h.status),
+      status: normalizeOrderStatus(h.status),
       at: h.changedAt ? h.changedAt.toISOString() : new Date().toISOString(),
     }));
 
   if (timeline.length === 0 && order.createdAt && order.status) {
     timeline.push({
-      status: normalizeStatus(order.status),
+      status: normalizeOrderStatus(order.status),
       at: order.createdAt.toISOString(),
     });
   }
@@ -127,9 +123,9 @@ const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto =
   return {
     id: String(order.orderId),
     orderCode: order.orderNumber,
-    status: normalizeStatus(order.status),
+    status: normalizeOrderStatus(order.status),
     paymentMethod: order.paymentMethod,
-    paymentStatus: normalizeStatus(order.paymentStatus),
+    paymentStatus: normalizeOrderStatus(deriveOrderPaymentStatus(order.payments)),
     createdAt: order.createdAt ? order.createdAt.toISOString() : null,
     customer: {
       name: order.customerName,
@@ -160,16 +156,16 @@ const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto =
 export async function getOrderDetailForUser(orderIdRaw: string, currentUser: CurrentUser): Promise<OrderDetailDto> {
   const parsedId = Number(orderIdRaw);
   if (!Number.isFinite(parsedId) || parsedId <= 0) {
-    throw new AppError('BAD_REQUEST', 'Invalid order id', 400);
+    throw new AppError(400, 'BAD_REQUEST', 'orders:errors.invalidOrderId');
   }
 
   const order = await findOrderByIdWithRelations(parsedId);
   if (!order) {
-    throw new AppError('NOT_FOUND', 'Order not found', 404);
+    throw new AppError(404, 'NOT_FOUND', 'orders:errors.notFound');
   }
 
   if (!isAdmin(currentUser) && order.userId !== currentUser.userId) {
-    throw new AppError('FORBIDDEN', 'You are not allowed to access this order', 403);
+    throw new AppError(403, 'FORBIDDEN', 'orders:errors.forbidden');
   }
 
   return mapOrderToDto(order);
@@ -178,25 +174,21 @@ export async function getOrderDetailForUser(orderIdRaw: string, currentUser: Cur
 export async function cancelOrderForUser(orderIdRaw: string, currentUser: CurrentUser): Promise<OrderDetailDto> {
   const parsedId = Number(orderIdRaw);
   if (!Number.isFinite(parsedId) || parsedId <= 0) {
-    throw new AppError('BAD_REQUEST', 'Invalid order id', 400);
+    throw new AppError(400, 'BAD_REQUEST', 'orders:errors.invalidOrderId');
   }
 
   const existing = await findOrderByIdWithRelations(parsedId);
   if (!existing) {
-    throw new AppError('NOT_FOUND', 'Order not found', 404);
+    throw new AppError(404, 'NOT_FOUND', 'orders:errors.notFound');
   }
 
   if (!isAdmin(currentUser) && existing.userId !== currentUser.userId) {
-    throw new AppError('FORBIDDEN', 'You are not allowed to modify this order', 403);
+    throw new AppError(403, 'FORBIDDEN', 'orders:errors.forbidden');
   }
 
-  const currentStatus = normalizeStatus(existing.status);
+  const currentStatus = normalizeOrderStatus(existing.status);
   if (currentStatus !== 'pending') {
-    throw new AppError(
-      'ORDER_CANNOT_BE_CANCELLED',
-      'Order can only be cancelled when status is pending',
-      400,
-    );
+    throw new AppError(400, 'ORDER_CANNOT_BE_CANCELLED', 'orders:errors.cannotCancel');
   }
 
   // ─── Atomic cancel + stock restore transaction ────────────────────────────
@@ -249,4 +241,357 @@ export async function cancelOrderForUser(orderIdRaw: string, currentUser: Curren
   return mapOrderToDto(updated as OrderWithRelations);
 }
 
+// ─── Update Order Status (Admin) ──────────────────────────────────────────────
+export async function updateOrderStatusAdmin(
+  orderIdRaw: string,
+  currentUser: CurrentUser,
+  payload: {
+    status: string;
+    note?: string;
+    carrier?: string;
+    trackingNumber?: string;
+    estimatedDeliveryDate?: string;
+  }
+) {
+  if (!isAdmin(currentUser)) {
+    throw new AppError(403, 'FORBIDDEN', 'orders:errors.forbidden');
+  }
 
+  const parsedId = Number(orderIdRaw);
+  if (!Number.isFinite(parsedId) || parsedId <= 0) {
+    throw new AppError(400, 'BAD_REQUEST', 'orders:errors.invalidOrderId');
+  }
+
+  const { status: newStatus, note, carrier, trackingNumber, estimatedDeliveryDate } = payload;
+  if (!newStatus) {
+    throw new AppError(400, 'BAD_REQUEST', 'orders:errors.statusRequired');
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { orderId: parsedId },
+    include: {
+      items: {
+        select: { orderItemId: true, variantId: true, quantity: true },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new AppError(404, 'NOT_FOUND', 'orders:errors.notFound');
+  }
+
+  const currentStatus = order.status ?? ORDER_STATUS.PENDING;
+
+  if (!isValidTransition(currentStatus, newStatus)) {
+    throw new AppError(
+      400,
+      'INVALID_STATUS_TRANSITION',
+      'orders:errors.invalidTransition',
+      {
+        from: currentStatus,
+        to: newStatus,
+        allowed: getValidNextStatuses(currentStatus).join(', '),
+      },
+    );
+  }
+
+  const shouldRestoreInventory = INVENTORY_RESTORE_STATUSES.includes(newStatus as any);
+
+  await prisma.$transaction(async (tx) => {
+    if (shouldRestoreInventory) {
+      await atomicCancelRestore(
+        parsedId,
+        currentUser.userId,
+        order.items.map((item) => ({
+          variantId: item.variantId,
+          quantity: item.quantity,
+        })),
+        tx,
+      );
+    }
+
+    const orderData: Record<string, any> = { status: newStatus };
+    if (note !== undefined) orderData.note = note;
+
+    await tx.order.update({ where: { orderId: parsedId }, data: orderData });
+
+    await tx.orderStatusHistory.create({
+      data: {
+        orderId: parsedId,
+        oldStatus: currentStatus,
+        status: newStatus,
+        changedBy: currentUser.userId,
+        note: note ?? null,
+      },
+    });
+
+    if (carrier || trackingNumber || estimatedDeliveryDate) {
+      const eta = estimatedDeliveryDate ? new Date(estimatedDeliveryDate) : undefined;
+      await tx.shipment.upsert({
+        where: { orderId: parsedId },
+        update: { carrier: carrier ?? undefined, trackingNumber: trackingNumber ?? undefined, eta },
+        create: { orderId: parsedId, carrier: carrier ?? null, trackingNumber: trackingNumber ?? null, eta },
+      });
+    }
+  });
+
+  try {
+    const latest = await prisma.order.findUnique({
+      where: { orderId: parsedId },
+      include: {
+        statusHistory: { orderBy: { changedAt: 'asc' } },
+        shipment: true,
+      },
+    });
+    if (latest) {
+      const timeline = (latest.statusHistory || []).map((h: any) => ({
+        status: h.status,
+        timestamp: h.changedAt,
+        note: h.note ?? null,
+      }));
+      emitOrderStatusUpdated({
+        orderId: parsedId,
+        userId: latest.userId ?? undefined,
+        status: newStatus,
+        timeline,
+        carrier: carrier ?? latest.shipment?.carrier ?? null,
+        trackingNumber: trackingNumber ?? latest.shipment?.trackingNumber ?? null,
+        estimatedDeliveryDate: latest.shipment?.eta ?? null,
+      });
+    }
+  } catch (socketErr: any) {
+    logger.warn('[updateOrderStatusAdmin] Socket emit failed (non-critical):', socketErr.message);
+  }
+
+  logger.info('Order status updated by admin', { orderId: parsedId, oldStatus: currentStatus, newStatus, adminId: currentUser.userId });
+
+  return {
+    orderId: parsedId,
+    previousStatus: currentStatus,
+    newStatus,
+    stockRestored: shouldRestoreInventory,
+  };
+}
+
+/**
+ * One cart-item sent from the client during checkout.
+ * NOTE: `price` is intentionally ignored for total calculation — the server
+ * always re-fetches the authoritative price from the DB.
+ */
+export interface CreateOrderItemDto {
+  variantId: number;
+  quantity: number;
+  /** Only used for the productName / variantName snapshot on the OrderItem row. */
+  productName?: string;
+  variantName?: string;
+}
+
+export interface CreateOrderDto {
+  items: CreateOrderItemDto[];
+  paymentMethod: string;
+  customerName: string;
+  customerPhone: string;
+  shippingCity: string;
+  shippingDistrict: string;
+  shippingWard?: string | null;
+  shippingAddressDetail: string;
+  note?: string | null;
+}
+
+/**
+ * createOrder — Checkout service function (Clean Architecture layer).
+ *
+ * All mutations run inside a single Prisma Interactive Transaction so that
+ * any failure automatically rolls back every change made within that call:
+ *
+ *   Step 1 — Early stock check  (read-only guard, no mutations yet)
+ *   Step 2 — Server-side price calculation from real DB prices
+ *   Step 3 — Create the Order record
+ *   Step 4 — Create OrderItem records (price snapshot)
+ *   Step 5 — Atomic stock deduction via atomicCheckoutDeduction
+ *             → uses UPDATE … WHERE stockQuantity >= quantity
+ *             → throws P2025 / INSUFFICIENT_STOCK if a race condition
+ *               depletes stock between Step 1 and Step 5
+ *   Step 6 — Append initial OrderStatusHistory entry
+ *
+ * Returns the full OrderDetailDto for the newly created order.
+ */
+export async function createOrder(
+  currentUser: CurrentUser,
+  dto: CreateOrderDto,
+): Promise<OrderDetailDto> {
+  const {
+    items,
+    paymentMethod,
+    customerName,
+    customerPhone,
+    shippingCity,
+    shippingDistrict,
+    shippingWard,
+    shippingAddressDetail,
+    note,
+  } = dto;
+
+  if (!items || items.length === 0) {
+    throw new AppError(400, 'CART_EMPTY', 'orders:errors.cartEmpty');
+  }
+
+  // Generate a human-readable order number before entering the transaction
+  const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, '0')}`;
+
+  const newOrderId = await prisma.$transaction(async (tx) => {
+    // ── Step 1: Early stock check ─────────────────────────────────────────────
+    // Fetch all requested variants in a single query to minimise round-trips.
+    const variantIds = items.map((i) => i.variantId);
+
+    const variants = await (tx.productVariant.findMany as any)({
+      where: { variantId: { in: variantIds } },
+      select: {
+        variantId: true,
+        sku: true,
+        price: true,
+        stockQuantity: true,
+        product: { select: { name: true } },
+        variantAttributes: {
+          select: {
+            value: {
+              select: {
+                value: true,
+                attribute: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Build a lookup map for O(1) access
+    const variantMap = new Map<number, (typeof variants)[number]>();
+    for (const v of variants) {
+      variantMap.set(v.variantId, v);
+    }
+
+    // Validate every item — stock check AND existence
+    for (const item of items) {
+      const variant = variantMap.get(item.variantId);
+
+      if (!variant) {
+        throw new AppError(
+          400,
+          'VARIANT_NOT_FOUND',
+          'products:errors.notFound',
+          { variantId: item.variantId },
+        );
+      }
+
+      const available: number = variant.stockQuantity;
+      if (available < item.quantity) {
+        throw new AppError(
+          400,
+          'OUT_OF_STOCK',
+          'orders:errors.outOfStock',
+          { variantId: item.variantId, available, requested: item.quantity },
+        );
+      }
+    }
+
+    // ── Step 2: Calculate total price from DB (never trust client) ────────────
+    let totalAmount = 0;
+    const enrichedItems = items.map((item) => {
+      const variant = variantMap.get(item.variantId)!;
+      const unitPrice = Number(variant.price);
+      totalAmount += unitPrice * item.quantity;
+
+      // Build a human-readable variant label (e.g. "Trắng / L") for the snapshot
+      const attrLabel = (variant.variantAttributes as any[])
+        .map((va: any) => va.value.value)
+        .join(' / ');
+
+      return {
+        variantId: item.variantId,
+        quantity: item.quantity,
+        unitPrice,
+        sku: variant.sku as string,
+        productName: item.productName ?? (variant.product?.name as string) ?? 'Unknown',
+        variantName: item.variantName ?? attrLabel ?? variant.sku,
+      };
+    });
+
+    // ── Step 3: Create the Order record ──────────────────────────────────────
+    const order = await (tx.order.create as any)({
+      data: {
+        userId: currentUser.userId,
+        orderNumber,
+        customerName,
+        customerPhone,
+        shippingCity,
+        shippingDistrict: shippingDistrict ?? '',
+        shippingWard: shippingWard ?? null,
+        shippingAddressDetail,
+        totalAmount,
+        status: 'Pending',
+        paymentMethod,
+        note: note ?? null,
+      },
+      select: { orderId: true },
+    });
+
+    const orderId: number = order.orderId;
+
+    // ── Step 4: Create OrderItem records (price snapshot) ─────────────────────
+    await (tx.orderItem.createMany as any)({
+      data: enrichedItems.map((ei) => ({
+        orderId,
+        variantId: ei.variantId,
+        productName: ei.productName,
+        sku: ei.sku,
+        variantName: ei.variantName,
+        unitPrice: ei.unitPrice,
+        quantity: ei.quantity,
+      })),
+    });
+
+    // ── Step 5: Atomic stock deduction (race-condition safe) ──────────────────
+    // atomicCheckoutDeduction uses:
+    //   UPDATE ProductVariants SET StockQuantity -= quantity
+    //   WHERE VariantId = ? AND StockQuantity >= quantity
+    // If a concurrent request already bought the last units, Prisma throws P2025
+    // which this helper converts to INSUFFICIENT_STOCK — triggering a full rollback.
+    await atomicCheckoutDeduction(
+      orderId,
+      currentUser.userId,
+      enrichedItems.map((ei) => ({
+        variantId: ei.variantId,
+        quantity: ei.quantity,
+        productName: ei.productName,
+      })),
+      tx,
+    );
+
+    // ── Step 6: Initial status history entry ──────────────────────────────────
+    await (tx.orderStatusHistory.create as any)({
+      data: {
+        orderId,
+        oldStatus: null,
+        status: 'Pending',
+        changedBy: currentUser.userId,
+        changedAt: new Date(),
+        note: 'Order placed',
+      },
+    });
+
+    logger.info('Order successfully created', {
+      orderId,
+      orderNumber,
+      userId: currentUser.userId,
+      totalAmount
+    });    return orderId;
+  });  // Re-fetch with full relations so we can return the standard DTO
+  const order = await findOrderByIdWithRelations(newOrderId);
+  if (!order) {
+    // Should never happen unless the DB is in a very unusual state
+    throw new AppError(500, 'INTERNAL_ERROR', 'common:errors.internalServer');
+  }  return mapOrderToDto(order);
+}

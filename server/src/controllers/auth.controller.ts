@@ -6,6 +6,7 @@ import { z, ZodError } from 'zod';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma';
 import { verifyEmailToken, resendVerificationEmail } from '../services/verification.service';
+import { logger } from '../lib/logger';
 
 export const register = async (req: Request, res: Response) => {
     try {
@@ -21,16 +22,17 @@ export const register = async (req: Request, res: Response) => {
             email: newUser.email,
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const e = error as { message?: string; issues?: unknown[] };
         if (error instanceof ZodError) {
             res.status(400).json({ error: error.issues });
-        } else if (error.message === 'Email already exists') {
-            res.status(409).json({ error: error.message });
-        } else if (error.message === 'Failed to send verification email') {
+        } else if (e.message === 'Email already exists') {
+            res.status(409).json({ error: e.message });
+        } else if (e.message === 'Failed to send verification email') {
             res.status(500).json({ error: 'Registration successful but failed to send verification email. Please try resending.' });
         } else {
-            console.error("Registration error:", error);
-            res.status(500).json({ error: 'Internal Server Error', details: error.message });
+            logger.error('[authController] register failed', { error });
+            res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 };
@@ -82,7 +84,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
             }
         });
     } catch (error: any) {
-        console.error('Email verification error:', error);
+        logger.error('[authController] verifyEmail failed', { error });
 
         if (error.message === 'Invalid verification token') {
             return res.status(400).json({ error: 'Invalid verification code' });
@@ -114,7 +116,7 @@ export const resendVerification = async (req: Request, res: Response) => {
             message: 'Verification email has been sent. Please check your inbox.',
         });
     } catch (error: any) {
-        console.error('Resend verification error:', error);
+        logger.error('[authController] resendVerification failed', { error });
 
         if (error.message === 'No account found with this email') {
             return res.status(404).json({ error: error.message });
@@ -177,13 +179,13 @@ export const googleCallback = (req: Request, res: Response) => {
         const user = req.user as any;
 
         if (!user) {
-            console.error('Google OAuth callback: No user in request');
+            logger.error('[authController] Google OAuth: no user in request');
             return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/callback?error=auth_failed`);
         }
 
         // Validate user data
         if (!user.userId || !user.email) {
-            console.error('Google OAuth callback: Invalid user data', user);
+            logger.error('[authController] Google OAuth: invalid user data', { user });
             return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/callback?error=invalid_user`);
         }
 
@@ -191,7 +193,7 @@ export const googleCallback = (req: Request, res: Response) => {
         const REFRESH_SECRET = process.env.REFRESH_SECRET;
 
         if (!JWT_SECRET || !REFRESH_SECRET) {
-            console.error('Google OAuth callback: Missing JWT secrets');
+            logger.error('[authController] Google OAuth: missing JWT secrets');
             return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/callback?error=server_error`);
         }
 
@@ -237,7 +239,7 @@ export const googleCallback = (req: Request, res: Response) => {
         const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
         res.redirect(`${clientUrl}/auth/callback`);
     } catch (error: any) {
-        console.error('Google OAuth callback error:', error);
+        logger.error('[authController] googleCallback failed', { error });
         const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
         // Even on error, redirect to clean URL - let frontend check session
         res.redirect(`${clientUrl}/auth/callback`);
@@ -327,7 +329,7 @@ export const getSession = async (req: Request, res: Response) => {
             });
         }
 
-        console.error('Session verification error:', error);
+        logger.error('[authController] verifySession failed', { error });
         res.status(500).json({
             isAuthenticated: false,
             error: 'Internal server error'
@@ -347,7 +349,7 @@ export const logout = (req: Request, res: Response) => {
             message: 'Logged out successfully'
         });
     } catch (error: any) {
-        console.error('Logout error:', error);
+        logger.error('[authController] logout failed', { error });
         res.status(500).json({ error: 'Failed to logout' });
     }
 }
@@ -369,7 +371,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
             message: 'If an account exists with this email, a password reset link has been sent.'
         });
     } catch (error: any) {
-        console.error('Forgot password error:', error);
+        logger.error('[authController] forgotPassword failed', { error });
         res.status(500).json({ error: 'Failed to process forgot password request' });
     }
 };
@@ -407,7 +409,7 @@ export const passwordResetInit = async (req: Request, res: Response) => {
         const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
         res.redirect(`${clientUrl}/reset-password`);
     } catch (error: any) {
-        console.error('Password reset init error:', error);
+        logger.error('[authController] resetPasswordInit failed', { error });
         const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
         res.redirect(`${clientUrl}/reset-password?error=server_error`);
     }
@@ -438,7 +440,7 @@ export const resetPassword = async (req: Request, res: Response) => {
             message: 'Password has been reset successfully. You can now login with your new password.'
         });
     } catch (error: any) {
-        console.error('Reset password error:', error);
+        logger.error('[authController] resetPassword failed', { error });
 
         if (error.message === 'Invalid or expired password reset token' || error.message === 'Password reset token has expired') {
             // Clear invalid token cookie

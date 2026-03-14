@@ -122,7 +122,7 @@ export async function requestReturn(
                 oldStatus: order.status,
                 status: 'Return_Requested',
                 changedBy: userId,
-                note: 'Khách hàng gửi yêu cầu trả hàng.',
+                note: 'Customer submitted a return request.',
             },
         });
 
@@ -172,7 +172,7 @@ export async function processReturn(
                 adminNote: note ?? null,
             },
         });
-        return { success: true, code: 'RETURN_APPROVED', message: 'Return request approved.' };
+        return { success: true, code: 'RETURN_APPROVED', messageKey: 'feedback.approveSuccess', message: 'Return request approved.' };
     }
 
     if (action === 'REJECT') {
@@ -193,12 +193,12 @@ export async function processReturn(
                     oldStatus: 'Return_Requested',
                     status: 'Delivered',
                     changedBy: adminUserId,
-                    note: note ? `Từ chối hoàn trả: ${note}` : 'Từ chối yêu cầu hoàn trả.',
+                    note: note ? `Return rejected: ${note}` : 'Return request rejected.',
                 },
             });
         });
 
-        return { success: true, code: 'RETURN_REJECTED', message: 'Return request rejected.' };
+        return { success: true, code: 'RETURN_REJECTED', messageKey: 'feedback.rejectSuccess', message: 'Return request rejected.' };
     }
 
     if (action === 'COMPLETE_REFUND') {
@@ -225,7 +225,7 @@ export async function processReturn(
                     oldStatus: returnReq.order.status,
                     status: 'Returned',
                     changedBy: adminUserId,
-                    note: note ? `Hoàn tiền: ${note}` : 'Xác nhận hoàn tiền và nhập lại kho.',
+                    note: note ? `Refunded: ${note}` : 'Refund confirmed and stock restored.',
                 },
             });
 
@@ -261,7 +261,7 @@ export async function processReturn(
                         previousStock,
                         newStock,
                         reason: 'RETURN_RESTORE' satisfies InventoryLogReason,
-                        note: `Hoàn trả đơn hàng #${returnReq.orderId}`,
+                        note: `Returned order #${returnReq.orderId}`,
                     },
                 });
             }
@@ -270,6 +270,7 @@ export async function processReturn(
         return {
             success: true,
             code: 'REFUND_COMPLETED',
+            messageKey: 'feedback.refundSuccess',
             message: 'Refund confirmed and stock restored.',
         };
     }

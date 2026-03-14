@@ -15,6 +15,7 @@
  */
 
 import { prisma } from '../utils/prisma';
+import { deriveOrderPaymentStatus } from '../shared/order-state';
 
 // ─── Error class ──────────────────────────────────────────────────────────────
 
@@ -58,7 +59,7 @@ export class MockVNPayGateway implements IPaymentGateway {
         if (Math.random() < 0.1) {
             return {
                 success: false,
-                errorMessage: 'VNPay: Giao dịch hoàn tiền thất bại - Mã lỗi GW_TIMEOUT',
+                errorMessage: 'VNPay: Refund transaction failed - Error code GW_TIMEOUT',
             };
         }
 
@@ -116,7 +117,7 @@ export interface CreateRefundPayload {
  *
  * Validations:
  *  1. Order must exist.
- *  2. Order must be Paid (paymentStatus === 'Paid').
+ *  2. Order must be paid according to Payments.Status.
  *  3. totalAlreadyRefunded + newAmount <= order.totalAmount.
  *
  * Prisma transaction:
@@ -144,9 +145,9 @@ export async function initiateRefund(
     }
 
     // ── 2. Payment status guard
-    const isPaid = ['Paid', 'PAID', 'paid'].includes(order.paymentStatus ?? '');
-    const isPartiallyRefunded = (order.paymentStatus ?? '').includes('PARTIALLY_REFUNDED') ||
-        (order.paymentStatus ?? '').includes('Partially_Refunded');
+    const orderPaymentStatus = deriveOrderPaymentStatus(order.payments);
+    const isPaid = orderPaymentStatus === 'PAID';
+    const isPartiallyRefunded = orderPaymentStatus === 'PARTIALLY_REFUNDED';
 
     if (!isPaid && !isPartiallyRefunded) {
         throw new RefundError(
@@ -240,14 +241,6 @@ export async function initiateRefund(
                 },
             });
         }
-
-        // Step F: Update Order paymentStatus
-        await (tx.order.update as any)({
-            where: { orderId },
-            data: {
-                paymentStatus: isFullyRefunded ? 'Refunded' : 'Partially_Refunded',
-            },
-        });
 
         return { ...refund, status: 'SUCCESS', gatewayTransactionId: gatewayResult.transactionId };
     });

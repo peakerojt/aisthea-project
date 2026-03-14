@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
+import { logger } from '../lib/logger';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -192,8 +193,9 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
             topProducts,
             recentOrders: recentOrdersFormatted,
         });
-    } catch (error: any) {
-        console.error('[getDashboardSummary] Error:', error?.message ?? error);
-        res.status(500).json({ success: false, error: 'Internal server error', details: error?.message });
+    } catch (error: unknown) {
+        logger.error('[dashboardController] getDashboardSummary failed', { error });
+        const e = error as { message?: string };
+        res.status(500).json({ success: false, error: 'Internal server error', details: e.message });
     }
 };

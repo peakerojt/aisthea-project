@@ -49,13 +49,21 @@
         "markInStock": "Đánh dấu còn hàng",
         "deleteSelected": "Xóa đã chọn",
         "resetFilters": "Đặt lại bộ lọc",
-        "searchPlaceholder": "Tìm theo tên, SKU…"
+        "searchPlaceholder": "Tìm theo tên, SKU…",
+        "importExport": "Nhập / Xuất"
     },
     "modal": {
         "deleteTitle": "Xác nhận xóa sản phẩm?",
         "deleteBody": "Hành động này <b>không thể hoàn tác</b>. Nếu sản phẩm đã có đơn hàng, hệ thống sẽ chỉ <b>ẩn sản phẩm</b> để bảo toàn lịch sử đơn hàng.",
+        "deleteWarning": "Hành động này <span class=\"text-white font-semibold\">không thể hoàn tác</span>. Nếu sản phẩm đã có đơn hàng, hệ thống sẽ chỉ <span class=\"text-yellow-400 font-semibold\">ẩn sản phẩm</span> để bảo toàn lịch sử đơn hàng.",
         "deleting": "Đang xóa...",
         "delete": "Xóa"
+    },
+    "categories": {
+        "coats": "Áo khoác",
+        "dresses": "Váy",
+        "accessories": "Phụ kiện",
+        "shoes": "Giày"
     },
     "empty": {
         "noMatch": "Không có sản phẩm nào khớp với bộ lọc",
@@ -165,6 +173,77 @@
             "loadingImages": "Đang tải hình ảnh...",
             "unsavedChanges": "Bạn có thay đổi chưa lưu. Bạn có muốn rời khỏi trang không?",
             "loadError": "Không thể tải sản phẩm"
+        },
+        "mediaManager": {
+            "title": "Quản lý hình ảnh",
+            "dropzone": "Kéo thả ảnh vào đây, hoặc nhấn để tải lên (Tối đa 5MB/ảnh)",
+            "primaryBadge": "Ảnh bìa",
+            "unassigned": "Ảnh chung",
+            "variantLink": "Gắn với phân loại (Màu sắc)",
+            "toastPrimarySuccess": "Đã cập nhật ảnh bìa thành công",
+            "toastUploadSuccess": "Tải lên {{count}} ảnh thành công.",
+            "deleteConfirm": "Xóa ảnh này?",
+            "uploading": "Đang tải lên...",
+            "errorFileTooLarge": "Ảnh vượt quá 5MB",
+            "errorInvalidType": "Định dạng không hợp lệ",
+            "reorderHint": "Kéo để sắp xếp thứ tự ảnh",
+            "hintPrimary": "Hover → click \"Ảnh bìa\" để đặt ảnh thumbnail chính",
+            "hintLink": "Hover → \"Gắn phân loại\" để liên kết biến thể"
         }
+    },
+    "variantSelector": {
+        "priceFrom": "Từ {{min}}đ — {{max}}đ",
+        "onlyNLeft": "Chỉ còn {{count}} sản phẩm",
+        "inStock": "Còn hàng",
+        "pleaseSelect": "Vui lòng chọn",
+        "sizeGuide": "Hướng dẫn chọn size",
+        "outOfStockSubtitle": "Phân loại này hiện đã",
+        "outOfStockHighlight": "hết hàng",
+        "outOfStockDesc": ". Vui lòng chọn phân loại khác hoặc quay lại sau.",
+        "addToCart": "Thêm vào giỏ hàng",
+        "outOfStockBtn": "Hết hàng",
+        "unselectedBtn": "Vui lòng chọn phân loại hàng",
+        "outOfStockIcon": " — Hết hàng"
+    },
+    "pdp": {
+        "notFound": "Không tìm thấy sản phẩm.",
+        "back": "Quay lại",
+        "share": "Chia sẻ",
+        "defaultDesc": "Được chế tác từ những vật liệu cao cấp, sản phẩm này định nghĩa lại sự sang trọng hiện đại. Nổi bật với kiểu dáng được cắt may tỉ mỉ, phụ kiện tinh tế và thiết kế cấu trúc mang tính biểu tượng của Aisthea.",
+        "copyLinkSuccess": "Đã sao chép liên kết",
+        "copyLinkSubtitle": "Bạn có thể chia sẻ liên kết này.",
+        "stylist": {
+            "heading": "Cần hỗ trợ phối đồ?",
+            "subheading": "Các stylist của chúng tôi luôn sẵn sàng tư vấn chuyên nghiệp.",
+            "cta": "Trò chuyện cùng stylist"
+        },
+        "accordion": {
+            "features": "Đặc điểm sản phẩm",
+            "material": "Chất liệu & Bảo quản",
+            "shipping": "Vận chuyển & Đổi trả",
+            "featuresBody": "Được thiết kế với sự chú ý tỉ mỉ đến từng chi tiết tại xưởng chính của chúng tôi.",
+            "materialBody": "100% Wool siêu nhẹ cao cấp. Chỉ giặt khô. Ủi ở nhiệt độ thấp nếu cần thiết.",
+            "shippingBody": "Miễn phí giao hàng nhanh cho mọi đơn hàng từ 5.000.000đ. Đổi trả dễ dàng trong vòng 14 ngày sau khi nhận hàng."
+        },
+        "reviews": {
+            "title": "Đánh giá của khách hàng",
+            "empty": "Chưa có đánh giá nào."
+        },
+        "recentlyViewed": "Vừa mới xem",
+        "youMightLike": {
+            "label": "Gợi ý cho bạn",
+            "title": "Có thể bạn sẽ thích",
+            "memberBadge": "Dành cho thành viên"
+        },
+        "viewLabels": [
+            "Mặt trước",
+            "Mặt cạnh",
+            "Mặt sau"
+        ],
+        "insufficientStock": "Không đủ hàng",
+        "insufficientStockSub": "Chỉ còn {{count}} sản phẩm trong kho.",
+        "addFailed": "Thêm thất bại",
+        "addFailedSub": "Vui lòng thử lại.",
+        "guestCartSubtitle": "Đăng nhập để hoàn tất mua hàng"
     }
 }

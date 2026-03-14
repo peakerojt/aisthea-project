@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { cloudinaryService, ProductVariantUploadOptions } from '../services/cloudinary.service';
 import { prisma } from '../utils/prisma';
+import { logger } from '../lib/logger';
 
 /**
  * Upload single product image
@@ -13,49 +14,63 @@ export const uploadSingleProductImage = async (req: Request, res: Response) => {
             return res.status(400).json({ success: false, error: 'Invalid product ID' });
         }
 
-        // Get file from multer
         const file = req.file;
         if (!file) {
             return res.status(400).json({ success: false, error: 'No image file provided' });
         }
 
-        // Get product slug for folder naming
         const product = await prisma.product.findUnique({
             where: { productId },
-            select: { slug: true }
+            select: { slug: true },
         });
-
         if (!product) {
             return res.status(404).json({ success: false, error: 'Product not found' });
         }
 
-        // Convert to base64
         const base64Data = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-
-        // Extract upload options from body
         const options: ProductVariantUploadOptions = {
-            productSku: product.slug, // Use slug as folder identifier
+            productSku: product.slug,
             variantColor: req.body.variantColor,
             category: req.body.category,
             isPrimary: req.body.isPrimary === 'true',
             tags: req.body.tags ? req.body.tags.split(',').map((t: string) => t.trim()) : undefined,
         };
 
-        // Upload to Cloudinary
         const result = await cloudinaryService.uploadProductVariantImage(base64Data, options);
 
-        // Save to database
+        let finalVariantId = req.body.variantId ? Number(req.body.variantId) : null;
+
+        if (!finalVariantId && req.body.associatedAttributeValue) {
+            const variantInfo = await (prisma.productVariant.findFirst as any)({
+                where: {
+                    productId,
+                    isDeleted: false,
+                    variantAttributes: {
+                        some: {
+                            value: {
+                                value: req.body.associatedAttributeValue,
+                            }
+                        }
+                    }
+                },
+                select: { variantId: true }
+            });
+            if (variantInfo) {
+                finalVariantId = variantInfo.variantId;
+            }
+        }
+
         const productImage = await (prisma.productImage.create as any)({
             data: {
                 productId,
-                variantId: req.body.variantId ? Number(req.body.variantId) : null,
+                variantId: finalVariantId,
                 imageUrl: result.secureUrl,
                 thumbnailUrl: result.thumbnailUrl,
                 isPrimary: options.isPrimary || false,
             },
         });
 
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
             message: 'Image uploaded successfully',
             data: {
@@ -67,17 +82,116 @@ export const uploadSingleProductImage = async (req: Request, res: Response) => {
                 height: result.height,
             },
         });
-    } catch (error: any) {
-        console.error('Upload product image error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to upload image',
-        });
+    } catch (error: unknown) {
+        logger.error('[productImageController] uploadSingleProductImage failed', { error });
+        const e = error as { message?: string };
+        return res.status(500).json({ success: false, error: e.message || 'Failed to upload image' });
     }
 };
 
 /**
- * Upload multiple product images (batch upload)
+ * Bulk upload product images with concurrency via Promise.allSettled
+ * POST /api/products/:id/images/bulk
+ *
+ * Accepts: multipart/form-data with field "files" (multiple)
+ * Optional body fields: variantId, variantColor, category, firstAsPrimary
+ */
+export const bulkUploadProductImages = async (req: Request, res: Response) => {
+    try {
+        const productId = Number(req.params.id);
+        if (isNaN(productId)) {
+            return res.status(400).json({ success: false, error: 'Invalid product ID' });
+        }
+
+        const files = req.files as Express.Multer.File[];
+        if (!files || files.length === 0) {
+            return res.status(400).json({ success: false, error: 'No image files provided' });
+        }
+
+        const product = await prisma.product.findUnique({
+            where: { productId },
+            select: { slug: true },
+        });
+        if (!product) {
+            return res.status(404).json({ success: false, error: 'Product not found' });
+        }
+
+        // Map files to upload payloads
+        const uploadPayloads = files.map((file, index) => ({
+            base64Data: `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
+            options: {
+                productSku: product.slug,
+                variantColor: req.body.variantColor,
+                category: req.body.category,
+                isPrimary: false,
+                tags: req.body.tags ? req.body.tags.split(',').map((t: string) => t.trim()) : undefined,
+            } as ProductVariantUploadOptions,
+        }));
+
+        // Concurrent upload via Promise.allSettled — one failure won't abort others
+        const settledResults = await Promise.allSettled(
+            uploadPayloads.map(({ base64Data, options }) =>
+                cloudinaryService.uploadProductVariantImage(base64Data, options)
+            )
+        );
+
+        // Persist successful uploads to DB
+        const savedImages: any[] = [];
+        const failedIndexes: Array<{ index: number; error: string }> = [];
+
+        await Promise.allSettled(
+            settledResults.map(async (outcome, index) => {
+                if (outcome.status === 'fulfilled') {
+                    const result = outcome.value;
+                    try {
+                        const productImage = await (prisma.productImage.create as any)({
+                            data: {
+                                productId,
+                                variantId: req.body.variantId ? Number(req.body.variantId) : null,
+                                imageUrl: result.secureUrl,
+                                thumbnailUrl: result.thumbnailUrl,
+                                isPrimary: false,
+                            },
+                        });
+                        savedImages.push({
+                            imageId: productImage.imageId,
+                            imageUrl: result.optimizedUrl,
+                            thumbnailUrl: result.thumbnailUrl,
+                            publicId: result.publicId,
+                        });
+                    } catch (dbError: any) {
+                        failedIndexes.push({ index, error: dbError.message || 'DB save failed' });
+                    }
+                } else {
+                    failedIndexes.push({
+                        index,
+                        error: outcome.reason?.message || 'Upload failed',
+                    });
+                }
+            })
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: `Tải lên ${savedImages.length} ảnh thành công${failedIndexes.length > 0 ? `, ${failedIndexes.length} thất bại` : ''}`,
+            data: {
+                uploaded: savedImages,
+                failed: failedIndexes,
+                summary: {
+                    totalUploaded: savedImages.length,
+                    totalFailed: failedIndexes.length,
+                },
+            },
+        });
+    } catch (error: unknown) {
+        logger.error('[productImageController] bulkUploadProductImages failed', { error });
+        const e = error as { message?: string };
+        return res.status(500).json({ success: false, error: e.message || 'Failed to upload images' });
+    }
+};
+
+/**
+ * Upload multiple product images (legacy batch)
  * POST /api/products/:productId/images
  */
 export const uploadMultipleProductImages = async (req: Request, res: Response) => {
@@ -87,27 +201,23 @@ export const uploadMultipleProductImages = async (req: Request, res: Response) =
             return res.status(400).json({ success: false, error: 'Invalid product ID' });
         }
 
-        // Get files from multer
         const files = req.files as Express.Multer.File[];
         if (!files || files.length === 0) {
             return res.status(400).json({ success: false, error: 'No image files provided' });
         }
 
-        // Get product slug for folder naming
         const product = await prisma.product.findUnique({
             where: { productId },
-            select: { slug: true }
+            select: { slug: true },
         });
-
         if (!product) {
             return res.status(404).json({ success: false, error: 'Product not found' });
         }
 
-        // Prepare images for batch upload
         const images = files.map((file, index) => ({
             base64Data: `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
             options: {
-                productSku: product.slug, // Use slug as folder identifier
+                productSku: product.slug,
                 variantColor: req.body.variantColor,
                 category: req.body.category,
                 isPrimary: index === 0 && req.body.firstAsPrimary === 'true',
@@ -115,11 +225,9 @@ export const uploadMultipleProductImages = async (req: Request, res: Response) =
             } as ProductVariantUploadOptions,
         }));
 
-        // Batch upload with concurrency control
-        const concurrency = Number(req.body.concurrency) || 10;
+        const concurrency = Number(req.body.concurrency) || 5;
         const batchResult = await cloudinaryService.uploadProductVariantImages(images, concurrency);
 
-        // Save successful uploads to database
         const savedImages = [];
         for (const result of batchResult.successful) {
             const productImage = await (prisma.productImage.create as any)({
@@ -139,7 +247,7 @@ export const uploadMultipleProductImages = async (req: Request, res: Response) =
             });
         }
 
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
             message: `Uploaded ${batchResult.totalUploaded} images, ${batchResult.totalFailed} failed`,
             data: {
@@ -151,12 +259,61 @@ export const uploadMultipleProductImages = async (req: Request, res: Response) =
                 },
             },
         });
-    } catch (error: any) {
-        console.error('Batch upload product images error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to upload images',
+    } catch (error: unknown) {
+        logger.error('[productImageController] uploadMultipleProductImages failed', { error });
+        const e = error as { message?: string };
+        return res.status(500).json({ success: false, error: e.message || 'Failed to upload images' });
+    }
+};
+
+/**
+ * Set a product image as the primary (cover) image — transactional
+ * PATCH /api/products/:id/images/:imageId/primary
+ *
+ * Uses prisma.$transaction to atomically:
+ *   1. Set isPrimary = false for ALL images of this product
+ *   2. Set isPrimary = true for the selected imageId
+ */
+export const setPrimaryImage = async (req: Request, res: Response) => {
+    try {
+        const productId = Number(req.params.id);
+        const imageId = Number(req.params.imageId);
+
+        if (isNaN(productId) || isNaN(imageId)) {
+            return res.status(400).json({ success: false, error: 'Invalid product or image ID' });
+        }
+
+        // Verify the image belongs to this product
+        const image = await (prisma.productImage.findFirst as any)({
+            where: { imageId, productId },
         });
+        if (!image) {
+            return res.status(404).json({ success: false, error: 'Image not found for this product' });
+        }
+
+        // Atomic transaction: reset all → set target
+        const [, updatedImage] = await prisma.$transaction([
+            // Step 1: Unset all primaries for this product
+            (prisma.productImage.updateMany as any)({
+                where: { productId },
+                data: { isPrimary: false },
+            }),
+            // Step 2: Set the selected image as primary
+            (prisma.productImage.update as any)({
+                where: { imageId },
+                data: { isPrimary: true },
+            }),
+        ]);
+
+        return res.json({
+            success: true,
+            message: 'Đã cập nhật ảnh bìa thành công',
+            data: updatedImage,
+        });
+    } catch (error: unknown) {
+        logger.error('[productImageController] setPrimaryImage failed', { error });
+        const e = error as { message?: string };
+        return res.status(500).json({ success: false, error: e.message || 'Failed to set primary image' });
     }
 };
 
@@ -171,36 +328,24 @@ export const deleteProductImage = async (req: Request, res: Response) => {
             return res.status(400).json({ success: false, error: 'Invalid image ID' });
         }
 
-        // Find the image
-        const image = await prisma.productImage.findUnique({
-            where: { imageId },
-        });
-
+        const image = await prisma.productImage.findUnique({ where: { imageId } });
         if (!image) {
             return res.status(404).json({ success: false, error: 'Image not found' });
         }
 
-        // Extract and delete from Cloudinary
+        // Delete from Cloudinary
         const publicId = cloudinaryService.extractPublicId(image.imageUrl);
         if (publicId) {
             await cloudinaryService.deleteImage(publicId);
         }
 
-        // Delete from database
-        await prisma.productImage.delete({
-            where: { imageId },
-        });
+        await prisma.productImage.delete({ where: { imageId } });
 
-        res.json({
-            success: true,
-            message: 'Image deleted successfully',
-        });
-    } catch (error: any) {
-        console.error('Delete product image error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to delete image',
-        });
+        return res.json({ success: true, message: 'Image deleted successfully' });
+    } catch (error: unknown) {
+        logger.error('[productImageController] deleteProductImage failed', { error });
+        const e = error as { message?: string };
+        return res.status(500).json({ success: false, error: e.message || 'Failed to delete image' });
     }
 };
 
@@ -223,15 +368,10 @@ export const getProductImages = async (req: Request, res: Response) => {
             ],
         });
 
-        res.json({
-            success: true,
-            data: images,
-        });
-    } catch (error: any) {
-        console.error('Get product images error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to fetch images',
-        });
+        return res.json({ success: true, data: images });
+    } catch (error: unknown) {
+        logger.error('[productImageController] getProductImages failed', { error });
+        const e = error as { message?: string };
+        return res.status(500).json({ success: false, error: e.message || 'Failed to fetch images' });
     }
 };

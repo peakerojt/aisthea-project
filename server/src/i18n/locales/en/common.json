@@ -1,0 +1,18 @@
+{
+  "errors": {
+    "notFoundRoute": "Route {{method}} {{url}} not found",
+    "internalServer": "Internal server error",
+    "validation": "Invalid request data",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Forbidden",
+    "notFound": "Resource not found",
+    "unknown": "Unknown error",
+    "rateLimitExceeded": "Too many requests. Please try again later.",
+    "authRateLimitExceeded": "Too many authentication attempts. Please try again in 15 minutes.",
+    "csrfOriginForbidden": "Cross-site requests are not allowed.",
+    "csrfTokenInvalid": "CSRF token is missing or invalid."
+  },
+  "success": {
+    "ok": "Request processed successfully."
+  }
+}

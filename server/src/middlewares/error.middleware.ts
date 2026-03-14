@@ -1,41 +1,90 @@
 import { NextFunction, Request, Response } from 'express';
+import { t } from '../i18n';
+import { resolveRequestLocale } from './locale.middleware';
+import { logger } from '../lib/logger';
 
 export class AppError extends Error {
   statusCode: number;
-  code: string;
+  errorCode: string;
+  messageKey: string;
+  messageParams?: Record<string, unknown>;
   details?: unknown;
 
-  constructor(statusCode: number, code: string, message: string, details?: unknown) {
-    super(message);
+  constructor(
+    statusCode: number,
+    errorCode: string,
+    messageKey: string,
+    messageParams?: Record<string, unknown>,
+    details?: unknown,
+  ) {
+    super(messageKey);
     this.statusCode = statusCode;
-    this.code = code;
+    this.errorCode = errorCode;
+    this.messageKey = messageKey;
+    this.messageParams = messageParams;
     this.details = details;
   }
 }
 
 export function notFoundHandler(req: Request, res: Response) {
+  const locale = resolveRequestLocale(req);
+  const message = t(locale, 'common:errors.notFoundRoute', {
+    method: req.method,
+    url: req.originalUrl,
+  });
+
   res.status(404).json({
     success: false,
+    statusCode: 404,
+    errorCode: 'NOT_FOUND',
     code: 'NOT_FOUND',
-    message: `Route ${req.method} ${req.originalUrl} not found`,
+    messageKey: 'common:errors.notFoundRoute',
+    message,
   });
 }
 
-export function errorHandler(error: Error, _req: Request, res: Response, _next: NextFunction) {
+export function errorHandler(error: Error, req: Request, res: Response, _next: NextFunction) {
+  const locale = resolveRequestLocale(req);
+  const isProd = process.env.NODE_ENV === 'production';
+
   if (error instanceof AppError) {
+    const message = t(locale, error.messageKey, error.messageParams);
+
+    logger.error('[AppError]', {
+      errorCode: error.errorCode,
+      messageKey: error.messageKey,
+      statusCode: error.statusCode,
+      url: req.originalUrl,
+      method: req.method,
+    });
+
     return res.status(error.statusCode).json({
       success: false,
-      code: error.code,
-      message: error.message,
-      details: error.details,
+      statusCode: error.statusCode,
+      errorCode: error.errorCode,
+      code: error.errorCode,
+      messageKey: error.messageKey,
+      message,
+      ...(isProd ? {} : { details: error.details }), // Hide sensitive details in prod if needed, or keep them. Often AppError details are safe (like validation mismatches)
     });
   }
 
-  console.error('[UnhandledError]', error);
+  // Log full stack internally
+  logger.error('[UnhandledError]', {
+    message: error.message,
+    stack: error.stack,
+    url: req.originalUrl,
+    method: req.method,
+  });
 
+  // Strict JSON payload to client, NEVER leak stack trace
   return res.status(500).json({
     success: false,
+    statusCode: 500,
+    errorCode: 'INTERNAL_SERVER_ERROR',
     code: 'INTERNAL_SERVER_ERROR',
-    message: 'Internal server error',
+    messageKey: 'common:errors.internalServer',
+    message: t(locale, 'common:errors.internalServer'),
+    ...(isProd ? {} : { stack: error.stack }), // Only send stack trace in local dev mode
   });
 }

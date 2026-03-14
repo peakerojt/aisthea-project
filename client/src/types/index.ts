@@ -1,4 +1,5 @@
 
+
 export interface Product {
   id: string;
   name: string;
@@ -43,6 +44,7 @@ export type ViewState =
   | 'STORE_DETAIL'
   | 'STORE_CART'
   | 'STORE_STYLIST'
+  | 'STORE_WEATHER_OUTFIT'
   | 'STORE_PROFILE'
   | 'STORE_MY_ORDERS'
   | 'STORE_CHECKOUT'
@@ -68,7 +70,11 @@ export type ViewState =
   | 'ADMIN_COUPONS'
   | 'ADMIN_ROLES'
   | 'ADMIN_RETURNS'
-  | 'ADMIN_RETURN_DETAIL';
+  | 'ADMIN_RETURN_DETAIL'
+  | 'ADMIN_WAREHOUSES'
+  | 'STORE_RETURN_DETAIL'
+  | 'STORE_MY_RETURNS'
+  | 'STORE_SUPPORT';
 
 
 export type CategoryType = 'Men' | 'Women' | 'Accessories';

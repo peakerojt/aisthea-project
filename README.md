@@ -38,6 +38,7 @@ A comprehensive E-commerce application built with a modern stack.
    JWT_SECRET="your-secret-key"
    REFRESH_SECRET="your-refresh-secret"
    ```
+3. Copy `server/.env.example` and fill in weather + AI keys if you want live data.
 
 ### Database Setup
 1. Open SQL Server Management Studio (SSMS)
@@ -60,6 +61,26 @@ npm install
 npm run dev
 ```
 The client will start on `http://localhost:3000`.
+
+## 🌤️ Weather + AI Outfit Recommendation
+
+### Environment variables (server)
+Add these into `server/.env`:
+```env
+WEATHER_API_KEY=your_weather_api_key
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4o-mini
+MOCK_WEATHER=true
+MOCK_AI=true
+```
+- If `MOCK_WEATHER` or `MOCK_AI` is `true`, backend will return mock data for demo.
+
+### API Endpoints
+- `GET /api/weather?lat=...&lon=...` or `GET /api/weather?city=...`
+- `POST /api/outfit/recommend`
+
+### Frontend entry
+- Từ menu `Weather AI` ở header để mở tính năng.
 
 ## 🛠️ Scripts
 

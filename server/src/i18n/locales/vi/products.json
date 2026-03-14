@@ -1,0 +1,6 @@
+{
+  "errors": {
+    "invalidAttribute": "Dữ liệu thuộc tính phân loại không hợp lệ.",
+    "notFound": "Không tìm thấy sản phẩm."
+  }
+}

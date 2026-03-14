@@ -13,10 +13,12 @@ import {
 import {
     uploadSingleProductImage,
     uploadMultipleProductImages,
+    bulkUploadProductImages,
     deleteProductImage,
     getProductImages,
+    setPrimaryImage,
 } from '../controllers/productImage.controller';
-import { upload } from '../middleware/upload.middleware';
+import { upload } from '../middlewares/upload.middleware';
 
 const router = Router();
 
@@ -44,6 +46,11 @@ router.delete('/:id', deleteProduct);
 router.get('/:productId/images', getProductImages);
 router.post('/:productId/image', upload.single('file'), uploadSingleProductImage);
 router.post('/:productId/images', upload.array('files', 20), uploadMultipleProductImages);
+
+// Pro Max routes
+router.post('/:id/images/bulk', upload.array('files', 20), bulkUploadProductImages);
+router.patch('/:id/images/:imageId/primary', setPrimaryImage);
+
 router.delete('/images/:imageId', deleteProductImage);
 
 export default router;

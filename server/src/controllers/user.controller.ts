@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '../generated/client';
+import { PrismaClient, Prisma } from '../generated/client';
 import { userService } from '../services/user.service';
+import { logger } from '../lib/logger';
+import { AuthRequest } from '../middlewares/auth.middleware';
 
 const adminPrisma = new PrismaClient();
 
@@ -9,9 +11,9 @@ const adminPrisma = new PrismaClient();
 /**
  * Get current user's profile
  */
-export const getProfile = async (req: Request, res: Response) => {
+export const getProfile = async (req: AuthRequest, res: Response) => {
     try {
-        const userId = (req as any).user.userId;
+        const userId = req.user.userId;
 
         const profile = await userService.getProfile(userId);
 
@@ -19,11 +21,11 @@ export const getProfile = async (req: Request, res: Response) => {
             success: true,
             data: profile,
         });
-    } catch (error: any) {
-        console.error('Get profile error:', error);
+    } catch (error) {
+        logger.error('[userController] getProfile failed', { error });
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to get profile',
+            message: 'Failed to get profile',
         });
     }
 };
@@ -31,10 +33,10 @@ export const getProfile = async (req: Request, res: Response) => {
 /**
  * Update user profile
  */
-export const updateProfile = async (req: Request, res: Response) => {
+export const updateProfile = async (req: AuthRequest, res: Response) => {
     try {
-        const userId = (req as any).user.userId;
-        const { fullName, phone } = req.body;
+        const userId = req.user.userId;
+        const { fullName, phone } = req.body as { fullName?: string; phone?: string };
 
         const updatedProfile = await userService.updateProfile(userId, {
             fullName,
@@ -46,11 +48,12 @@ export const updateProfile = async (req: Request, res: Response) => {
             message: 'Profile updated successfully',
             data: updatedProfile,
         });
-    } catch (error: any) {
-        console.error('Update profile error:', error);
+    } catch (error: unknown) {
+        logger.error('[userController] updateProfile failed', { error });
+        const e = error as { message?: string };
         res.status(400).json({
             success: false,
-            message: error.message || 'Failed to update profile',
+            message: e.message || 'Failed to update profile',
         });
     }
 };
@@ -61,29 +64,23 @@ export const updateProfile = async (req: Request, res: Response) => {
  * 1. Multipart file upload (recommended for Postman testing)
  * 2. Base64 JSON data (for frontend)
  */
-export const uploadAvatar = async (req: Request, res: Response) => {
+export const uploadAvatar = async (req: AuthRequest, res: Response) => {
     try {
-        const userId = (req as any).user.userId;
+        const userId = req.user.userId;
         let avatarBase64: string;
 
-        // Check if file was uploaded (multipart/form-data)
-        if ((req as any).file) {
-            const file = (req as any).file as Express.Multer.File;
-            console.log('▶ Avatar upload via file:', {
+        if ((req as Request & { file?: Express.Multer.File }).file) {
+            const file = (req as Request & { file: Express.Multer.File }).file;
+            logger.debug('[userController] Avatar upload via file', {
                 filename: file.originalname,
                 mimetype: file.mimetype,
-                size: `${(file.size / 1024).toFixed(2)} KB`,
+                sizeKb: (file.size / 1024).toFixed(2),
             });
-
-            // Convert file buffer to base64
             const base64 = file.buffer.toString('base64');
             avatarBase64 = `data:${file.mimetype};base64,${base64}`;
-        }
-        // Otherwise, check for base64 JSON data
-        else if (req.body.avatar) {
-            const { avatar } = req.body;
+        } else if (req.body.avatar) {
+            const { avatar } = req.body as { avatar: string };
 
-            // Validate base64 format
             if (!avatar.startsWith('data:image/')) {
                 return res.status(400).json({
                     success: false,
@@ -91,7 +88,6 @@ export const uploadAvatar = async (req: Request, res: Response) => {
                 });
             }
 
-            // Extract MIME type for validation
             const mimeType = avatar.split(';')[0].split(':')[1];
             const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
@@ -102,22 +98,19 @@ export const uploadAvatar = async (req: Request, res: Response) => {
                 });
             }
 
-            console.log('▶ Avatar upload via base64 JSON:', {
+            logger.debug('[userController] Avatar upload via base64', {
                 mimetype: mimeType,
-                size: `${(avatar.length * 0.75 / 1024).toFixed(2)} KB`,
+                sizeKb: (avatar.length * 0.75 / 1024).toFixed(2),
             });
 
             avatarBase64 = avatar;
-        }
-        // No valid input provided
-        else {
+        } else {
             return res.status(400).json({
                 success: false,
                 message: 'No avatar provided. Please upload a file or send base64 data in the "avatar" field.',
             });
         }
 
-        // Upload to Cloudinary
         const updatedUser = await userService.uploadAvatar(userId, avatarBase64);
 
         res.status(200).json({
@@ -125,11 +118,12 @@ export const uploadAvatar = async (req: Request, res: Response) => {
             message: 'Avatar uploaded successfully to cloud storage',
             data: updatedUser,
         });
-    } catch (error: any) {
-        console.error('Upload avatar error:', error);
+    } catch (error: unknown) {
+        logger.error('[userController] uploadAvatar failed', { error });
+        const e = error as { message?: string };
         res.status(400).json({
             success: false,
-            message: error.message || 'Failed to upload avatar',
+            message: e.message || 'Failed to upload avatar',
         });
     }
 };
@@ -138,9 +132,9 @@ export const uploadAvatar = async (req: Request, res: Response) => {
 /**
  * Delete avatar
  */
-export const deleteAvatar = async (req: Request, res: Response) => {
+export const deleteAvatar = async (req: AuthRequest, res: Response) => {
     try {
-        const userId = (req as any).user.userId;
+        const userId = req.user.userId;
 
         const updatedUser = await userService.deleteAvatar(userId);
 
@@ -149,11 +143,11 @@ export const deleteAvatar = async (req: Request, res: Response) => {
             message: 'Avatar deleted successfully',
             data: updatedUser,
         });
-    } catch (error: any) {
-        console.error('Delete avatar error:', error);
+    } catch (error) {
+        logger.error('[userController] deleteAvatar failed', { error });
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to delete avatar',
+            message: 'Failed to delete avatar',
         });
     }
 };
@@ -161,9 +155,9 @@ export const deleteAvatar = async (req: Request, res: Response) => {
 /**
  * Get user addresses
  */
-export const getAddresses = async (req: Request, res: Response) => {
+export const getAddresses = async (req: AuthRequest, res: Response) => {
     try {
-        const userId = (req as any).user.userId;
+        const userId = req.user.userId;
 
         const addresses = await userService.getAddresses(userId);
 
@@ -171,11 +165,11 @@ export const getAddresses = async (req: Request, res: Response) => {
             success: true,
             data: addresses,
         });
-    } catch (error: any) {
-        console.error('Get addresses error:', error);
+    } catch (error) {
+        logger.error('[userController] getAddresses failed', { error });
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to get addresses',
+            message: 'Failed to get addresses',
         });
     }
 };
@@ -183,10 +177,17 @@ export const getAddresses = async (req: Request, res: Response) => {
 /**
  * Create new address
  */
-export const createAddress = async (req: Request, res: Response) => {
+export const createAddress = async (req: AuthRequest, res: Response) => {
     try {
-        const userId = (req as any).user.userId;
-        const addressData = req.body;
+        const userId = req.user.userId;
+        const addressData = req.body as {
+            recipientName: string;
+            phone: string;
+            addressLine: string;
+            city: string;
+            district?: string;
+            isDefault?: boolean;
+        };
 
         const newAddress = await userService.createAddress(userId, addressData);
 
@@ -195,23 +196,28 @@ export const createAddress = async (req: Request, res: Response) => {
             message: 'Address created successfully',
             data: newAddress,
         });
-    } catch (error: any) {
-        console.error('Create address error:', error);
+    } catch (error: unknown) {
+        logger.error('[userController] createAddress failed', { error });
+        const e = error as { message?: string };
         res.status(400).json({
             success: false,
-            message: error.message || 'Failed to create address',
+            message: e.message || 'Failed to create address',
         });
     }
 };
 
-/**
- * Update address
- */
-export const updateAddress = async (req: Request, res: Response) => {
+export const updateAddress = async (req: AuthRequest, res: Response) => {
     try {
-        const userId = (req as any).user.userId;
+        const userId = req.user.userId;
         const addressId = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id);
-        const addressData = req.body;
+        const addressData = req.body as {
+            recipientName: string;
+            phone: string;
+            addressLine: string;
+            city: string;
+            district?: string;
+            isDefault?: boolean;
+        };
 
         if (isNaN(addressId)) {
             return res.status(400).json({
@@ -227,11 +233,12 @@ export const updateAddress = async (req: Request, res: Response) => {
             message: 'Address updated successfully',
             data: updatedAddress,
         });
-    } catch (error: any) {
-        console.error('Update address error:', error);
+    } catch (error: unknown) {
+        logger.error('[userController] updateAddress failed', { error });
+        const e = error as { message?: string };
         res.status(400).json({
             success: false,
-            message: error.message || 'Failed to update address',
+            message: e.message || 'Failed to update address',
         });
     }
 };
@@ -257,11 +264,12 @@ export const deleteAddress = async (req: Request, res: Response) => {
             success: true,
             ...result,
         });
-    } catch (error: any) {
-        console.error('Delete address error:', error);
+    } catch (error: unknown) {
+        logger.error('[userController] deleteAddress failed', { error });
+        const e = error as { message?: string };
         res.status(400).json({
             success: false,
-            message: error.message || 'Failed to delete address',
+            message: e.message || 'Failed to delete address',
         });
     }
 };
@@ -269,9 +277,9 @@ export const deleteAddress = async (req: Request, res: Response) => {
 /**
  * Set default address
  */
-export const setDefaultAddress = async (req: Request, res: Response) => {
+export const setDefaultAddress = async (req: AuthRequest, res: Response) => {
     try {
-        const userId = (req as any).user.userId;
+        const userId = req.user.userId;
         const addressId = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id);
 
         if (isNaN(addressId)) {
@@ -288,11 +296,12 @@ export const setDefaultAddress = async (req: Request, res: Response) => {
             message: 'Default address set successfully',
             data: updatedAddress,
         });
-    } catch (error: any) {
-        console.error('Set default address error:', error);
+    } catch (error: unknown) {
+        logger.error('[userController] setDefaultAddress failed', { error });
+        const e = error as { message?: string };
         res.status(400).json({
             success: false,
-            message: error.message || 'Failed to set default address',
+            message: e.message || 'Failed to set default address',
         });
     }
 };
@@ -300,9 +309,9 @@ export const setDefaultAddress = async (req: Request, res: Response) => {
 /**
  * Get recent orders for profile display
  */
-export const getRecentOrders = async (req: Request, res: Response) => {
+export const getRecentOrders = async (req: AuthRequest, res: Response) => {
     try {
-        const userId = (req as any).user.userId;
+        const userId = req.user.userId;
         const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
 
         const orders = await userService.getRecentOrders(userId, limit);
@@ -311,11 +320,11 @@ export const getRecentOrders = async (req: Request, res: Response) => {
             success: true,
             data: orders,
         });
-    } catch (error: any) {
-        console.error('Get recent orders error:', error);
+    } catch (error) {
+        logger.error('[userController] getRecentOrders failed', { error });
         res.status(500).json({
             success: false,
-            message: error.message || 'Failed to get recent orders',
+            message: 'Failed to get recent orders',
         });
     }
 };
@@ -330,10 +339,13 @@ export const getRecentOrders = async (req: Request, res: Response) => {
  */
 export const getAllUsers = async (req: Request, res: Response) => {
     try {
-        const { search, role, status } = req.query as Record<string, string>;
+        const { search, role, status, page: pageQ, limit: limitQ } = req.query as Record<string, string>;
 
-        // Build where clause dynamically
-        const where: any = {};
+        const page = Math.max(1, parseInt(pageQ ?? '1', 10) || 1);
+        const limit = Math.min(200, Math.max(1, parseInt(limitQ ?? '50', 10) || 50));
+        const skip = (page - 1) * limit;
+
+        const where: Prisma.UserWhereInput = {};
 
         // Search by name, email, or phone
         if (search && search.trim()) {
@@ -359,27 +371,32 @@ export const getAllUsers = async (req: Request, res: Response) => {
             };
         }
 
-        const users = await adminPrisma.user.findMany({
-            where,
-            orderBy: { createdAt: 'desc' },
-            select: {
-                userId: true,
-                email: true,
-                fullName: true,
-                phone: true,
-                avatarUrl: true,
-                status: true,
-                createdAt: true,
-                userRoles: {
-                    include: {
-                        role: true,
+        const [users, total] = await Promise.all([
+            adminPrisma.user.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+                select: {
+                    userId: true,
+                    email: true,
+                    fullName: true,
+                    phone: true,
+                    avatarUrl: true,
+                    status: true,
+                    createdAt: true,
+                    userRoles: {
+                        include: {
+                            role: true,
+                        },
+                    },
+                    _count: {
+                        select: { orders: true },
                     },
                 },
-                _count: {
-                    select: { orders: true },
-                },
-            },
-        });
+            }),
+            adminPrisma.user.count({ where }),
+        ]);
 
         // Map to a cleaner shape
         const result = users.map((u) => ({
@@ -397,9 +414,13 @@ export const getAllUsers = async (req: Request, res: Response) => {
             totalOrders: u._count.orders,
         }));
 
-        res.status(200).json({ success: true, data: result });
-    } catch (error: any) {
-        console.error('[Admin] Get all users error:', error);
+        res.status(200).json({
+            success: true,
+            data: result,
+            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        });
+    } catch (error) {
+        logger.error('[userController] getAllUsers failed', { error });
         res.status(500).json({ success: false, code: 'FETCH_USERS_FAILED', message: 'Failed to fetch users.' });
     }
 };
@@ -462,8 +483,8 @@ export const updateUserStatus = async (req: Request, res: Response) => {
             message: 'User status updated successfully.',
             data: updated,
         });
-    } catch (error: any) {
-        console.error('[Admin] Update user status error:', error);
+    } catch (error) {
+        logger.error('[userController] updateUserStatus failed', { error });
         res.status(500).json({ success: false, code: 'UPDATE_STATUS_FAILED', message: 'Failed to update user status.' });
     }
 };
@@ -522,8 +543,8 @@ export const updateUserRole = async (req: Request, res: Response) => {
             message: 'User role updated successfully.',
             data: { userId: targetId, role: { roleId: role.roleId, roleName: role.roleName } },
         });
-    } catch (error: any) {
-        console.error('[Admin] Update user role error:', error);
+    } catch (error) {
+        logger.error('[userController] updateUserRole failed', { error });
         res.status(500).json({ success: false, code: 'UPDATE_ROLE_FAILED', message: 'Failed to update user role.' });
     }
 };

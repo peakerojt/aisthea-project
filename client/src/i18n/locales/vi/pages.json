@@ -1,0 +1,898 @@
+{
+  "home": {
+    "months": {
+      "january": "Tháng 1",
+      "february": "Tháng 2",
+      "march": "Tháng 3",
+      "april": "Tháng 4",
+      "may": "Tháng 5",
+      "june": "Tháng 6",
+      "july": "Tháng 7",
+      "august": "Tháng 8",
+      "september": "Tháng 9",
+      "october": "Tháng 10",
+      "november": "Tháng 11",
+      "december": "Tháng 12"
+    },
+    "tabs": {
+      "unisex": "Phi giới tính",
+      "men": "Nam",
+      "women": "Nữ"
+    },
+    "hero": {
+      "titleLine1": "Định nghĩa lại",
+      "titleLine2": "Phong cách hiện đại",
+      "subtitle": "Nơi tư duy kiến trúc gặp gỡ ngôn ngữ thiết kế mềm mại.",
+      "cta": "Khám phá bộ sưu tập"
+    },
+    "trending": {
+      "label": "Xu hướng {{month}}",
+      "men": "Gợi ý cho nam",
+      "women": "Gợi ý cho nữ",
+      "unisex": "Gợi ý unisex",
+      "viewAll": "Xem tất cả"
+    },
+    "sections": {
+      "men": {
+        "collection": "Bộ sưu tập 01",
+        "title": "Nam"
+      },
+      "women": {
+        "collection": "Bộ sưu tập 02",
+        "title": "Nữ"
+      },
+      "stylist": {
+        "label": "Gợi ý cá nhân",
+        "title": "Tư vấn phong cách",
+        "cta": "Xem phối đồ gợi ý"
+      }
+    }
+  },
+  "category": {
+    "shopNow": "Mua ngay",
+    "curatedForYou": "Dành cho bạn",
+    "trendingNow": "Xu hướng hiện tại",
+    "sortByPopularity": "Sắp xếp theo độ phổ biến",
+    "quickView": "Xem nhanh",
+    "viewAllCollections": "Xem tất cả bộ sưu tập"
+  },
+  "collection": {
+    "card": {
+      "addToBag": "Thêm vào giỏ",
+      "extraOff": "Giảm thêm 20%"
+    },
+    "filters": {
+      "title": "Bộ lọc",
+      "sortBy": "Sắp xếp theo",
+      "priceRange": "Khoảng giá",
+      "size": "Kích cỡ",
+      "resetAll": "Đặt lại tất cả bộ lọc",
+      "viewResults": "Xem {{count}} kết quả",
+      "all": "Tất cả",
+      "productCount": "{{count}} sản phẩm",
+      "page": "Trang {{current}}/{{total}}",
+      "trigger": "Bộ lọc"
+    },
+    "sort": {
+      "featured": "Nổi bật",
+      "newest": "Mới nhất",
+      "priceLowToHigh": "Giá: Thấp đến cao",
+      "priceHighToLow": "Giá: Cao đến thấp"
+    },
+    "hero": {
+      "searchResults": "Kết quả tìm kiếm",
+      "collectionTitle": "Bộ sưu tập {{collection}}",
+      "searchDescription": "Tìm thấy {{count}} sản phẩm phù hợp với \"{{term}}\"",
+      "defaultDescription": "Bộ sưu tập thiết yếu cho tủ đồ hiện đại. Khám phá những thiết kế vượt thời gian với chất liệu cao cấp."
+    },
+    "errors": {
+      "loadProducts": "Không thể tải sản phẩm. Vui lòng thử lại sau.",
+      "heading": "Lỗi tải sản phẩm",
+      "retry": "Thử lại"
+    },
+    "empty": {
+      "title": "Không tìm thấy sản phẩm",
+      "withSearch": "Chúng tôi không tìm thấy sản phẩm nào khớp với \"{{term}}\". Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc.",
+      "default": "Chưa có sản phẩm nào trong bộ sưu tập này. Vui lòng quay lại sau.",
+      "resetSearchAndFilters": "Xóa tất cả tìm kiếm & bộ lọc"
+    }
+  },
+  "myOrders": {
+    "title": "Đơn hàng của tôi",
+    "subtitle": "Xem lịch sử và chi tiết đơn hàng",
+    "tabs": {
+      "all": "Tất cả",
+      "pending": "Chờ xác nhận",
+      "shipping": "Đang giao",
+      "delivered": "Đã giao",
+      "cancelled": "Đã hủy"
+    },
+    "actions": {
+      "trackOrder": "Tra cứu đơn hàng",
+      "backToAccount": "Quay lại tài khoản",
+      "refresh": "Làm mới",
+      "startShopping": "Bắt đầu mua sắm",
+      "view": "Xem"
+    },
+    "states": {
+      "loading": "Đang tải đơn hàng...",
+      "empty": "Không tìm thấy đơn hàng.",
+      "unknown": "Không xác định",
+      "none": "Không có"
+    },
+    "labels": {
+      "total": "Tổng tiền",
+      "items": "Số món",
+      "carrier": "Đơn vị vận chuyển"
+    },
+    "errors": {
+      "loadOrders": "Không thể tải đơn hàng"
+    }
+  },
+  "myOrdersPage": {
+    "title": "Đơn hàng của tôi",
+    "states": {
+      "empty": "Chưa có đơn hàng."
+    },
+    "actions": {
+      "viewTracking": "Xem vận đơn"
+    },
+    "errors": {
+      "loadOrders": "Không thể tải đơn hàng"
+    }
+  },
+  "shoppingBag": {
+    "title": "Giỏ hàng",
+    "empty": {
+      "title": "Giỏ hàng của bạn đang trống."
+    },
+    "selection": {
+      "title": "Sản phẩm đã chọn",
+      "color": "Màu",
+      "size": "Kích cỡ"
+    },
+    "actions": {
+      "continueShopping": "Tiếp tục mua sắm",
+      "startShopping": "Bắt đầu mua sắm",
+      "save": "Lưu",
+      "remove": "Xóa",
+      "checkout": "Tiến hành thanh toán"
+    },
+    "summary": {
+      "title": "Tóm tắt đơn hàng",
+      "subtotal": "Tạm tính",
+      "shipping": "Vận chuyển",
+      "free": "Miễn phí",
+      "estimatedTax": "Thuế ước tính",
+      "promoPlaceholder": "Nhập mã giảm giá",
+      "apply": "Áp dụng",
+      "total": "Tổng cộng",
+      "includesVat": "Đã gồm VAT",
+      "noteLine1": "Miễn phí vận chuyển cho đơn từ $200.",
+      "noteLine2": "Hỗ trợ đổi trả trong 30 ngày."
+    }
+  },
+  "login": {
+    "label": "Tài khoản",
+    "title": "Chào mừng quay lại",
+    "subtitle": "Vui lòng nhập thông tin để truy cập tài khoản của bạn.",
+    "form": {
+      "email": "Địa chỉ email",
+      "password": "Mật khẩu"
+    },
+    "actions": {
+      "forgotPassword": "Quên mật khẩu?",
+      "signIn": "Đăng nhập",
+      "signingIn": "Đang đăng nhập...",
+      "google": "Tiếp tục với Google"
+    },
+    "divider": {
+      "or": "Hoặc"
+    },
+    "footer": {
+      "newHere": "Mới đến với Aisthea?",
+      "createAccount": "Tạo tài khoản",
+      "adminLogin": "Đăng nhập quản trị",
+      "privacy": "Quyền riêng tư & Điều khoản"
+    },
+    "banned": {
+      "title": "Tài khoản bị khóa",
+      "description": "Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên để biết thêm chi tiết."
+    },
+    "validation": {
+      "emailInvalid": "Email không hợp lệ",
+      "passwordRequired": "Vui lòng nhập mật khẩu"
+    }
+  },
+  "support": {
+    "breadcrumbs": {
+      "home": "Trang chủ"
+    },
+    "sidebar": {
+      "title": "Hỗ trợ"
+    },
+    "sections": {
+      "howToBuy": "Hướng dẫn mua hàng",
+      "returns": "Chính sách đổi trả",
+      "privacy": "Chính sách bảo mật",
+      "faq": "Câu hỏi thường gặp"
+    },
+    "content": {
+      "howToBuy": {
+        "title": "Hướng dẫn mua hàng",
+        "steps": {
+          "1": "Tìm sản phẩm theo danh mục hoặc ô tìm kiếm.",
+          "2": "Chọn màu, size và số lượng phù hợp.",
+          "3": "Thêm vào giỏ hàng và thanh toán.",
+          "4": "Theo dõi đơn hàng trong trang tài khoản."
+        }
+      },
+      "returns": {
+        "title": "Chính sách đổi trả",
+        "description1": "Hỗ trợ đổi/trả trong vòng 7 ngày nếu sản phẩm còn nguyên tem và chưa qua sử dụng.",
+        "description2": "Vui lòng liên hệ hotline hoặc email để được hướng dẫn quy trình trả hàng."
+      },
+      "privacy": {
+        "title": "Chính sách bảo mật",
+        "description1": "Thông tin cá nhân được sử dụng để xử lý đơn hàng và chăm sóc khách hàng.",
+        "description2": "Hệ thống áp dụng bảo mật và không chia sẻ thông tin cho bên thứ ba không liên quan."
+      },
+      "faq": {
+        "title": "Câu hỏi thường gặp",
+        "q1Label": "Hỏi:",
+        "q1Question": "Có giao hàng toàn quốc không?",
+        "a1Label": "Đáp:",
+        "a1Answer": "Có, thời gian giao từ 2-7 ngày tùy khu vực.",
+        "q2Label": "Hỏi:",
+        "q2Question": "Có những hình thức thanh toán nào?",
+        "a2Label": "Đáp:",
+        "a2Answer": "COD, chuyển khoản, VNPay, Visa/Mastercard."
+      }
+    },
+    "contact": {
+      "title": "Liên hệ",
+      "address": "Khu đô thị FPT City, Phường Hòa Hải, Quận Ngũ Hành Sơn, TP. Đà Nẵng"
+    }
+  },
+  "signup": {
+    "label": "Thành viên",
+    "title": "Tham gia AISTHEA",
+    "subtitle": "Tạo tài khoản để mở khóa bộ sưu tập độc quyền và gợi ý cá nhân hóa.",
+    "form": {
+      "fullName": "Họ và tên",
+      "email": "Địa chỉ email",
+      "password": "Mật khẩu",
+      "confirmPassword": "Xác nhận mật khẩu"
+    },
+    "password": {
+      "requirementsTitle": "Yêu cầu mật khẩu:",
+      "minLength": "Ít nhất {{value}} ký tự",
+      "uppercase": "ABC Một chữ hoa",
+      "lowercase": "abc Một chữ thường",
+      "number": "123 Một chữ số",
+      "special": "#$& Một ký tự đặc biệt"
+    },
+    "validation": {
+      "fullNameMin": "Họ và tên phải có ít nhất 2 ký tự",
+      "emailInvalid": "Email không hợp lệ",
+      "passwordMismatch": "Mật khẩu xác nhận không khớp"
+    },
+    "errors": {
+      "registerFailed": "Đăng ký thất bại"
+    },
+    "newsletter": "Đăng ký nhận bản tin để nhận ưu đãi độc quyền.",
+    "actions": {
+      "create": "Tạo tài khoản",
+      "creating": "Đang tạo tài khoản...",
+      "google": "Đăng ký với Google"
+    },
+    "divider": {
+      "or": "Hoặc"
+    },
+    "footer": {
+      "hasAccount": "Bạn đã có tài khoản?",
+      "signIn": "Đăng nhập"
+    }
+  },
+  "forgotPassword": {
+    "title": "Quên mật khẩu",
+    "form": {
+      "emailLabel": "Nhập địa chỉ email của bạn",
+      "emailPlaceholder": "name@example.com"
+    },
+    "actions": {
+      "sending": "Đang gửi...",
+      "sendLink": "Gửi liên kết đặt lại",
+      "backToLogin": "Quay lại đăng nhập"
+    },
+    "messages": {
+      "sendFailed": "Không thể gửi liên kết đặt lại"
+    }
+  },
+  "resetPassword": {
+    "title": "Đặt lại mật khẩu",
+    "form": {
+      "newPassword": "Mật khẩu mới",
+      "confirmPassword": "Xác nhận mật khẩu mới"
+    },
+    "actions": {
+      "loginNow": "Đăng nhập ngay",
+      "resetting": "Đang đặt lại...",
+      "resetPassword": "Đặt lại mật khẩu"
+    },
+    "messages": {
+      "invalidLink": "Liên kết đặt lại mật khẩu không hợp lệ.",
+      "expiredToken": "Liên kết đặt lại mật khẩu đã hết hạn. Vui lòng yêu cầu liên kết mới.",
+      "serverError": "Máy chủ gặp lỗi. Vui lòng thử lại sau.",
+      "passwordMismatch": "Mật khẩu xác nhận không khớp",
+      "passwordInvalid": "Mật khẩu phải có ít nhất 8 ký tự và bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.",
+      "resetFailed": "Không thể đặt lại mật khẩu"
+    }
+  },
+  "oauthCallback": {
+    "states": {
+      "failedTitle": "Xác thực thất bại",
+      "redirecting": "Đang chuyển đến trang đăng nhập...",
+      "processingTitle": "Đang hoàn tất đăng nhập...",
+      "processingDescription": "Đang xác minh thông tin đăng nhập"
+    },
+    "errors": {
+      "sessionNotFound": "Xác thực thất bại - không tìm thấy phiên người dùng",
+      "verifyFailed": "Không thể xác minh đăng nhập"
+    }
+  },
+  "emailVerification": {
+    "messages": {
+      "emailRequired": "Vui lòng nhập email",
+      "verifySuccess": "Xác thực email thành công!",
+      "verifyFailed": "Xác thực thất bại. Vui lòng thử lại.",
+      "resendSuccess": "Mã xác thực mới đã được gửi. Vui lòng kiểm tra hộp thư.",
+      "resendFailed": "Không thể gửi lại email. Vui lòng thử lại."
+    },
+    "states": {
+      "verifyingTitle": "Đang xác thực mã của bạn",
+      "verifyingDescription": "Vui lòng chờ trong khi hệ thống xác thực email...",
+      "successTitle": "Email đã được xác thực!",
+      "redirectingHome": "Đang chuyển về trang chủ...",
+      "errorTitle": "Xác thực thất bại",
+      "pendingTitle": "Nhập mã xác thực",
+      "pendingDescriptionPrefix": "Chúng tôi đã gửi mã 6 chữ số tới",
+      "pendingDescriptionSuffix": "Nhập mã bên dưới để xác thực tài khoản của bạn.",
+      "yourEmail": "email của bạn",
+      "codeExpires": "Mã có hiệu lực trong 24 giờ"
+    },
+    "help": {
+      "title": "Chưa nhận được mã?",
+      "tip1": "Kiểm tra thư mục spam",
+      "tip2": "Đảm bảo bạn nhập đúng email",
+      "tip3": "Vui lòng chờ vài phút để nhận email"
+    },
+    "form": {
+      "emailPlaceholder": "Nhập email của bạn"
+    },
+    "actions": {
+      "sending": "Đang gửi...",
+      "resendCode": "Gửi lại mã xác thực",
+      "resendShort": "Gửi lại mã",
+      "resendIn": "Gửi lại sau {{seconds}}s",
+      "backToLogin": "Quay lại đăng nhập",
+      "useDifferentEmail": "Dùng email khác"
+    }
+  },
+  "stylist": {
+    "hero": {
+      "badge": "Tư vấn theo thời tiết",
+      "titleLine1": "Thời tiết",
+      "titleLine2": "Chọn sẵn cho bạn",
+      "description": "Chọn vị trí để cập nhật thời tiết. Hệ thống sẽ đề xuất sản phẩm phù hợp theo mùa."
+    },
+    "actions": {
+      "useCurrentLocation": "Dùng vị trí hiện tại"
+    },
+    "cities": {
+      "hanoi": "Hà Nội",
+      "hoChiMinh": "TP. Hồ Chí Minh",
+      "daNang": "Đà Nẵng",
+      "hue": "Huế"
+    },
+    "moods": {
+      "title": "Phong cách",
+      "work": "Công việc",
+      "casual": "Hằng ngày",
+      "travel": "Du lịch",
+      "evening": "Buổi tối",
+      "current": "Phong cách"
+    },
+    "labels": {
+      "humidity": "Độ ẩm",
+      "wind": "Gió"
+    },
+    "products": {
+      "badge": "Sản phẩm gợi ý",
+      "title": "Sản phẩm theo mùa"
+    },
+    "states": {
+      "loadingWeather": "Đang lấy dữ liệu thời tiết...",
+      "loadingProducts": "Đang tải sản phẩm...",
+      "noWeatherData": "Chưa có dữ liệu thời tiết.",
+      "noDataShort": "Chưa có dữ liệu",
+      "selectLocation": "Chọn vị trí",
+      "noProducts": "Chưa có sản phẩm phù hợp."
+    },
+    "errors": {
+      "geoNotSupported": "Trình duyệt không hỗ trợ định vị.",
+      "locationUnavailable": "Không thể lấy vị trí. Hãy chọn thành phố."
+    }
+  },
+  "weatherOutfit": {
+    "hero": {
+      "badge": "Thời tiết + AI",
+      "title": "Gợi ý trang phục theo thời tiết",
+      "description": "Lấy vị trí hiện tại hoặc nhập thành phố, xem thời tiết và nhận gợi ý outfit từ AI."
+    },
+    "weatherInput": {
+      "title": "Lấy vị trí",
+      "cityPlaceholder": "Nhập thành phố"
+    },
+    "weatherCard": {
+      "title": "Thời tiết hiện tại",
+      "humidity": "Độ ẩm",
+      "wind": "Gió",
+      "seasonContext": "Bối cảnh theo mùa"
+    },
+    "profile": {
+      "title": "Hồ sơ phong cách",
+      "genderPlaceholder": "Giới tính (tùy chọn)",
+      "stylePlaceholder": "Phong cách (tối giản, thể thao, cổ điển...)",
+      "occasionPlaceholder": "Mục đích (đi làm, đi chơi...)",
+      "tolerance": {
+        "low": "Chịu lạnh/nóng kém",
+        "medium": "Bình thường",
+        "high": "Chịu nhiệt tốt"
+      }
+    },
+    "result": {
+      "title": "Kết quả outfit",
+      "outfitTitle": "Trang phục",
+      "top": "Áo",
+      "bottom": "Quần/Váy",
+      "shoes": "Giày",
+      "accessories": "Phụ kiện",
+      "tipsTitle": "Mẹo phối đồ",
+      "warningsTitle": "Cảnh báo"
+    },
+    "actions": {
+      "useCurrentLocation": "Dùng vị trí hiện tại",
+      "search": "Tra cứu",
+      "recommending": "Đang gợi ý...",
+      "recommend": "Gợi ý outfit bằng AI"
+    },
+    "states": {
+      "loadingWeather": "Đang lấy dữ liệu thời tiết...",
+      "noWeatherData": "Chưa có dữ liệu thời tiết.",
+      "noOutfit": "Chưa có gợi ý outfit. Hãy lấy thời tiết và bấm nút gợi ý."
+    },
+    "errors": {
+      "geoNotSupported": "Trình duyệt không hỗ trợ định vị.",
+      "locationUnavailable": "Không thể lấy vị trí. Hãy nhập thành phố thủ công.",
+      "cityRequired": "Vui lòng nhập tên thành phố.",
+      "weatherRequired": "Cần có dữ liệu thời tiết trước khi gợi ý."
+    }
+  },
+  "orderSuccess": {
+    "fallback": {
+      "customer": "Khách hàng",
+      "unknown": "Không rõ"
+    },
+    "header": {
+      "title": "Cảm ơn bạn đã đặt hàng!",
+      "description": "Một email xác nhận đã được gửi tới địa chỉ của bạn. Xin vui lòng kiểm tra hộp thư đến (hoặc thư mục Spam) để theo dõi."
+    },
+    "sections": {
+      "customerInfo": "Thông tin mua hàng",
+      "paymentMethod": "Phương thức thanh toán",
+      "shippingAddress": "Địa chỉ nhận hàng",
+      "shippingMethod": "Phương thức vận chuyển"
+    },
+    "payment": {
+      "vnpay": "Thanh toán qua VNPAY-QR",
+      "cod": "Thanh toán khi giao hàng (COD)"
+    },
+    "shipping": {
+      "standard": "Giao hàng tận nơi (Tiêu chuẩn)"
+    },
+    "actions": {
+      "continueShopping": "Tiếp tục mua hàng",
+      "viewOrders": "Xem đơn hàng"
+    }
+  },
+  "vnpayReturn": {
+    "states": {
+      "loadingMessage": "Đang xác thực kết quả thanh toán...",
+      "successMessage": "Thanh toán VNPAY thành công!",
+      "failedMessage": "Thanh toán thất bại hoặc đã bị hủy.",
+      "errorMessage": "Lỗi khi xác thực thanh toán VNPAY."
+    },
+    "descriptions": {
+      "success": "Cảm ơn bạn đã sử dụng dịch vụ. Đơn hàng của bạn sẽ được xử lý trong thời gian sớm nhất.",
+      "failed": "Vui lòng thử lại hoặc chọn một phương thức thanh toán khác."
+    },
+    "actions": {
+      "continueShopping": "Tiếp tục mua hàng",
+      "manageOrders": "Quản lý đơn hàng"
+    }
+  },
+  "itemsPage": {
+    "title": "Danh sách mục",
+    "subtitle": "Kéo thả hoặc dùng bàn phím (Space → phím mũi tên → Space) để sắp xếp lại.",
+    "states": {
+      "loadingAria": "Đang tải danh sách mục",
+      "loadFailed": "Không thể tải danh sách mục. Vui lòng thử lại.",
+      "savingAria": "Đang lưu thứ tự",
+      "saving": "Đang lưu..."
+    },
+    "actions": {
+      "retry": "Thử lại",
+      "dismissError": "Đóng lỗi"
+    }
+  },
+  "adminTracking": {
+    "mapAlt": "Bản đồ",
+    "badge": "Theo dõi trực tiếp",
+    "orderCode": "Đơn #29384",
+    "productImageAlt": "Sản phẩm",
+    "productName": "Saint Laurent Medium Bag",
+    "productMeta": "Da đen • SL: 1",
+    "statusMessage": "Đơn hàng đang di chuyển đến điểm tiếp theo",
+    "deliveryLabel": "Dự kiến giao",
+    "deliveryTime": "Hôm nay, 18:00",
+    "progress": {
+      "dispatched": "Đã xuất kho",
+      "delivered": "Đã giao"
+    },
+    "actions": {
+      "support": "Hỗ trợ",
+      "viewDetails": "Xem chi tiết"
+    }
+  },
+  "trackingLookup": {
+    "hero": {
+      "badge": "Theo dõi đơn hàng",
+      "titlePrefix": "Tra cứu",
+      "titleHighlight": "vận đơn",
+      "description": "Nhập mã đơn và số điện thoại để xem trạng thái giao hàng mới nhất."
+    },
+    "form": {
+      "orderCodeLabel": "Mã đơn hàng",
+      "orderCodeAria": "Nhập mã đơn hàng",
+      "orderCodePlaceholder": "Ví dụ: ORD-2026-001",
+      "phoneLabel": "Số điện thoại",
+      "phoneAria": "Nhập số điện thoại",
+      "phonePlaceholder": "Ví dụ: 09xxxxxxxx"
+    },
+    "actions": {
+      "backToOrders": "Quay lại đơn hàng",
+      "lookup": "Tra cứu"
+    },
+    "states": {
+      "loading": "Đang tra cứu..."
+    },
+    "features": {
+      "secureLookup": "Tra cứu bảo mật",
+      "realtimeUpdate": "Cập nhật thời gian thực",
+      "detailRoute": "Lộ trình chi tiết"
+    },
+    "errors": {
+      "enterOrderCode": "Vui lòng nhập mã đơn hàng.",
+      "enterPhone": "Vui lòng nhập số điện thoại.",
+      "notFound": "Không tìm thấy thông tin đơn hàng với dữ liệu đã nhập.",
+      "lookupFailed": "Tra cứu thất bại, vui lòng thử lại."
+    }
+  },
+  "paymentQR": {
+    "header": {
+      "title": "Thanh toán qua VNPAY-QR",
+      "changeMethod": "Đổi phương thức"
+    },
+    "left": {
+      "qrAlt": "Mã QR thanh toán đơn hàng",
+      "totalLabel": "Tổng thanh toán",
+      "expireLabel": "Hết hạn sau"
+    },
+    "right": {
+      "title": "Hướng dẫn thanh toán",
+      "supportedBanks": "Ngân hàng hỗ trợ",
+      "steps": {
+        "download": "Mở ứng dụng ngân hàng",
+        "step1": "và chọn quét mã VNPAY-QR.",
+        "step2": "Quét mã QR ở bên trái màn hình.",
+        "step3": "Kiểm tra số tiền và xác nhận giao dịch.",
+        "step4": "Sau khi thanh toán thành công, quay lại để tiếp tục."
+      }
+    },
+    "actions": {
+      "scannedContinue": "Đã quét mã, tiếp tục"
+    }
+  },
+  "profile": {
+    "title": "Hồ sơ của tôi",
+    "states": {
+      "loading": "Đang tải hồ sơ...",
+      "notProvided": "Chưa cung cấp"
+    },
+    "errors": {
+      "loadProfile": "Không thể tải hồ sơ.",
+      "updateProfile": "Không thể cập nhật hồ sơ."
+    },
+    "common": {
+      "save": "Lưu",
+      "cancel": "Hủy"
+    },
+    "actions": {
+      "edit": "Chỉnh sửa",
+      "delete": "Xóa",
+      "editInfo": "Chỉnh sửa thông tin",
+      "saveChanges": "Lưu thay đổi",
+      "signOut": "Đăng xuất"
+    },
+    "labels": {
+      "googleAccount": "Tài khoản Google",
+      "profileCompleteness": "Mức độ hoàn thiện hồ sơ",
+      "completenessHint": "Hoàn thiện hồ sơ để mở khóa đầy đủ tính năng"
+    },
+    "fields": {
+      "fullName": "Họ và tên",
+      "email": "Email",
+      "phone": "Số điện thoại"
+    },
+    "sections": {
+      "personal": "Thông tin cá nhân",
+      "addresses": "Địa chỉ ({{count}})",
+      "recentOrders": "Đơn hàng gần đây",
+      "account": "Tài khoản"
+    },
+    "avatar": {
+      "alt": "Ảnh đại diện",
+      "confirmDelete": "Bạn có chắc muốn xóa ảnh đại diện?",
+      "actions": {
+        "uploading": "Đang tải lên..."
+      },
+      "messages": {
+        "uploadSuccess": "Tải ảnh đại diện thành công."
+      },
+      "errors": {
+        "invalidType": "Vui lòng chọn tệp hình ảnh (JPEG, PNG, GIF hoặc WebP).",
+        "maxSize": "Kích thước ảnh phải nhỏ hơn 5MB.",
+        "uploadFailed": "Không thể tải ảnh đại diện.",
+        "deleteFailed": "Không thể xóa ảnh đại diện."
+      }
+    },
+    "addresses": {
+      "empty": "Bạn chưa lưu địa chỉ nào.",
+      "confirmDelete": "Bạn có chắc muốn xóa địa chỉ này?",
+      "labels": {
+        "default": "Mặc định"
+      },
+      "fields": {
+        "recipientName": "Người nhận",
+        "phone": "Số điện thoại",
+        "addressLine": "Địa chỉ chi tiết",
+        "city": "Tỉnh/Thành phố",
+        "district": "Quận/Huyện"
+      },
+      "actions": {
+        "add": "Thêm địa chỉ",
+        "addNew": "Thêm mới",
+        "edit": "Sửa địa chỉ",
+        "save": "Lưu địa chỉ",
+        "setDefault": "Đặt mặc định"
+      },
+      "errors": {
+        "saveFailed": "Không thể lưu địa chỉ.",
+        "deleteFailed": "Không thể xóa địa chỉ.",
+        "defaultFailed": "Không thể đặt địa chỉ mặc định."
+      }
+    },
+    "recentOrders": {
+      "empty": "Bạn chưa có đơn hàng nào.",
+      "orderNumber": "Đơn hàng #{{orderNumber}}",
+      "actions": {
+        "startShopping": "Mua sắm ngay",
+        "viewAll": "Xem tất cả đơn hàng"
+      }
+    }
+  },
+  "orderDetail": {
+    "hero": {
+      "title": "Chi tiết đơn hàng",
+      "subtitle": "Tất cả thông tin đơn hàng của bạn ở một nơi"
+    },
+    "guest": {
+      "message": "Vui lòng đăng nhập để xem chi tiết đơn hàng.",
+      "login": "Đăng nhập"
+    },
+    "common": {
+      "processing": "Đang xử lý...",
+      "addingToCart": "Đang thêm vào giỏ..."
+    },
+    "labels": {
+      "note": "Ghi chú",
+      "actions": "Hành động"
+    },
+    "actions": {
+      "back": "Quay lại",
+      "goHome": "Về trang chủ",
+      "retry": "Thử lại",
+      "trackOrder": "Theo dõi đơn hàng",
+      "confirmReceived": "Đã nhận được hàng",
+      "cancelOrder": "Hủy đơn hàng",
+      "requestReturn": "Yêu cầu trả hàng",
+      "buyAgain": "Mua lại"
+    },
+    "confirmReceipt": {
+      "title": "Xác nhận đã nhận hàng?",
+      "description": "Bạn xác nhận đã nhận được sản phẩm nguyên vẹn và không có vấn đề gì?",
+      "actions": {
+        "notYet": "Chưa nhận",
+        "confirm": "Đã nhận hàng"
+      }
+    },
+    "toast": {
+      "receiptSuccess": "Cảm ơn bạn đã mua sắm! Vui lòng đánh giá sản phẩm nhé.",
+      "buyAgainSuccess": "Đã thêm {{count}} sản phẩm vào giỏ hàng! Đang chuyển tới trang thanh toán..."
+    },
+    "errors": {
+      "noItems": "Không có sản phẩm trong đơn để mua lại.",
+      "cannotIdentifyItems": "Không thể xác định sản phẩm để thêm vào giỏ.",
+      "buyAgainFailed": "Không thể thêm vào giỏ hàng.",
+      "notFoundTitle": "Đơn hàng không tồn tại",
+      "notFoundDescription": "Có thể mã đơn hàng bị sai hoặc đơn hàng đã bị xóa.",
+      "forbiddenTitle": "Không có quyền truy cập",
+      "forbiddenDescription": "Bạn không thể xem chi tiết đơn hàng này.",
+      "loadFailed": "Không thể tải chi tiết đơn hàng."
+    },
+    "hint": {
+      "prefix": "Chỉ có thể hủy đơn khi",
+      "pending": "chờ xác nhận",
+      "middle": "theo dõi/xác nhận nhận hàng khi",
+      "shipping": "đang giao",
+      "suffix": "hoặc hoàn đơn trong 7 ngày sau khi",
+      "delivered": "giao thành công"
+    }
+  },
+  "checkout": {
+    "fallback": {
+      "productName": "Sản phẩm"
+    },
+    "sections": {
+      "contactInfo": "Thông tin nhận hàng",
+      "shipping": "Vận chuyển",
+      "payment": "Thanh toán"
+    },
+    "placeholders": {
+      "emailRequired": "Email (bắt buộc)",
+      "fullNameRequired": "Họ và tên (bắt buộc)",
+      "phoneRequired": "Số điện thoại (bắt buộc)",
+      "addressRequired": "Địa chỉ cụ thể (thôn, xóm, số nhà, ngõ...)",
+      "selectProvince": "1. Chọn Tỉnh/Thành",
+      "selectDistrict": "2. Chọn Quận/Huyện",
+      "selectWard": "3. Chọn Phường/Xã",
+      "noteOptional": "Ghi chú (tùy chọn - tối đa 500 ký tự)"
+    },
+    "shipping": {
+      "methodTitle": "Phương thức vận chuyển",
+      "selectProvinceFirst": "Vui lòng chọn Tỉnh/Thành để xem phương thức vận chuyển",
+      "free": "Miễn phí",
+      "freeShipBadge": "Miễn phí giao hàng",
+      "zone": {
+        "innerCity": "(Giao nội thành Đà Nẵng)",
+        "nearby": "(Giao lân cận)",
+        "nationwide": "(Giao toàn quốc)"
+      },
+      "standard": {
+        "title": "Giao tiêu chuẩn",
+        "eta": "Nhận hàng sau 3-4 ngày"
+      },
+      "express": {
+        "title": "Giao hỏa tốc",
+        "etaInner": "Nhận hàng trong ngày",
+        "etaOther": "Nhận hàng sau 1-2 ngày"
+      }
+    },
+    "payment": {
+      "vnpay": "Thanh toán qua VNPAY-QR",
+      "cod": "Thanh toán khi giao hàng (COD)"
+    },
+    "coupon": {
+      "invalidCode": "Mã giảm giá không hợp lệ.",
+      "chooseOrEnter": "Chọn hoặc nhập mã giảm giá",
+      "remove": "Gỡ bỏ"
+    },
+    "summary": {
+      "title": "Đơn hàng ({{count}} sản phẩm)",
+      "subtotal": "Tạm tính",
+      "shippingFee": "Phí vận chuyển",
+      "discount": "Giảm giá ({{code}})",
+      "total": "Tổng cộng"
+    },
+    "validation": {
+      "emailRequired": "Vui lòng nhập email.",
+      "emailFormat": "Email phải chứa định dạng @.",
+      "emailNoSpaces": "Email không được chứa khoảng trắng.",
+      "fullNameRequired": "Vui lòng nhập họ và tên.",
+      "fullNameMin": "Họ và tên phải có ít nhất 2 ký tự.",
+      "fullNameNoSpecial": "Họ và tên không được chứa ký tự đặc biệt như @, #, $.",
+      "phoneRequired": "Vui lòng nhập số điện thoại.",
+      "phoneFormat": "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0.",
+      "addressRequired": "Vui lòng nhập địa chỉ cụ thể.",
+      "addressLength": "Địa chỉ phải có độ dài lớn hơn 5 ký tự.",
+      "cityRequired": "Vui lòng chọn Tỉnh/Thành.",
+      "districtRequired": "Vui lòng chọn Quận/Huyện.",
+      "wardRequired": "Vui lòng chọn Phường/Xã.",
+      "noteMax": "Ghi chú không được vượt quá 500 ký tự."
+    },
+    "errors": {
+      "checkInfo": "Vui lòng kiểm tra lại thông tin",
+      "emptyCart": "Giỏ hàng trống. Vui lòng thêm sản phẩm trước khi chuyển tới trang thanh toán.",
+      "loginRequired": "Vui lòng đăng nhập để thực hiện đặt hàng.",
+      "vnpayUrlFailed": "Không thể tạo liên kết thanh toán VNPAY.",
+      "placeOrderFailed": "Đã xảy ra lỗi khi đặt hàng."
+    },
+    "actions": {
+      "backToCart": "Quay về giỏ hàng",
+      "processing": "Đang xử lý...",
+      "placeOrder": "ĐẶT HÀNG"
+    }
+  },
+  "adminOrderDetail": {
+    "common": {
+      "emptyDate": "—"
+    },
+    "states": {
+      "loading": "Đang tải chi tiết đơn hàng...",
+      "notFoundTitle": "Không tìm thấy đơn hàng"
+    },
+    "errors": {
+      "missingOrderId": "Không tìm thấy mã đơn.",
+      "loadFailed": "Không thể tải chi tiết đơn hàng."
+    },
+    "breadcrumb": {
+      "orders": "Đơn hàng"
+    },
+    "actions": {
+      "backToList": "Quay lại danh sách",
+      "copy": "Sao chép",
+      "copied": "Đã sao chép",
+      "refund": "Hoàn tiền"
+    },
+    "meta": {
+      "placedAt": "Đặt lúc {{date}}"
+    },
+    "labels": {
+      "shipping": "Vận chuyển",
+      "tracking": "Theo dõi",
+      "unitPrice": "Đơn giá",
+      "orderTotal": "Tổng đơn hàng",
+      "orderNote": "Ghi chú đơn hàng",
+      "guestCustomer": "Khách lẻ (không có tài khoản)"
+    },
+    "sections": {
+      "products": "Sản phẩm · {{count}} mặt hàng",
+      "paymentDetails": "Chi tiết thanh toán",
+      "customer": "Khách hàng",
+      "shippingAddress": "Địa chỉ giao hàng",
+      "payment": "Thanh toán",
+      "statusHistory": "Lịch sử trạng thái"
+    },
+    "payment": {
+      "paid": "Đã thanh toán",
+      "unpaid": "Chưa thanh toán",
+      "completed": "Thành công",
+      "method": "Phương thức",
+      "status": "Trạng thái"
+    },
+    "toast": {
+      "refundRequested": "Lệnh hoàn tiền đã được gửi tới cổng thanh toán thành công."
+    }
+  }
+}

@@ -57,6 +57,16 @@ export const ERROR_CODES = {
     MISSING_REQUIRED_FIELDS: 'MISSING_REQUIRED_FIELDS',
     FETCH_REFUND_HISTORY_FAILED: 'FETCH_REFUND_HISTORY_FAILED',
 
+    // ── Confirm Receipt ───────────────────────────────────────────────────────
+    ORDER_NOT_SHIPPING: 'ORDER_NOT_SHIPPING',       // Order must be in Shipping state
+    NOT_ORDER_OWNER: 'NOT_ORDER_OWNER',              // Requesting user does not own this order
+
+    // ── Review ────────────────────────────────────────────────────────────────
+    ORDER_ITEM_NOT_FOUND: 'ORDER_ITEM_NOT_FOUND',               // orderItemId invalid / not owned by user
+    REVIEW_ALREADY_EXISTS: 'REVIEW_ALREADY_EXISTS',             // Duplicate review for same orderItemId
+    ITEM_NOT_FROM_DELIVERED_ORDER: 'ITEM_NOT_FROM_DELIVERED_ORDER', // Item's order is not Delivered
+    RATING_REQUIRED: 'RATING_REQUIRED',                         // Rating must be 1-5
+
     // ── Product ──────────────────────────────────────────────────────────────
     INVALID_PRODUCT_ID: 'INVALID_PRODUCT_ID',
     PRODUCT_NOT_FOUND: 'PRODUCT_NOT_FOUND',
@@ -84,6 +94,8 @@ export const SUCCESS_MESSAGES = {
     STATUS_UPDATED: 'STATUS_UPDATED',
     ROLE_UPDATED: 'ROLE_UPDATED',
     PERMISSIONS_UPDATED: 'PERMISSIONS_UPDATED',
+    RECEIPT_CONFIRMED: 'RECEIPT_CONFIRMED',
+    REVIEW_CREATED: 'REVIEW_CREATED',
 } as const;
 
 export type SuccessMessage = (typeof SUCCESS_MESSAGES)[keyof typeof SUCCESS_MESSAGES];

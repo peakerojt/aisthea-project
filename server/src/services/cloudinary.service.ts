@@ -1,5 +1,6 @@
 import cloudinary from '../config/cloudinary.config';
-import { UploadApiResponse, UploadApiErrorResponse } from 'cloudinary';
+import { UploadApiResponse } from 'cloudinary';
+import { logger } from '../lib/logger';
 
 /**
  * Result from Cloudinary upload operation
@@ -16,7 +17,7 @@ export interface CloudinaryUploadResult {
 
 export interface UploadOptions {
     folder?: string;          // Folder path in Cloudinary
-    transformation?: any;     // Cloudinary transformation options
+    transformation?: Record<string, unknown>;     // Cloudinary transformation options
     maxSizeBytes?: number;    // Maximum file size (default: 5MB)
     allowedFormats?: string[]; // Allowed image formats
 }
@@ -37,7 +38,7 @@ export interface ProductVariantUploadOptions {
  */
 export interface ProductVariantUploadResult extends CloudinaryUploadResult {
     optimizedUrl: string;     // URL with f_auto, q_auto applied
-    thumbnailUrl: string;     // 300x300 c_fill thumbnail URL
+    thumbnailUrl: string;     // 300x300 c_fill thumbnail URL (eagerly generated)
 }
 
 /**
@@ -90,23 +91,16 @@ class CloudinaryService {
             );
 
             return this.formatUploadResult(uploadResult);
-        } catch (error: any) {
-            console.error('Cloudinary upload error:', error);
-            console.error('Error details:', {
-                message: error.message,
-                http_code: error.http_code,
-                error: error.error,
-            });
-
-            if (error.http_code === 400) {
+        } catch (error: unknown) {
+            logger.error('[cloudinaryService] uploadBase64 failed', { error });
+            const e = error as { http_code?: number; message?: string };
+            if (e.http_code === 400) {
                 throw new Error(`Invalid image format. Allowed formats: ${this.DEFAULT_FORMATS.join(', ')}`);
             }
-
-            if (error.http_code === 401) {
+            if (e.http_code === 401) {
                 throw new Error('Cloudinary authentication failed. Please check your credentials.');
             }
-
-            throw new Error(error.message || 'Failed to upload image to Cloudinary');
+            throw new Error(e.message || 'Failed to upload image to Cloudinary');
         }
     }
 
@@ -143,11 +137,12 @@ class CloudinaryService {
     }
 
     /**
-     * Upload product variant image with enhanced features
-     * - Dynamic folder structure: products/{sku}/{variantColor}/
-     * - Random unique filename for SEO and uniqueness
-     * - Auto-tags from metadata
-     * - Returns both original and optimized thumbnail URLs
+     * Upload product variant image with Pro Max optimizations:
+     * - Eager thumbnail generation (300×300 c_fill) so thumbnail is ready server-side
+     * - format:auto — lets Cloudinary serve WebP/AVIF based on browser support
+     * - quality:auto — Cloudinary's perceptual quality algorithm (best file-size ratio)
+     * - Dynamic folder: products/{slug}/{variantColor}/
+     * - Returns both imageUrl (original) and thumbnailUrl (eager)
      */
     async uploadProductVariantImage(
         base64Data: string,
@@ -166,27 +161,21 @@ class CloudinaryService {
             }
             const folder = folderParts.join('/');
 
-            // Generate unique filename with timestamp and random string
+            // Generate unique filename
             const timestamp = Date.now();
             const randomStr = Math.random().toString(36).substring(2, 10);
             const publicIdName = `img_${timestamp}_${randomStr}`;
 
             // Build tags array
             const tags: string[] = ['product'];
-            if (options.variantColor) {
-                tags.push(`color:${options.variantColor.toLowerCase()}`);
-            }
-            if (options.category) {
-                tags.push(`category:${options.category.toLowerCase()}`);
-            }
-            if (options.tags) {
-                tags.push(...options.tags);
-            }
-            if (options.isPrimary) {
-                tags.push('primary');
-            }
+            if (options.variantColor) tags.push(`color:${options.variantColor.toLowerCase()}`);
+            if (options.category) tags.push(`category:${options.category.toLowerCase()}`);
+            if (options.tags) tags.push(...options.tags);
+            if (options.isPrimary) tags.push('primary');
 
-            // Upload to Cloudinary with signed upload
+            // Upload to Cloudinary with:
+            //   - format:auto + quality:auto as base transformation (delivery optimization)
+            //   - eager: pre-generate the 300×300 thumbnail at upload time
             const uploadResult: UploadApiResponse = await cloudinary.uploader.upload(
                 base64Data,
                 {
@@ -195,10 +184,22 @@ class CloudinaryService {
                     tags,
                     resource_type: 'image',
                     allowed_formats: this.DEFAULT_FORMATS,
-                    transformation: {
-                        quality: 'auto:good',
-                        fetch_format: 'auto',
-                    },
+                    // Base delivery: auto format + perceptual auto quality
+                    transformation: [
+                        { fetch_format: 'auto', quality: 'auto' }
+                    ],
+                    // Eagerly generate thumbnail so it's ready on first storefront request
+                    eager: [
+                        {
+                            width: 300,
+                            height: 300,
+                            crop: 'fill',
+                            gravity: 'auto',
+                            fetch_format: 'auto',
+                            quality: 'auto',
+                        }
+                    ],
+                    eager_async: false, // Wait for thumbnail to be ready before responding
                     context: {
                         product_sku: options.productSku,
                         variant_color: options.variantColor || '',
@@ -207,19 +208,20 @@ class CloudinaryService {
                 }
             );
 
-            // Generate thumbnail URL with transformations (2x for Retina)
-            const thumbnailUrl = this.generateOptimizedUrl(uploadResult.public_id, {
-                width: 600,  // 2x for Retina (displays at 300px CSS)
-                height: 600,
-                crop: 'fill',
-                quality: 'auto:good',
-                fetchFormat: 'auto',
-                dpr: 'auto',  // Critical for Retina displays
-            });
+            // Prefer the eager-generated secure URL for the thumbnail
+            const thumbnailUrl =
+                uploadResult.eager?.[0]?.secure_url ||
+                this.generateOptimizedUrl(uploadResult.public_id, {
+                    width: 300,
+                    height: 300,
+                    crop: 'fill',
+                    quality: 'auto',
+                    fetchFormat: 'auto',
+                });
 
-            // Generate optimized original URL
+            // Optimized original URL with auto format/quality
             const optimizedUrl = this.generateOptimizedUrl(uploadResult.public_id, {
-                quality: 'auto:good',
+                quality: 'auto',
                 fetchFormat: 'auto',
                 dpr: 'auto',
             });
@@ -235,19 +237,20 @@ class CloudinaryService {
                 height: uploadResult.height,
                 bytes: uploadResult.bytes,
             };
-        } catch (error: any) {
-            console.error('Product variant image upload error:', error);
-            throw new Error(error.message || 'Failed to upload product variant image');
+        } catch (error: unknown) {
+            logger.error('[cloudinaryService] uploadProductVariantImage failed', { error });
+            const e = error as { message?: string };
+            throw new Error(e.message || 'Failed to upload product variant image');
         }
     }
 
     /**
      * Batch upload multiple product variant images
-     * Uses Promise.allSettled for fault tolerance
+     * Uses Promise.allSettled for fault tolerance — one failure won't abort the others.
      */
     async uploadProductVariantImages(
         images: Array<{ base64Data: string; options: ProductVariantUploadOptions }>,
-        concurrency: number = 10
+        concurrency: number = 5
     ): Promise<ProductVariantBatchResult> {
         const results: ProductVariantUploadResult[] = [];
         const errors: Array<{ index: number; error: string }> = [];
@@ -294,17 +297,16 @@ class CloudinaryService {
             crop?: string;
             quality?: string;
             fetchFormat?: string;
-            dpr?: string;  // Add DPR support for Retina
+            dpr?: string;
         }
     ): string {
-        const transformations: any = {};
-
+        const transformations: Record<string, unknown> = {};
         if (options.width) transformations.width = options.width;
         if (options.height) transformations.height = options.height;
         if (options.crop) transformations.crop = options.crop;
         if (options.quality) transformations.quality = options.quality;
         if (options.fetchFormat) transformations.fetch_format = options.fetchFormat;
-        if (options.dpr) transformations.dpr = options.dpr;  // Enable DPR for Retina
+        if (options.dpr) transformations.dpr = options.dpr;
 
         return cloudinary.url(publicId, {
             secure: true,
@@ -333,8 +335,8 @@ class CloudinaryService {
     async deleteImage(publicId: string): Promise<void> {
         try {
             await cloudinary.uploader.destroy(publicId);
-        } catch (error: any) {
-            console.error('Cloudinary delete error:', error);
+        } catch (error) {
+            logger.error('[cloudinaryService] deleteImage failed', { error });
             throw new Error('Failed to delete image from Cloudinary');
         }
     }
@@ -348,26 +350,17 @@ class CloudinaryService {
         try {
             const urlParts = cloudinaryUrl.split('/');
             const uploadIndex = urlParts.indexOf('upload');
-
-            if (uploadIndex === -1) {
-                return null;
-            }
-
-            // Get everything after 'upload/v{version}/'
+            if (uploadIndex === -1) return null;
             const pathAfterVersion = urlParts.slice(uploadIndex + 2).join('/');
-
-            // Remove file extension
-            const publicId = pathAfterVersion.replace(/\.[^/.]+$/, '');
-
-            return publicId;
-        } catch (error) {
-            console.error('Failed to extract publicId from URL:', cloudinaryUrl);
+            return pathAfterVersion.replace(/\.[^/.]+$/, '');
+        } catch {
+            logger.warn('[cloudinaryService] Failed to extract publicId from URL', { cloudinaryUrl });
             return null;
         }
     }
 
     /**
-     * Generate optimized image URL with transformations
+     * Generate optimized image URL with on-the-fly transformations
      */
     getOptimizedUrl(
         cloudinaryUrl: string,
@@ -376,19 +369,16 @@ class CloudinaryService {
         crop: string = 'fill'
     ): string {
         const publicId = this.extractPublicId(cloudinaryUrl);
-
-        if (!publicId) {
-            return cloudinaryUrl; // Return original if not a Cloudinary URL
-        }
+        if (!publicId) return cloudinaryUrl;
 
         return cloudinary.url(publicId, {
             transformation: {
                 width,
                 height,
                 crop,
-                quality: 'auto:good',
+                quality: 'auto',
                 fetch_format: 'auto',
-                dpr: 'auto',  // Critical for Retina displays
+                dpr: 'auto',
             },
         });
     }

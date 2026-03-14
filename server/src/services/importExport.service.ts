@@ -2,6 +2,10 @@
 import ExcelJS from 'exceljs';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma';
+import { logger } from '../lib/logger';
+
+/** Safety cap: prevent exporting unbounded rows into memory */
+const MAX_EXPORT_ROWS = 5000;
 
 // ─── Column Definitions ───────────────────────────────────────────────────────
 
@@ -148,10 +152,11 @@ export async function generateTemplate(): Promise<Buffer> {
 // ─── Export All Products ──────────────────────────────────────────────────────
 
 export async function exportProducts(): Promise<Buffer> {
-    // Fetch all active products with relations
+    // Fetch active products with relations — capped at MAX_EXPORT_ROWS products
     const products = await prisma.product.findMany({
         where: { isDeleted: false },
         orderBy: { productId: 'asc' },
+        take: MAX_EXPORT_ROWS,
         include: {
             category: { select: { name: true } },
             images: {
@@ -174,6 +179,10 @@ export async function exportProducts(): Promise<Buffer> {
             },
         },
     });
+
+    if (products.length === MAX_EXPORT_ROWS) {
+        logger.warn('[importExportService] exportProducts hit MAX_EXPORT_ROWS cap', { cap: MAX_EXPORT_ROWS });
+    }
 
     const { workbook, worksheet } = createStyledWorkbook();
 

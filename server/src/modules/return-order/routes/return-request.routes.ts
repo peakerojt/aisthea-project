@@ -11,7 +11,7 @@ const requireRoles = (allowed: string[]) => (req: any, res: any, next: any) => {
   if (!canAccess) {
     return res.status(403).json({
       success: false,
-      error: { code: 'FORBIDDEN', message: 'Không đủ quyền truy cập' },
+      error: { code: 'FORBIDDEN', message: 'Insufficient access rights' },
     });
   }
   return next();
@@ -36,7 +36,7 @@ const createReturnRateLimit = (() => {
     if (current.count >= MAX_REQUESTS) {
       return res.status(429).json({
         success: false,
-        error: { code: 'TOO_MANY_REQUESTS', message: 'Bạn thao tác quá nhanh, vui lòng thử lại sau.' },
+        error: { code: 'TOO_MANY_REQUESTS', message: 'Too many requests, please try again later.' },
       });
     }
 

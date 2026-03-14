@@ -1,6 +1,8 @@
 
+import { Prisma } from '../generated/client';
 import { prisma } from '../utils/prisma';
 import { cloudinaryService } from './cloudinary.service';
+import { logger } from '../lib/logger';
 
 // ─── Types for createProduct ──────────────────────────────────────────────────
 export interface CreateVariantPayload {
@@ -14,6 +16,13 @@ export interface CreateVariantPayload {
 export interface CreateImagePayload {
     imageUrl: string;
     thumbnailUrl?: string;
+    isPrimary?: boolean;
+    associatedAttributeValue?: string;
+}
+
+export interface UpdateImagePayload {
+    imageId: number;
+    associatedAttributeValue?: string;
     isPrimary?: boolean;
 }
 
@@ -35,43 +44,72 @@ export const getProducts = async (filters?: {
     search?: string;
     minPrice?: number;
     maxPrice?: number;
+    page?: number;
+    limit?: number;
+    sort?: string;
 }) => {
-    // Use optimized view instead of complex joins
-    // Build WHERE clause dynamically
-    const conditions: string[] = ['1=1']; // Always true base condition
-    const params: any[] = [];
+    // Build WHERE clause with parameterized SQL to prevent injection
+    const conditions: Prisma.Sql[] = [Prisma.sql`1=1`];
 
     if (filters?.categorySlug) {
-        conditions.push('categorySlug = @P' + (params.length + 1));
-        params.push(filters.categorySlug);
+        conditions.push(Prisma.sql`categorySlug = ${filters.categorySlug}`);
     }
 
     if (filters?.brandId) {
-        conditions.push('brandName IS NOT NULL'); // Could enhance by adding BrandId to view
+        // View currently lacks BrandId; keep existing behaviour but still parameterize when available
+        conditions.push(Prisma.sql`brandName IS NOT NULL`);
     }
 
     if (filters?.search) {
-        conditions.push(`(NameNormalized LIKE '%' + dbo.fn_RemoveDiacritics(@P${params.length + 1}) + '%' OR DescriptionNormalized LIKE '%' + dbo.fn_RemoveDiacritics(@P${params.length + 1}) + '%')`);
-        params.push(filters.search);
+        // Use fn_RemoveDiacritics while keeping search term parameterized
+        const term = filters.search;
+        conditions.push(
+            Prisma.sql`(NameNormalized LIKE '%' + dbo.fn_RemoveDiacritics(${term}) + '%' OR DescriptionNormalized LIKE '%' + dbo.fn_RemoveDiacritics(${term}) + '%')`,
+        );
     }
 
-    if (filters?.minPrice) {
-        conditions.push('minPrice >= @P' + (params.length + 1));
-        params.push(filters.minPrice);
+    if (filters?.minPrice !== undefined) {
+        conditions.push(Prisma.sql`minPrice >= ${filters.minPrice}`);
     }
 
-    if (filters?.maxPrice) {
-        conditions.push('maxPrice <= @P' + (params.length + 1));
-        params.push(filters.maxPrice);
+    if (filters?.maxPrice !== undefined) {
+        conditions.push(Prisma.sql`maxPrice <= ${filters.maxPrice}`);
     }
 
-    const whereClause = conditions.join(' AND ');
-    const query = `SELECT * FROM vw_ProductCatalog WHERE ${whereClause} ORDER BY createdAt DESC`;
+    const whereClause = Prisma.join(conditions, ' AND ');
 
-    const products: any[] = await prisma.$queryRawUnsafe(query, ...params);
+    // Allowlist sorting to avoid raw ORDER BY injection
+    const [sortFieldRaw, sortDirRaw] = (filters?.sort ?? '').split('_');
+    const sortColumn =
+        sortFieldRaw === 'price'
+            ? Prisma.sql`minPrice`
+            : sortFieldRaw === 'name'
+                ? Prisma.sql`name`
+                : Prisma.sql`createdAt`;
+    const sortDirection = sortDirRaw === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+    const orderByClause = Prisma.sql`${sortColumn} ${sortDirection}`;
+
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 20;
+    const offset = (page - 1) * limit;
+
+    const totalResult = await prisma.$queryRaw<{ total: bigint }[]>`
+        SELECT COUNT(*) as total
+        FROM vw_ProductCatalog
+        WHERE ${whereClause}
+    `;
+    const total = Number(totalResult[0]?.total || 0);
+
+    const products = await prisma.$queryRaw<any[]>`
+        SELECT * FROM vw_ProductCatalog
+        WHERE ${whereClause}
+        ORDER BY ${orderByClause}
+        OFFSET ${offset} ROWS
+        FETCH NEXT ${limit} ROWS ONLY
+    `;
 
     // Transform data to match frontend expectations
-    return products.map(p => ({
+    const data = products.map(p => ({
         productId: p.productId,
         name: p.name,
         slug: p.slug,
@@ -98,6 +136,16 @@ export const getProducts = async (filters?: {
             stockQuantity: p.totalStock || 0
         }]
     }));
+
+    return {
+        data,
+        meta: {
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        },
+    };
 };
 
 export const searchProducts = async (
@@ -148,7 +196,7 @@ export const getProductById = async (id: number) => {
         const product = JSON.parse(jsonString);
         return product;
     } catch (error) {
-        console.error('Error calling sp_GetProductDetails:', error);
+        logger.error('[productService] sp_GetProductDetails failed', { error });
         throw error;
     }
 };
@@ -323,7 +371,8 @@ export interface UpdateProductPayload {
     status?: string;
     // Image management
     deletedImageIds: number[];
-    newImages: CreateImagePayload[];
+    newImages?: CreateImagePayload[];
+    updatedImages?: UpdateImagePayload[];
     primaryImageId?: number;   // existing image to mark as primary
     // Variant management
     variants: UpdateVariantPayload[];
@@ -374,18 +423,7 @@ export const updateProduct = async (productId: number, payload: UpdateProductPay
             });
         }
 
-        // 4. Create new images
-        for (let i = 0; i < newImages.length; i++) {
-            const img = newImages[i];
-            await tx.productImage.create({
-                data: {
-                    productId,
-                    imageUrl: img.imageUrl,
-                    thumbnailUrl: img.thumbnailUrl,
-                    isPrimary: img.isPrimary ?? false,
-                },
-            });
-        }
+
 
         // 5. Soft-delete variants no longer in submission (preserve order history)
         if (keptVariantIds.length > 0) {
@@ -477,6 +515,69 @@ export const updateProduct = async (productId: number, payload: UpdateProductPay
             savedVariantIds.push(variantId);
         }
 
+        // 8. Create new images (moved here to allow linking to newly created variants)
+        if (newImages && newImages.length > 0) {
+            for (let i = 0; i < newImages.length; i++) {
+                const img = newImages[i];
+                let assignedVariantId: number | null = null;
+
+                if (img.associatedAttributeValue) {
+                    const variantInfo = await tx.productVariant.findFirst({
+                        where: {
+                            productId,
+                            isDeleted: false,
+                            variantAttributes: {
+                                some: {
+                                    value: { value: img.associatedAttributeValue }
+                                }
+                            }
+                        },
+                        select: { variantId: true }
+                    });
+                    if (variantInfo) assignedVariantId = variantInfo.variantId;
+                }
+
+                await tx.productImage.create({
+                    data: {
+                        productId,
+                        variantId: assignedVariantId,
+                        imageUrl: img.imageUrl,
+                        thumbnailUrl: img.thumbnailUrl,
+                        isPrimary: img.isPrimary ?? false,
+                    },
+                });
+            }
+        }
+
+        // 9. Update existing images (e.g. category reassignment)
+        if (payload.updatedImages && payload.updatedImages.length > 0) {
+            for (const uimg of payload.updatedImages) {
+                let assignedVariantId: number | null = null;
+                if (uimg.associatedAttributeValue) {
+                    const variantInfo = await tx.productVariant.findFirst({
+                        where: {
+                            productId,
+                            isDeleted: false,
+                            variantAttributes: {
+                                some: { value: { value: uimg.associatedAttributeValue } }
+                            }
+                        },
+                        select: { variantId: true }
+                    });
+                    if (variantInfo) assignedVariantId = variantInfo.variantId;
+                }
+
+                // If it's primary, handle it. Otherwise ignore primary logic here as it's handled by primaryImageId field already
+                // Actually, let's just update variantId
+                await tx.productImage.update({
+                    where: { imageId: uimg.imageId },
+                    data: {
+                        variantId: assignedVariantId,
+                    }
+                });
+            }
+        }
+
         return { productId, variantCount: savedVariantIds.length };
     });
 };
@@ -507,7 +608,7 @@ export const smartDeleteProduct = async (id: number): Promise<SmartDeleteResult>
     });
 
     if (!product) {
-        throw new Error('Không tìm thấy sản phẩm hoặc sản phẩm đã bị xóa');
+        throw new Error('Product not found or has been deleted');
     }
 
     const variantIds = product.variants.map(v => v.variantId);
@@ -532,7 +633,7 @@ export const smartDeleteProduct = async (id: number): Promise<SmartDeleteResult>
 
         return {
             mode: 'archived',
-            message: 'Sản phẩm đã có đơn hàng. Đã chuyển sang trạng thái "Ngừng kinh doanh" để bảo toàn lịch sử.',
+            message: 'Product has existing orders. State changed to "Archived" to preserve history.',
         };
     }
 
@@ -562,7 +663,7 @@ export const smartDeleteProduct = async (id: number): Promise<SmartDeleteResult>
                 try {
                     await cloudinaryService.deleteImage(publicId);
                 } catch (err) {
-                    console.warn(`[Smart Delete] Failed to delete Cloudinary image: ${publicId}`, err);
+                    logger.warn('[productService] Failed to delete Cloudinary image', { publicId, err });
                 }
             }
         });
@@ -570,7 +671,7 @@ export const smartDeleteProduct = async (id: number): Promise<SmartDeleteResult>
 
     return {
         mode: 'deleted',
-        message: `Đã xóa hoàn toàn sản phẩm và ${publicIds.length} hình ảnh liên quan.`,
+        message: `Completely deleted product and ${publicIds.length} related images.`,
     };
 };
 

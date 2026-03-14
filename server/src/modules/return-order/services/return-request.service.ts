@@ -33,7 +33,7 @@ export class ReturnRequestService {
     if (!allowed.includes(next)) {
       throw new ServiceError(
         'INVALID_STATE_TRANSITION',
-        `Không thể chuyển trạng thái ${current} → ${next}`,
+        `Cannot transition from ${current} to ${next}`,
         400,
       );
     }
@@ -47,14 +47,14 @@ export class ReturnRequestService {
 
   async createReturnRequest(userId: number, payload: CreateReturnRequestDto) {
     const order: any = await this.repo.findOrderForReturn(payload.orderId);
-    if (!order) throw new ServiceError('ORDER_NOT_FOUND', 'Không tìm thấy đơn hàng', 404);
+    if (!order) throw new ServiceError('ORDER_NOT_FOUND', 'Order not found', 404);
     if (order.userId !== userId)
-      throw new ServiceError('FORBIDDEN', 'Không có quyền thao tác đơn này', 403);
+      throw new ServiceError('FORBIDDEN', 'No permission to access this order', 403);
     // DB lưu status tiếng Việt ("Đã giao") hoặc tiếng Anh ("DELIVERED")
     const orderStatusLower = (order.status ?? '').toLowerCase().trim();
     const isDelivered = orderStatusLower === 'delivered' || orderStatusLower === 'đã giao' || orderStatusLower === 'da giao';
     if (!isDelivered)
-      throw new ServiceError('ORDER_NOT_DELIVERED', 'Chỉ đơn DELIVERED mới được trả hàng', 400);
+      throw new ServiceError('ORDER_NOT_DELIVERED', 'Only DELIVERED orders can be returned', 400);
 
     // Tìm ngày giao hàng: status có thể là "Đã giao", "DELIVERED", "Da Giao"...
     const DELIVERED_STATUSES = ['delivered', 'đã giao', 'da giao', 'dagiao'];
@@ -67,7 +67,7 @@ export class ReturnRequestService {
     if (new Date() > this.returnDeadline(deliveredAt))
       throw new ServiceError(
         'RETURN_WINDOW_EXPIRED',
-        `Đã quá thời gian trả hàng (${RETURN_WINDOW_DAYS} ngày kể từ khi giao)`,
+        `Return window expired (${RETURN_WINDOW_DAYS} days since delivery)`,
         400,
       );
 
@@ -95,7 +95,7 @@ export class ReturnRequestService {
         if (!orderItem)
           throw new ServiceError(
             'ORDER_ITEM_NOT_FOUND',
-            `Sản phẩm #${item.orderItemId} không thuộc đơn hàng này`,
+            `Order item #${item.orderItemId} does not belong to this order`,
             400,
           );
 
@@ -104,7 +104,7 @@ export class ReturnRequestService {
         if (maxQty <= 0 || item.quantity > maxQty)
           throw new ServiceError(
             'INVALID_RETURN_QUANTITY',
-            `Số lượng trả vượt quá mức cho phép cho sản phẩm #${item.orderItemId} (tối đa ${maxQty})`,
+            `Return quantity exceeds allowed limit for item #${item.orderItemId} (max ${maxQty})`,
             400,
           );
 
@@ -206,13 +206,13 @@ export class ReturnRequestService {
         where: { returnRequestId: id },
       });
       if (!request)
-        throw new ServiceError('RETURN_REQUEST_NOT_FOUND', 'Không tìm thấy yêu cầu trả hàng', 404);
+        throw new ServiceError('RETURN_REQUEST_NOT_FOUND', 'Return request not found', 404);
 
       this.assertTransition(request.status, 'REFUNDED');
 
       const amount = new Prisma.Decimal(params.amount ?? request.totalRefundAmount.toNumber());
       if (amount.lte(0) || amount.gt(request.totalRefundAmount))
-        throw new ServiceError('INVALID_REFUND_AMOUNT', 'Số tiền hoàn không hợp lệ (vượt quá mức cho phép)');
+        throw new ServiceError('INVALID_REFUND_AMOUNT', 'Invalid refund amount (exceeds allowed limit)');
 
       const refundRecord = await tx.refundTransaction.create({
         data: {
@@ -268,7 +268,7 @@ export class ReturnRequestService {
         where: { returnRequestId: id },
       });
       if (!current)
-        throw new ServiceError('RETURN_REQUEST_NOT_FOUND', 'Không tìm thấy yêu cầu trả hàng', 404);
+        throw new ServiceError('RETURN_REQUEST_NOT_FOUND', 'Return request not found', 404);
 
       this.assertTransition(current.status, nextStatus);
 

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { validateCoupon, CouponError } from '../services/coupon.service';
 import { AuthRequest } from '../middlewares/auth.middleware';
+import { logger } from '../lib/logger';
 
 // ─── Helper ────────────────────────────────────────────────────────────────────
 
@@ -9,7 +10,7 @@ function handleError(res: Response, err: unknown) {
     if (err instanceof CouponError) {
         return res.status(err.status).json({ error: err.message, code: err.code });
     }
-    console.error('[coupon.controller]', err);
+    logger.error('[couponController]', { err });
     return res.status(500).json({ error: 'Lỗi máy chủ nội bộ.' });
 }
 
@@ -125,6 +126,54 @@ export const listCoupons = async (req: Request, res: Response) => {
         return handleError(res, err);
     }
 };
+
+// ─── GET /api/coupons/available ───────────────────────────────────────────────
+// Get available coupons for checkout (User only)
+// Active, within date range, usage limit not exceeded. Ordered by highest value, then soonest expiry.
+
+export const getAvailableCoupons = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) {
+            return res.status(401).json({ error: 'Yêu cầu đăng nhập.' });
+        }
+
+        const now = new Date();
+
+        const coupons = await (prisma.coupon as any).findMany({
+            where: {
+                isActive: true,
+                startDate: { lte: now },
+                endDate: { gte: now },
+            },
+            // Hard cap: coupon lists are small by design; 100 is a safe upper bound.
+            // In-memory filter below further narrows this to only usable coupons.
+            take: 100,
+            orderBy: { endDate: 'asc' },
+        });
+
+        // Filter out coupons where usedCount >= usageLimit
+        let availableCoupons = coupons.filter((c: any) => c.usedCount < c.usageLimit);
+
+        // Sort: highest value first, then earliest expiry
+        availableCoupons.sort((a: any, b: any) => {
+            // Priority 1: Value (Descending)
+            // Even if percentage vs fixed, roughly sorting by value number helps.
+            // Ideally, you'd calculate actual discount based on cart, but we don't have cartSubtotal here.
+            if (b.value !== a.value) {
+                return Number(b.value) - Number(a.value);
+            }
+            // Priority 2: Expiration Date (Ascending - earliest expiry first)
+            return new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
+        });
+
+        return res.json({
+            coupons: availableCoupons.map(shapeCoupon)
+        });
+    } catch (err) {
+        return handleError(res, err);
+    }
+}
 
 // ─── POST /api/coupons ────────────────────────────────────────────────────────
 // Admin only. Create a new coupon.

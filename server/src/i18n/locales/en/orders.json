@@ -1,0 +1,16 @@
+{
+  "errors": {
+    "invalidOrderId": "Invalid order id.",
+    "notFound": "Order not found.",
+    "forbidden": "You are not allowed to access this order.",
+    "cannotCancel": "Order can only be cancelled when status is pending.",
+    "statusRequired": "Order status is required.",
+    "invalidTransition": "Invalid order status transition.",
+    "cartEmpty": "Cannot create an order with no items.",
+    "outOfStock": "Requested quantity exceeds available stock."
+  },
+  "success": {
+    "statusUpdated": "Order status updated successfully.",
+    "created": "Order created successfully."
+  }
+}

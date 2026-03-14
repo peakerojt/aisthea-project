@@ -1,8 +1,10 @@
 import { AppError } from '../../middlewares/error.middleware';
 import { emitOrderStatusUpdated } from '../../socket';
 import { canTransition } from '../../shared/orderTracking.constants';
+import { getShipmentSummary } from '../../shared/order-state';
 import { prisma } from '../../utils/prisma';
 import { trackingRepository } from './tracking.repository';
+import { UpdateOrderStatusInput } from './tracking.validator';
 
 function maskPhone(phone: string) {
   if (phone.length < 4) return '***';
@@ -16,28 +18,73 @@ function maskEmail(email: string) {
   return `${keep}${'*'.repeat(Math.max(1, name.length - 2))}@${domain}`;
 }
 
+function normalizeStatus(status: string | null | undefined): string {
+  if (!status) return 'PENDING';
+  return status.toUpperCase();
+}
+
+function hydrateTimeline(order: any, isPublic = false) {
+  const mapped = (order.statusHistory || []).map((history: any) => {
+    const status = normalizeStatus(history.status);
+    return {
+      status,
+      statusLabelKey: `tracking:status.${status}`,
+      timestamp: history.changedAt,
+      note: history.note,
+      location: (history as any).location ?? null,
+      description: (history as any).description ?? null,
+      updatedBy: isPublic ? null : history.changedBy,
+    };
+  });
+
+  // Synthesize initial PENDING entry if missing
+  if (mapped.length === 0 || !mapped.some((h: any) => h.status === 'PENDING')) {
+    mapped.unshift({
+      status: 'PENDING',
+      statusLabelKey: 'tracking:status.PENDING',
+      timestamp: order.createdAt || new Date(),
+      note: 'Đơn hàng đã được đặt',
+      location: null,
+      description: null,
+      updatedBy: null,
+    });
+  }
+
+  // Chronological order
+  return mapped.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
 function toTrackingPayload(order: any, isPublic = false) {
+  const currentStatus = normalizeStatus(order.status);
+  const shipment = getShipmentSummary(order.shipment);
+
   return {
     orderId: order.orderId,
-    orderCode: order.orderCode,
-    currentStatus: order.status,
-    eta: order.shipment?.eta ?? null,
+    orderCode: order.orderNumber,
+    currentStatus,
+    currentStatusLabelKey: `tracking:status.${currentStatus}`,
+    carrier: shipment.carrier,
+    trackingNumber: isPublic ? null : shipment.trackingNumber,
+    estimatedDeliveryDate: shipment.estimatedDeliveryDate,
+    // Shipment sub-object
     shipment: order.shipment
       ? {
-          carrier: order.shipment.carrier,
-          trackingNumber: isPublic ? null : order.shipment.trackingNumber,
-          lastKnownLocation: order.shipment.lastKnownLocation,
-        }
+        carrier: shipment.carrier,
+        trackingNumber: isPublic ? null : shipment.trackingNumber,
+        lastKnownLocation: order.shipment.lastKnownLocation,
+        eta: order.shipment.eta,
+      }
       : null,
+    // Masked contact for public mode
     contact: isPublic
       ? {
-          customerPhone: order.customerPhone ? maskPhone(order.customerPhone) : null,
-          customerEmail: order.customerEmail ? maskEmail(order.customerEmail) : null,
-        }
+        customerPhone: order.customerPhone ? maskPhone(order.customerPhone) : null,
+        customerEmail: order.customerEmail ? maskEmail(order.customerEmail) : null,
+      }
       : {
-          customerPhone: order.customerPhone,
-          customerEmail: order.customerEmail,
-        },
+        customerPhone: order.customerPhone,
+        customerEmail: order.customerEmail,
+      },
     items: order.items.map((item: any) => ({
       orderItemId: item.orderItemId,
       productName: item.productName,
@@ -45,12 +92,7 @@ function toTrackingPayload(order: any, isPublic = false) {
       quantity: item.quantity,
       unitPrice: item.unitPrice,
     })),
-    timeline: order.statusHistory.map((history: any) => ({
-      status: history.status,
-      timestamp: history.changedAt,
-      note: history.note,
-      updatedBy: isPublic ? null : history.changedBy,
-    })),
+    timeline: hydrateTimeline(order, isPublic),
   };
 }
 
@@ -58,7 +100,7 @@ export const trackingService = {
   async getPublicTracking(orderCode: string, contact: string) {
     const order = await trackingRepository.findOrderByCodeAndContact(orderCode, contact);
     if (!order) {
-      throw new AppError(404, 'TRACKING_NOT_FOUND', 'Không tìm thấy đơn hàng với thông tin cung cấp.');
+      throw new AppError(404, 'TRACKING_NOT_FOUND', 'tracking:errors.notFound');
     }
     return toTrackingPayload(order, true);
   },
@@ -70,11 +112,11 @@ export const trackingService = {
   async getOrderTrackingById(orderId: number, requester: { userId: number; isAdmin: boolean }) {
     const order = await trackingRepository.findOrderTrackingById(orderId);
     if (!order) {
-      throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+      throw new AppError(404, 'ORDER_NOT_FOUND', 'tracking:errors.orderNotFound');
     }
 
     if (!requester.isAdmin && order.userId !== requester.userId) {
-      throw new AppError(403, 'FORBIDDEN', 'Bạn không có quyền xem đơn này');
+      throw new AppError(403, 'FORBIDDEN', 'tracking:errors.forbidden');
     }
 
     return toTrackingPayload(order, false);
@@ -82,28 +124,32 @@ export const trackingService = {
 
   async updateOrderStatus(
     orderId: number,
-    payload: { status: string; note?: string; eta?: string; location?: string },
+    payload: UpdateOrderStatusInput,
     updatedBy: number,
   ) {
     const order = await trackingRepository.findOrderTrackingById(orderId);
     if (!order) {
-      throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+      throw new AppError(404, 'ORDER_NOT_FOUND', 'tracking:errors.orderNotFound');
     }
 
-    const currentStatus = order.status || 'PENDING';
+    const currentStatus = normalizeStatus(order.status);
     if (!canTransition(currentStatus, payload.status)) {
-      throw new AppError(400, 'INVALID_STATUS_TRANSITION', 'Invalid status transition', {
-        from: currentStatus,
-        to: payload.status,
-      });
+      throw new AppError(
+        400,
+        'INVALID_STATUS_TRANSITION',
+        'tracking:errors.invalidStatusTransition',
+        { from: currentStatus, to: payload.status },
+      );
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      // 1. Update Order status
       const updated = await tx.order.update({
         where: { orderId },
         data: { status: payload.status },
       });
 
+      // 2. Create history entry
       await tx.orderStatusHistory.create({
         data: {
           orderId,
@@ -114,19 +160,30 @@ export const trackingService = {
         },
       });
 
-      if (payload.eta || payload.location) {
+      // 3. Upsert Shipment if any logistics data is provided
+      if (payload.eta || payload.location || payload.carrier || payload.trackingNumber || payload.estimatedDeliveryDate) {
         await tx.shipment.upsert({
           where: { orderId },
           update: {
-            eta: payload.eta ? new Date(payload.eta) : undefined,
+            eta: payload.estimatedDeliveryDate
+              ? new Date(payload.estimatedDeliveryDate)
+              : payload.eta
+                ? new Date(payload.eta)
+                : undefined,
             lastKnownLocation: payload.location,
+            carrier: payload.carrier,
+            trackingNumber: payload.trackingNumber,
           },
           create: {
             orderId,
-            eta: payload.eta ? new Date(payload.eta) : undefined,
+            eta: payload.estimatedDeliveryDate
+              ? new Date(payload.estimatedDeliveryDate)
+              : payload.eta
+                ? new Date(payload.eta)
+                : undefined,
             lastKnownLocation: payload.location,
-            carrier: order.carrier,
-            trackingNumber: order.trackingNumber,
+            carrier: payload.carrier ?? null,
+            trackingNumber: payload.trackingNumber ?? null,
           },
         });
       }
@@ -134,21 +191,21 @@ export const trackingService = {
       return updated;
     });
 
+    // Re-fetch the full order to build the real-time payload
     const latest = await trackingRepository.findOrderTrackingById(orderId);
-    const timeline = latest?.statusHistory.map((h: any) => ({
-      status: h.status,
-      timestamp: h.changedAt,
-      note: h.note,
-      updatedBy: h.changedBy,
-    })) || [];
+    const timeline = latest ? hydrateTimeline(latest, false) : [];
 
+    // Emit Socket.io event to the order room so all live viewers see instant update
     emitOrderStatusUpdated({
       orderId,
       userId: latest?.userId,
-      status: result.status || payload.status,
+      status: normalizeStatus(result.status || payload.status),
       timeline,
+      carrier: latest?.shipment?.carrier ?? null,
+      trackingNumber: latest?.shipment?.trackingNumber ?? null,
+      estimatedDeliveryDate: latest?.shipment?.eta ?? null,
     });
 
-    return latest;
+    return latest ? toTrackingPayload(latest, false) : null;
   },
 };

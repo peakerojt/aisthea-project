@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import querystring from 'qs';
 import moment from 'moment';
 import { prisma } from '../utils/prisma';
+import { logger } from '../lib/logger';
 
 function sortObject(obj: any) {
     let sorted: any = {};
@@ -79,10 +80,9 @@ export const createPaymentUrl = async (req: Request, res: Response) => {
         vnp_Params['vnp_SecureHash'] = signed;
         vnpUrl += '?' + querystring.stringify(vnp_Params, { encode: false });
 
-        // Assuming we update order paymentStatus to pending
         res.status(200).json({ vnpUrl });
-    } catch (error: any) {
-        console.error('Error creating payment URL:', error);
+    } catch (error) {
+        logger.error('[vnpayController] createPaymentUrl failed', { error });
         res.status(500).json({ error: 'Internal server error' });
     }
 };
@@ -136,11 +136,15 @@ export const vnpayIpn = async (req: Request, res: Response) => {
     let hmac = crypto.createHmac("sha512", secretKey);
     let signed = hmac.update(Buffer.from(signData, 'utf-8')).digest("hex");
 
-    let paymentStatus = '0'; // Giả sử '0' là trạng thái khởi tạo giao dịch
-
     try {
+        const parsedOrderId = parseInt(orderId, 10);
         const order = await prisma.order.findUnique({
-            where: { orderId: parseInt(orderId, 10) }
+            where: { orderId: parsedOrderId },
+            include: {
+                payments: {
+                    orderBy: { paymentId: 'desc' },
+                },
+            },
         });
 
         if (!order) {
@@ -153,45 +157,75 @@ export const vnpayIpn = async (req: Request, res: Response) => {
             // Verify amount (assuming stored totalAmount is USD, but needs translation, or stored amount is verified)
             // The frontend uses USD, maybe 1 USD = 25000 VND. Let's assume frontend passes VND amount properly
 
-            if (order.paymentStatus === 'PAID') {
+            const latestPayment = order.payments[0] ?? null;
+            const alreadyPaid = order.payments.some((payment) =>
+                ['COMPLETED', 'PAID', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes((payment.status ?? '').toUpperCase())
+            );
+
+            if (alreadyPaid) {
                 return res.status(200).json({ RspCode: '02', Message: 'This order has been updated to the payment status' });
             } else {
                 if (rspCode == "00") {
-                    // thanh cong
-                    await prisma.order.update({
-                        where: { orderId: order.orderId },
-                        data: {
-                            paymentStatus: 'PAID',
-                        }
-                    });
+                    if (latestPayment && latestPayment.paymentMethod === 'VNPAY') {
+                        await prisma.payment.update({
+                            where: { paymentId: latestPayment.paymentId },
+                            data: {
+                                amount: parseFloat(order.totalAmount.toString()),
+                                status: 'COMPLETED',
+                                transactionCode: vnp_Params['vnp_TransactionNo'] as string,
+                                note: null,
+                            }
+                        });
+                    } else {
+                        await prisma.payment.create({
+                            data: {
+                                orderId: order.orderId,
+                                paymentMethod: 'VNPAY',
+                                amount: parseFloat(order.totalAmount.toString()),
+                                status: 'COMPLETED',
+                                transactionCode: vnp_Params['vnp_TransactionNo'] as string
+                            }
+                        });
+                    }
 
-                    await prisma.payment.create({
-                        data: {
-                            orderId: order.orderId,
-                            paymentMethod: 'VNPAY',
-                            amount: parseFloat(order.totalAmount.toString()), // the original amount in DB
-                            status: 'COMPLETED',
-                            transactionCode: vnp_Params['vnp_TransactionNo'] as string
-                        }
-                    });
+                    logger.info('VNPay payment successful', { orderId: order.orderId, transactionCode: vnp_Params['vnp_TransactionNo'] });
 
                     res.status(200).json({ RspCode: '00', Message: 'Confirm Success' });
                 } else {
-                    // that bai
-                    await prisma.order.update({
-                        where: { orderId: order.orderId },
-                        data: {
-                            paymentStatus: 'FAILED',
-                        }
-                    });
+                    if (latestPayment && latestPayment.paymentMethod === 'VNPAY') {
+                        await prisma.payment.update({
+                            where: { paymentId: latestPayment.paymentId },
+                            data: {
+                                amount: parseFloat(order.totalAmount.toString()),
+                                status: 'FAILED',
+                                transactionCode: (vnp_Params['vnp_TransactionNo'] as string) ?? latestPayment.transactionCode,
+                                note: `VNPay IPN failed with response code ${rspCode}`,
+                            }
+                        });
+                    } else {
+                        await prisma.payment.create({
+                            data: {
+                                orderId: order.orderId,
+                                paymentMethod: 'VNPAY',
+                                amount: parseFloat(order.totalAmount.toString()),
+                                status: 'FAILED',
+                                transactionCode: (vnp_Params['vnp_TransactionNo'] as string) ?? null,
+                                note: `VNPay IPN failed with response code ${rspCode}`,
+                            }
+                        });
+                    }
+
+                    logger.warn('VNPay payment failed reported by IPN', { orderId: order.orderId, rspCode });
+
                     res.status(200).json({ RspCode: '00', Message: 'Confirm Success' });
                 }
             }
         } else {
+            logger.error('VNPay IPN Checksum failed', { orderId, secureHash, signed });
             res.status(200).json({ RspCode: '97', Message: 'Checksum failed' });
         }
     } catch (err: any) {
-        console.error('IPN Error:', err);
+        logger.error('VNPay IPN Error', { error: err.message, stack: err.stack });
         res.status(200).json({ RspCode: '99', Message: 'Unknow error' });
     }
 };
