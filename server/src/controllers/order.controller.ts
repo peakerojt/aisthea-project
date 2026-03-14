@@ -32,7 +32,57 @@ function parseIdParam(param: string | string[]): number | null {
 }
 
 function resolveVariantImage(item: any): string | null {
-  return item.variant?.images?.[0]?.thumbnailUrl ?? item.variant?.images?.[0]?.imageUrl ?? null;
+  const variantImage =
+    item.variant?.images?.[0]?.thumbnailUrl ??
+    item.variant?.images?.[0]?.imageUrl ??
+    null;
+
+  if (variantImage) return variantImage;
+
+  return (
+    item.variant?.product?.images?.[0]?.thumbnailUrl ??
+    item.variant?.product?.images?.[0]?.imageUrl ??
+    null
+  );
+}
+
+async function loadVariantFallbacksBySku(items: Array<{ sku: string; variant?: unknown | null }>) {
+  const missingSkus = [...new Set(
+    items
+      .filter((item) => !item.variant && typeof item.sku === 'string' && item.sku.trim().length > 0)
+      .map((item) => item.sku.trim()),
+  )];
+
+  if (missingSkus.length === 0) {
+    return new Map<string, any>();
+  }
+
+  const variants = await prisma.productVariant.findMany({
+    where: { sku: { in: missingSkus } },
+    select: {
+      variantId: true,
+      productId: true,
+      sku: true,
+      images: {
+        select: { imageUrl: true, thumbnailUrl: true },
+        orderBy: [{ isPrimary: 'desc' }, { imageId: 'asc' }],
+        take: 1,
+      },
+      product: {
+        select: {
+          productId: true,
+          name: true,
+          images: {
+            select: { imageUrl: true, thumbnailUrl: true },
+            orderBy: [{ isPrimary: 'desc' }, { imageId: 'asc' }],
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+
+  return new Map(variants.map((variant) => [variant.sku, variant]));
 }
 
 type OrderRow = Awaited<ReturnType<typeof findManyOrders>>['data'][number];
@@ -127,8 +177,22 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
           include: {
             variant: {
               include: {
-                images: { select: { imageUrl: true, thumbnailUrl: true }, orderBy: { imageId: 'asc' }, take: 1 },
-                product: { select: { productId: true, name: true } },
+                images: {
+                  select: { imageUrl: true, thumbnailUrl: true },
+                  orderBy: [{ isPrimary: 'desc' }, { imageId: 'asc' }],
+                  take: 1,
+                },
+                product: {
+                  select: {
+                    productId: true,
+                    name: true,
+                    images: {
+                      select: { imageUrl: true, thumbnailUrl: true },
+                      orderBy: [{ isPrimary: 'desc' }, { imageId: 'asc' }],
+                      take: 1,
+                    },
+                  },
+                },
               },
             },
           },
@@ -141,6 +205,7 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
 
     if (!order) return res.status(404).json({ success: false, errorCode: 'ORDER_NOT_FOUND', message: 'Order not found' });
 
+    const variantFallbackBySku = await loadVariantFallbacksBySku(order.items);
     const shipment = getShipmentSummary(order.shipment);
     const paymentStatus = deriveOrderPaymentStatus(order.payments);
 
@@ -164,17 +229,22 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
         addressDetail: order.shippingAddressDetail,
       },
       user: order.user ? { ...order.user } : null,
-      items: order.items.map((item) => ({
-        orderItemId: item.orderItemId,
-        productId: item.variant?.product?.productId ?? null,
-        productName: item.productName,
-        sku: item.sku,
-        variantName: item.variantName,
-        unitPrice: item.unitPrice?.toString() ?? '0',
-        quantity: item.quantity,
-        lineTotal: (parseFloat(item.unitPrice?.toString() ?? '0') * item.quantity).toString(),
-        image: resolveVariantImage(item),
-      })),
+      items: order.items.map((item) => {
+        const resolvedVariant = item.variant ?? variantFallbackBySku.get(item.sku) ?? null;
+        const resolvedItem = { ...item, variant: resolvedVariant };
+
+        return {
+          orderItemId: item.orderItemId,
+          productId: resolvedVariant?.product?.productId ?? resolvedVariant?.productId ?? null,
+          productName: item.productName,
+          sku: item.sku,
+          variantName: item.variantName,
+          unitPrice: item.unitPrice?.toString() ?? '0',
+          quantity: item.quantity,
+          lineTotal: (parseFloat(item.unitPrice?.toString() ?? '0') * item.quantity).toString(),
+          image: resolveVariantImage(resolvedItem),
+        };
+      }),
       payments: order.payments.map((p) => ({
         paymentId: p.paymentId,
         method: p.paymentMethod,
@@ -266,7 +336,20 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
           include: {
             variant: {
               include: {
-                images: { select: { imageUrl: true, thumbnailUrl: true }, orderBy: { imageId: 'asc' }, take: 1 },
+                images: {
+                  select: { imageUrl: true, thumbnailUrl: true },
+                  orderBy: [{ isPrimary: 'desc' }, { imageId: 'asc' }],
+                  take: 1,
+                },
+                product: {
+                  select: {
+                    images: {
+                      select: { imageUrl: true, thumbnailUrl: true },
+                      orderBy: [{ isPrimary: 'desc' }, { imageId: 'asc' }],
+                      take: 1,
+                    },
+                  },
+                },
               },
             },
             review: { select: { reviewId: true } },
@@ -280,6 +363,7 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
 
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
+    const variantFallbackBySku = await loadVariantFallbacksBySku(order.items);
     const shipment = getShipmentSummary(order.shipment);
     const paymentStatus = deriveOrderPaymentStatus(order.payments);
 
@@ -303,20 +387,25 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
         ward: order.shippingWard ?? undefined,
         addressDetail: order.shippingAddressDetail,
       },
-      items: order.items.map((item) => ({
-        orderItemId: item.orderItemId,
-        productId: item.variant?.productId ?? null,
-        variantId: item.variantId ?? null,
-        productName: item.productName,
-        sku: item.sku,
-        variantName: item.variantName,
-        unitPrice: item.unitPrice.toString(),
-        quantity: item.quantity,
-        lineTotal: (parseFloat(item.unitPrice.toString()) * item.quantity).toString(),
-        thumbnailUrl: resolveVariantImage(item),
-        isReviewed: !!item.review,
-        reviewId: item.review?.reviewId ?? null,
-      })),
+      items: order.items.map((item) => {
+        const resolvedVariant = item.variant ?? variantFallbackBySku.get(item.sku) ?? null;
+        const resolvedItem = { ...item, variant: resolvedVariant };
+
+        return {
+          orderItemId: item.orderItemId,
+          productId: resolvedVariant?.productId ?? null,
+          variantId: item.variantId ?? resolvedVariant?.variantId ?? null,
+          productName: item.productName,
+          sku: item.sku,
+          variantName: item.variantName,
+          unitPrice: item.unitPrice.toString(),
+          quantity: item.quantity,
+          lineTotal: (parseFloat(item.unitPrice.toString()) * item.quantity).toString(),
+          thumbnailUrl: resolveVariantImage(resolvedItem),
+          isReviewed: !!item.review,
+          reviewId: item.review?.reviewId ?? null,
+        };
+      }),
       payments: order.payments.map((p) => ({
         paymentId: p.paymentId,
         paymentMethod: p.paymentMethod,

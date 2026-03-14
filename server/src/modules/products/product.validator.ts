@@ -79,7 +79,7 @@ export const productQuerySchema = z.object({
     search: z.string().optional(),
     minPrice: z.coerce.number().positive().optional(),
     maxPrice: z.coerce.number().positive().optional(),
-    status: z.enum(['Active', 'Inactive', 'Draft', 'Archived']).optional(),
+    status: z.enum(['Active', 'Inactive', 'Draft', 'Archived', 'LowStock']).optional(),
     page: z.coerce.number().int().positive().optional().default(1),
     limit: z.coerce.number().int().positive().max(100).optional().default(20),
 });

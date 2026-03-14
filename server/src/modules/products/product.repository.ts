@@ -25,11 +25,22 @@ const buildOrderBy = (sort: string): Prisma.ProductOrderByWithRelationInput => {
 };
 
 const buildWhere = (filters: ProductFilter): Prisma.ProductWhereInput => {
-  const { categorySlug, brandId, search, minPrice, maxPrice, status = 'Active' } = filters;
+  const { categorySlug, brandId, search, minPrice, maxPrice, status } = filters;
+  const isLowStock = status === 'LowStock';
+  const resolvedStatus = isLowStock ? 'Active' : status;
+  const variantFilter: Prisma.ProductVariantWhereInput | undefined =
+    isLowStock || minPrice !== undefined || maxPrice !== undefined
+      ? {
+          isDeleted: false,
+          ...(minPrice !== undefined ? { price: { gte: minPrice } } : {}),
+          ...(maxPrice !== undefined ? { price: { lte: maxPrice } } : {}),
+          ...(isLowStock ? { stockQuantity: { gt: 0, lt: 10 } } : {}),
+        }
+      : undefined;
 
   return {
     isDeleted: false,
-    status,
+    ...(resolvedStatus ? { status: resolvedStatus } : {}),
     ...(categorySlug ? { category: { slug: categorySlug } } : {}),
     ...(brandId ? { brandId } : {}),
     ...(search
@@ -37,17 +48,21 @@ const buildWhere = (filters: ProductFilter): Prisma.ProductWhereInput => {
           OR: [
             { name: { contains: search } },
             { description: { contains: search } },
+            {
+              variants: {
+                some: {
+                  isDeleted: false,
+                  sku: { contains: search },
+                },
+              },
+            },
           ],
         }
       : {}),
-    ...(minPrice !== undefined || maxPrice !== undefined
+    ...(variantFilter
       ? {
           variants: {
-            some: {
-              isDeleted: false,
-              ...(minPrice !== undefined ? { price: { gte: minPrice } } : {}),
-              ...(maxPrice !== undefined ? { price: { lte: maxPrice } } : {}),
-            },
+            some: variantFilter,
           },
         }
       : {}),

@@ -1,5 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchProducts, fetchProductById, createProduct, updateProduct, deleteProductById, ProductFilters, Product } from '@/common/services/product.service';
+import {
+    fetchProducts,
+    fetchProductsPage,
+    fetchProductById,
+    createProduct,
+    updateProduct,
+    deleteProductById,
+    ProductFilters,
+} from '@/common/services/product.service';
 
 export const productKeys = {
     all: ['products'] as const,
@@ -22,6 +30,14 @@ export const useFilteredProducts = (filters: ProductFilters) => {
         queryKey: productKeys.list(filters),
         queryFn: () => fetchProducts(filters),
         enabled: !!filters,
+    });
+};
+
+export const useProductsPageAPI = (filters: ProductFilters = {}) => {
+    return useQuery({
+        queryKey: productKeys.list(filters),
+        queryFn: () => fetchProductsPage(filters),
+        staleTime: 5 * 60 * 1000,
     });
 };
 

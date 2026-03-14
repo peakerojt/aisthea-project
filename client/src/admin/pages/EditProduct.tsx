@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useBeforeUnload } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod/v4';
@@ -80,6 +80,8 @@ interface ToastMsg {
     type: 'success' | 'error';
     text: string;
 }
+
+type PendingNavigation = (() => void) | null;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const toSlug = (s: string) =>
@@ -305,6 +307,8 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
     const [saving, setSaving] = useState(false);
     const [toasts, setToasts] = useState<ToastMsg[]>([]);
     const [formDirty, setFormDirty] = useState(false);
+    const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+    const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation>(null);
 
     // ─── Load data ───────────────────────────────────────────────────────
     useEffect(() => {
@@ -412,16 +416,25 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
         setFormDirty(isDirty);
     }, [isDirty]);
 
-    useEffect(() => {
-        const handler = (e: BeforeUnloadEvent) => {
-            if (formDirty || newImages.length > 0) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
-        };
-        window.addEventListener('beforeunload', handler);
-        return () => window.removeEventListener('beforeunload', handler);
-    }, [formDirty, newImages]);
+    const hasUnsavedChanges = formDirty || newImages.length > 0;
+
+    useBeforeUnload(
+        useCallback((event: BeforeUnloadEvent) => {
+            if (!hasUnsavedChanges || saving) return;
+            event.preventDefault();
+            event.returnValue = '';
+        }, [hasUnsavedChanges, saving])
+    );
+
+    const attemptNavigation = useCallback((callback: () => void) => {
+        if (hasUnsavedChanges && !saving) {
+            setPendingNavigation(() => callback);
+            setShowLeaveDialog(true);
+            return;
+        }
+
+        callback();
+    }, [hasUnsavedChanges, saving]);
 
     // ─── Toast ────────────────────────────────────────────────────────────
     const showToast = useCallback((type: 'success' | 'error', text: string) => {
@@ -620,15 +633,66 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                 ))}
             </div>
 
+            {showLeaveDialog && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+                        onClick={() => {
+                            setShowLeaveDialog(false);
+                            setPendingNavigation(null);
+                        }}
+                    />
+                    <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-surface-dark shadow-2xl overflow-hidden">
+                        <div className="px-6 py-5 border-b border-white/5">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                                    <AlertCircle size={18} className="text-amber-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-white">{t('editor.modal.unsavedTitle')}</h3>
+                                    <p className="text-xs text-white/40 mt-0.5">{t('editor.modal.unsavedSubtitle')}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-5">
+                            <p className="text-sm text-white/65 leading-relaxed">
+                                {t('editor.feedback.unsavedChanges')}
+                            </p>
+                        </div>
+                        <div className="px-6 pb-6 flex items-center justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowLeaveDialog(false);
+                                    setPendingNavigation(null);
+                                }}
+                                className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                            >
+                                {t('editor.actions.stayHere')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowLeaveDialog(false);
+                                    const proceed = pendingNavigation;
+                                    setPendingNavigation(null);
+                                    proceed?.();
+                                }}
+                                className="px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-primary hover:bg-red-700 transition-colors shadow-lg shadow-primary/20"
+                            >
+                                {t('editor.actions.leavePage')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Sticky Header */}
             <div className="sticky top-0 z-30 bg-bg-dark/95 backdrop-blur-sm border-b border-white/5 px-8 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <button
                         type="button"
-                        onClick={() => {
-                            if ((formDirty || newImages.length > 0) && !window.confirm(t('editor.feedback.unsavedChanges'))) return;
-                            navigate('/admin/products');
-                        }}
+                        onClick={() => attemptNavigation(() => navigate('/admin/products'))}
                         className="p-2 rounded-lg hover:bg-white/5 text-white/60 hover:text-white transition-colors"
                     >
                         <ArrowLeft size={18} />

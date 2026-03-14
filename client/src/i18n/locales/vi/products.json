@@ -2,6 +2,7 @@
     "page": {
         "title": "Kho sản phẩm",
         "subtitle": "Quản lý danh mục sản phẩm",
+        "productCount": "sản phẩm",
         "create": "Thêm sản phẩm mới",
         "edit": "Chỉnh sửa sản phẩm",
         "detail": "Chi tiết sản phẩm"
@@ -69,6 +70,9 @@
         "noMatch": "Không có sản phẩm nào khớp với bộ lọc",
         "clearFilters": "Xóa bộ lọc"
     },
+    "pagination": {
+        "summary": "Trang {{page}} / {{totalPages}} · {{total}} sản phẩm"
+    },
     "loading": "Đang tải sản phẩm...",
     "errorTitle": "Không thể tải sản phẩm",
     "feedback": {
@@ -100,7 +104,13 @@
             "saving": "Đang lưu...",
             "publish": "Hoàn tất đăng bán",
             "backToList": "← Quay lại danh sách",
-            "saveChanges": "Lưu thay đổi"
+            "saveChanges": "Lưu thay đổi",
+            "stayHere": "Ở lại chỉnh sửa",
+            "leavePage": "Rời trang"
+        },
+        "modal": {
+            "unsavedTitle": "Bạn chưa lưu thay đổi",
+            "unsavedSubtitle": "Rời khỏi trang này sẽ làm mất nội dung vừa chỉnh sửa"
         },
         "sections": {
             "basicInfo": "Thông tin cơ bản",

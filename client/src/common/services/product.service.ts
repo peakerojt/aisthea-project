@@ -108,32 +108,95 @@ export interface Product {
     reviews?: Record<string, unknown>[];
 }
 
+export interface ProductListMeta {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+}
+
+export interface PaginatedProductsResponse {
+    data: Product[];
+    meta: ProductListMeta;
+}
+
 export interface ProductFilters {
     category?: string;
     brand?: number;
     search?: string;
     minPrice?: number;
     maxPrice?: number;
+    status?: string;
+    page?: number;
+    limit?: number;
+    sort?: string;
 }
+
+const buildProductParams = (filters?: ProductFilters): Record<string, string> => {
+    const params: Record<string, string> = {};
+
+    if (filters?.category) params.category = filters.category;
+    if (filters?.brand) params.brand = filters.brand.toString();
+    if (filters?.search) params.search = filters.search;
+    if (filters?.minPrice !== undefined) params.minPrice = filters.minPrice.toString();
+    if (filters?.maxPrice !== undefined) params.maxPrice = filters.maxPrice.toString();
+    if (filters?.status) params.status = filters.status;
+    if (filters?.page) params.page = filters.page.toString();
+    if (filters?.limit) params.limit = filters.limit.toString();
+    if (filters?.sort) params.sort = filters.sort;
+
+    return params;
+};
 
 /**
  * Fetch all products with optional filters
  */
 export const fetchProducts = async (filters?: ProductFilters): Promise<Product[]> => {
     try {
-        const params: Record<string, string> = {};
-
-        if (filters?.category) params.category = filters.category;
-        if (filters?.brand) params.brand = filters.brand.toString();
-        if (filters?.search) params.search = filters.search;
-        if (filters?.minPrice) params.minPrice = filters.minPrice.toString();
-        if (filters?.maxPrice) params.maxPrice = filters.maxPrice.toString();
-
+        const params = buildProductParams({
+            status: filters?.status ?? 'Active',
+            ...filters,
+        });
         const response = await productApi.fetchProducts(params);
         // The backend now returns { data: [...], meta: {...} }
         return Array.isArray(response) ? response : (response.data || []);
     } catch (error) {
         console.error('Failed to fetch products:', error);
+        throw error;
+    }
+};
+
+/**
+ * Fetch products with pagination metadata
+ */
+export const fetchProductsPage = async (filters?: ProductFilters): Promise<PaginatedProductsResponse> => {
+    try {
+        const params = buildProductParams(filters);
+        const response = await productApi.fetchProducts(params);
+
+        if (Array.isArray(response)) {
+            return {
+                data: response,
+                meta: {
+                    total: response.length,
+                    page: filters?.page ?? 1,
+                    limit: filters?.limit ?? response.length,
+                    totalPages: 1,
+                },
+            };
+        }
+
+        return {
+            data: response.data || [],
+            meta: response.meta || {
+                total: response.data?.length || 0,
+                page: filters?.page ?? 1,
+                limit: filters?.limit ?? (response.data?.length || 0),
+                totalPages: 1,
+            },
+        };
+    } catch (error) {
+        console.error('Failed to fetch paginated products:', error);
         throw error;
     }
 };

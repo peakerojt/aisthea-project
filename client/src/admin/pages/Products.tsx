@@ -1,26 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { useProductsAPI, useUpdateProductMutation, useDeleteProductMutation } from '@/common/hooks/useProducts';
-import { deleteProductById } from '@/common/services/product.service';
-import { Trash2, Edit2, AlertCircle, CheckCircle2, Archive, Loader2, UploadCloud } from 'lucide-react';
+import { useProductsPageAPI, useUpdateProductMutation, useDeleteProductMutation } from '@/common/hooks/useProducts';
+import { deleteProductById, fetchCategories, type CategoryOption } from '@/common/services/product.service';
+import { Trash2, Edit2, AlertCircle, CheckCircle2, Archive, Loader2, UploadCloud, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { BulkImportExportModal } from '@/admin/components/BulkImportExportModal';
 
 export const Products: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-
-  const { data: qProducts, isLoading: loading, error: qError, refetch: refreshProducts } = useProductsAPI();
-  const products: any[] = qProducts || [];
-  const error = qError ? (qError as Error).message : null;
-
-  const updateProductMutation = useUpdateProductMutation();
-  const deleteProductMutation = useDeleteProductMutation();
-
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+
+  const serverStatusFilter =
+    statusFilter === 'In Stock'
+      ? 'Active'
+      : statusFilter === 'Out of Stock'
+        ? 'Inactive'
+        : statusFilter === 'Low Stock'
+          ? 'LowStock'
+          : undefined;
+
+  const { data: qProducts, isLoading: loading, error: qError, refetch: refreshProducts } = useProductsPageAPI({
+    page,
+    limit: PAGE_SIZE,
+    search: search || undefined,
+    category: categoryFilter !== 'All' ? categoryFilter : undefined,
+    status: serverStatusFilter,
+  });
+  const products: any[] = qProducts?.data || [];
+  const pagination = qProducts?.meta;
+  const error = qError ? (qError as Error).message : null;
+
+  const updateProductMutation = useUpdateProductMutation();
+  const deleteProductMutation = useDeleteProductMutation();
 
   const [editingCell, setEditingCell] = useState<{ id: string, field: 'price' | 'stock' } | null>(null);
   const [editValue, setEditValue] = useState<string | number>('');
@@ -30,10 +51,36 @@ export const Products: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [showImportExport, setShowImportExport] = useState(false);
 
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [page, statusFilter, categoryFilter, search]);
+
+  useEffect(() => {
+    if (pagination && pagination.totalPages > 0 && page > pagination.totalPages) {
+      setPage(pagination.totalPages);
+    }
+  }, [page, pagination]);
+
+  useEffect(() => {
+    fetchCategories()
+      .then(setCategories)
+      .catch((loadError) => {
+        console.error('Failed to load product categories:', loadError);
+        setCategories([]);
+      });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
   // Helper: convert DB status → display status
-  const toDisplayStatus = (dbStatus: string) => {
+  const toDisplayStatus = (dbStatus: string, stockQuantity: number) => {
+    if (dbStatus === 'Inactive' || dbStatus === 'Archived' || stockQuantity <= 0) return 'Out of Stock';
+    if (dbStatus === 'Active' && stockQuantity < 10) return 'Low Stock';
     if (dbStatus === 'Active') return 'In Stock';
-    if (dbStatus === 'Inactive' || dbStatus === 'Archived') return 'Out of Stock';
     return dbStatus; // already a display value (e.g. 'Low Stock')
   };
 
@@ -41,23 +88,39 @@ export const Products: React.FC = () => {
   const mappedProducts = products.map((p) => {
     const defaultVariant = p.variants?.find((v: { isDefault: boolean; sku: string }) => v.isDefault) ?? p.variants?.[0];
     const primaryImage = p.images?.find((img: { isPrimary: boolean }) => img.isPrimary) ?? p.images?.[0];
+    const stock = defaultVariant?.stockQuantity ?? 0;
     return {
       id: String(p.productId),
       name: p.name,
       sku: defaultVariant?.sku ?? '-',
       price: defaultVariant?.price ?? p.basePrice ?? 0,
-      stock: defaultVariant?.stockQuantity ?? 0,
-      status: toDisplayStatus(p.status),
+      stock,
+      status: toDisplayStatus(p.status, stock),
       image: primaryImage?.thumbnailUrl ?? primaryImage?.imageUrl ?? '',
       category: p.category?.name ?? '',
+      categorySlug: p.category?.slug ?? '',
     };
   });
 
-  const filteredProducts = mappedProducts.filter(product => {
-    const statusMatch = statusFilter === 'All' || product.status === statusFilter;
-    const categoryMatch = categoryFilter === 'All' || product.category === categoryFilter;
-    return statusMatch && categoryMatch;
-  });
+  const filteredProducts = mappedProducts;
+
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearch(value.trim());
+      setPage(1);
+    }, 400);
+  };
+
+  const handleResetFilters = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setSearchInput('');
+    setSearch('');
+    setStatusFilter('All');
+    setCategoryFilter('All');
+    setPage(1);
+  };
 
   const showToast = (message: string, type: 'success' | 'archive' | 'error' = 'success') => {
     setToast({ message, type, visible: true });
@@ -111,7 +174,7 @@ export const Products: React.FC = () => {
     await Promise.all(selectedIds.map(async id => {
       await updateProductMutation.mutateAsync({
         id: Number(id),
-        data: { status: 'In Stock' } as any
+        data: { status: 'Active' } as any
       });
     }));
     setSelectedIds([]);
@@ -159,14 +222,15 @@ export const Products: React.FC = () => {
 
   // Localised status label (handles both display values and raw DB values)
   const getStatusLabel = (status: string) => {
-    const display = toDisplayStatus(status);
-    if (display === 'In Stock') return t('products:status.inStock');
-    if (display === 'Low Stock') return t('products:status.lowStock');
-    if (display === 'Out of Stock') return t('products:status.outOfStock');
-    return display;
+    if (status === 'In Stock') return t('products:status.inStock');
+    if (status === 'Low Stock') return t('products:status.lowStock');
+    if (status === 'Out of Stock') return t('products:status.outOfStock');
+    return status;
   };
 
   const isAllSelected = filteredProducts.length > 0 && filteredProducts.every(p => selectedIds.includes(p.id));
+  const totalPages = pagination?.totalPages ?? 1;
+  const totalProducts = pagination?.total ?? mappedProducts.length;
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col relative">
@@ -251,9 +315,21 @@ export const Products: React.FC = () => {
       <header className="h-20 flex items-center justify-between mb-8">
         <div>
           <h2 className="text-2xl font-bold text-white">{t('products:page.title')}</h2>
-          <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">{t('products:page.subtitle')}</p>
+          <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">
+            {t('products:page.subtitle')} • {totalProducts} {t('products:page.productCount')}
+          </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <div className="relative hidden md:block">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder={t('products:toolbar.searchPlaceholder')}
+              className="bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 w-72 transition-all"
+            />
+          </div>
           <button
             onClick={() => setShowImportExport(true)}
             className="flex items-center gap-2 border border-white/15 hover:border-white/30 text-white/70 hover:text-white text-xs font-bold uppercase tracking-[0.1em] px-5 py-3 rounded shadow-md transition-all"
@@ -369,7 +445,10 @@ export const Products: React.FC = () => {
                 </label>
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setPage(1);
+                  }}
                   className="bg-black/20 border border-white/10 rounded px-3 py-1.5 text-xs text-white focus:border-primary focus:ring-0 min-w-[140px]"
                 >
                   <option value="All">{t('products:status.allStatuses')}</option>
@@ -384,19 +463,23 @@ export const Products: React.FC = () => {
                 </label>
                 <select
                   value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  onChange={(e) => {
+                    setCategoryFilter(e.target.value);
+                    setPage(1);
+                  }}
                   className="bg-black/20 border border-white/10 rounded px-3 py-1.5 text-xs text-white focus:border-primary focus:ring-0 min-w-[140px]"
                 >
                   <option value="All">{t('products:status.allCategories')}</option>
-                  <option value="Coats & Jackets">{t('products:categories.coats')}</option>
-                  <option value="Dresses">{t('products:categories.dresses')}</option>
-                  <option value="Accessories">{t('products:categories.accessories')}</option>
-                  <option value="Shoes">{t('products:categories.shoes')}</option>
+                  {categories.map((category) => (
+                    <option key={category.categoryId} value={category.slug}>
+                      {category.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex items-end">
                 <button
-                  onClick={() => { setStatusFilter('All'); setCategoryFilter('All'); }}
+                  onClick={handleResetFilters}
                   className="text-xs text-gray-500 hover:text-white uppercase tracking-wider font-bold h-[30px] px-2"
                 >
                   {t('products:toolbar.resetFilters')}
@@ -552,7 +635,7 @@ export const Products: React.FC = () => {
                 <AlertCircle size={40} className="mb-2" />
                 <p className="text-sm">{t('products:empty.noMatch')}</p>
                 <button
-                  onClick={() => { setStatusFilter('All'); setCategoryFilter('All'); }}
+                  onClick={handleResetFilters}
                   className="mt-4 text-primary text-xs font-bold uppercase tracking-wider hover:underline"
                 >
                   {t('products:empty.clearFilters')}
@@ -560,6 +643,44 @@ export const Products: React.FC = () => {
               </div>
             )}
           </div>
+          {!loading && !error && totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-white/[0.06]">
+              <p className="text-xs text-white/40">
+                {t('products:pagination.summary', { page, totalPages, total: totalProducts })}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={page <= 1}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white hover:border-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={15} />
+                </button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
+                  const pageNumber = Math.max(1, Math.min(page - 2, totalPages - 4)) + index;
+                  return (
+                    <button
+                      key={pageNumber}
+                      onClick={() => setPage(pageNumber)}
+                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${pageNumber === page
+                        ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                        : 'border border-white/10 text-white/50 hover:text-white hover:border-white/20'
+                        }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  disabled={page >= totalPages}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white hover:border-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

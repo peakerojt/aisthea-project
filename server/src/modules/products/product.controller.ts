@@ -18,7 +18,7 @@ const toProductFilters = (query: ProductQueryDto): ProductFilter => ({
   search: query.search,
   minPrice: query.minPrice,
   maxPrice: query.maxPrice,
-  status: query.status ?? 'Active',
+  status: query.status,
   page: query.page,
   limit: query.limit,
 });
