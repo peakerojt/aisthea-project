@@ -7,9 +7,10 @@ import { logger } from '../../lib/logger';
 export const recommendOutfit = async (payload: OutfitRecommendInput): Promise<OutfitRecommendation> => {
   const prompt = buildOutfitPrompt(payload);
   const response = await callAiModel({
-    apiKey: env.openAiApiKey,
+    accountId: env.cloudflareAccountId,
+    apiToken: env.cloudflareApiToken,
     prompt,
-    model: env.openAiModel,
+    model: env.cloudflareAiModel,
     mockMode: env.mockAi,
   });
 

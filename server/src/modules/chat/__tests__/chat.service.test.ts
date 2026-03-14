@@ -66,6 +66,12 @@ describe('chatService', () => {
         primaryImageUrl: 'https://cdn.example.com/jacket.jpg',
       },
     ]);
+    expect(result.actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: '/product/12' }),
+        expect.objectContaining({ to: '/collection' }),
+      ]),
+    );
     expect(result.reply).toContain('Cloudflare AI');
   });
 
@@ -111,5 +117,93 @@ describe('chatService', () => {
     expect(secondBody.messages[0].content).toContain('Minimal Linen Shirt');
     expect(secondBody.messages[0].content).toContain('Shirts');
     expect(result.reply).toBe('Áo này hợp form slim.');
+    expect(result.actions).toEqual(
+      expect.arrayContaining([expect.objectContaining({ to: '/stylist' })]),
+    );
+  });
+
+  it('uses stylist assistant prompt for stylist page requests', async () => {
+    jest.spyOn(productRepository, 'findMany').mockResolvedValue({
+      data: [],
+      meta: { total: 0, page: 1, limit: 4, totalPages: 0 },
+    });
+
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce(createFetchResponse({ result: { response: 'STYLE' } }))
+      .mockResolvedValueOnce(createFetchResponse({ result: { response: 'Bạn nên phối thêm áo khoác nhẹ.' } }));
+    global.fetch = fetchMock as typeof fetch;
+
+    const result = await chatService.chat({
+      message: 'Phối đồ đi làm trời mát như thế nào?',
+      page: 'stylist',
+      history: [],
+    });
+
+    const secondCall = fetchMock.mock.calls[1];
+    const secondBody = JSON.parse(secondCall[1].body as string) as { messages: Array<{ content: string }> };
+
+    expect(secondBody.messages[0].content).toContain('AISTHEA stylist assistant');
+    expect(result.intent).toBe('STYLE');
+    expect(result.reply).toBe('Bạn nên phối thêm áo khoác nhẹ.');
+    expect(result.actions).toEqual(
+      expect.arrayContaining([expect.objectContaining({ to: '/collection' })]),
+    );
+  });
+
+  it('uses support fallback reply for support page requests', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('network down'));
+
+    const result = await chatService.chat({
+      message: 'Tôi muốn hỏi chính sách đổi trả',
+      page: 'support',
+      history: [],
+    });
+
+    expect(result.intent).toBe('GENERAL');
+    expect(result.products).toEqual([]);
+    expect(result.reply).toContain('Support');
+    expect(result.actions).toEqual(
+      expect.arrayContaining([expect.objectContaining({ to: '/support?section=returns' })]),
+    );
+    expect(result.actions).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ to: '/support' })]),
+    );
+  });
+
+  it('includes weather context when generating a weather-page reply', async () => {
+    jest.spyOn(productRepository, 'findMany').mockResolvedValue({
+      data: [],
+      meta: { total: 0, page: 1, limit: 4, totalPages: 0 },
+    });
+
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce(createFetchResponse({ result: { response: 'STYLE' } }))
+      .mockResolvedValueOnce(createFetchResponse({ result: { response: 'Nên ưu tiên áo khoác mỏng chống gió.' } }));
+    global.fetch = fetchMock as typeof fetch;
+
+    const result = await chatService.chat({
+      message: 'Thời tiết này nên mặc gì?',
+      page: 'weather',
+      history: [],
+      contextSummary: 'Ho Chi Minh City · 31.5°C · mây rải rác · summer/humid',
+    });
+
+    const secondCall = fetchMock.mock.calls[1];
+    const secondBody = JSON.parse(secondCall[1].body as string) as { messages: Array<{ content: string }> };
+
+    expect(secondBody.messages[0].content).toContain('AISTHEA stylist assistant');
+    expect(secondBody.messages[0].content).toContain('Ho Chi Minh City');
+    expect(result.reply).toBe('Nên ưu tiên áo khoác mỏng chống gió.');
+    expect(result.actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: '/stylist' }),
+        expect.objectContaining({ to: '/collection' }),
+      ]),
+    );
+    expect(result.actions).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ to: '/weather-outfit' })]),
+    );
   });
 });

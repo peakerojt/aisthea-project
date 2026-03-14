@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronRight, HelpCircle, Mail, MapPin, Phone, RefreshCw, ShieldCheck, ShoppingBag } from 'lucide-react';
+import { ChatWidget } from '@/common/components/ChatWidget';
 import { Header } from '@/store/components/Header';
 import { useTranslation } from 'react-i18next';
 
@@ -131,6 +132,8 @@ export const SupportPage: React.FC = () => {
           )}
         </main>
       </div>
+
+      <ChatWidget page="support" />
     </div>
   );
 };

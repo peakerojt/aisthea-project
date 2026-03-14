@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { ProductCard } from '@/common/components/ProductCard';
 import {
   sendChatMessage,
+  type ChatAction,
   type ChatPage,
   type ChatProductRecommendation,
   type ChatRole,
+  trackChatEvent,
 } from '@/common/services/chat.service';
 
 type UiChatMessage = {
@@ -14,6 +16,7 @@ type UiChatMessage = {
   role: ChatRole;
   content: string;
   products?: ChatProductRecommendation[];
+  actions?: ChatAction[];
   pending?: boolean;
 };
 
@@ -21,26 +24,96 @@ interface ChatWidgetProps {
   page: ChatPage;
   productId?: number | null;
   productName?: string;
+  contextSummary?: string;
 }
 
 const createMessageId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const createSessionId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+const buildInitialActions = (page: ChatPage): ChatAction[] => {
+  if (page === 'product') {
+    return [
+      { type: 'navigate', label: 'Mở Stylist', to: '/stylist' },
+      { type: 'navigate', label: 'Xem bộ sưu tập', to: '/collection' },
+      { type: 'navigate', label: 'Mở Support', to: '/support' },
+    ];
+  }
+
+  if (page === 'stylist') {
+    return [
+      { type: 'navigate', label: 'Xem bộ sưu tập', to: '/collection' },
+      { type: 'navigate', label: 'Mở Support', to: '/support' },
+    ];
+  }
+
+  if (page === 'weather') {
+    return [
+      { type: 'navigate', label: 'Mở Stylist', to: '/stylist' },
+      { type: 'navigate', label: 'Xem bộ sưu tập', to: '/collection' },
+      { type: 'navigate', label: 'Mở Support', to: '/support' },
+    ];
+  }
+
+  if (page === 'support') {
+    return [
+      { type: 'navigate', label: 'Xem đổi trả', to: '/support?section=returns' },
+      { type: 'navigate', label: 'Xem FAQ', to: '/support?section=faq' },
+      { type: 'navigate', label: 'Mở Stylist', to: '/stylist' },
+    ];
+  }
+
+  return [
+    { type: 'navigate', label: 'Mở Stylist', to: '/stylist' },
+    { type: 'navigate', label: 'Xem bộ sưu tập', to: '/collection' },
+    { type: 'navigate', label: 'Mở Support', to: '/support' },
+  ];
+};
 
 const buildInitialMessage = (page: ChatPage, productName?: string): UiChatMessage => ({
   id: 'initial-assistant-message',
   role: 'assistant',
-  content:
-    page === 'product'
-      ? `Mình có thể tư vấn size, cách phối, hoặc so sánh thêm cho ${productName || 'sản phẩm này'}.`
-      : 'Mình có thể gợi ý sản phẩm, phối đồ, hoặc tìm item phù hợp với nhu cầu của bạn.',
+  content: (() => {
+    if (page === 'product') {
+      return `Mình có thể tư vấn size, cách phối, hoặc so sánh thêm cho ${productName || 'sản phẩm này'}.`;
+    }
+
+    if (page === 'stylist') {
+      return 'Mình có thể gợi ý cách phối đồ, phân tích outfit theo thời tiết hiện tại, hoặc tìm item phù hợp để mua ngay.';
+    }
+
+    if (page === 'weather') {
+      return 'Mình có thể giải thích outfit theo thời tiết hiện tại, gợi ý layer phù hợp, hoặc tìm thêm sản phẩm để phối ngay.';
+    }
+
+    if (page === 'support') {
+      return 'Mình có thể hỗ trợ FAQ, hướng dẫn mua hàng, đổi trả, hoặc chỉ đúng mục Support bạn đang cần.';
+    }
+
+    return 'Mình có thể gợi ý sản phẩm, phối đồ, hoặc tìm item phù hợp với nhu cầu của bạn.';
+  })(),
+  actions: buildInitialActions(page),
 });
 
-export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, productName }) => {
+const dedupeActions = (actions: ChatAction[] | undefined): ChatAction[] => {
+  if (!actions || actions.length === 0) return [];
+
+  const seen = new Set<string>();
+  return actions.filter((action) => {
+    const key = `${action.type}:${action.to}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, productName, contextSummary }) => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [messages, setMessages] = useState<UiChatMessage[]>(() => [buildInitialMessage(page, productName)]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const sessionIdRef = useRef(createSessionId());
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -53,16 +126,58 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, product
   }, [page, productId, productName]);
 
   const title = useMemo(
-    () => (page === 'product' ? 'Product Assistant' : 'AISTHEA Assistant'),
+    () => {
+      if (page === 'product') return 'Product Assistant';
+      if (page === 'stylist') return 'Stylist Assistant';
+      if (page === 'weather') return 'Stylist Assistant';
+      if (page === 'support') return 'Support Assistant';
+      return 'AISTHEA Assistant';
+    },
     [page],
   );
 
-  const placeholder = page === 'product'
-    ? 'Hỏi về size, cách phối, hoặc sản phẩm tương tự...'
-    : 'Tìm áo khoác, outfit, hoặc sản phẩm phù hợp...';
+  const placeholder = (() => {
+    if (page === 'product') return 'Hỏi về size, cách phối, hoặc sản phẩm tương tự...';
+    if (page === 'stylist') return 'Hỏi về cách phối, vibe, hoặc outfit theo thời tiết...';
+    if (page === 'weather') return 'Hỏi về outfit theo thời tiết hiện tại hoặc item nên thêm...';
+    if (page === 'support') return 'Hỏi về đổi trả, mua hàng, hoặc chính sách hỗ trợ...';
+    return 'Tìm áo khoác, outfit, hoặc sản phẩm phù hợp...';
+  })();
+
+  const hasConversationStarted = useMemo(
+    () => messages.some((message) => message.role === 'user'),
+    [messages],
+  );
 
   const handleNavigateToProduct = (recommendation: ChatProductRecommendation) => {
+    void trackChatEvent({
+      event: 'chat_product_click',
+      page,
+      sessionId: sessionIdRef.current,
+      productId: recommendation.productId,
+      conversationLength: messages.length,
+      target: `/product/${recommendation.productId}`,
+      label: recommendation.name,
+      placement: 'product_card',
+      hasContextSummary: Boolean(contextSummary),
+    });
     navigate(`/product/${recommendation.productId}`);
+    setIsOpen(false);
+  };
+
+  const handleNavigateAction = (action: ChatAction, messageId: string) => {
+    void trackChatEvent({
+      event: 'chat_cta_click',
+      page,
+      sessionId: sessionIdRef.current,
+      productId: page === 'product' ? productId ?? undefined : undefined,
+      conversationLength: messages.length,
+      target: action.to,
+      label: action.label,
+      placement: messageId === 'initial-assistant-message' ? 'initial_actions' : 'reply_actions',
+      hasContextSummary: Boolean(contextSummary),
+    });
+    navigate(action.to);
     setIsOpen(false);
   };
 
@@ -93,6 +208,15 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, product
     ]);
     setInput('');
     setIsSending(true);
+    void trackChatEvent({
+      event: 'chat_send',
+      page,
+      sessionId: sessionIdRef.current,
+      productId: page === 'product' ? productId ?? undefined : undefined,
+      messageLength: trimmed.length,
+      conversationLength: history.length + 1,
+      hasContextSummary: Boolean(contextSummary),
+    });
 
     try {
       const response = await sendChatMessage({
@@ -100,6 +224,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, product
         page,
         history,
         productId: page === 'product' ? productId ?? undefined : undefined,
+        contextSummary,
       });
 
       setMessages((prev) =>
@@ -110,6 +235,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, product
                 role: 'assistant',
                 content: response.reply,
                 products: response.products,
+                actions: response.actions,
               }
             : message,
         ),
@@ -137,7 +263,18 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, product
       {!isOpen && (
         <button
           type="button"
-          onClick={() => setIsOpen(true)}
+          onClick={() => {
+            void trackChatEvent({
+              event: 'chat_open',
+              page,
+              sessionId: sessionIdRef.current,
+              productId: page === 'product' ? productId ?? undefined : undefined,
+              conversationLength: messages.length,
+              placement: 'launcher',
+              hasContextSummary: Boolean(contextSummary),
+            });
+            setIsOpen(true);
+          }}
           className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-black/85 text-white shadow-2xl shadow-black/50 transition hover:scale-105 hover:border-primary/50 hover:text-primary md:bottom-6 md:right-6"
           aria-label="Open chat assistant"
         >
@@ -200,6 +337,29 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, product
                       ))}
                     </div>
                   )}
+
+                  {(() => {
+                    const shouldHideInitialActions =
+                      message.id === 'initial-assistant-message' && hasConversationStarted;
+                    const renderableActions = shouldHideInitialActions ? [] : dedupeActions(message.actions);
+
+                    if (renderableActions.length === 0) return null;
+
+                    return (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {renderableActions.map((action) => (
+                          <button
+                            key={`${message.id}-${action.to}`}
+                            type="button"
+                            onClick={() => handleNavigateAction(action, message.id)}
+                            className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition hover:border-primary hover:bg-primary/20 hover:text-white"
+                          >
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             ))}

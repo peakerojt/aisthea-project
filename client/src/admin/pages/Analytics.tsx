@@ -8,13 +8,14 @@ import {
 import { motion } from 'framer-motion';
 import {
     Download, TrendingUp, TrendingDown,
-    DollarSign, ShoppingCart, Users, AlertTriangle, Calendar, Sparkles,
+    DollarSign, ShoppingCart, Users, AlertTriangle, Calendar, Sparkles, MessageCircleMore,
 } from 'lucide-react';
 import {
     fetchAnalyticsSummary, exportToCSV, formatVND, formatVNDShort,
     formatMonthLabel, firstOfMonthStr, todayStr,
     AnalyticsSummary,
 } from '@/common/services/analytics.service';
+import { fetchChatTelemetrySummary, type ChatTelemetrySummaryPayload } from '@/common/services/chat.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared tooltip
@@ -271,6 +272,7 @@ export const Analytics: React.FC = () => {
     const [startDate, setStartDate] = useState(firstOfMonthStr());
     const [endDate, setEndDate] = useState(todayStr());
     const [data, setData] = useState<AnalyticsSummary | null>(null);
+    const [chatData, setChatData] = useState<ChatTelemetrySummaryPayload | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -278,8 +280,12 @@ export const Analytics: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            const result = await fetchAnalyticsSummary(sd, ed);
-            setData(result);
+            const [analyticsResult, chatTelemetryResult] = await Promise.all([
+                fetchAnalyticsSummary(sd, ed),
+                fetchChatTelemetrySummary(sd, ed),
+            ]);
+            setData(analyticsResult);
+            setChatData(chatTelemetryResult);
         } catch (error) {
             const e = error as Error | { message?: string; error?: string; data?: unknown };
             setError(e?.message ?? t('feedback.loadError'));
@@ -394,6 +400,146 @@ export const Analytics: React.FC = () => {
                     accentColor="text-teal-400"
                 />
             </div>
+
+            {/* ── Chat Assistant Funnel ───────────────────────────────────────── */} 
+            <section className="space-y-4">
+                <div className="flex flex-col gap-1">
+                    <p className="text-xs font-bold text-sky-400 tracking-[0.18em] uppercase">
+                        Assistant telemetry
+                    </p>
+                    <h3 className="text-xl font-black text-white uppercase tracking-tight">
+                        Chat Funnel
+                    </h3>
+                    <p className="text-xs text-white/35">
+                        Theo doi luong mo chat, gui tin nhan va click CTA theo tung context.
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                    <KPICard
+                        label="Chat Opens"
+                        value={(chatData?.overview.opens ?? 0).toLocaleString('vi-VN')}
+                        sub={`${(chatData?.overview.uniqueSessions ?? 0).toLocaleString('vi-VN')} sessions`}
+                        positive={null}
+                        icon={MessageCircleMore}
+                        accentColor="text-sky-400"
+                    />
+                    <KPICard
+                        label="Messages Sent"
+                        value={(chatData?.overview.sends ?? 0).toLocaleString('vi-VN')}
+                        sub={`${(chatData?.overview.sendRate ?? 0).toFixed(1)}% open -> send`}
+                        positive={chatData ? chatData.overview.sendRate > 0 : null}
+                        icon={Sparkles}
+                        accentColor="text-fuchsia-400"
+                    />
+                    <KPICard
+                        label="CTA Clicks"
+                        value={(chatData?.overview.ctaClicks ?? 0).toLocaleString('vi-VN')}
+                        sub={`${(chatData?.overview.clickRate ?? 0).toFixed(1)}% send -> click`}
+                        positive={chatData ? chatData.overview.clickRate > 0 : null}
+                        icon={ShoppingCart}
+                        accentColor="text-amber-400"
+                    />
+                    <KPICard
+                        label="Product Clicks"
+                        value={(chatData?.overview.productClicks ?? 0).toLocaleString('vi-VN')}
+                        sub="Recommendation card"
+                        positive={null}
+                        icon={Users}
+                        accentColor="text-emerald-400"
+                    />
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-[6fr_6fr] gap-5">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.35 }}
+                        className="bg-surface-dark border border-white/15 rounded-sm overflow-hidden"
+                    >
+                        <div className="px-6 py-4 border-b border-white/15">
+                            <h3 className="text-sm font-bold text-white uppercase tracking-widest">
+                                Chat theo page context
+                            </h3>
+                            <p className="text-[10px] text-white/30 mt-0.5">
+                                Home, product, stylist, weather, support
+                            </p>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                                <thead>
+                                    <tr className="border-b border-white/15">
+                                        <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">Page</th>
+                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">Open</th>
+                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">Send</th>
+                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">CTA</th>
+                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">Product</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/[0.04]">
+                                    {loading ? (
+                                        Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
+                                    ) : !chatData?.byPage.length ? (
+                                        <tr><td colSpan={5} className="px-4 py-10 text-center text-white/20">Chua co du lieu chat.</td></tr>
+                                    ) : (
+                                        chatData.byPage.map((row) => (
+                                            <tr key={row.page} className="hover:bg-white/[0.025] transition-colors">
+                                                <td className="px-4 py-3 font-semibold uppercase text-white/75">{row.page}</td>
+                                                <td className="px-4 py-3 text-right text-white/60">{row.opens.toLocaleString('vi-VN')}</td>
+                                                <td className="px-4 py-3 text-right text-white/60">{row.sends.toLocaleString('vi-VN')}</td>
+                                                <td className="px-4 py-3 text-right text-amber-400 font-bold">{row.ctaClicks.toLocaleString('vi-VN')}</td>
+                                                <td className="px-4 py-3 text-right text-emerald-400 font-bold">{row.productClicks.toLocaleString('vi-VN')}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </motion.div>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                        className="bg-surface-dark border border-white/15 rounded-sm overflow-hidden"
+                    >
+                        <div className="px-6 py-4 border-b border-white/15">
+                            <h3 className="text-sm font-bold text-white uppercase tracking-widest">
+                                CTA target noi bat
+                            </h3>
+                            <p className="text-[10px] text-white/30 mt-0.5">
+                                Duong dan duoc bam nhieu nhat tu assistant
+                            </p>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                                <thead>
+                                    <tr className="border-b border-white/15">
+                                        <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">Label</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">Target</th>
+                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">Clicks</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/[0.04]">
+                                    {loading ? (
+                                        Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={3} />)
+                                    ) : !chatData?.topTargets.length ? (
+                                        <tr><td colSpan={3} className="px-4 py-10 text-center text-white/20">Chua co CTA click.</td></tr>
+                                    ) : (
+                                        chatData.topTargets.map((row) => (
+                                            <tr key={row.target} className="hover:bg-white/[0.025] transition-colors">
+                                                <td className="px-4 py-3 font-semibold text-white/80">{row.label ?? 'Direct navigation'}</td>
+                                                <td className="px-4 py-3 text-white/45 font-mono">{row.target}</td>
+                                                <td className="px-4 py-3 text-right font-bold text-sky-400">{row.clicks.toLocaleString('vi-VN')}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </motion.div>
+                </div>
+            </section>
 
             {/* ── Charts Row 1: Bar + Pie + Retention Donut ───────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">

@@ -5,7 +5,7 @@ import passport from 'passport';
 import { configureGoogleStrategy } from './config/passport.config';
 
 // ─── Security ─────────────────────────────────────────────────────────────────
-import { applyCsrfProtection, applyHelmet, globalRateLimiter } from './middlewares/security.middleware';
+import { applyCsrfProtection, applyHelmet, applyPermissionsPolicy, globalRateLimiter } from './middlewares/security.middleware';
 import { localeMiddleware } from './middlewares/locale.middleware';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 import { responseNormalizer } from './middlewares/response.middleware';
@@ -54,6 +54,7 @@ export function createApp() {
 
   // ── Security headers ─────────────────────────────────────────────────────────
   app.use(applyHelmet);
+  app.use(applyPermissionsPolicy);
 
   // ── CORS ─────────────────────────────────────────────────────────────────────
   app.use(

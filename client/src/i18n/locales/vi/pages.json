@@ -409,7 +409,11 @@
     },
     "products": {
       "badge": "Sản phẩm gợi ý",
-      "title": "Sản phẩm theo mùa"
+      "title": "Sản phẩm theo mùa",
+      "titleWithOutfit": "Sản phẩm phù hợp với outfit",
+      "matchingHint": "Danh sách này được ưu tiên theo thời tiết hiện tại, phong cách đã chọn, hồ sơ phong cách và kết quả outfit AI vừa tạo.",
+      "itemsLabel": "món",
+      "noSlotProducts": "Chưa tìm được sản phẩm khớp rõ cho nhóm này."
     },
     "states": {
       "loadingWeather": "Đang lấy dữ liệu thời tiết...",
@@ -421,7 +425,11 @@
     },
     "errors": {
       "geoNotSupported": "Trình duyệt không hỗ trợ định vị.",
-      "locationUnavailable": "Không thể lấy vị trí. Hãy chọn thành phố."
+      "locationUnavailable": "Không thể lấy vị trí. Hãy chọn thành phố.",
+      "locationPermissionDenied": "Trình duyệt đang chặn quyền vị trí. Hãy cho phép truy cập vị trí hoặc nhập thành phố.",
+      "locationTimeout": "Lấy vị trí quá lâu. Hãy thử lại hoặc nhập thành phố.",
+      "locationInsecureContext": "Trang hiện tại không ở secure context nên trình duyệt không trả GPS. Hãy mở bằng localhost chuẩn hoặc HTTPS.",
+      "locationBlockedBySystem": "Website đã được cấp quyền nhưng trình duyệt hoặc hệ điều hành vẫn không trả GPS. Hãy bật Location Services của máy rồi thử lại."
     }
   },
   "weatherOutfit": {

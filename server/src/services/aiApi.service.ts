@@ -1,28 +1,39 @@
 import { logger } from '../lib/logger';
 
-interface ChatCompletionResponse {
-  choices: Array<{
-    message: {
-      content: string;
-    };
-  }>;
+interface CloudflareAiResponse {
+  result?: {
+    response?: string;
+  };
 }
 
+const extractJsonPayload = (value: string) => {
+  const trimmed = value.trim();
+
+  if (trimmed.startsWith('```')) {
+    const withoutFenceStart = trimmed.replace(/^```(?:json)?\s*/i, '');
+    return withoutFenceStart.replace(/\s*```$/, '').trim();
+  }
+
+  return trimmed;
+};
+
 export const callAiModel = async ({
-  apiKey,
+  accountId,
+  apiToken,
   prompt,
-  model = 'gpt-4o-mini',
+  model,
   timeoutMs = 12000,
   mockMode = false,
 }: {
-  apiKey?: string;
+  accountId?: string;
+  apiToken?: string;
   prompt: string;
-  model?: string;
+  model: string;
   timeoutMs?: number;
   mockMode?: boolean;
 }): Promise<string> => {
-  if (mockMode || !apiKey) {
-    logger.warn('OpenAI API key missing or mock mode enabled. Returning mock response.');
+  if (mockMode || !accountId || !apiToken || !model) {
+    logger.warn('Cloudflare AI credentials missing or mock mode enabled. Returning mock response.');
     return JSON.stringify({
       summary: 'Trang phục tối giản với áo sơ mi linen thoáng mát và quần chinos sáng màu.',
       items: {
@@ -40,14 +51,13 @@ export const callAiModel = async ({
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiToken}`,
       },
       body: JSON.stringify({
-        model,
         messages: [
           {
             role: 'system',
@@ -58,19 +68,17 @@ export const callAiModel = async ({
             content: prompt,
           },
         ],
-        temperature: 0.6,
-        response_format: { type: 'json_object' },
       }),
       signal: controller.signal,
     });
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`OpenAI API error: ${response.status} ${text}`);
+      throw new Error(`Cloudflare AI error: ${response.status} ${text}`);
     }
 
-    const data = (await response.json()) as ChatCompletionResponse;
-    return data.choices[0]?.message?.content || '';
+    const data = (await response.json()) as CloudflareAiResponse;
+    return extractJsonPayload(data.result?.response || '');
   } catch (error) {
     logger.error('Failed to call AI model', { error });
     throw error;

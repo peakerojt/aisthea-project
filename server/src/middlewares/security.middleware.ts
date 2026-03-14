@@ -95,6 +95,11 @@ export const applyHelmet = helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }, // allow Cloudinary images
 });
 
+export const applyPermissionsPolicy = (_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('Permissions-Policy', 'geolocation=(self)');
+    next();
+};
+
 /**
  * Global rate limiter — 200 requests per 15 minutes per IP.
  * Applied to all /api/* routes.
