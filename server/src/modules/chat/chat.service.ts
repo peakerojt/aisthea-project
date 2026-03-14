@@ -84,6 +84,20 @@ const EXPLORE_MORE_HINTS = [
 
 const trimText = (value: string, maxLength = 600) => value.trim().slice(0, maxLength);
 
+const toLoggableError = (error: unknown) => {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+
+  return {
+    message: String(error),
+  };
+};
+
 const toCloudflareHistory = (history: ChatHistoryMessage[]): CloudflareMessage[] =>
   history.slice(-MAX_HISTORY_ITEMS).map((message) => ({
     role: message.role,
@@ -275,7 +289,7 @@ const classifyIntent = async (message: string, page: ChatPage): Promise<ChatInte
     const response = await callCloudflare(buildIntentPrompt(message, page));
     return normalizeIntent(response);
   } catch (error) {
-    logger.warn('[chatService] Intent classification fallback engaged', { error });
+    logger.warn('[chatService] Intent classification fallback engaged', { error: toLoggableError(error) });
     return keywordIntentFallback(message, page);
   }
 };
@@ -384,7 +398,7 @@ export const chatService = {
         products,
       };
     } catch (error) {
-      logger.error('[chatService] Reply generation fallback engaged', { error });
+      logger.error('[chatService] Reply generation fallback engaged', { error: toLoggableError(error) });
       return {
         reply: buildFallbackReply(payload.page, products.length > 0, currentProduct?.name),
         intent,
