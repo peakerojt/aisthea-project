@@ -80,6 +80,7 @@
       "priceHighToLow": "Giá: Cao đến thấp"
     },
     "hero": {
+      "allProductsTitle": "Tất cả sản phẩm",
       "searchResults": "Kết quả tìm kiếm",
       "collectionTitle": "Bộ sưu tập {{collection}}",
       "searchDescription": "Tìm thấy {{count}} sản phẩm phù hợp với \"{{term}}\"",
@@ -143,6 +144,10 @@
   },
   "shoppingBag": {
     "title": "Giỏ hàng",
+    "meta": {
+      "kicker": "Bước 1 · Rà soát đơn hàng",
+      "subtitle": "Kiểm tra lại sản phẩm, số lượng và tổng tạm tính trước khi chuyển sang bước thanh toán."
+    },
     "empty": {
       "title": "Giỏ hàng của bạn đang trống."
     },
@@ -159,17 +164,38 @@
       "checkout": "Tiến hành thanh toán"
     },
     "summary": {
-      "title": "Tóm tắt đơn hàng",
+      "title": "Đơn hàng ({{count}} sản phẩm)",
+      "itemsCount": "mặt hàng",
+      "linePrice": "Tổng dòng",
       "subtotal": "Tạm tính",
       "shipping": "Vận chuyển",
       "free": "Miễn phí",
-      "estimatedTax": "Thuế ước tính",
+      "shippingPending": "Tính ở bước thanh toán",
+      "couponAtCheckout": "Mã giảm giá sẽ được chọn ở bước thanh toán",
+      "couponHint": "Voucher và phí vận chuyển sẽ được xác nhận ở bước tiếp theo để tránh sai lệch tổng tiền.",
       "promoPlaceholder": "Nhập mã giảm giá",
       "apply": "Áp dụng",
       "total": "Tổng cộng",
       "includesVat": "Đã gồm VAT",
-      "noteLine1": "Miễn phí vận chuyển cho đơn từ $200.",
+      "totalHint": "Tạm tính trước khi chọn địa chỉ giao hàng",
+      "noteLine1": "Miễn phí vận chuyển cho đơn từ 500.000 đ.",
       "noteLine2": "Hỗ trợ đổi trả trong 30 ngày."
+    }
+  },
+  "checkoutFlow": {
+    "steps": {
+      "cart": {
+        "label": "Giỏ hàng",
+        "hint": "Kiểm tra sản phẩm và số lượng"
+      },
+      "checkout": {
+        "label": "Thanh toán",
+        "hint": "Điền thông tin và chọn phương thức"
+      },
+      "success": {
+        "label": "Hoàn tất",
+        "hint": "Xác nhận đơn và theo dõi trạng thái"
+      }
     }
   },
   "login": {
@@ -488,46 +514,118 @@
     }
   },
   "orderSuccess": {
+    "meta": {
+      "kicker": "Bước 3 · Hoàn tất đơn hàng",
+      "title": "Xác nhận đơn hàng",
+      "subtitle": "Đơn của bạn đã được ghi nhận. Mọi cập nhật tiếp theo sẽ được gửi qua email và hiển thị trong lịch sử đơn hàng."
+    },
     "fallback": {
       "customer": "Khách hàng",
       "unknown": "Không rõ"
     },
     "header": {
+      "badge": "Đã xác nhận",
       "title": "Cảm ơn bạn đã đặt hàng!",
       "description": "Một email xác nhận đã được gửi tới địa chỉ của bạn. Xin vui lòng kiểm tra hộp thư đến (hoặc thư mục Spam) để theo dõi."
+    },
+    "status": {
+      "title": "Trạng thái",
+      "value": "Đơn hàng đang chờ xử lý",
+      "description": "Chúng tôi sẽ xác minh thanh toán, chuẩn bị sản phẩm và cập nhật vận chuyển trong mục đơn hàng của bạn.",
+      "orderId": "Mã đơn #{{orderId}}"
     },
     "sections": {
       "customerInfo": "Thông tin mua hàng",
       "paymentMethod": "Phương thức thanh toán",
       "shippingAddress": "Địa chỉ nhận hàng",
-      "shippingMethod": "Phương thức vận chuyển"
+      "shippingMethod": "Phương thức vận chuyển",
+      "nextSteps": "Bước tiếp theo"
     },
     "payment": {
       "vnpay": "Thanh toán qua VNPAY-QR",
       "cod": "Thanh toán khi giao hàng (COD)"
     },
     "shipping": {
-      "standard": "Giao hàng tận nơi (Tiêu chuẩn)"
+      "standard": "Giao hàng tận nơi (Tiêu chuẩn)",
+      "express": "Giao hàng hỏa tốc"
+    },
+    "followUp": {
+      "emailTitle": "Email xác nhận đã được gửi",
+      "emailDescription": "Nếu chưa thấy email, hãy kiểm tra thêm mục Spam hoặc Quảng cáo.",
+      "ordersTitle": "Theo dõi tiến độ trong đơn hàng",
+      "ordersDescription": "Bạn có thể xem trạng thái xử lý, vận chuyển và lịch sử cập nhật ngay trong tài khoản."
     },
     "actions": {
       "continueShopping": "Tiếp tục mua hàng",
       "viewOrders": "Xem đơn hàng"
+    },
+    "summary": {
+      "title_one": "Đơn hàng ({{count}} sản phẩm)",
+      "title_other": "Đơn hàng ({{count}} sản phẩm)",
+      "subtotal": "Tạm tính",
+      "shipping": "Vận chuyển",
+      "freeShipping": "Miễn phí",
+      "discount": "Giảm giá",
+      "total": "Tổng cộng"
     }
   },
   "vnpayReturn": {
+    "meta": {
+      "kicker": "Hoàn tất xác thực thanh toán",
+      "title": "Kết quả thanh toán VNPAY",
+      "subtitle": "Chúng tôi đang đồng bộ trạng thái thanh toán với đơn hàng của bạn để đảm bảo thông tin hiển thị chính xác."
+    },
     "states": {
       "loadingMessage": "Đang xác thực kết quả thanh toán...",
       "successMessage": "Thanh toán VNPAY thành công!",
       "failedMessage": "Thanh toán thất bại hoặc đã bị hủy.",
       "errorMessage": "Lỗi khi xác thực thanh toán VNPAY."
     },
+    "status": {
+      "badges": {
+        "loading": "Đang xác thực",
+        "success": "Thanh toán thành công",
+        "failed": "Cần xử lý lại"
+      },
+      "orderLabel": "Mã đơn",
+      "orderHint": "Bạn có thể theo dõi tiếp trong mục đơn hàng."
+    },
     "descriptions": {
       "success": "Cảm ơn bạn đã sử dụng dịch vụ. Đơn hàng của bạn sẽ được xử lý trong thời gian sớm nhất.",
-      "failed": "Vui lòng thử lại hoặc chọn một phương thức thanh toán khác."
+      "failed": "Vui lòng thử lại hoặc chọn một phương thức thanh toán khác.",
+      "loading": "Quá trình xác thực có thể mất vài giây. Vui lòng không đóng trình duyệt trong lúc hệ thống đồng bộ."
+    },
+    "sections": {
+      "paymentStatus": "Trạng thái thanh toán",
+      "paymentMethod": "Phương thức thanh toán",
+      "nextStepTitle": "Tiếp theo",
+      "nextStepSuccess": "Thanh toán đã được ghi nhận. Bạn có thể xem xác nhận đơn hàng hoặc theo dõi trạng thái xử lý trong tài khoản.",
+      "nextStepFailed": "Bạn có thể quay lại checkout để thử lại thanh toán hoặc chọn phương thức khác mà không cần xây lại giỏ hàng.",
+      "nextStepLoading": "Chờ hệ thống xác nhận với VNPAY. Ngay khi hoàn tất, thông tin đơn hàng sẽ được cập nhật đầy đủ.",
+      "statusValues": {
+        "loading": "Đang chờ kết quả từ cổng thanh toán",
+        "success": "Thanh toán đã được xác nhận",
+        "failed": "Thanh toán chưa hoàn tất"
+      },
+      "paymentValues": {
+        "vnpay": "Thanh toán qua VNPAY-QR",
+        "cod": "Thanh toán khi giao hàng (COD)"
+      }
+    },
+    "summary": {
+      "title_one": "Đơn hàng ({{count}} sản phẩm)",
+      "title_other": "Đơn hàng ({{count}} sản phẩm)",
+      "subtotal": "Tạm tính",
+      "shipping": "Vận chuyển",
+      "freeShipping": "Miễn phí",
+      "discount": "Giảm giá",
+      "total": "Tổng cộng"
     },
     "actions": {
       "continueShopping": "Tiếp tục mua hàng",
-      "manageOrders": "Quản lý đơn hàng"
+      "manageOrders": "Quản lý đơn hàng",
+      "retryCheckout": "Quay lại thanh toán",
+      "viewConfirmation": "Xem xác nhận đơn"
     }
   },
   "itemsPage": {
@@ -769,6 +867,11 @@
     }
   },
   "checkout": {
+    "meta": {
+      "kicker": "Bước 2 · Hoàn tất thanh toán",
+      "title": "Thanh toán",
+      "subtitle": "Điền thông tin giao hàng, chọn phương thức thanh toán và rà soát đơn trước khi xác nhận."
+    },
     "fallback": {
       "productName": "Sản phẩm"
     },
@@ -776,6 +879,23 @@
       "contactInfo": "Thông tin nhận hàng",
       "shipping": "Vận chuyển",
       "payment": "Thanh toán"
+    },
+    "descriptions": {
+      "contactInfo": "Dùng để xác nhận đơn hàng và liên hệ khi giao nhận.",
+      "shipping": "Cung cấp địa chỉ đầy đủ để hệ thống tính phí và thời gian giao hàng chính xác.",
+      "payment": "Chọn phương thức thanh toán phù hợp trước khi xác nhận đặt hàng."
+    },
+    "labels": {
+      "email": "Email",
+      "fullName": "Họ và tên",
+      "phone": "Số điện thoại",
+      "address": "Địa chỉ chi tiết",
+      "city": "Tỉnh/Thành",
+      "district": "Quận/Huyện",
+      "ward": "Phường/Xã",
+      "note": "Ghi chú giao hàng",
+      "shippingMethod": "Phương thức vận chuyển",
+      "paymentMethod": "Phương thức thanh toán"
     },
     "placeholders": {
       "emailRequired": "Email (bắt buộc)",

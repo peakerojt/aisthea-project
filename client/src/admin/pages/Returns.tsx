@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { adminReturnService, OrderReturn } from '@/common/services/return.service';
 import { ReasonLabel } from '@/common/components/ReasonLabel';
+import { useToast } from '@/common/contexts/ToastContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -259,6 +260,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
 export const Returns: React.FC = () => {
     const { t: _t } = useTranslation('returns');
     const t = _t as (key: string, options?: any) => string;
+    const { showToast } = useToast();
     const STATUS_FILTERS: { label: string; value: ReturnStatusFilter }[] = [
         { label: t('filters.all'), value: 'ALL' },
         { label: t('filters.pending'), value: 'PENDING_APPROVAL' },
@@ -272,14 +274,6 @@ export const Returns: React.FC = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [selectedReturn, setSelectedReturn] = useState<OrderReturn | null>(null);
-    const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-    useEffect(() => {
-        if (toast) {
-            const t = setTimeout(() => setToast(null), 4000);
-            return () => clearTimeout(t);
-        }
-    }, [toast]);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -289,11 +283,14 @@ export const Returns: React.FC = () => {
             setTotalPages(data.pagination.totalPages);
         } catch (error) {
             const e = error as Error | { message?: string; error?: string; data?: unknown };
-            setToast({ type: 'error', message: e?.message || t('feedback.loadError') });
+            showToast({
+                type: 'error',
+                title: e?.message || t('feedback.loadError'),
+            });
         } finally {
             setLoading(false);
         }
-    }, [statusFilter, page]);
+    }, [page, showToast, statusFilter, t]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -305,12 +302,18 @@ export const Returns: React.FC = () => {
         try {
             const result = await adminReturnService.process(returnId, action, note);
             const message = result.messageKey ? t(result.messageKey) : result.message;
-            setToast({ type: 'success', message });
+            showToast({
+                type: 'success',
+                title: message,
+            });
             setSelectedReturn(null);
             await load();
         } catch (error) {
             const e = error as Error | { message?: string; error?: string; data?: unknown };
-            setToast({ type: 'error', message: e?.message || t('feedback.processError') });
+            showToast({
+                type: 'error',
+                title: e?.message || t('feedback.processError'),
+            });
         }
     };
 
@@ -469,30 +472,6 @@ export const Returns: React.FC = () => {
                     onClose={() => setSelectedReturn(null)}
                     onAction={handleAction}
                 />
-            )}
-
-            {/* Toast */}
-            {toast && (
-                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[500] w-full max-w-md px-4">
-                    <div className={`p-4 rounded-lg shadow-2xl border flex items-center gap-3 ${toast.type === 'success'
-                        ? 'bg-emerald-500/90 border-emerald-400 text-white'
-                        : 'bg-red-500/90 border-red-400 text-white'
-                        }`}>
-                        <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            {toast.type === 'success' ? (
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            ) : (
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            )}
-                        </svg>
-                        <p className="text-sm font-medium flex-1">{toast.message}</p>
-                        <button onClick={() => setToast(null)} className="ml-auto opacity-70 hover:opacity-100 transition-opacity cursor-pointer">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
             )}
         </div>
     );

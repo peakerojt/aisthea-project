@@ -116,9 +116,9 @@ export const Collection: React.FC = () => {
   const { gender, name: collectionName } = useParams<{ gender?: string; name?: string }>();
   const [searchParams] = useSearchParams();
   const searchTerm = searchParams.get('search') || '';
-  const category = gender ? (gender.charAt(0).toUpperCase() + gender.slice(1)) : 'Men';
-  const collection = collectionName ? (collectionName.charAt(0).toUpperCase() + collectionName.slice(1)) : 'Outerwear';
-  const heroImage = HERO_IMAGES[collection as keyof typeof HERO_IMAGES] || HERO_IMAGES.Default;
+  const category = gender ? (gender.charAt(0).toUpperCase() + gender.slice(1)) : null;
+  const collection = collectionName ? (collectionName.charAt(0).toUpperCase() + collectionName.slice(1)) : null;
+  const heroImage = collection ? (HERO_IMAGES[collection as keyof typeof HERO_IMAGES] || HERO_IMAGES.Default) : HERO_IMAGES.Default;
 
   // State for Products from API
   const [products, setProducts] = useState<Product[]>([]);
@@ -194,9 +194,13 @@ export const Collection: React.FC = () => {
       return products;
     }
 
+    if (!category || !collection) {
+      return products;
+    }
+
     // Safety check for category/collection
     const mapCategory = category;
-    const mapCollection = collection || 'Tops';
+    const mapCollection = collection;
 
     // Get valid SQL categories for this view
     const validSqlCategories = CATEGORY_MAPPING[mapCategory]?.[mapCollection];
@@ -352,7 +356,11 @@ export const Collection: React.FC = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-bg-dark via-bg-dark/20 to-transparent"></div>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 pt-20 animate-fade-in-up">
           <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-4">
-            {searchTerm ? t('hero.searchResults') : t('hero.collectionTitle', { collection })}
+            {searchTerm
+              ? t('hero.searchResults')
+              : collection
+                ? t('hero.collectionTitle', { collection })
+                : t('hero.allProductsTitle')}
           </h1>
           <p className="max-w-2xl text-gray-300 text-lg leading-relaxed">
             {searchTerm ? t('hero.searchDescription', { count: filteredProducts.length, term: searchTerm }) : t('hero.defaultDescription')}

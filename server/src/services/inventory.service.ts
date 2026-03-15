@@ -83,6 +83,28 @@ interface PurchaseReceiptInput {
   note?: string | null;
 }
 
+const readVariantStocks = async (
+  tx: Prisma.TransactionClient,
+  variantIds: number[],
+): Promise<Map<number, number>> => {
+  const uniqueVariantIds = [...new Set(variantIds.filter((variantId) => Number.isInteger(variantId) && variantId > 0))];
+  if (uniqueVariantIds.length === 0) {
+    return new Map<number, number>();
+  }
+
+  const variants = await (tx.productVariant.findMany as any)({
+    where: { variantId: { in: uniqueVariantIds } },
+    select: { variantId: true, stockQuantity: true },
+  });
+
+  return new Map<number, number>(
+    variants.map((variant: { variantId: number; stockQuantity: number | null }) => [
+      variant.variantId,
+      Number(variant.stockQuantity ?? 0),
+    ]),
+  );
+};
+
 const readVariantStock = async (
   tx: Prisma.TransactionClient,
   variantId: number,
@@ -158,41 +180,68 @@ export async function applyPurchaseReceiptStockChange(
   tx: Prisma.TransactionClient,
   input: PurchaseReceiptInput,
 ): Promise<{ previousStock: number; newStock: number }> {
-  await (tx.productVariant.update as any)({
-    where: { variantId: input.variantId },
-    data: { stockQuantity: { increment: input.quantity } },
-  });
+  const [result] = await applyPurchaseReceiptStockChanges(tx, [input]);
+  return result;
+}
 
-  const newStock = await readVariantStock(tx, input.variantId);
-  const previousStock = newStock - input.quantity;
+export async function applyPurchaseReceiptStockChanges(
+  tx: Prisma.TransactionClient,
+  inputs: PurchaseReceiptInput[],
+): Promise<Array<{ previousStock: number; newStock: number }>> {
+  if (inputs.length === 0) return [];
 
-  await syncInventorySnapshot(tx, {
-    variantId: input.variantId,
-    availableQuantity: newStock,
-  });
+  for (const input of inputs) {
+    await (tx.productVariant.update as any)({
+      where: { variantId: input.variantId },
+      data: { stockQuantity: { increment: input.quantity } },
+    });
+  }
 
-  await appendInventoryLog(tx, {
-    variantId: input.variantId,
-    orderId: null,
-    userId: input.userId ?? null,
-    changeQuantity: input.quantity,
-    previousStock,
-    newStock,
-    reason: 'PURCHASE_RECEIPT',
-    note: input.note,
-  });
+  const stockMap = await readVariantStocks(
+    tx,
+    inputs.map((input) => input.variantId),
+  );
 
-  await appendStockMovement(tx, {
-    variantId: input.variantId,
-    type: 'IMPORT',
-    quantity: input.quantity,
-    referenceType: input.goodsReceiptId ? 'GOODS_RECEIPT' : 'PURCHASE_ORDER',
-    referenceId: input.goodsReceiptId ?? input.purchaseOrderId ?? null,
-    note: input.note,
-    createdBy: input.userId ?? null,
-  });
+  const results: Array<{ previousStock: number; newStock: number }> = [];
 
-  return { previousStock, newStock };
+  for (const input of inputs) {
+    const newStock = stockMap.get(input.variantId);
+    if (newStock === undefined) {
+      throw new InventoryError('VARIANT_NOT_FOUND', 'Product variant not found in the system.');
+    }
+
+    const previousStock = newStock - input.quantity;
+
+    await syncInventorySnapshot(tx, {
+      variantId: input.variantId,
+      availableQuantity: newStock,
+    });
+
+    await appendInventoryLog(tx, {
+      variantId: input.variantId,
+      orderId: null,
+      userId: input.userId ?? null,
+      changeQuantity: input.quantity,
+      previousStock,
+      newStock,
+      reason: 'PURCHASE_RECEIPT',
+      note: input.note,
+    });
+
+    await appendStockMovement(tx, {
+      variantId: input.variantId,
+      type: 'IMPORT',
+      quantity: input.quantity,
+      referenceType: input.goodsReceiptId ? 'GOODS_RECEIPT' : 'PURCHASE_ORDER',
+      referenceId: input.goodsReceiptId ?? input.purchaseOrderId ?? null,
+      note: input.note,
+      createdBy: input.userId ?? null,
+    });
+
+    results.push({ previousStock, newStock });
+  }
+
+  return results;
 }
 
 export async function applyManualStockAdjustment(
@@ -253,6 +302,8 @@ export async function atomicCheckoutDeduction(
   items: CheckoutItem[],
   tx: Prisma.TransactionClient,
 ) {
+  const touchedVariantIds: number[] = [];
+
   for (const item of items) {
     try {
       await (tx.productVariant.update as any)({
@@ -273,8 +324,17 @@ export async function atomicCheckoutDeduction(
       }
       throw err;
     }
+    touchedVariantIds.push(item.variantId);
+  }
 
-    const newStock = await readVariantStock(tx, item.variantId);
+  const stockMap = await readVariantStocks(tx, touchedVariantIds);
+
+  for (const item of items) {
+    const newStock = stockMap.get(item.variantId);
+    if (newStock === undefined) {
+      throw new InventoryError('VARIANT_NOT_FOUND', 'Product variant not found in the system.');
+    }
+
     const previousStock = newStock + item.quantity;
 
     await syncInventorySnapshot(tx, {
@@ -314,6 +374,8 @@ export async function atomicCancelRestore(
   items: RestoreItem[],
   tx: Prisma.TransactionClient,
 ) {
+  const restoredItems: Array<{ variantId: number; quantity: number }> = [];
+
   for (const item of items) {
     if (!item.variantId) continue;
 
@@ -325,8 +387,20 @@ export async function atomicCancelRestore(
     } catch {
       continue;
     }
+    restoredItems.push({ variantId: item.variantId, quantity: item.quantity });
+  }
 
-    const newStock = await readVariantStock(tx, item.variantId);
+  const stockMap = await readVariantStocks(
+    tx,
+    restoredItems.map((item) => item.variantId),
+  );
+
+  for (const item of restoredItems) {
+    const newStock = stockMap.get(item.variantId);
+    if (newStock === undefined) {
+      continue;
+    }
+
     const previousStock = newStock - item.quantity;
 
     await syncInventorySnapshot(tx, {

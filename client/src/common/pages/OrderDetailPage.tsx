@@ -12,6 +12,7 @@ import { OrderTimeline } from '@/admin/components/OrderTimeline';
 import { ReviewModal } from '@/common/components/ReviewModal';
 import { RotateCcw, XCircle, ArrowLeft, PackageCheck, Loader2, MapPin, ShoppingCart } from 'lucide-react';
 import { useCart } from '@/common/contexts/CartContext';
+import { useToast } from '@/common/contexts/ToastContext';
 import { useTranslation } from 'react-i18next';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
@@ -55,15 +56,14 @@ export const OrderDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { role } = useAuth();
-  const { addItem: addItemToCart, fetchCart: refetchCart } = useCart();
+  const { addItemsBatch } = useCart();
+  const { showToast } = useToast();
 
   // Review modal state
   const [reviewItem, setReviewItem] = useState<OrderItem | null>(null);
 
   // Confirm receipt dialog state
   const [confirmReceiptDialog, setConfirmReceiptDialog] = useState(false);
-  const [receiptToastMsg, setReceiptToastMsg] = useState('');
-  const [buyAgainToastMsg, setBuyAgainToastMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const {
     data: order,
@@ -111,9 +111,8 @@ export const OrderDetailPage: React.FC = () => {
     mutationFn: () => orderService.confirmReceipt(id || ''),
     onSuccess: () => {
       setConfirmReceiptDialog(false);
-      setReceiptToastMsg(t('toast.receiptSuccess'));
+      showToast({ type: 'success', title: t('toast.receiptSuccess') });
       refetch();
-      setTimeout(() => setReceiptToastMsg(''), 4000);
     },
     onError: () => {
       setConfirmReceiptDialog(false);
@@ -129,31 +128,29 @@ export const OrderDetailPage: React.FC = () => {
       const itemsWithVariant = order.items.filter((it) => it.variantId);
       if (itemsWithVariant.length === 0)
         throw new Error(t('errors.cannotIdentifyItems'));
-      // Add items sequentially via CartContext to avoid race conditions on dbItems state.
-      for (const it of itemsWithVariant) {
-        await addItemToCart(it.variantId!, it.quantity);
-      }
-      // Ensure cart is fully synced from server before navigating.
-      await refetchCart();
+
+      await addItemsBatch(
+        itemsWithVariant.map((item) => ({
+          variantId: item.variantId!,
+          quantity: item.quantity,
+        })),
+      );
     },
     onSuccess: () => {
       const count = order?.items?.filter((it) => it.variantId).length ?? 0;
-      setBuyAgainToastMsg({
+      showToast({
         type: 'success',
-        text: t('toast.buyAgainSuccess', { count }),
+        title: t('toast.buyAgainSuccess', { count }),
       });
-      // Short delay so user sees the toast, then navigate to Checkout.
       setTimeout(() => {
-        setBuyAgainToastMsg(null);
         navigate('/checkout');
       }, 900);
     },
     onError: (err: any) => {
-      setBuyAgainToastMsg({
+      showToast({
         type: 'error',
-        text: err?.response?.data?.message ?? err?.message ?? t('errors.buyAgainFailed'),
+        title: err?.response?.data?.message ?? err?.message ?? t('errors.buyAgainFailed'),
       });
-      setTimeout(() => setBuyAgainToastMsg(null), 5000);
     },
   });
 
@@ -222,29 +219,6 @@ export const OrderDetailPage: React.FC = () => {
   return (
     <div className="bg-bg-dark min-h-screen text-white font-sans">
       <Header />
-
-      {/* Toast notification — confirm receipt */}
-      {receiptToastMsg && (
-        <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-medium shadow-[0_0_30px_rgba(16,185,129,0.2)] backdrop-blur-sm"
-          style={{ transition: 'opacity 0.3s ease' }}
-        >
-          {receiptToastMsg}
-        </div>
-      )}
-
-      {/* Toast notification — buy again */}
-      {buyAgainToastMsg && (
-        <div
-          className={`fixed bottom-16 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm ${buyAgainToastMsg.type === 'success'
-            ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 shadow-[0_0_30px_rgba(245,158,11,0.2)]'
-            : 'bg-red-500/20 border border-red-500/40 text-red-300'
-            }`}
-          style={{ transition: 'opacity 0.3s ease' }}
-        >
-          {buyAgainToastMsg.text}
-        </div>
-      )}
 
       {/* Confirm Receipt AlertDialog */}
       {confirmReceiptDialog && (

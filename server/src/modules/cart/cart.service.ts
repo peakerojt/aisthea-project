@@ -1,4 +1,5 @@
 import { cartRepository } from './cart.repository';
+import { prisma } from '../../lib/prisma';
 
 export interface LocalCartItem {
     variantId: number;
@@ -87,24 +88,82 @@ export const cartService = {
     async mergeCart(userId: number, localItems: LocalCartItem[]) {
         if (!localItems?.length) return this.getCart(userId);
 
-        // Re-use existing cart logic inside a transaction via repository
-        const cart = await this.getCart(userId);
-
+        const mergedItems = new Map<number, number>();
         for (const { variantId, quantity } of localItems) {
             if (!variantId || quantity <= 0) continue;
-
-            const variant = await cartRepository.findVariant(variantId);
-            if (!variant || variant.isDeleted) continue;
-
-            const existing = await cartRepository.findItemByVariant(cart.cartId, variantId);
-            if (existing) {
-                const merged = Math.min(existing.quantity + quantity, variant.stockQuantity);
-                await cartRepository.updateItemQty(existing.cartItemId, merged);
-            } else {
-                const safeQty = Math.min(quantity, variant.stockQuantity);
-                if (safeQty > 0) await cartRepository.createItem(cart.cartId, variantId, safeQty);
-            }
+            mergedItems.set(variantId, (mergedItems.get(variantId) ?? 0) + quantity);
         }
+
+        const variantIds = [...mergedItems.keys()];
+        if (variantIds.length === 0) return this.getCart(userId);
+
+        await prisma.$transaction(async (tx) => {
+            let cart = await tx.cart.findFirst({
+                where: { userId },
+                select: { cartId: true },
+            });
+
+            if (!cart) {
+                cart = await tx.cart.create({
+                    data: { userId },
+                    select: { cartId: true },
+                });
+            }
+
+            const [variants, existingItems] = await Promise.all([
+                tx.productVariant.findMany({
+                    where: { variantId: { in: variantIds } },
+                    select: {
+                        variantId: true,
+                        stockQuantity: true,
+                        isDeleted: true,
+                    },
+                }),
+                tx.cartItem.findMany({
+                    where: {
+                        cartId: cart.cartId,
+                        variantId: { in: variantIds },
+                    },
+                    select: {
+                        cartItemId: true,
+                        variantId: true,
+                        quantity: true,
+                    },
+                }),
+            ]);
+
+            const variantMap = new Map(variants.map((variant) => [variant.variantId, variant]));
+            const existingItemMap = new Map(existingItems.map((item) => [item.variantId, item]));
+
+            for (const [variantId, quantity] of mergedItems.entries()) {
+                const variant = variantMap.get(variantId);
+                if (!variant || variant.isDeleted) continue;
+
+                const existingItem = existingItemMap.get(variantId);
+                const baseQuantity = existingItem?.quantity ?? 0;
+                const nextQuantity = Math.min(baseQuantity + quantity, variant.stockQuantity);
+
+                if (existingItem) {
+                    if (nextQuantity !== existingItem.quantity) {
+                        await tx.cartItem.update({
+                            where: { cartItemId: existingItem.cartItemId },
+                            data: { quantity: nextQuantity },
+                        });
+                    }
+                    continue;
+                }
+
+                if (nextQuantity > 0) {
+                    await tx.cartItem.create({
+                        data: {
+                            cartId: cart.cartId,
+                            variantId,
+                            quantity: nextQuantity,
+                        },
+                    });
+                }
+            }
+        });
 
         return this.getCart(userId);
     },

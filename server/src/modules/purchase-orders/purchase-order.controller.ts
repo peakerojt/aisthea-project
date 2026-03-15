@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { Prisma } from '../../generated/client';
 import { prisma } from '../../lib/prisma';
 import { logger } from '../../lib/logger';
-import { applyPurchaseReceiptStockChange } from '../../services/inventory.service';
+import { applyPurchaseReceiptStockChanges } from '../../services/inventory.service';
 
 const PURCHASE_ORDER_STATUSES = {
   PENDING: 'PENDING',
@@ -504,6 +504,14 @@ export async function receivePurchaseOrder(req: Request, res: Response) {
         purchaseOrder.items.map((item) => [item.variantId, item] as const),
       );
       const touchedIds = new Set<number>();
+      const receiptStockChanges: Array<{
+        variantId: number;
+        quantity: number;
+        userId: number | null;
+        goodsReceiptId: number;
+        purchaseOrderId: number;
+        note: string;
+      }> = [];
       const receiptNote = purchaseOrder.invoiceNumber
         ? `Received purchase order ${purchaseOrder.purchaseOrderNumber} (Invoice ${purchaseOrder.invoiceNumber})`
         : `Received purchase order ${purchaseOrder.purchaseOrderNumber}`;
@@ -550,26 +558,25 @@ export async function receivePurchaseOrder(req: Request, res: Response) {
           },
         });
 
-        try {
-          await applyPurchaseReceiptStockChange(
-            tx,
-            {
-              variantId: purchaseOrderItem.variantId,
-              quantity: receipt.quantity,
-              userId: updatedBy,
-              goodsReceiptId: goodsReceipt.goodsReceiptId,
-              purchaseOrderId,
-              note: receiptNote,
-            },
-          );
-        } catch (error: any) {
-          if (error?.code === 'VARIANT_NOT_FOUND') {
-            throw new Error('VARIANT_NOT_FOUND');
-          }
-          throw error;
-        }
+        receiptStockChanges.push({
+          variantId: purchaseOrderItem.variantId,
+          quantity: receipt.quantity,
+          userId: updatedBy,
+          goodsReceiptId: goodsReceipt.goodsReceiptId,
+          purchaseOrderId,
+          note: receiptNote,
+        });
 
         touchedIds.add(purchaseOrderItem.purchaseOrderItemId);
+      }
+
+      try {
+        await applyPurchaseReceiptStockChanges(tx, receiptStockChanges);
+      } catch (error: any) {
+        if (error?.code === 'VARIANT_NOT_FOUND') {
+          throw new Error('VARIANT_NOT_FOUND');
+        }
+        throw error;
       }
 
       const refreshedItems = await tx.purchaseOrderItem.findMany({

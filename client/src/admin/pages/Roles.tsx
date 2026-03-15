@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { roleService, RoleItem, PermissionItem } from '@/admin/services/role.service';
-import { ShieldCheck, Lock, Save, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { useToast } from '@/common/contexts/ToastContext';
+import { ShieldCheck, Lock, Save, RefreshCw } from 'lucide-react';
 import { Checkbox } from '@/admin/components/checkbox';
 
 // MODULE_LABELS and ACTION_LABELS are defined inside the component to use t()
@@ -23,31 +24,12 @@ function groupPermissions(permissions: PermissionItem[]) {
     return grouped;
 }
 
-// ─── Toast Component ──────────────────────────────────────────────────────────
 type ToastType = 'success' | 'error';
-function Toast({ message, type, onClose }: { message: string; type: ToastType; onClose: () => void }) {
-    useEffect(() => {
-        const timer = setTimeout(onClose, 3500);
-        return () => clearTimeout(timer);
-    }, [onClose]);
-
-    return (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl border text-sm font-medium transition-all animate-in slide-in-from-bottom-4 ${type === 'success'
-            ? 'bg-gray-900 border-emerald-500/40 text-emerald-400'
-            : 'bg-gray-900 border-red-500/40 text-red-400'
-            }`}>
-            {type === 'success'
-                ? <CheckCircle2 size={18} className="shrink-0 text-emerald-400" />
-                : <AlertTriangle size={18} className="shrink-0 text-red-400" />
-            }
-            <span>{message}</span>
-        </div>
-    );
-}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export const Roles: React.FC = () => {
     const { t } = useTranslation('roles');
+    const { showToast: fireToast } = useToast();
     const MODULE_LABELS: Record<string, string> = {
         PRODUCT: t('modules.PRODUCT'),
         ORDER: t('modules.ORDER'),
@@ -69,11 +51,10 @@ export const Roles: React.FC = () => {
     const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
     const showToast = useCallback((message: string, type: ToastType) => {
-        setToast({ message, type });
-    }, []);
+        fireToast({ type, title: message });
+    }, [fireToast]);
 
     // ── Load data on mount ────────────────────────────────────────────────────
     useEffect(() => {
@@ -324,14 +305,6 @@ export const Roles: React.FC = () => {
                 </p>
             </div>
 
-            {/* ── Toast ─────────────────────────────────────────────────────────── */}
-            {toast && (
-                <Toast
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={() => setToast(null)}
-                />
-            )}
         </div>
     );
 };

@@ -7,6 +7,11 @@ import { api } from '@/common/utils/api';
 import { CouponModal } from '@/common/components/CouponModal';
 import { useCart } from '@/common/contexts/CartContext';
 import { useTranslation } from 'react-i18next';
+import { CheckoutProgress } from '@/common/components/CheckoutProgress';
+import { OrderSummaryRail } from '@/common/components/OrderSummaryRail';
+import { CheckoutSectionCard } from '@/common/components/CheckoutSectionCard';
+import { formatCurrencyVND } from '@/common/utils/currency';
+import { setLatestOrderData } from '@/common/utils/orderSnapshot';
 
 interface CheckoutProps {
     cart?: CartItem[];
@@ -27,6 +32,10 @@ interface AppliedCoupon {
 // Remote API used for VN Locations (63 Provinces)
 const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
     const { t } = useTranslation('pages', { keyPrefix: 'checkout' });
+    const { t: pagesT } = useTranslation('pages');
+    const inputClassName = 'w-full rounded-sm border border-border-dark bg-surface-dark px-4 py-3 text-sm text-white transition-colors placeholder:text-gray-500 focus:border-white focus:outline-none';
+    const selectClassName = 'w-full appearance-none rounded-sm border border-border-dark bg-surface-dark px-4 py-3 pr-9 text-sm transition-colors focus:border-white focus:outline-none';
+    const fieldLabelClassName = 'mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-gray-300';
     const defaultForm = {
         email: '',
         fullName: '',
@@ -47,7 +56,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
     const [error, setError] = useState('');
     const { user } = useAuth();
     const navigate = useNavigate();
-    const { items, cartTotal } = useCart();
+    const { items, fetchCart } = useCart();
 
     // THÊM: Các state quản lý Mã giảm giá (Voucher)
     const [couponInput, setCouponInput] = useState('');
@@ -226,6 +235,23 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
     const shippingFee = calculateShippingFee(selectedShippingMethod, zone, subtotal);
     const discountValue = appliedCoupon ? appliedCoupon.discountAmount : 0;
     const total = subtotal + shippingFee - discountValue;
+    const progressSteps = [
+        {
+            key: 'cart',
+            label: pagesT('checkoutFlow.steps.cart.label'),
+            hint: pagesT('checkoutFlow.steps.cart.hint'),
+        },
+        {
+            key: 'checkout',
+            label: pagesT('checkoutFlow.steps.checkout.label'),
+            hint: pagesT('checkoutFlow.steps.checkout.hint'),
+        },
+        {
+            key: 'success',
+            label: pagesT('checkoutFlow.steps.success.label'),
+            hint: pagesT('checkoutFlow.steps.success.hint'),
+        },
+    ];
 
     // THÊM: Hàm xử lý gọi API áp dụng mã giảm giá
     const handleApplyCoupon = async (codeToApply?: string) => {
@@ -338,7 +364,30 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                 shippingFee: shippingFee,
             });
 
-            sessionStorage.setItem('latestOrderData', JSON.stringify(formData));
+            setLatestOrderData({
+                orderId: data.orderId,
+                fullName: formData.fullName,
+                email: formData.email,
+                phone: formData.phone,
+                address: formData.address,
+                district: formData.district,
+                city: formData.city,
+                ward: formData.ward,
+                note: formData.note,
+                paymentMethod: formData.paymentMethod as 'COD' | 'VNPAY',
+                shippingMethod: selectedShippingMethod,
+                shippingFee,
+                discountValue,
+                subtotal,
+                total,
+                items: cart,
+            });
+
+            try {
+                await fetchCart();
+            } catch (cartSyncError) {
+                console.error('[Checkout] Failed to refresh cart after order creation:', cartSyncError);
+            }
 
             if (formData.paymentMethod === 'VNPAY') {
                 try {
@@ -379,10 +428,25 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
 
                 {/* Left Column: Forms */}
                 <div className="w-full md:w-3/5 lg:w-2/3">
-                    <form onSubmit={handlePlaceOrder}>
+                    <div className="mb-10">
+                        <p className="mb-3 text-[10px] font-black uppercase tracking-[0.28em] text-primary">
+                            {t('meta.kicker')}
+                        </p>
+                        <div className="mb-5 border-b border-border-dark pb-6">
+                            <h1 className="text-4xl font-black uppercase tracking-tighter md:text-5xl">
+                                {t('meta.title')}
+                            </h1>
+                            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-gray-400">
+                                {t('meta.subtitle')}
+                            </p>
+                        </div>
+                        <CheckoutProgress currentStep="checkout" steps={progressSteps} />
+                    </div>
+
+                    <form onSubmit={handlePlaceOrder} noValidate>
 
                         {error && (
-                            <div className="mb-8 p-4 bg-red-900/40 border border-red-500/50 rounded-sm text-red-100 text-sm flex items-start gap-2">
+                            <div role="alert" className="mb-8 flex items-start gap-2 rounded-sm border border-red-500/50 bg-red-900/40 p-4 text-sm text-red-100">
                                 <span className="material-symbols-outlined text-red-400 mt-[2px] text-lg">error</span>
                                 <div>
                                     <span className="font-bold block tracking-wide">{t('errors.checkInfo')}</span>
@@ -392,129 +456,183 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                         )}
 
                         {/* 1. Contact Info */}
-                        <div className="mb-12 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-                            <div className="mb-6 border-b border-border-dark pb-2">
-                                <h2 className="text-xl font-bold uppercase tracking-wide">{t('sections.contactInfo')}</h2>
-                            </div>
-
+                        <CheckoutSectionCard
+                            title={t('sections.contactInfo')}
+                            description={t('descriptions.contactInfo')}
+                            style={{ animationDelay: '0.1s' }}
+                        >
                             <div className="space-y-4">
-                                <div className="group relative">
+                                <div>
+                                    <label htmlFor="checkout-email" className={fieldLabelClassName}>{t('labels.email')}</label>
                                     <input
+                                        id="checkout-email"
                                         type="email"
                                         name="email"
+                                        required
+                                        autoComplete="email"
                                         placeholder={t('placeholders.emailRequired')}
                                         value={formData.email}
                                         onChange={handleInputChange}
-                                        className="w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors peer"
+                                        className={inputClassName}
                                     />
                                 </div>
 
-                                <input
-                                    type="text"
-                                    name="fullName"
-                                    placeholder={t('placeholders.fullNameRequired')}
-                                    value={formData.fullName}
-                                    onChange={handleInputChange}
-                                    className="w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors"
-                                />
-                                <div className="relative">
+                                <div>
+                                    <label htmlFor="checkout-full-name" className={fieldLabelClassName}>{t('labels.fullName')}</label>
                                     <input
+                                        id="checkout-full-name"
+                                        type="text"
+                                        name="fullName"
+                                        required
+                                        autoComplete="name"
+                                        placeholder={t('placeholders.fullNameRequired')}
+                                        value={formData.fullName}
+                                        onChange={handleInputChange}
+                                        className={inputClassName}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label htmlFor="checkout-phone" className={fieldLabelClassName}>{t('labels.phone')}</label>
+                                    <input
+                                        id="checkout-phone"
                                         type="tel"
                                         name="phone"
+                                        required
+                                        autoComplete="tel"
+                                        inputMode="tel"
                                         placeholder={t('placeholders.phoneRequired')}
                                         value={formData.phone}
                                         onChange={handleInputChange}
-                                        className="w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors"
+                                        className={inputClassName}
                                     />
                                 </div>
                             </div>
-                        </div>
+                        </CheckoutSectionCard>
 
                         {/* 2. Shipping Info */}
-                        <div className="mb-12 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-                            <h2 className="text-xl font-bold uppercase tracking-wide mb-6 border-b border-border-dark pb-2">{t('sections.shipping')}</h2>
+                        <CheckoutSectionCard
+                            title={t('sections.shipping')}
+                            description={t('descriptions.shipping')}
+                            style={{ animationDelay: '0.2s' }}
+                        >
                             <div className="space-y-4">
-                                <input
-                                    type="text"
-                                    name="address"
-                                    placeholder={t('placeholders.addressRequired')}
-                                    value={formData.address}
-                                    onChange={handleInputChange}
-                                    className="w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors"
-                                />
-
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <select
-                                        name="city"
-                                        value={selectedCityCode}
-                                        onChange={handleProvinceChange}
-                                        className="w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors text-white cursor-pointer appearance-none"
-                                        style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
-                                    >
-                                        <option value="" disabled>{t('placeholders.selectProvince')}</option>
-                                        {provinces.map(city => (
-                                            <option key={city.code} value={city.code}>{city.name}</option>
-                                        ))}
-                                    </select>
-
-                                    <select
-                                        name="district"
-                                        value={selectedDistrictCode}
-                                        onChange={handleDistrictChange}
-                                        disabled={!selectedCityCode}
-                                        className={`w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors appearance-none ${!selectedCityCode ? 'opacity-50 cursor-not-allowed text-gray-500' : 'text-white cursor-pointer'}`}
-                                        style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
-                                    >
-                                        <option value="" disabled>{t('placeholders.selectDistrict')}</option>
-                                        {districts.map(dist => (
-                                            <option key={dist.code} value={dist.code}>{dist.name}</option>
-                                        ))}
-                                    </select>
-
-                                    <select
-                                        name="ward"
-                                        value={selectedWardCode}
-                                        onChange={handleWardChange}
-                                        disabled={!selectedDistrictCode}
-                                        className={`w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors appearance-none ${!selectedDistrictCode ? 'opacity-50 cursor-not-allowed text-gray-500' : 'text-white cursor-pointer'}`}
-                                        style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
-                                    >
-                                        <option value="" disabled>{t('placeholders.selectWard')}</option>
-                                        {wards.map(w => (
-                                            <option key={w.code} value={w.code}>{w.name}</option>
-                                        ))}
-                                    </select>
+                                <div>
+                                    <label htmlFor="checkout-address" className={fieldLabelClassName}>{t('labels.address')}</label>
+                                    <input
+                                        id="checkout-address"
+                                        type="text"
+                                        name="address"
+                                        required
+                                        autoComplete="street-address"
+                                        placeholder={t('placeholders.addressRequired')}
+                                        value={formData.address}
+                                        onChange={handleInputChange}
+                                        className={inputClassName}
+                                    />
                                 </div>
 
-                                <textarea
-                                    name="note"
-                                    placeholder={t('placeholders.noteOptional')}
-                                    rows={3}
-                                    maxLength={500}
-                                    value={formData.note}
-                                    onChange={handleInputChange}
-                                    className="w-full bg-surface-dark border border-border-dark rounded-sm px-4 py-3 text-sm focus:border-white focus:outline-none transition-colors resize-none"
-                                />
-                                <div className="text-right text-[10px] text-gray-500 mt-1 uppercase tracking-widest">{formData.note.length}/500</div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label htmlFor="checkout-city" className={fieldLabelClassName}>{t('labels.city')}</label>
+                                        <select
+                                            id="checkout-city"
+                                            name="city"
+                                            required
+                                            value={selectedCityCode}
+                                            onChange={handleProvinceChange}
+                                            className={`${selectClassName} cursor-pointer text-white`}
+                                            style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
+                                        >
+                                            <option value="" disabled>{t('placeholders.selectProvince')}</option>
+                                            {provinces.map(city => (
+                                                <option key={city.code} value={city.code}>{city.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="checkout-district" className={fieldLabelClassName}>{t('labels.district')}</label>
+                                        <select
+                                            id="checkout-district"
+                                            name="district"
+                                            required
+                                            value={selectedDistrictCode}
+                                            onChange={handleDistrictChange}
+                                            disabled={!selectedCityCode}
+                                            className={`${selectClassName} ${!selectedCityCode ? 'cursor-not-allowed text-gray-500 opacity-50' : 'cursor-pointer text-white'}`}
+                                            style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
+                                        >
+                                            <option value="" disabled>{t('placeholders.selectDistrict')}</option>
+                                            {districts.map(dist => (
+                                                <option key={dist.code} value={dist.code}>{dist.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="checkout-ward" className={fieldLabelClassName}>{t('labels.ward')}</label>
+                                        <select
+                                            id="checkout-ward"
+                                            name="ward"
+                                            required
+                                            value={selectedWardCode}
+                                            onChange={handleWardChange}
+                                            disabled={!selectedDistrictCode}
+                                            className={`${selectClassName} ${!selectedDistrictCode ? 'cursor-not-allowed text-gray-500 opacity-50' : 'cursor-pointer text-white'}`}
+                                            style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
+                                        >
+                                            <option value="" disabled>{t('placeholders.selectWard')}</option>
+                                            {wards.map(w => (
+                                                <option key={w.code} value={w.code}>{w.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label htmlFor="checkout-note" className={fieldLabelClassName}>{t('labels.note')}</label>
+                                    <textarea
+                                        id="checkout-note"
+                                        name="note"
+                                        placeholder={t('placeholders.noteOptional')}
+                                        rows={3}
+                                        maxLength={500}
+                                        value={formData.note}
+                                        onChange={handleInputChange}
+                                        aria-describedby="checkout-note-count"
+                                        className={`${inputClassName} resize-none`}
+                                    />
+                                    <div id="checkout-note-count" className="mt-1 text-right text-[10px] uppercase tracking-widest text-gray-500">{formData.note.length}/500</div>
+                                </div>
 
                                 {/* THÊM: Khu vực Chọn Shipping Method (Radio Cards) */}
-                                <div className="mt-6 pt-4 border-t border-border-dark">
-                                    <h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-gray-300">{t('shipping.methodTitle')}</h3>
+                                <fieldset className="mt-6 border-t border-border-dark pt-4">
+                                    <legend className="mb-4 text-sm font-bold uppercase tracking-wide text-gray-300">
+                                        {t('labels.shippingMethod')}
+                                    </legend>
 
                                     {!selectedCityCode ? (
-                                        <div className="p-4 border border-dashed border-yellow-500/50 bg-yellow-500/10 rounded-sm">
+                                        <div className="rounded-sm border border-dashed border-yellow-500/50 bg-yellow-500/10 p-4" role="status">
                                             <p className="text-yellow-500 text-sm font-medium text-center">{t('shipping.selectProvinceFirst')}</p>
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             {/* Standard Delivery */}
-                                            <div
-                                                onClick={() => setSelectedShippingMethod('STANDARD')}
+                                            <label
                                                 className={`relative p-4 rounded-sm border cursor-pointer transition-all ${selectedShippingMethod === 'STANDARD'
-                                                    ? 'border-primary bg-primary/10'
-                                                    : 'border-border-dark bg-surface-dark hover:border-gray-500'
+                                                    ? 'border-primary bg-primary/10 ring-1 ring-primary/60'
+                                                    : 'border-border-dark bg-surface-dark hover:border-gray-500 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/50'
                                                     }`}
                                             >
+                                                <input
+                                                    type="radio"
+                                                    name="shippingMethod"
+                                                    value="STANDARD"
+                                                    checked={selectedShippingMethod === 'STANDARD'}
+                                                    onChange={() => setSelectedShippingMethod('STANDARD')}
+                                                    className="sr-only"
+                                                />
                                                 {selectedShippingMethod === 'STANDARD' && (
                                                     <div className="absolute top-2 right-2 text-primary">
                                                         <span className="material-symbols-outlined text-xl">check_circle</span>
@@ -529,23 +647,30 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                                         <span className={`text-sm font-bold ${calculateShippingFee('STANDARD', zone, subtotal) === 0 ? 'text-green-500' : 'text-white'}`}>
                                                             {calculateShippingFee('STANDARD', zone, subtotal) === 0
                                                                 ? t('shipping.free')
-                                                                : `${calculateShippingFee('STANDARD', zone, subtotal).toLocaleString('vi-VN')} đ`}
+                                                                : formatCurrencyVND(calculateShippingFee('STANDARD', zone, subtotal))}
                                                         </span>
                                                         {subtotal > 500000 && (
                                                             <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{t('shipping.freeShipBadge')}</span>
                                                         )}
                                                     </div>
                                                 </div>
-                                            </div>
+                                            </label>
 
                                             {/* Express Delivery */}
-                                            <div
-                                                onClick={() => setSelectedShippingMethod('EXPRESS')}
+                                            <label
                                                 className={`relative p-4 rounded-sm border cursor-pointer transition-all ${selectedShippingMethod === 'EXPRESS'
-                                                    ? 'border-primary bg-primary/10'
-                                                    : 'border-border-dark bg-surface-dark hover:border-gray-500'
+                                                    ? 'border-primary bg-primary/10 ring-1 ring-primary/60'
+                                                    : 'border-border-dark bg-surface-dark hover:border-gray-500 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/50'
                                                     }`}
                                             >
+                                                <input
+                                                    type="radio"
+                                                    name="shippingMethod"
+                                                    value="EXPRESS"
+                                                    checked={selectedShippingMethod === 'EXPRESS'}
+                                                    onChange={() => setSelectedShippingMethod('EXPRESS')}
+                                                    className="sr-only"
+                                                />
                                                 {selectedShippingMethod === 'EXPRESS' && (
                                                     <div className="absolute top-2 right-2 text-primary">
                                                         <span className="material-symbols-outlined text-xl">check_circle</span>
@@ -558,26 +683,30 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                                     </div>
                                                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-dark/50">
                                                         <span className="text-sm font-bold text-white">
-                                                            {calculateShippingFee('EXPRESS', zone, subtotal).toLocaleString('vi-VN')} đ
+                                                            {formatCurrencyVND(calculateShippingFee('EXPRESS', zone, subtotal))}
                                                         </span>
                                                     </div>
                                                 </div>
-                                            </div>
+                                            </label>
                                         </div>
                                     )}
-                                </div>
+                                </fieldset>
                             </div>
-                        </div>
+                        </CheckoutSectionCard>
 
                         {/* 3. Payment Methods */}
-                        <div className="mb-12 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
-                            <h2 className="text-xl font-bold uppercase tracking-wide mb-6 border-b border-border-dark pb-2">{t('sections.payment')}</h2>
-
-                            <div className="border border-border-dark rounded-sm overflow-hidden bg-surface-dark">
+                        <CheckoutSectionCard
+                            title={t('sections.payment')}
+                            description={t('descriptions.payment')}
+                            style={{ animationDelay: '0.3s' }}
+                        >
+                            <fieldset className="overflow-hidden rounded-sm border border-border-dark bg-surface-dark">
+                                <legend className="sr-only">{t('labels.paymentMethod')}</legend>
                                 {/* VNPAY Option */}
-                                <label className={`flex items-center justify-between p-4 cursor-pointer transition-colors ${formData.paymentMethod === 'VNPAY' ? 'bg-white/5' : 'hover:bg-white/[0.02]'}`}>
+                                <label className={`flex items-center justify-between p-4 cursor-pointer transition-colors focus-within:ring-1 focus-within:ring-inset focus-within:ring-primary/60 ${formData.paymentMethod === 'VNPAY' ? 'bg-white/5' : 'hover:bg-white/[0.02]'}`}>
                                     <div className="flex items-center gap-3">
                                         <input
+                                            id="checkout-payment-vnpay"
                                             type="radio"
                                             name="paymentMethod"
                                             value="VNPAY"
@@ -593,9 +722,10 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                 <div className="h-[1px] bg-border-dark w-full"></div>
 
                                 {/* COD Option */}
-                                <label className={`flex items-center justify-between p-4 cursor-pointer transition-colors ${formData.paymentMethod === 'COD' ? 'bg-white/5' : 'hover:bg-white/[0.02]'}`}>
+                                <label className={`flex items-center justify-between p-4 cursor-pointer transition-colors focus-within:ring-1 focus-within:ring-inset focus-within:ring-primary/60 ${formData.paymentMethod === 'COD' ? 'bg-white/5' : 'hover:bg-white/[0.02]'}`}>
                                     <div className="flex items-center gap-3">
                                         <input
+                                            id="checkout-payment-cod"
                                             type="radio"
                                             name="paymentMethod"
                                             value="COD"
@@ -607,34 +737,20 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                     </div>
                                     <span className="material-symbols-outlined text-gray-400">local_shipping</span>
                                 </label>
-                            </div>
-                        </div>
+                            </fieldset>
+                        </CheckoutSectionCard>
 
                     </form>
                 </div>
 
                 {/* Right Column: Order Summary */}
                 <div className="w-full md:w-2/5 lg:w-1/3 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
-                    <div className="bg-surface-dark border border-border-dark rounded-sm p-6 lg:p-8 sticky top-32 shadow-xl">
-                        <h2 className="text-lg font-bold uppercase tracking-wide mb-6 pb-4 border-b border-border-dark">{t('summary.title', { count: cart.length })}</h2>
-
-                        {/* Item List */}
-                        <div className="space-y-4 mb-8 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                            {cart.map((item, i) => (
-                                <div key={i} className="flex gap-4 items-center group relative">
-                                    <div className="w-16 h-20 shrink-0 bg-neutral-800 rounded-sm overflow-hidden relative">
-                                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                                        <span className="absolute -top-2 -right-2 bg-gray-600 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-bold z-10 border-2 border-surface-dark">{item.quantity}</span>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="text-sm font-bold truncate text-gray-200">{item.name}</h3>
-                                        <p className="text-xs text-gray-500">{item.size} / {item.color}</p>
-                                    </div>
-                                    <p className="text-sm font-medium whitespace-nowrap">{(item.price * item.quantity).toLocaleString('vi-VN')} đ</p>
-                                </div>
-                            ))}
-                        </div>
-
+                    <OrderSummaryRail
+                        className="sticky top-32"
+                        title={t('summary.title', { count: cart.length })}
+                        items={cart}
+                        maxHeightClassName="max-h-[300px]"
+                    >
                         {/* THÊM: KHU VỰC NHẬP VÀ HIỂN THỊ MÃ GIẢM GIÁ */}
                         <div className="border-t border-border-dark pt-6 mb-6">
                             {!appliedCoupon ? (
@@ -676,7 +792,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                         <div className="space-y-3 pt-6 border-t border-border-dark text-sm">
                             <div className="flex justify-between text-gray-400">
                                 <span>{t('summary.subtotal')}</span>
-                                <span className="text-white">{subtotal.toLocaleString('vi-VN')} đ</span>
+                                <span className="text-white">{formatCurrencyVND(subtotal)}</span>
                             </div>
                             <div className="flex justify-between items-start text-gray-400">
                                 <div className="flex flex-col">
@@ -686,21 +802,21 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                     )}
                                 </div>
                                 <span className={`text-right ${shippingFee === 0 && selectedCityCode ? 'text-green-500 font-bold' : 'text-white'}`}>
-                                    {!selectedCityCode ? '---' : (shippingFee === 0 ? t('shipping.free') : `${shippingFee.toLocaleString('vi-VN')} đ`)}
+                                    {!selectedCityCode ? '---' : (shippingFee === 0 ? t('shipping.free') : formatCurrencyVND(shippingFee))}
                                 </span>
                             </div>
                             {/* Dòng hiển thị tiền giảm giá nếu có voucher */}
                             {appliedCoupon && (
                                 <div className="flex justify-between text-green-400 font-medium animate-fade-in-up">
                                     <span>{t('summary.discount', { code: appliedCoupon.coupon.code })}</span>
-                                    <span>-{appliedCoupon.discountAmount.toLocaleString('vi-VN')} đ</span>
+                                    <span>-{formatCurrencyVND(appliedCoupon.discountAmount)}</span>
                                 </div>
                             )}
                         </div>
 
                         <div className="flex justify-between items-center mt-6 pt-6 border-t border-border-dark">
                             <span className="text-base font-bold uppercase tracking-tighter">{t('summary.total')}</span>
-                            <span className="text-2xl font-black text-primary">{total.toLocaleString('vi-VN')} đ</span>
+                            <span className="text-2xl font-black text-primary">{formatCurrencyVND(total)}</span>
                         </div>
 
                         <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
@@ -715,7 +831,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                 {loading ? t('actions.processing') : t('actions.placeOrder')}
                             </button>
                         </div>
-                    </div>
+                    </OrderSummaryRail>
                 </div>
             </main>
 

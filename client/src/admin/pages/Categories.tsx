@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useToast } from '@/common/contexts/ToastContext';
 import {
     Plus, Edit2, Trash2, ChevronRight, ChevronDown,
-    CornerDownRight, AlertCircle, CheckCircle2, ImageIcon, Loader2,
+    CornerDownRight, AlertCircle, ImageIcon, Loader2,
     Tag,
 } from 'lucide-react';
 import {
@@ -16,14 +17,6 @@ import {
     CreateCategoryPayload,
 } from '@/common/services/category.service';
 import { CategoryFormModal } from '@/admin/components/CategoryFormModal';
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-
-interface Toast {
-    message: string;
-    type: 'success' | 'error';
-    visible: boolean;
-}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -189,6 +182,7 @@ const TreeRow: React.FC<TreeRowProps> = ({
 
 export const Categories: React.FC<AdminCategoriesProps> = () => {
     const { t } = useTranslation('categories');
+    const { showToast: fireToast } = useToast();
     const [tree, setTree] = useState<CategoryNode[]>([]);
     const [flat, setFlat] = useState<CategoryFlat[]>([]);
     const [loading, setLoading] = useState(true);
@@ -208,12 +202,8 @@ export const Categories: React.FC<AdminCategoriesProps> = () => {
     const [deleteModal, setDeleteModal] = useState<DeleteModalState | null>(null);
     const [deleting, setDeleting] = useState(false);
 
-    // Toast
-    const [toast, setToast] = useState<Toast | null>(null);
-
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-        setToast({ message, type, visible: true });
-        setTimeout(() => setToast(null), 4000);
+        fireToast({ type, title: message });
     };
 
     const loadData = useCallback(async () => {
@@ -354,19 +344,6 @@ export const Categories: React.FC<AdminCategoriesProps> = () => {
                                 {deleting ? t('delete.deleting') : t('delete.confirm')}
                             </button>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ── Toast ─────────────────────────────────────────────────────── */}
-            {toast?.visible && (
-                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-fade-in-up pointer-events-none">
-                    <div className={`bg-[#111113] border shadow-2xl rounded-full px-5 py-3 flex items-center gap-3 ${toast.type === 'error' ? 'border-red-500/30' : 'border-emerald-500/20'
-                        }`}>
-                        {toast.type === 'error'
-                            ? <AlertCircle size={14} className="text-red-400 shrink-0" />
-                            : <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />}
-                        <span className="text-sm font-medium text-white">{toast.message}</span>
                     </div>
                 </div>
             )}

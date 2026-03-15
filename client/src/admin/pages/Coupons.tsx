@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useToast } from '@/common/contexts/ToastContext';
 import {
     TicketPercent,
     Plus,
@@ -84,31 +85,6 @@ const STATUS_CLASS_MAP: Record<string, string> = {
     INACTIVE: 'bg-white/5 text-white/30 border-white/10',
 };
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
-
-const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () => void }> = ({
-    message,
-    type,
-    onClose,
-}) => (
-    <div
-        className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl border text-sm font-medium animate-fade-in-up ${type === 'success'
-            ? 'bg-emerald-950 border-emerald-500/30 text-emerald-300'
-            : 'bg-red-950 border-red-500/30 text-red-300'
-            }`}
-    >
-        {type === 'success' ? (
-            <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
-        ) : (
-            <AlertTriangle size={18} className="text-red-400 shrink-0" />
-        )}
-        <span>{message}</span>
-        <button onClick={onClose} className="ml-2 opacity-60 hover:opacity-100 transition-opacity">
-            <X size={16} />
-        </button>
-    </div>
-);
-
 // ─── Coupon Form Dialog ───────────────────────────────────────────────────────
 
 interface FormErrors {
@@ -119,7 +95,7 @@ interface CouponDialogProps {
     coupon: Coupon | null; // null = create mode
     onClose: () => void;
     onSaved: () => void;
-    setToast: (t: { message: string; type: 'success' | 'error' } | null) => void;
+    setToast: (toast: { message: string; type: 'success' | 'error' }) => void;
     t: (key: string, opts?: Record<string, unknown>) => string;
 }
 
@@ -488,6 +464,7 @@ const SkeletonRow: React.FC = () => (
 
 export const Coupons: React.FC = () => {
     const { t } = useTranslation();
+    const { showToast: fireToast } = useToast();
     const [coupons, setCoupons] = useState<Coupon[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -502,8 +479,6 @@ export const Coupons: React.FC = () => {
     const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<Coupon | null>(null);
     const [deleting, setDeleting] = useState(false);
-
-    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     // Debounce search
     useEffect(() => {
@@ -549,11 +524,9 @@ export const Coupons: React.FC = () => {
         setPage(1);
     }, [debouncedSearch, statusFilter]);
 
-    useEffect(() => {
-        if (!toast) return;
-        const timer = setTimeout(() => setToast(null), 4500);
-        return () => clearTimeout(timer);
-    }, [toast]);
+    const setToast = useCallback((toast: { message: string; type: 'success' | 'error' }) => {
+        fireToast({ type: toast.type, title: toast.message });
+    }, [fireToast]);
 
     // Keyboard Esc to close dialogs
     useEffect(() => {
@@ -909,9 +882,6 @@ export const Coupons: React.FC = () => {
                     t={t as (key: string, opts?: Record<string, unknown>) => string}
                 />
             )}
-
-            {/* ── Toast ── */}
-            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         </div>
     );
 };

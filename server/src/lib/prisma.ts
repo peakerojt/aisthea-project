@@ -1,4 +1,5 @@
 import { PrismaClient } from '../generated/client';
+import { registerPrismaQueryMonitor } from './query-monitor';
 
 declare global {
     // eslint-disable-next-line no-var
@@ -14,10 +15,12 @@ export const prisma: PrismaClient =
     global.__prisma ??
     new PrismaClient({
         log:
-            process.env.NODE_ENV === 'development'
-                ? ['query', 'warn', 'error']
-                : ['warn', 'error'],
+            process.env.NODE_ENV === 'production'
+                ? ['warn', 'error']
+                : [{ emit: 'event', level: 'query' }, 'warn', 'error'],
     });
+
+registerPrismaQueryMonitor(prisma);
 
 if (process.env.NODE_ENV !== 'production') {
     global.__prisma = prisma;

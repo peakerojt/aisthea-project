@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useToast } from '@/common/contexts/ToastContext';
 import {
-    Search, Users, AlertCircle, CheckCircle2, Loader2, Shield,
+    Search, Users, AlertCircle, Loader2, Shield,
     X, ShieldCheck, ChevronDown,
 } from 'lucide-react';
 import {
@@ -15,13 +16,6 @@ import {
 } from '@/common/services/user-admin.service';
 import { UserActionMenu } from '@/admin/components/UserActionMenu';
 import { getImageUrl } from '@/common/utils/cloudinary';
-
-// ─── Toast ─────────────────────────────────────────────────────────────────────
-
-interface ToastState {
-    message: string;
-    type: 'success' | 'error';
-}
 
 // ─── Avatar Helpers ────────────────────────────────────────────────────────────
 
@@ -95,6 +89,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export const Customers: React.FC = () => {
     const { t } = useTranslation(['customers']);
+    const { showToast: fireToast } = useToast();
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -104,9 +99,6 @@ export const Customers: React.FC = () => {
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
-
-    // Toast
-    const [toast, setToast] = useState<ToastState | null>(null);
 
     // Modals
     const [banTarget, setBanTarget] = useState<AdminUser | null>(null);
@@ -149,8 +141,7 @@ export const Customers: React.FC = () => {
 
     // ─── Toast ────────────────────────────────────────────────────────────────
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), 4000);
+        fireToast({ type, title: message });
     };
 
     // ─── Ban / Unban ──────────────────────────────────────────────────────────
@@ -217,23 +208,6 @@ export const Customers: React.FC = () => {
             className="p-8 max-w-[1600px] mx-auto h-full flex flex-col relative"
             style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}
         >
-            {/* ── Toast ────────────────────────────────────────────────────── */}
-            {toast && (
-                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[60] animate-fade-in-up pointer-events-none">
-                    <div
-                        className={`bg-[#111113] border shadow-2xl rounded-full px-5 py-3 flex items-center gap-3 ${toast.type === 'error' ? 'border-red-500/30' : 'border-emerald-500/20'
-                            }`}
-                    >
-                        {toast.type === 'error' ? (
-                            <AlertCircle size={14} className="text-red-400 shrink-0" />
-                        ) : (
-                            <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-                        )}
-                        <span className="text-sm font-medium text-white">{toast.message}</span>
-                    </div>
-                </div>
-            )}
-
             {/* ── Ban Confirmation Dialog ───────────────────────────────────── */}
             {banTarget && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

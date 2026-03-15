@@ -32,6 +32,7 @@ vi.mock('@/common/contexts/CartContext', () => {
     cartTotal: 0,
     isLoading: false,
     addItem: vi.fn(),
+    addItemsBatch: vi.fn(),
     removeItem: vi.fn(),
     updateItem: vi.fn(),
     clearCart: vi.fn(),
@@ -42,6 +43,18 @@ vi.mock('@/common/contexts/CartContext', () => {
   return {
     useCart: () => mockCart,
     CartProvider: ({ children }: { children: React.ReactNode }) => React.createElement(React.Fragment, null, children),
+  };
+});
+
+vi.mock('@/common/contexts/ToastContext', () => {
+  const mockToast = {
+    showToast: vi.fn(),
+    showCartToast: vi.fn(),
+  };
+
+  return {
+    useToast: () => mockToast,
+    ToastProvider: ({ children }: { children: React.ReactNode }) => React.createElement(React.Fragment, null, children),
   };
 });
 

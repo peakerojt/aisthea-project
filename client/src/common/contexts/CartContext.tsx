@@ -46,6 +46,8 @@ interface CartContextType {
     fetchCart: () => Promise<void>;
     /** Gộp giỏ guest vào DB sau đăng nhập */
     syncWithMerge: (localItems: GuestCartItem[]) => Promise<void>;
+    /** Thêm nhiều sản phẩm vào giỏ bằng một request batch */
+    addItemsBatch: (items: Array<{ variantId: number; quantity: number }>) => Promise<void>;
     /** Kiểm tra sản phẩm đang ở trạng thái hết/thiếu hàng */
     getStockStatus: (item: CartItemResponse) => 'ok' | 'low' | 'out';
 }
@@ -253,6 +255,25 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     }, [isAuthenticated, t]);
 
+    const addItemsBatch = useCallback(async (items: Array<{ variantId: number; quantity: number }>) => {
+        if (!isAuthenticated) {
+            throw new Error('Batch cart updates require authentication.');
+        }
+
+        const normalizedItems = items.filter((item) => item.variantId && item.quantity > 0);
+        if (normalizedItems.length === 0) {
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const merged = await mergeCartApi(normalizedItems);
+            setDbItems(merged.items ?? []);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [isAuthenticated]);
+
     // ─── Kiểm tra trạng thái tồn kho ───────────────────────────────────────
     const getStockStatus = useCallback((item: CartItemResponse): 'ok' | 'low' | 'out' => {
         const stock = item.variant.stockQuantity ?? 99999;
@@ -274,6 +295,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             clearCart,
             fetchCart,
             syncWithMerge,
+            addItemsBatch,
             getStockStatus,
         }}>
             {children}

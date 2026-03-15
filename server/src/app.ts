@@ -44,6 +44,7 @@ import orderRoutes from './routes/order.routes';
 import { authenticateToken } from './middlewares/auth.middleware';
 import { postReturnRequest, getOrderReturn } from './controllers/return.controller';
 import { env } from './lib/env';
+import { queryCountMiddleware } from './lib/query-monitor';
 
 export function createApp() {
   const app = express();
@@ -75,6 +76,7 @@ export function createApp() {
   // ── Locale ────────────────────────────────────────────────────────────────────
   app.use(localeMiddleware);
   app.use('/api', responseNormalizer);
+  app.use(queryCountMiddleware);
 
   // ── Global rate limiter ───────────────────────────────────────────────────────
   app.use('/api/', globalRateLimiter);

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeft, Package, MapPin, CreditCard, User, Clock,
-    CheckCircle2, XCircle, Truck, ShoppingBag, Loader2, AlertCircle,
+    Truck, ShoppingBag, AlertCircle,
     ChevronRight, Copy, Check, RotateCcw,
 } from 'lucide-react';
 import { adminOrderService, AdminOrderDetail as OrderDetailType } from '@/common/services/order.service';
@@ -16,6 +16,7 @@ import { OrderFinancials } from '@/admin/components/OrderFinancials';
 import { adminRefundService, RefundRecord } from '@/admin/services/refund.service';
 import { getImageUrl } from '@/common/utils/cloudinary';
 import { useTranslation } from 'react-i18next';
+import { useToast } from '@/common/contexts/ToastContext';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design System (ui-ux-pro-max: luxury dark ecommerce admin)
@@ -76,30 +77,6 @@ const CopyButton: React.FC<{ text: string; copiedLabel: string; copyLabel: strin
 // All history display is encapsulated in <OrderTimeline />.
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Toast notification
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface ToastState { message: string; type: 'success' | 'error' }
-
-const Toast: React.FC<{ toast: ToastState | null }> = ({ toast }) => {
-    if (!toast) return null;
-    const isError = toast.type === 'error';
-    return (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-            <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border shadow-2xl backdrop-blur-xl ${isError
-                ? 'bg-red-950/90 border-red-500/30 shadow-red-900/20'
-                : 'bg-[#0d1f18]/90 border-emerald-500/25 shadow-emerald-900/10'
-                }`}>
-                {isError
-                    ? <AlertCircle size={15} className="text-red-400 shrink-0" />
-                    : <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />}
-                <span className="text-sm font-medium text-white">{toast.message}</span>
-            </div>
-        </div>
-    );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Main Page
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -109,13 +86,13 @@ interface AdminOrderDetailProps {
 
 export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
     const { t } = useTranslation('pages', { keyPrefix: 'adminOrderDetail' });
+    const { showToast: fireToast } = useToast();
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const routeId = id ? Number(id) : null;
     const [order, setOrder] = useState<OrderDetailType | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [toast, setToast] = useState<ToastState | null>(null);
 
     // ── Refund state ─────────────────────────────────────────────────────────
     const [showRefundDialog, setShowRefundDialog] = useState(false);
@@ -130,8 +107,10 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
     }, []);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), 3500);
+        fireToast({
+            type,
+            title: message,
+        });
     };
 
     const loadOrder = useCallback(async () => {
@@ -192,8 +171,6 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
     return (
         <>
             <div className="min-h-full" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-                <Toast toast={toast} />
-
                 {/* ── Sticky Navigation Bar ──────────────────────────────────────── */}
                 <div className="sticky top-0 z-20 border-b border-white/[0.05] bg-[#0A0A0C]/90 backdrop-blur-xl">
                     <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between">

@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useProductsPageAPI, useUpdateProductMutation, useDeleteProductMutation } from '@/common/hooks/useProducts';
 import { deleteProductById, fetchCategories, type CategoryOption } from '@/common/services/product.service';
-import { Trash2, Edit2, AlertCircle, CheckCircle2, Archive, Loader2, UploadCloud, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { useToast } from '@/common/contexts/ToastContext';
+import { Trash2, Edit2, AlertCircle, Loader2, UploadCloud, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { BulkImportExportModal } from '@/admin/components/BulkImportExportModal';
 
 export const Products: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { showToast: fireToast } = useToast();
   const PAGE_SIZE = 20;
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState('');
@@ -29,7 +31,7 @@ export const Products: React.FC = () => {
           ? 'LowStock'
           : undefined;
 
-  const { data: qProducts, isLoading: loading, error: qError, refetch: refreshProducts } = useProductsPageAPI({
+  const { data: qProducts, isLoading: loading, isFetching, error: qError, refetch: refreshProducts } = useProductsPageAPI({
     page,
     limit: PAGE_SIZE,
     search: search || undefined,
@@ -46,10 +48,10 @@ export const Products: React.FC = () => {
   const [editingCell, setEditingCell] = useState<{ id: string, field: 'price' | 'stock' } | null>(null);
   const [editValue, setEditValue] = useState<string | number>('');
 
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'archive' | 'error'; visible: boolean } | null>(null);
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showImportExport, setShowImportExport] = useState(false);
+  const initialLoading = loading && !qProducts;
 
   useEffect(() => {
     setSelectedIds([]);
@@ -123,8 +125,11 @@ export const Products: React.FC = () => {
   };
 
   const showToast = (message: string, type: 'success' | 'archive' | 'error' = 'success') => {
-    setToast({ message, type, visible: true });
-    setTimeout(() => setToast(null), 4000);
+    const toastType = type === 'error' ? 'error' : 'success';
+    fireToast({
+      type: toastType,
+      title: message,
+    });
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -290,27 +295,6 @@ export const Products: React.FC = () => {
         </div>
       )}
 
-      {/* ── Toast ── */}
-      {toast?.visible && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-fade-in-up">
-          <div className={`bg-surface-dark border shadow-2xl rounded-full px-5 py-3 flex items-center gap-3 ${toast.type === 'error'
-            ? 'border-red-500/30'
-            : toast.type === 'archive'
-              ? 'border-yellow-500/30'
-              : 'border-emerald-500/20'
-            }`}>
-            {toast.type === 'error' ? (
-              <AlertCircle size={14} className="text-red-400 shrink-0" />
-            ) : toast.type === 'archive' ? (
-              <Archive size={14} className="text-yellow-400 shrink-0" />
-            ) : (
-              <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-            )}
-            <span className="text-sm font-medium text-white">{toast.message}</span>
-          </div>
-        </div>
-      )}
-
       {/* ── Header ── */}
       <header className="h-20 flex items-center justify-between mb-8">
         <div>
@@ -318,6 +302,11 @@ export const Products: React.FC = () => {
           <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">
             {t('products:page.subtitle')} • {totalProducts} {t('products:page.productCount')}
           </p>
+          {isFetching && !initialLoading && (
+            <p className="text-[10px] text-white/35 uppercase tracking-[0.18em] mt-2">
+              {t('common:loading', { defaultValue: 'Loading' })}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <div className="relative hidden md:block">
@@ -348,7 +337,7 @@ export const Products: React.FC = () => {
       </header>
 
       {/* ── Loading ── */}
-      {loading && (
+      {initialLoading && (
         <div className="bg-surface-dark border border-white/5 rounded-xl shadow-2xl flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="w-12 h-12 border-4 border-white/10 border-t-primary rounded-full animate-spin"></div>
@@ -358,7 +347,7 @@ export const Products: React.FC = () => {
       )}
 
       {/* ── Error ── */}
-      {error && !loading && (
+      {error && !initialLoading && (
         <div className="bg-surface-dark border border-white/5 rounded-xl shadow-2xl flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4 max-w-md text-center">
             <AlertCircle size={48} className="text-red-500" />
@@ -371,7 +360,7 @@ export const Products: React.FC = () => {
       )}
 
       {/* ── Table ── */}
-      {!loading && !error && (
+      {!initialLoading && !error && (
         <div className="bg-surface-dark border border-white/5 rounded-xl shadow-2xl flex flex-col flex-1">
           {/* Toolbar */}
           <div className={`p-6 border-b border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4 transition-colors ${selectedIds.length > 0 ? 'bg-primary/5' : ''}`}>
@@ -643,7 +632,7 @@ export const Products: React.FC = () => {
               </div>
             )}
           </div>
-          {!loading && !error && totalPages > 1 && (
+          {!initialLoading && !error && totalPages > 1 && (
             <div className="flex items-center justify-between px-6 py-4 border-t border-white/[0.06]">
               <p className="text-xs text-white/40">
                 {t('products:pagination.summary', { page, totalPages, total: totalProducts })}
