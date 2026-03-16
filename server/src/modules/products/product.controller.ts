@@ -24,6 +24,24 @@ const toProductFilters = (query: ProductQueryDto): ProductFilter => ({
 });
 
 export const productController = {
+  getCategories: async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const categories = await productService.getCategories();
+      res.json(categories);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  getBrands: async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const brands = await productService.getBrands();
+      res.json(brands);
+    } catch (error) {
+      next(error);
+    }
+  },
+
   getAll: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const query = req.query as unknown as ProductQueryDto;

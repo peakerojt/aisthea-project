@@ -34,7 +34,7 @@ export const TopProducts: React.FC<TopProductsProps> = ({ products, isLoading })
                     <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                     Sản phẩm bán chạy nhất
                 </h3>
-                <p className="text-xs text-white/30 mt-1">Top 5 trong khoảng thời gian</p>
+                <p className="text-xs text-white/30 mt-1">Top 5 trong kỳ</p>
             </div>
 
             {/* List */}

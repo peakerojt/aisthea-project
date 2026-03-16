@@ -518,7 +518,7 @@ export const VariantManager: React.FC<VariantManagerProps> = ({
                     {/* Summary footer */}
                     <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.05] text-[11px] text-white/30">
                         <span>{variants.length} phân loại · {grouped.groups.length} nhóm</span>
-                        <span>Biến thể đầu tiên sẽ là mặc định khi hiển thị trên shop</span>
+                        <span>Biến thể đầu tiên sẽ là mặc định khi hiển thị trên cửa hàng</span>
                     </div>
                 </div>
             )}

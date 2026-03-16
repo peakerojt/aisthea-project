@@ -139,9 +139,9 @@ export const ProductDetail: React.FC = () => {
         imageUrl: image.imageUrl,
         thumbnailUrl: image.thumbnailUrl || image.imageUrl,
       })),
-      category: product.category?.name || '',
+        category: product.category?.name || '',
       status: (product.variants?.[0]?.stockQuantity ?? 0) === 0 ? 'Out of Stock' : 'In Stock',
-    }));
+      }));
   }, [rawAPIProducts]);
 
   const { user } = useAuth();
@@ -152,9 +152,9 @@ export const ProductDetail: React.FC = () => {
   const basicInfo = useMemo(() => {
     return {
       image: productDetails?.images?.[0]?.thumbnailUrl || productDetails?.images?.[0]?.imageUrl || '',
-      ref: `SKU-${productId ?? 'unknown'}`,
-      id: productDetails?.productId ?? productId ?? 'temp-product',
-      name: productDetails?.name || 'Unknown Product',
+        ref: `SKU-${productId ?? 'unknown'}`,
+        id: productDetails?.productId ?? productId ?? 'temp-product',
+      name: productDetails?.name || 'Sản phẩm chưa xác định',
       price: Number(productDetails?.basePrice ?? 0),
       category: productDetails?.category?.name || '',
     };
@@ -598,11 +598,11 @@ export const ProductDetail: React.FC = () => {
                             group hover:border-primary/30 transition-colors">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20 group-hover:border-primary/50 transition-colors flex-shrink-0">
-                  <img
-                    src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&h=200&fit=crop"
-                    alt="Stylist"
-                    className="w-full h-full object-cover"
-                  />
+                    <img
+                      src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&h=200&fit=crop"
+                      alt="Chuyên gia tư vấn AISTHEA"
+                      className="w-full h-full object-cover"
+                    />
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <p className="text-white font-bold text-xs tracking-tight">

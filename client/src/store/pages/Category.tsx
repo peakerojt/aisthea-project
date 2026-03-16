@@ -30,6 +30,29 @@ const TRENDING_DATA = {
   Accessories: []
 };
 
+const formatPrice = (price: number): string => new Intl.NumberFormat('vi-VN').format(price);
+
+const SECTION_LABELS: Record<string, string> = {
+  Outerwear: 'Áo khoác',
+  Tops: 'Áo',
+  Bottoms: 'Quần',
+  Shoes: 'Giày',
+  Accessories: 'Phụ kiện',
+  Bags: 'Túi xách',
+  Jewelry: 'Trang sức',
+  Eyewear: 'Kính mắt',
+  Watches: 'Đồng hồ',
+};
+
+const translateProductTag = (tag?: string): string => {
+  if (tag === 'Best Seller') return 'Bán chạy';
+  if (tag === 'Sale') return 'Giảm giá';
+  if (tag === 'New') return 'Mới';
+  return tag || '';
+};
+
+const translateSectionLabel = (section: string): string => SECTION_LABELS[section] || section;
+
 export const Category: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'category' });
   const navigate = useNavigate();
@@ -63,7 +86,7 @@ export const Category: React.FC = () => {
             {/* Content - Bottom Aligned */}
             <div className="absolute inset-0 flex flex-col justify-end p-8 pb-12 items-start">
               <h2 className="text-4xl md:text-5xl lg:text-6xl font-black uppercase tracking-tighter text-white translate-y-2 group-hover:translate-y-0 transition-transform duration-500 drop-shadow-xl">
-                {section}
+                {translateSectionLabel(section)}
               </h2>
               <div className="overflow-hidden h-0 group-hover:h-8 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-out">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white mt-2">
@@ -103,7 +126,7 @@ export const Category: React.FC = () => {
               <div className="aspect-[3/4] overflow-hidden relative bg-surface-dark w-full">
                 {product.tag && (
                   <div className={`absolute top-4 left-4 z-10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest ${product.tag === 'Best Seller' ? 'bg-white text-black' : 'bg-primary text-white'}`}>
-                    {product.tag}
+                    {translateProductTag(product.tag)}
                   </div>
                 )}
                 <img
@@ -124,7 +147,7 @@ export const Category: React.FC = () => {
                 <h4 className="text-base font-bold text-white uppercase tracking-wide group-hover:text-primary transition-colors">{product.name}</h4>
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">{product.category}</span>
-                  <span className="text-sm font-bold text-white">${product.price}</span>
+                  <span className="text-sm font-bold text-white">{formatPrice(product.price)}đ</span>
                 </div>
               </div>
             </div>

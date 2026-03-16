@@ -58,13 +58,13 @@ const NoteDialog: React.FC<NoteDialogProps> = ({ targetStatus, loading, onClose,
     const isCancelled = targetStatus === ORDER_STATUS.CANCELLED;
     const meta = ORDER_STATUS_META[targetStatus];
     const presets = isCancelled ? CANCEL_PRESETS : RETURN_PRESETS;
-    const title = isCancelled ? 'Hủy đơn hàng' : 'Xác nhận hoàn trả';
+    const title = isCancelled ? 'Hủy đơn hàng' : 'Xác nhận trả hàng';
     const placeholder = isCancelled
         ? 'Mô tả lý do hủy đơn hàng...'
-        : 'Mô tả lý do hoàn trả...';
+        : 'Mô tả lý do trả hàng...';
     const hint = isCancelled
-        ? 'Tồn kho sẽ được hoàn trả tự động sau khi xác nhận.'
-        : 'Tồn kho sẽ được hoàn trả tự động sau khi xác nhận.';
+        ? 'Tồn kho sẽ được hoàn lại tự động sau khi xác nhận.'
+        : 'Tồn kho sẽ được hoàn lại tự động sau khi xác nhận.';
 
     useEffect(() => { setNote(''); }, [targetStatus]);
 

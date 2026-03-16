@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
+import { useTranslation } from 'react-i18next';
 
 export interface ProductCardImage {
     imageUrl: string;
@@ -31,9 +32,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     className = '',
     showHoverGallery = true
 }) => {
+    const { t } = useTranslation(['pages', 'products']);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isHovering, setIsHovering] = useState(false);
     const [imgLoaded, setImgLoaded] = useState(false);
+
+    const displayStatus = (() => {
+        if (status === 'In Stock') return t('products:status.inStock');
+        if (status === 'Low Stock') return t('products:status.lowStock');
+        if (status === 'Out of Stock') return t('products:status.outOfStock');
+        return status;
+    })();
 
     // Use images array if available, otherwise fall back to single image
     const imageList = images.length > 0
@@ -100,7 +109,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                     loading="lazy"
                     onLoad={() => setImgLoaded(true)}
                     onError={(e) => {
-                        e.currentTarget.src = 'https://via.placeholder.com/400x600?text=No+Image';
+                        e.currentTarget.src = 'https://via.placeholder.com/400x600?text=Khong+co+anh';
                         setImgLoaded(true);
                     }}
                     className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
@@ -112,7 +121,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 {/* Quick View Button */}
                 <div className="absolute bottom-4 left-4 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
                     <span className="bg-white text-black text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 shadow-lg">
-                        Quick View
+                        {t('pages:collection.quickView')}
                     </span>
                 </div>
 
@@ -139,7 +148,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                                     ? 'w-6 h-1.5 bg-primary'
                                     : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/80'
                                     }`}
-                                aria-label={`View image ${index + 1}`}
+                                aria-label={`Xem ảnh ${index + 1}`}
                             />
                         ))}
                     </div>
@@ -154,7 +163,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                                 ? 'bg-red-500/90 text-white'
                                 : 'bg-green-500/90 text-white'
                             }`}>
-                            {status}
+                            {displayStatus}
                         </span>
                     </div>
                 )}

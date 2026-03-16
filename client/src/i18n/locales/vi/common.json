@@ -1,4 +1,5 @@
 {
+  "loading": "Đang tải...",
   "actions": {
     "save": "Lưu thay đổi",
     "cancel": "Hủy",
@@ -22,20 +23,20 @@
   "status": {
     "success": "Thành công",
     "error": "Thất bại",
-    "loading": "Đang tải…",
-    "saving": "Đang lưu…",
-    "deleting": "Đang xóa…",
-    "processing": "Đang xử lý…",
+    "loading": "Đang tải...",
+    "saving": "Đang lưu...",
+    "deleting": "Đang xóa...",
+    "processing": "Đang xử lý...",
     "empty": "Không có dữ liệu"
   },
   "feedback": {
-    "saveSuccess": "Lưu thay đổi thành công",
-    "saveError": "Lưu thất bại. Vui lòng thử lại",
-    "deleteSuccess": "Xóa thành công",
-    "deleteError": "Xóa thất bại. Vui lòng thử lại",
+    "saveSuccess": "Đã lưu thay đổi",
+    "saveError": "Không thể lưu thay đổi. Vui lòng thử lại.",
+    "deleteSuccess": "Đã xóa thành công",
+    "deleteError": "Không thể xóa. Vui lòng thử lại.",
     "deleteConfirm": "Bạn có chắc muốn xóa mục này không? Hành động này không thể hoàn tác.",
-    "createSuccess": "Tạo mới thành công",
-    "updateSuccess": "Cập nhật thành công"
+    "createSuccess": "Đã tạo mới thành công",
+    "updateSuccess": "Đã cập nhật thành công"
   },
   "table": {
     "noResults": "Không tìm thấy kết quả",
@@ -57,7 +58,7 @@
   "footer": {
     "support": "Hỗ trợ",
     "quick_links": "Liên kết nhanh",
-    "about_desc": "AISTHEA - thương hiệu thời trang tối giản và hiện đại.",
+    "about_desc": "AISTHEA - thương hiệu thời trang tối giản, hiện đại.",
     "contact_newsletter": "Đăng ký nhận tin khuyến mãi mới nhất.",
     "email_placeholder": "Nhập email của bạn",
     "secure_payment": "Thanh toán bảo mật",

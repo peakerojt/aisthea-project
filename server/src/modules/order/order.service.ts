@@ -3,6 +3,7 @@ import { prisma } from '../../utils/prisma';
 import { atomicCancelRestore, atomicCheckoutDeduction } from '../../services/inventory.service';
 import { logger } from '../../lib/logger';
 import { AppError } from '../../middlewares/error.middleware';
+import { quoteOrderPricing, ShippingMethod } from './order-pricing.service';
 import {
   ORDER_STATUS,
   getValidNextStatuses,
@@ -77,8 +78,8 @@ const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto =
     return sum + unit * item.quantity;
   }, 0);
 
-  const shippingFee = 0;
-  const discount = 0;
+  const shippingFee = Number(order.shippingFee ?? 0);
+  const discount = Number(order.discountAmount ?? 0);
   const tax = 0;
   const grandTotal = Number(order.totalAmount);
 
@@ -130,7 +131,7 @@ const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto =
     customer: {
       name: order.customerName,
       phone: order.customerPhone,
-      email: order.user?.email ?? null,
+      email: order.customerEmail ?? order.user?.email ?? null,
     },
     shippingAddress: {
       recipientName: order.customerName,
@@ -390,11 +391,15 @@ export interface CreateOrderDto {
   items: CreateOrderItemDto[];
   paymentMethod: string;
   customerName: string;
+  customerEmail?: string | null;
   customerPhone: string;
   shippingCity: string;
   shippingDistrict: string;
   shippingWard?: string | null;
   shippingAddressDetail: string;
+  shippingCityCode: string;
+  shippingMethod: ShippingMethod;
+  couponCode?: string | null;
   note?: string | null;
 }
 
@@ -404,15 +409,14 @@ export interface CreateOrderDto {
  * All mutations run inside a single Prisma Interactive Transaction so that
  * any failure automatically rolls back every change made within that call:
  *
- *   Step 1 — Early stock check  (read-only guard, no mutations yet)
- *   Step 2 — Server-side price calculation from real DB prices
- *   Step 3 — Create the Order record
- *   Step 4 — Create OrderItem records (price snapshot)
- *   Step 5 — Atomic stock deduction via atomicCheckoutDeduction
+ *   Step 1 — Server-side pricing + coupon + shipping calculation
+ *   Step 2 — Create the Order record with persisted pricing breakdown
+ *   Step 3 — Create OrderItem records (price snapshot)
+ *   Step 4 — Atomic stock deduction via atomicCheckoutDeduction
  *             → uses UPDATE … WHERE stockQuantity >= quantity
  *             → throws P2025 / INSUFFICIENT_STOCK if a race condition
- *               depletes stock between Step 1 and Step 5
- *   Step 6 — Append initial OrderStatusHistory entry
+ *               depletes stock between pricing and checkout deduction
+ *   Step 5 — Append initial OrderStatusHistory entry
  *
  * Returns the full OrderDetailDto for the newly created order.
  */
@@ -424,11 +428,15 @@ export async function createOrder(
     items,
     paymentMethod,
     customerName,
+    customerEmail,
     customerPhone,
     shippingCity,
     shippingDistrict,
     shippingWard,
     shippingAddressDetail,
+    shippingCityCode,
+    shippingMethod,
+    couponCode,
     note,
   } = dto;
 
@@ -442,95 +450,35 @@ export async function createOrder(
     .padStart(4, '0')}`;
 
   const newOrderId = await prisma.$transaction(async (tx) => {
-    // ── Step 1: Early stock check ─────────────────────────────────────────────
-    // Fetch all requested variants in a single query to minimise round-trips.
-    const variantIds = items.map((i) => i.variantId);
-
-    const variants = await (tx.productVariant.findMany as any)({
-      where: { variantId: { in: variantIds } },
-      select: {
-        variantId: true,
-        sku: true,
-        price: true,
-        stockQuantity: true,
-        product: { select: { name: true } },
-        variantAttributes: {
-          select: {
-            value: {
-              select: {
-                value: true,
-                attribute: { select: { name: true } },
-              },
-            },
-          },
-        },
+    const pricing = await quoteOrderPricing(
+      {
+        userId: currentUser.userId,
+        items,
+        couponCode,
+        shippingCityCode,
+        shippingMethod,
       },
-    });
+      tx as any,
+    );
 
-    // Build a lookup map for O(1) access
-    const variantMap = new Map<number, (typeof variants)[number]>();
-    for (const v of variants) {
-      variantMap.set(v.variantId, v);
-    }
-
-    // Validate every item — stock check AND existence
-    for (const item of items) {
-      const variant = variantMap.get(item.variantId);
-
-      if (!variant) {
-        throw new AppError(
-          400,
-          'VARIANT_NOT_FOUND',
-          'products:errors.notFound',
-          { variantId: item.variantId },
-        );
-      }
-
-      const available: number = variant.stockQuantity;
-      if (available < item.quantity) {
-        throw new AppError(
-          400,
-          'OUT_OF_STOCK',
-          'orders:errors.outOfStock',
-          { variantId: item.variantId, available, requested: item.quantity },
-        );
-      }
-    }
-
-    // ── Step 2: Calculate total price from DB (never trust client) ────────────
-    let totalAmount = 0;
-    const enrichedItems = items.map((item) => {
-      const variant = variantMap.get(item.variantId)!;
-      const unitPrice = Number(variant.price);
-      totalAmount += unitPrice * item.quantity;
-
-      // Build a human-readable variant label (e.g. "Trắng / L") for the snapshot
-      const attrLabel = (variant.variantAttributes as any[])
-        .map((va: any) => va.value.value)
-        .join(' / ');
-
-      return {
-        variantId: item.variantId,
-        quantity: item.quantity,
-        unitPrice,
-        sku: variant.sku as string,
-        productName: item.productName ?? (variant.product?.name as string) ?? 'Unknown',
-        variantName: item.variantName ?? attrLabel ?? variant.sku,
-      };
-    });
-
-    // ── Step 3: Create the Order record ──────────────────────────────────────
+    // ── Step 2: Create the Order record ──────────────────────────────────────
     const order = await (tx.order.create as any)({
       data: {
         userId: currentUser.userId,
         orderNumber,
         customerName,
+        customerEmail: customerEmail ?? null,
         customerPhone,
         shippingCity,
         shippingDistrict: shippingDistrict ?? '',
         shippingWard: shippingWard ?? null,
         shippingAddressDetail,
-        totalAmount,
+        shippingFee: pricing.shippingFee,
+        shippingMethod: pricing.shippingMethod,
+        shippingCityCode: pricing.shippingCityCode,
+        totalAmount: pricing.totalAmount,
+        discountAmount: pricing.discountAmount,
+        couponId: pricing.coupon?.couponId ?? null,
         status: 'Pending',
         paymentMethod,
         note: note ?? null,
@@ -540,9 +488,9 @@ export async function createOrder(
 
     const orderId: number = order.orderId;
 
-    // ── Step 4: Create OrderItem records (price snapshot) ─────────────────────
+    // ── Step 3: Create OrderItem records (price snapshot) ─────────────────────
     await (tx.orderItem.createMany as any)({
-      data: enrichedItems.map((ei) => ({
+      data: pricing.enrichedItems.map((ei) => ({
         orderId,
         variantId: ei.variantId,
         productName: ei.productName,
@@ -553,7 +501,7 @@ export async function createOrder(
       })),
     });
 
-    // ── Step 5: Atomic stock deduction (race-condition safe) ──────────────────
+    // ── Step 4: Atomic stock deduction (race-condition safe) ──────────────────
     // atomicCheckoutDeduction uses:
     //   UPDATE ProductVariants SET StockQuantity -= quantity
     //   WHERE VariantId = ? AND StockQuantity >= quantity
@@ -562,7 +510,7 @@ export async function createOrder(
     await atomicCheckoutDeduction(
       orderId,
       currentUser.userId,
-      enrichedItems.map((ei) => ({
+      pricing.enrichedItems.map((ei) => ({
         variantId: ei.variantId,
         quantity: ei.quantity,
         productName: ei.productName,
@@ -570,7 +518,14 @@ export async function createOrder(
       tx,
     );
 
-    // ── Step 6: Initial status history entry ──────────────────────────────────
+    if (pricing.coupon?.couponId) {
+      await tx.coupon.update({
+        where: { couponId: pricing.coupon.couponId },
+        data: { usedCount: { increment: 1 } },
+      });
+    }
+
+    // ── Step 5: Initial status history entry ──────────────────────────────────
     await (tx.orderStatusHistory.create as any)({
       data: {
         orderId,
@@ -586,12 +541,18 @@ export async function createOrder(
       orderId,
       orderNumber,
       userId: currentUser.userId,
-      totalAmount
-    });    return orderId;
-  });  // Re-fetch with full relations so we can return the standard DTO
+      totalAmount: pricing.totalAmount,
+    });
+
+    return orderId;
+  });
+
+  // Re-fetch with full relations so we can return the standard DTO
   const order = await findOrderByIdWithRelations(newOrderId);
   if (!order) {
     // Should never happen unless the DB is in a very unusual state
     throw new AppError(500, 'INTERNAL_ERROR', 'common:errors.internalServer');
-  }  return mapOrderToDto(order);
+  }
+
+  return mapOrderToDto(order);
 }

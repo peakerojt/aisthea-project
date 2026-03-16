@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Search, Package, ChevronLeft, ChevronRight, Eye,
-  Loader2, AlertCircle, FilterX, Calendar,
+  AlertCircle, FilterX, Calendar,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { adminOrderService, AdminOrder } from '@/common/services/order.service';
+import { PaymentMethodLabel, PaymentStatusBadge } from '@/common/components/PaymentStatusBadge';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -309,16 +310,18 @@ export const Orders: React.FC = () => {
                   <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">{t('table.customer')}</th>
                   <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">{t('table.date')}</th>
                   <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">{t('table.total')}</th>
+                  <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">{t('table.payment')}</th>
                   <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30">{t('table.status')}</th>
                   <th className="py-4 px-6 text-[10px] uppercase tracking-widest font-bold text-white/30 text-right">{t('table.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
-                {orders.map((order) => (
-                  <tr
-                    key={order.orderId}
-                    className="group hover:bg-white/[0.025] transition-colors"
-                  >
+                {orders.map((order) => {
+                  return (
+                    <tr
+                      key={order.orderId}
+                      className="group hover:bg-white/[0.025] transition-colors"
+                    >
                     {/* Mã đơn */}
                     <td className="py-4 px-6">
                       <span className="text-sm font-bold text-white font-mono">
@@ -354,6 +357,14 @@ export const Orders: React.FC = () => {
                       </span>
                     </td>
 
+                    {/* Thanh toán */}
+                    <td className="py-4 px-6">
+                      <div className="flex flex-col gap-1.5">
+                        <PaymentStatusBadge paymentMethod={order.paymentMethod} paymentStatus={order.paymentStatus} className="w-fit" />
+                        <PaymentMethodLabel paymentMethod={order.paymentMethod} className="text-[11px] uppercase tracking-widest text-white/35" />
+                      </div>
+                    </td>
+
                     {/* Trạng thái */}
                     <td className="py-4 px-6">
                       <StatusBadge
@@ -372,8 +383,9 @@ export const Orders: React.FC = () => {
                         {t('actions.viewDetail')}
                       </button>
                     </td>
-                  </tr>
-                ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

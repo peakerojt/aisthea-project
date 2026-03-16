@@ -15,9 +15,9 @@ type StepId = 'PENDING' | 'PACKING' | 'SHIPPING' | 'DELIVERED';
 
 const MAIN_STEPS: Array<{ id: StepId; label: string; icon: typeof Clock }> = [
   { id: 'PENDING', label: 'Chờ xác nhận', icon: Clock },
-  { id: 'PACKING', label: 'Đóng gói', icon: Box },
-  { id: 'SHIPPING', label: 'Đang giao', icon: Truck },
-  { id: 'DELIVERED', label: 'Thành công', icon: CheckCircle2 },
+  { id: 'PACKING', label: 'Đang đóng gói', icon: Box },
+  { id: 'SHIPPING', label: 'Đang giao hàng', icon: Truck },
+  { id: 'DELIVERED', label: 'Đã giao hàng', icon: CheckCircle2 },
 ];
 
 const STATUS_TO_STEP: Record<string, number> = {
@@ -267,7 +267,7 @@ export function TrackingDetailPage() {
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');`}</style>
         <div className="flex flex-col items-center gap-4">
           <div className="size-12 rounded-full border-4 border-blue-500/30 border-t-blue-500 animate-spin" />
-          <span className="text-slate-400 text-sm">Đang tải thông tin đơn hàng...</span>
+          <span className="text-slate-400 text-sm">{t('page.loadingOrder')}</span>
         </div>
       </div>
     );
@@ -281,10 +281,10 @@ export function TrackingDetailPage() {
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');`}</style>
         <div className="bg-white/5 border border-red-500/20 rounded-2xl p-8 max-w-sm text-center">
           <AlertTriangle className="size-10 text-red-400 mx-auto mb-3" />
-          <p className="text-white font-semibold mb-2">Có lỗi xảy ra</p>
+          <p className="text-white font-semibold mb-2">{t('page.genericError')}</p>
           <p className="text-slate-400 text-sm mb-4">{error}</p>
           <button onClick={() => navigate('/tracking')} className="text-blue-400 text-sm hover:text-blue-300 transition-colors cursor-pointer">
-            ← Tra cứu lại
+            ← {t('page.lookupAgain')}
           </button>
         </div>
       </div>
@@ -310,13 +310,13 @@ export function TrackingDetailPage() {
         {/* ── Top navigation ──────────────────────────────────────────── */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Back to My Orders */}
+            {/* Back to orders */}
             <button
               onClick={() => navigate('/', { replace: true, state: { initialView: 'STORE_MY_ORDERS' } })}
               className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors cursor-pointer group"
             >
               <ArrowLeft className="size-4 group-hover:-translate-x-0.5 transition-transform" />
-              My Orders
+              {t('page.backToOrders')}
             </button>
 
             <span className="text-slate-700 text-xs">|</span>
@@ -327,7 +327,7 @@ export function TrackingDetailPage() {
               className="flex items-center gap-1.5 text-slate-400 hover:text-blue-400 text-sm transition-colors cursor-pointer"
             >
               <Search className="size-3.5" />
-              Tra cứu mới
+              {t('page.newLookup')}
             </button>
           </div>
 
@@ -336,8 +336,8 @@ export function TrackingDetailPage() {
             ${connected ? 'text-emerald-400 border-emerald-400/30 bg-emerald-400/5' : 'text-slate-500 border-slate-600 bg-transparent'}
           `}>
             {connected
-              ? <><Wifi className="size-3" /><span>Theo dõi trực tiếp</span><span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" /></>
-              : <><WifiOff className="size-3" /><span>Ngoại tuyến</span></>
+              ? <><Wifi className="size-3" /><span>{t('page.live')}</span><span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" /></>
+              : <><WifiOff className="size-3" /><span>{t('page.offline')}</span></>
             }
           </div>
         </div>
@@ -346,7 +346,7 @@ export function TrackingDetailPage() {
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-xl">
           <div className="flex items-start justify-between gap-3 mb-4">
             <div>
-              <p className="text-xs text-slate-400 mb-0.5">Đơn hàng</p>
+              <p className="text-xs text-slate-400 mb-0.5">{t('page.order')}</p>
               <h1 className="text-xl font-bold text-white">{tracking.orderCode}</h1>
             </div>
             {/* Status badge */}
@@ -358,17 +358,17 @@ export function TrackingDetailPage() {
           {/* Carrier + Tracking number + ETA row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
             <InfoChip
-              label="Đơn vị vận chuyển"
+              label={t('page.carrier')}
               value={carrier ?? '—'}
               icon={<Truck className="size-3.5 text-blue-400" />}
             />
             <InfoChip
-              label="Mã vận đơn"
+              label={t('page.trackingNumber')}
               value={trackingNum ?? '—'}
               icon={<Package className="size-3.5 text-cyan-400" />}
             />
             <InfoChip
-              label="Dự kiến giao hàng"
+              label={t('page.estimatedDelivery')}
               value={eta ? formatDateShort(eta) ?? '—' : '—'}
               icon={<Clock className="size-3.5 text-amber-400" />}
             />
@@ -378,7 +378,7 @@ export function TrackingDetailPage() {
           {location && (
             <div className="flex items-center gap-2 text-xs text-slate-400 bg-white/3 rounded-lg px-3 py-2 mb-4">
               <MapPin className="size-3.5 text-sky-400 flex-shrink-0" />
-              <span>Vị trí gần nhất: <span className="text-slate-200">{location}</span></span>
+              <span>{t('page.latestLocation')} <span className="text-slate-200">{location}</span></span>
             </div>
           )}
 
@@ -391,7 +391,7 @@ export function TrackingDetailPage() {
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-xl">
             <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
               <Package className="size-4 text-slate-400" />
-              Sản phẩm trong đơn ({tracking.items.length})
+              {t('page.orderItems', { count: tracking.items.length })}
             </h2>
             <div className="space-y-3">
               {tracking.items.map((item) => (
@@ -413,10 +413,10 @@ export function TrackingDetailPage() {
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-xl">
           <h2 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
             <Clock className="size-4 text-slate-400" />
-            Lịch sử vận chuyển
+            {t('page.history')}
           </h2>
           {timeline.length === 0 ? (
-            <p className="text-slate-500 text-sm text-center py-4">Chưa có thông tin vận chuyển.</p>
+            <p className="text-slate-500 text-sm text-center py-4">{t('page.emptyHistory')}</p>
           ) : (
             <div className="relative">
               {/* Vertical guide line */}
@@ -430,7 +430,7 @@ export function TrackingDetailPage() {
 
         {/* Footer note */}
         <p className="text-center text-xs text-slate-600 pb-4">
-          Thông tin được cập nhật tự động khi có thay đổi. Không cần tải lại trang.
+          {t('page.autoRefresh')}
         </p>
       </div>
     </div>

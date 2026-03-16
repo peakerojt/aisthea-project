@@ -5,7 +5,10 @@ import { useAuth } from '@/common/contexts/AuthContext';
 import { orderService, Order } from '@/common/services/order.service';
 import { Search } from 'lucide-react';
 import { formatVietnamTime } from '@/common/utils/formatDate';
+import { formatCurrencyVND } from '@/common/utils/currency';
 import { useTranslation } from 'react-i18next';
+import { PaymentStatusBadge } from '@/common/components/PaymentStatusBadge';
+import { getStatusMeta, normalizeStatus } from '@/config/orderStatus.config';
 
 export const MyOrders: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'myOrders' });
@@ -122,36 +125,49 @@ export const MyOrders: React.FC = () => {
                 >{t('actions.startShopping')}</button>
               </div>
             ) : (
-              <div className="space-y-3">
-                {orders.map((o) => (
-                  <div key={o.orderId} className="p-5 border border-white/10 bg-black/20 rounded-sm flex flex-col md:flex-row md:items-center gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <span className="font-mono text-sm text-white">#{o.orderNumber}</span>
-                        <span className="text-[10px] uppercase tracking-widest text-white/40">{o.createdAt ? formatVietnamTime(o.createdAt) : ''}</span>
-                        <span className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-white/70">{o.status || t('states.unknown')}</span>
-                        <span className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-white/50">{o.paymentStatus || t('states.none')}</span>
-                      </div>
-                      <div className="mt-2 text-sm text-white/70">
-{t('labels.total')}: <span className="text-white font-semibold">{o.totalAmount}</span>
-                        <span className="text-white/30 mx-2">•</span>
-{t('labels.items')}: <span className="text-white font-semibold">{o.itemCount}</span>
-                      </div>
-                      {(o.trackingNumber || o.carrier) && (
-                        <div className="mt-2 text-xs text-white/40">
-                          {o.carrier ? `${o.carrier}` : t('labels.carrier')} {o.trackingNumber ? `• ${o.trackingNumber}` : ''}
-                        </div>
-                      )}
-                    </div>
+                <div className="space-y-3">
+                {orders.map((o) => {
+                  const normalizedStatus = normalizeStatus(o.status);
+                  const statusMeta = normalizedStatus ? getStatusMeta(normalizedStatus) : null;
 
-                    <div className="flex items-center gap-2 justify-end">
-                      <button
-                        onClick={() => goToOrderDetailPage(o.orderId)}
-                        className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors"
-                      >{t('actions.view')}</button>
+                  return (
+                    <div key={o.orderId} className="p-5 border border-white/10 bg-black/20 rounded-sm flex flex-col md:flex-row md:items-center gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="font-mono text-sm text-white">#{o.orderNumber}</span>
+                          <span className="text-[10px] uppercase tracking-widest text-white/40">{o.createdAt ? formatVietnamTime(o.createdAt) : ''}</span>
+                          <span
+                            className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded border ${
+                              statusMeta
+                                ? `${statusMeta.badgeClass} ${statusMeta.textClass}`
+                                : 'border-white/10 text-white/70'
+                            }`}
+                          >
+                            {statusMeta?.label || o.status || t('states.unknown')}
+                          </span>
+                          <PaymentStatusBadge paymentMethod={o.paymentMethod} paymentStatus={o.paymentStatus} size="xs" uppercase className="tracking-widest" />
+                        </div>
+                        <div className="mt-2 text-sm text-white/70">
+                          {t('labels.total')}: <span className="text-white font-semibold">{formatCurrencyVND(Number(o.totalAmount ?? 0))}</span>
+                          <span className="text-white/30 mx-2">•</span>
+                          {t('labels.items')}: <span className="text-white font-semibold">{o.itemCount}</span>
+                        </div>
+                        {(o.trackingNumber || o.carrier) && (
+                          <div className="mt-2 text-xs text-white/40">
+                            {o.carrier ? `${o.carrier}` : t('labels.carrier')} {o.trackingNumber ? `• ${o.trackingNumber}` : ''}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 justify-end">
+                        <button
+                          onClick={() => goToOrderDetailPage(o.orderId)}
+                          className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors"
+                        >{t('actions.view')}</button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

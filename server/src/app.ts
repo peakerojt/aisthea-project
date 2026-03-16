@@ -10,7 +10,7 @@ import { localeMiddleware } from './middlewares/locale.middleware';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 import { responseNormalizer } from './middlewares/response.middleware';
 
-// ─── Modular Architecture — new module routes ─────────────────────────────────
+// ─── Module-owned routes ───────────────────────────────────────────────────────
 import authModuleRoutes from './modules/auth/auth.routes';
 import productModuleRoutes from './modules/products/product.routes';
 import importExportRoutes from './modules/products/importExport.routes';
@@ -28,7 +28,7 @@ import weatherRoutes from './modules/weather/weather.routes';
 import outfitRoutes from './modules/outfit/outfit.routes';
 import chatRoutes from './modules/chat/chat.routes';
 
-// ─── Legacy module routes (migrated but still in /modules sub-folder) ─────────
+// ─── Deferred migration areas (intentionally out of this cleanup wave) ────────
 import orderModuleRoutes from './modules/order/order.route';
 import trackingRouter from './modules/tracking/tracking.route';
 import { trackingController } from './modules/tracking/tracking.controller';
@@ -81,7 +81,7 @@ export function createApp() {
   // ── Global rate limiter ───────────────────────────────────────────────────────
   app.use('/api/', globalRateLimiter);
 
-  // ── Core Modular Routes ───────────────────────────────────────────────────────
+  // ── Module-owned domains ─────────────────────────────────────────────────────
   app.use('/api/auth', authModuleRoutes);
   app.use('/api/products', productModuleRoutes);
   app.use('/api/products', importExportRoutes);   // /export, /import under products
@@ -99,7 +99,8 @@ export function createApp() {
   app.use('/api/outfit', outfitRoutes);
   app.use('/api/chat', chatRoutes);
 
-  // ── Order routes — ORDERING MATTERS: named paths before catch-all /:id ────────
+  // ── Order/payment/return routes — left as-is during this cleanup wave ───────
+  // ORDERING MATTERS: named paths before catch-all /:id
   // Backward-compatible tracking endpoints expected by legacy i18n tests.
   app.get('/api/orders/my', authenticateToken, trackingController.getMyOrders);
   app.patch('/api/admin/orders/:id/status', authenticateToken, trackingController.adminUpdateOrderStatus);
@@ -109,7 +110,7 @@ export function createApp() {
   app.use('/api/orders', refundModuleRoutes);     // /:id/refunds
   app.use('/api/orders', orderModuleRoutes);      // /:id (catch-all detail / cancel)
 
-  // Return/refund management (legacy module routes)
+  // Return/refund management (deferred migration)
   app.use('/api', trackingRouter);
   app.use('/api/items', itemsRouter);
   app.use('/api/return-requests', returnOrderRoutes);

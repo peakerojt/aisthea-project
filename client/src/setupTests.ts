@@ -80,7 +80,7 @@ vi.mock('@/common/services/order.service', () => {
     orderNumber: 'ORD-1',
     orderCode: 'ORD-1',
     status: 'DELIVERED',
-    statusLabel: 'Đã giao',
+    statusLabel: 'Đã giao hàng',
     paymentStatus: 'PAID',
     totalAmount: 100000,
     pricing: { grandTotal: 100000 },

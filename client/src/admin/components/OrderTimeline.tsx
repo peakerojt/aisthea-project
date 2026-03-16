@@ -56,7 +56,7 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({ history = [] }) =>
   if (history.length === 0) {
     return (
       <div className="px-5 pb-5 pt-2" aria-label="order-timeline">
-        <p className="text-sm text-white/40 italic">No timeline yet.</p>
+        <p className="text-sm text-white/40 italic">Chưa có lịch sử trạng thái.</p>
       </div>
     );
   }
@@ -98,7 +98,7 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({ history = [] }) =>
 
 export function TrackingTimeline({ timeline }: { timeline: TrackingTimelineItem[] }) {
   if (!timeline.length) {
-    return <div className="rounded-lg border border-dashed p-4 text-sm text-slate-500">No timeline yet.</div>;
+    return <div className="rounded-lg border border-dashed p-4 text-sm text-slate-500">Chưa có lịch sử vận chuyển.</div>;
   }
 
   return (

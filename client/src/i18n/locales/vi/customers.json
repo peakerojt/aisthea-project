@@ -1,7 +1,7 @@
 {
     "page": {
         "title": "Quản lý người dùng",
-        "userCount": "{{count}} người dùng",
+        "userCount": "{{count}} tài khoản",
         "loading": "Đang tải..."
     },
     "filters": {
@@ -13,7 +13,7 @@
         "statusPending": "Chờ xác nhận"
     },
     "table": {
-        "customer": "Khách hàng",
+        "customer": "Người dùng",
         "contact": "Liên hệ",
         "role": "Vai trò",
         "status": "Trạng thái",
@@ -50,9 +50,9 @@
         }
     },
     "feedback": {
-        "statusUpdated": "Cập nhật trạng thái thành công!",
+        "statusUpdated": "Đã cập nhật trạng thái",
         "statusError": "Cập nhật thất bại.",
-        "roleUpdated": "Cập nhật vai trò thành công!",
+        "roleUpdated": "Đã cập nhật vai trò",
         "roleError": "Cập nhật vai trò thất bại.",
         "loadError": "Không thể tải danh sách người dùng.",
         "dataError": "Không thể tải dữ liệu",

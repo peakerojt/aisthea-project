@@ -304,7 +304,7 @@ export const Products: React.FC = () => {
           </p>
           {isFetching && !initialLoading && (
             <p className="text-[10px] text-white/35 uppercase tracking-[0.18em] mt-2">
-              {t('common:loading', { defaultValue: 'Loading' })}
+              {t('common:loading', { defaultValue: 'Đang tải' })}
             </p>
           )}
         </div>

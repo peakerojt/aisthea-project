@@ -33,24 +33,24 @@ const createSessionId = () => `${Date.now().toString(36)}-${Math.random().toStri
 const buildInitialActions = (page: ChatPage): ChatAction[] => {
   if (page === 'product') {
     return [
-      { type: 'navigate', label: 'Mở Stylist', to: '/stylist' },
+      { type: 'navigate', label: 'Mở tư vấn', to: '/stylist' },
       { type: 'navigate', label: 'Xem bộ sưu tập', to: '/collection' },
-      { type: 'navigate', label: 'Mở Support', to: '/support' },
+      { type: 'navigate', label: 'Mở hỗ trợ', to: '/support' },
     ];
   }
 
   if (page === 'stylist') {
     return [
       { type: 'navigate', label: 'Xem bộ sưu tập', to: '/collection' },
-      { type: 'navigate', label: 'Mở Support', to: '/support' },
+      { type: 'navigate', label: 'Mở hỗ trợ', to: '/support' },
     ];
   }
 
   if (page === 'weather') {
     return [
-      { type: 'navigate', label: 'Mở Stylist', to: '/stylist' },
+      { type: 'navigate', label: 'Mở tư vấn', to: '/stylist' },
       { type: 'navigate', label: 'Xem bộ sưu tập', to: '/collection' },
-      { type: 'navigate', label: 'Mở Support', to: '/support' },
+      { type: 'navigate', label: 'Mở hỗ trợ', to: '/support' },
     ];
   }
 
@@ -58,14 +58,14 @@ const buildInitialActions = (page: ChatPage): ChatAction[] => {
     return [
       { type: 'navigate', label: 'Xem đổi trả', to: '/support?section=returns' },
       { type: 'navigate', label: 'Xem FAQ', to: '/support?section=faq' },
-      { type: 'navigate', label: 'Mở Stylist', to: '/stylist' },
+      { type: 'navigate', label: 'Mở tư vấn', to: '/stylist' },
     ];
   }
 
   return [
-    { type: 'navigate', label: 'Mở Stylist', to: '/stylist' },
+    { type: 'navigate', label: 'Mở tư vấn', to: '/stylist' },
     { type: 'navigate', label: 'Xem bộ sưu tập', to: '/collection' },
-    { type: 'navigate', label: 'Mở Support', to: '/support' },
+    { type: 'navigate', label: 'Mở hỗ trợ', to: '/support' },
   ];
 };
 
@@ -127,11 +127,11 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, product
 
   const title = useMemo(
     () => {
-      if (page === 'product') return 'Product Assistant';
-      if (page === 'stylist') return 'Stylist Assistant';
-      if (page === 'weather') return 'Stylist Assistant';
-      if (page === 'support') return 'Support Assistant';
-      return 'AISTHEA Assistant';
+      if (page === 'product') return 'Trợ lý sản phẩm';
+      if (page === 'stylist') return 'Trợ lý phối đồ';
+      if (page === 'weather') return 'Trợ lý thời tiết';
+      if (page === 'support') return 'Trợ lý hỗ trợ';
+      return 'Trợ lý AISTHEA';
     },
     [page],
   );
@@ -276,7 +276,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, product
             setIsOpen(true);
           }}
           className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-black/85 text-white shadow-2xl shadow-black/50 transition hover:scale-105 hover:border-primary/50 hover:text-primary md:bottom-6 md:right-6"
-          aria-label="Open chat assistant"
+          aria-label="Mở trợ lý chat"
         >
           <MessageCircleMore size={22} />
         </button>
@@ -288,7 +288,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, product
             <div>
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.28em] text-primary">
                 <Sparkles size={14} />
-                Cloudflare Chat
+                Trợ lý AISTHEA
               </div>
               <h3 className="mt-1 text-sm font-semibold text-white">{title}</h3>
             </div>
@@ -296,7 +296,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, product
               type="button"
               onClick={() => setIsOpen(false)}
               className="rounded-full p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
-              aria-label="Close chat assistant"
+              aria-label="Đóng trợ lý chat"
             >
               <X size={18} />
             </button>
@@ -386,7 +386,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, product
                 onClick={() => void handleSend()}
                 disabled={isSending || !input.trim() || (page === 'product' && !productId)}
                 className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                aria-label="Send chat message"
+                aria-label="Gửi tin nhắn"
               >
                 {isSending ? <Loader2 size={18} className="animate-spin" /> : <SendHorizonal size={18} />}
               </button>

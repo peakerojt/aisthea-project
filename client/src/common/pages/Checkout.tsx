@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CartItem } from '@/types';
 import { Header } from '@/store/components/Header';
@@ -12,21 +12,11 @@ import { OrderSummaryRail } from '@/common/components/OrderSummaryRail';
 import { CheckoutSectionCard } from '@/common/components/CheckoutSectionCard';
 import { formatCurrencyVND } from '@/common/utils/currency';
 import { setLatestOrderData } from '@/common/utils/orderSnapshot';
+import { orderApi } from '@/common/api/order.api';
+import { OrderQuote } from '@/common/services/order.service';
 
 interface CheckoutProps {
     cart?: CartItem[];
-}
-
-// THÊM: Interface cho cấu trúc dữ liệu Voucher trả về từ Backend
-interface AppliedCoupon {
-    coupon: {
-        couponId: number;
-        code: string;
-        type: string;
-        value: number;
-    };
-    discountAmount: number;
-    message: string;
 }
 
 // Remote API used for VN Locations (63 Provinces)
@@ -58,10 +48,11 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
     const navigate = useNavigate();
     const { items, fetchCart } = useCart();
 
-    // THÊM: Các state quản lý Mã giảm giá (Voucher)
     const [couponInput, setCouponInput] = useState('');
-    const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+    const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
+    const [pricingQuote, setPricingQuote] = useState<OrderQuote | null>(null);
     const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+    const [isQuoteLoading, setIsQuoteLoading] = useState(false);
     const [couponError, setCouponError] = useState('');
     const [couponSuccessMsg, setCouponSuccessMsg] = useState('');
     const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
@@ -75,10 +66,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
     const [selectedDistrictCode, setSelectedDistrictCode] = useState<string>(() => sessionStorage.getItem('checkoutDistrictCode') || '');
     const [selectedWardCode, setSelectedWardCode] = useState<string>(() => sessionStorage.getItem('checkoutWardCode') || '');
 
-    // THÊM: Shipping method state
-    const [selectedShippingMethod, setSelectedShippingMethod] = useState<'STANDARD' | 'EXPRESS'>('STANDARD');
+    const selectedShippingMethod: 'STANDARD' = 'STANDARD';
 
-    const mappedCart = React.useMemo<CartItem[]>(() => {
+    const mappedCart = useMemo<CartItem[]>(() => {
         const source = items as any[];
         return source.map(item => {
             const variant = item.variant;
@@ -108,16 +98,11 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                 ref,
             } as CartItem;
         });
-    }, [items]);
+    }, [items, t]);
 
     const cart = propCart ?? mappedCart;
-
-    // Mặc định tự động chọn 'STANDARD' khi user vừa chọn xong Tỉnh/Thành
-    useEffect(() => {
-        if (selectedCityCode) {
-            setSelectedShippingMethod('STANDARD');
-        }
-    }, [selectedCityCode]);
+    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
+    const appliedCoupon = pricingQuote?.coupon ?? null;
 
     // Persist to session storage
     useEffect(() => {
@@ -194,7 +179,6 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
         setFormData(prev => ({ ...prev, ward: ward ? ward.name : '' }));
     };
 
-    // Logic tính phí theo Vùng (Zone-Based Shipping)
     const getZone = (cityCode: string) => {
         if (!cityCode) return 0; // Chưa chọn
         if (cityCode === "48") return 1; // Nội thành Đà Nẵng
@@ -202,39 +186,32 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
         return 3; // Toàn quốc
     };
 
-    const getShippingZoneName = (zone: number) => {
-        if (zone === 1) return t('shipping.zone.innerCity');
-        if (zone === 2) return t('shipping.zone.nearby');
-        if (zone === 3) return t('shipping.zone.nationwide');
-        return '';
-    };
-
-    const calculateShippingFee = (method: 'STANDARD' | 'EXPRESS', zone: number, cartSubtotal: number) => {
-        if (zone === 0) return 0;
+    const getShippingPreviewFee = (method: 'STANDARD' | 'EXPRESS', currentZone: number, cartSubtotal: number) => {
+        if (currentZone === 0) return 0;
 
         let fee = 0;
-        if (zone === 1) {
+        if (currentZone === 1) {
             fee = method === 'STANDARD' ? 15000 : 30000;
-        } else if (zone === 2) {
+        } else if (currentZone === 2) {
             fee = method === 'STANDARD' ? 25000 : 40000;
-        } else if (zone === 3) {
+        } else {
             fee = method === 'STANDARD' ? 40000 : 70000;
         }
 
-        // Đặc quyền Freeship
         if (method === 'STANDARD' && cartSubtotal > 500000) {
-            fee = 0;
+            return 0;
         }
 
         return fee;
     };
 
-    // THÊM & CẬP NHẬT: Tính toán tổng tiền có tính cả Voucher & Shipping
-    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const zone = getZone(selectedCityCode);
-    const shippingFee = calculateShippingFee(selectedShippingMethod, zone, subtotal);
-    const discountValue = appliedCoupon ? appliedCoupon.discountAmount : 0;
-    const total = subtotal + shippingFee - discountValue;
+    const shippingFee = pricingQuote?.shippingFee ?? 0;
+    const discountValue = pricingQuote?.discountAmount ?? 0;
+    const total = pricingQuote?.totalAmount ?? subtotal;
+    const standardPreviewFee = pricingQuote
+        ? pricingQuote.shippingFee
+        : getShippingPreviewFee('STANDARD', zone, subtotal);
     const progressSteps = [
         {
             key: 'cart',
@@ -253,35 +230,144 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
         },
     ];
 
-    // THÊM: Hàm xử lý gọi API áp dụng mã giảm giá
+    const fetchQuote = React.useCallback(async (couponCodeOverride?: string | null) => {
+        if (!user || cart.length === 0) {
+            return null;
+        }
+
+        return orderApi.quoteOrder({
+            items: cart.map(item => ({
+                variantId: Number(item.variantId),
+                quantity: item.quantity,
+            })),
+            couponCode: couponCodeOverride ?? appliedCouponCode ?? undefined,
+            shippingCityCode: selectedCityCode || undefined,
+            shippingMethod: selectedShippingMethod,
+        });
+    }, [appliedCouponCode, cart, selectedCityCode, selectedShippingMethod, user]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        if (cart.length === 0) {
+            setPricingQuote(null);
+            setAppliedCouponCode(null);
+            setCouponError('');
+            setCouponSuccessMsg('');
+            return;
+        }
+
+        if (!user || !selectedCityCode) {
+            setPricingQuote({
+                itemsSubtotal: subtotal,
+                shippingFee: 0,
+                discountAmount: 0,
+                totalAmount: subtotal,
+                shippingMethod: selectedShippingMethod,
+                shippingCityCode: selectedCityCode || null,
+                appliedCouponCode: null,
+                coupon: null,
+            });
+            return;
+        }
+
+        const syncQuote = async () => {
+            setIsQuoteLoading(true);
+
+            try {
+                const quote = await fetchQuote();
+                if (cancelled || !quote) return;
+                setPricingQuote(quote);
+                setCouponError('');
+            } catch (err: unknown) {
+                if (cancelled) return;
+
+                const errorMessage = err instanceof Error ? err.message : t('errors.placeOrderFailed');
+
+                if (appliedCouponCode) {
+                    setCouponError(errorMessage || t('coupon.invalidCode'));
+                    setCouponSuccessMsg('');
+                    setAppliedCouponCode(null);
+
+                    try {
+                        const fallbackQuote = await fetchQuote(null);
+                        if (!cancelled && fallbackQuote) {
+                            setPricingQuote(fallbackQuote);
+                        }
+                    } catch {
+                        if (!cancelled) {
+                            setPricingQuote({
+                                itemsSubtotal: subtotal,
+                                shippingFee: 0,
+                                discountAmount: 0,
+                                totalAmount: subtotal,
+                                shippingMethod: selectedShippingMethod,
+                                shippingCityCode: selectedCityCode || null,
+                                appliedCouponCode: null,
+                                coupon: null,
+                            });
+                        }
+                    }
+                } else {
+                    setCouponError('');
+                    setPricingQuote({
+                        itemsSubtotal: subtotal,
+                        shippingFee: 0,
+                        discountAmount: 0,
+                        totalAmount: subtotal,
+                        shippingMethod: selectedShippingMethod,
+                        shippingCityCode: selectedCityCode || null,
+                        appliedCouponCode: null,
+                        coupon: null,
+                    });
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsQuoteLoading(false);
+                }
+            }
+        };
+
+        void syncQuote();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [appliedCouponCode, cart.length, fetchQuote, selectedCityCode, selectedShippingMethod, subtotal, t, user]);
+
     const handleApplyCoupon = async (codeToApply?: string) => {
         const codeToUse = typeof codeToApply === 'string' ? codeToApply : couponInput;
         if (!codeToUse.trim()) return;
+
+        if (!selectedCityCode) {
+            setCouponError(t('shipping.selectProvinceFirst'));
+            return;
+        }
 
         setIsApplyingCoupon(true);
         setCouponError('');
         setCouponSuccessMsg('');
 
         try {
-            const response = await api.post<AppliedCoupon>('/api/coupons/validate', {
-                code: codeToUse.trim(),
-                cartSubtotal: subtotal
-            });
+            const quote = await fetchQuote(codeToUse.trim());
+            if (!quote?.coupon) {
+                throw new Error(t('coupon.invalidCode'));
+            }
 
-            setAppliedCoupon(response);
-            setCouponSuccessMsg(response.message);
+            setPricingQuote(quote);
+            setAppliedCouponCode(quote.appliedCouponCode);
+            setCouponSuccessMsg('');
             setCouponInput('');
         } catch (err: unknown) {
-            const error = err as { message?: string; data?: { error?: string } };
-            setCouponError(error.message || error.data?.error || t('coupon.invalidCode'));
+            const errorMessage = err instanceof Error ? err.message : t('coupon.invalidCode');
+            setCouponError(errorMessage || t('coupon.invalidCode'));
         } finally {
             setIsApplyingCoupon(false);
         }
     };
 
-    // THÊM: Hàm Gỡ bỏ mã giảm giá
     const handleRemoveCoupon = () => {
-        setAppliedCoupon(null);
+        setAppliedCouponCode(null);
         setCouponError('');
         setCouponSuccessMsg('');
     };
@@ -345,10 +431,25 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                 return;
             }
 
-            // CẬP NHẬT: Gửi thêm couponId & shippingMethod, shippingFee xuống Backend
-            const data = await api.post<{ orderId: number }>('/api/orders', {
+            const currentQuote = pricingQuote ?? await fetchQuote();
+            if (!currentQuote) {
+                throw new Error(t('errors.placeOrderFailed'));
+            }
+
+            const data = await orderApi.createOrder<{
+                orderId: number;
+                pricing: {
+                    itemsTotal: number;
+                    shippingFee: number;
+                    discount: number;
+                    grandTotal: number;
+                    tax: number;
+                };
+                paymentMethod: string;
+            }>({
                 paymentMethod: formData.paymentMethod,
                 customerName: formData.fullName,
+                customerEmail: formData.email,
                 customerPhone: formData.phone,
                 shippingCity: formData.city,
                 shippingDistrict: formData.district,
@@ -359,10 +460,18 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                     variantId: item.variantId,
                     quantity: item.quantity
                 })),
-                couponCode: appliedCoupon ? appliedCoupon.coupon.code : undefined,
+                couponCode: appliedCouponCode ?? undefined,
+                shippingCityCode: selectedCityCode,
                 shippingMethod: selectedShippingMethod,
-                shippingFee: shippingFee,
             });
+
+            const authoritativePricing = data.pricing ?? {
+                itemsTotal: currentQuote.itemsSubtotal,
+                shippingFee: currentQuote.shippingFee,
+                discount: currentQuote.discountAmount,
+                tax: 0,
+                grandTotal: currentQuote.totalAmount,
+            };
 
             setLatestOrderData({
                 orderId: data.orderId,
@@ -376,10 +485,10 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                 note: formData.note,
                 paymentMethod: formData.paymentMethod as 'COD' | 'VNPAY',
                 shippingMethod: selectedShippingMethod,
-                shippingFee,
-                discountValue,
-                subtotal,
-                total,
+                shippingFee: authoritativePricing.shippingFee,
+                discountValue: authoritativePricing.discount,
+                subtotal: authoritativePricing.itemsTotal,
+                total: authoritativePricing.grandTotal,
                 items: cart,
             });
 
@@ -392,7 +501,6 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
             if (formData.paymentMethod === 'VNPAY') {
                 try {
                     const vnpResponse = await api.post<{ vnpUrl: string }>('/api/vnpay/create_payment_url', {
-                        amount: Math.round(total),
                         orderId: data.orderId,
                         orderDescription: 'Thanh toan don hang ' + data.orderId,
                         orderType: 'other'
@@ -606,7 +714,6 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                     <div id="checkout-note-count" className="mt-1 text-right text-[10px] uppercase tracking-widest text-gray-500">{formData.note.length}/500</div>
                                 </div>
 
-                                {/* THÊM: Khu vực Chọn Shipping Method (Radio Cards) */}
                                 <fieldset className="mt-6 border-t border-border-dark pt-4">
                                     <legend className="mb-4 text-sm font-bold uppercase tracking-wide text-gray-300">
                                         {t('labels.shippingMethod')}
@@ -617,77 +724,26 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                             <p className="text-yellow-500 text-sm font-medium text-center">{t('shipping.selectProvinceFirst')}</p>
                                         </div>
                                     ) : (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            {/* Standard Delivery */}
-                                            <label
-                                                className={`relative p-4 rounded-sm border cursor-pointer transition-all ${selectedShippingMethod === 'STANDARD'
-                                                    ? 'border-primary bg-primary/10 ring-1 ring-primary/60'
-                                                    : 'border-border-dark bg-surface-dark hover:border-gray-500 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/50'
-                                                    }`}
-                                            >
-                                                <input
-                                                    type="radio"
-                                                    name="shippingMethod"
-                                                    value="STANDARD"
-                                                    checked={selectedShippingMethod === 'STANDARD'}
-                                                    onChange={() => setSelectedShippingMethod('STANDARD')}
-                                                    className="sr-only"
-                                                />
-                                                {selectedShippingMethod === 'STANDARD' && (
-                                                    <div className="absolute top-2 right-2 text-primary">
-                                                        <span className="material-symbols-outlined text-xl">check_circle</span>
-                                                    </div>
-                                                )}
-                                                <div className="flex flex-col h-full justify-between gap-2">
+                                        <div className="space-y-3">
+                                            <div className="rounded-sm border border-primary bg-primary/[0.08] px-4 py-4">
+                                                <div className="flex items-start justify-between gap-4">
                                                     <div>
-                                                        <h4 className="font-bold text-white text-base">{t('shipping.standard.title')}</h4>
-                                                        <p className="text-xs text-gray-400 mt-1">{t('shipping.standard.eta')}</p>
+                                                        <h4 className="text-base font-bold text-white">{t('shipping.standard.title')}</h4>
+                                                        <p className="mt-1 text-sm text-gray-300">{t('shipping.standard.eta')}</p>
+                                                        <p className="mt-3 text-xs text-gray-400">{t('shipping.freeShipPolicy')}</p>
                                                     </div>
-                                                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-dark/50">
-                                                        <span className={`text-sm font-bold ${calculateShippingFee('STANDARD', zone, subtotal) === 0 ? 'text-green-500' : 'text-white'}`}>
-                                                            {calculateShippingFee('STANDARD', zone, subtotal) === 0
-                                                                ? t('shipping.free')
-                                                                : formatCurrencyVND(calculateShippingFee('STANDARD', zone, subtotal))}
-                                                        </span>
+                                                    <div className="text-right">
+                                                        <p className={`text-base font-black ${standardPreviewFee === 0 ? 'text-emerald-400' : 'text-white'}`}>
+                                                            {standardPreviewFee === 0 ? t('shipping.free') : formatCurrencyVND(standardPreviewFee)}
+                                                        </p>
                                                         {subtotal > 500000 && (
-                                                            <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{t('shipping.freeShipBadge')}</span>
+                                                            <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-400">
+                                                                {t('shipping.freeShipBadge')}
+                                                            </p>
                                                         )}
                                                     </div>
                                                 </div>
-                                            </label>
-
-                                            {/* Express Delivery */}
-                                            <label
-                                                className={`relative p-4 rounded-sm border cursor-pointer transition-all ${selectedShippingMethod === 'EXPRESS'
-                                                    ? 'border-primary bg-primary/10 ring-1 ring-primary/60'
-                                                    : 'border-border-dark bg-surface-dark hover:border-gray-500 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/50'
-                                                    }`}
-                                            >
-                                                <input
-                                                    type="radio"
-                                                    name="shippingMethod"
-                                                    value="EXPRESS"
-                                                    checked={selectedShippingMethod === 'EXPRESS'}
-                                                    onChange={() => setSelectedShippingMethod('EXPRESS')}
-                                                    className="sr-only"
-                                                />
-                                                {selectedShippingMethod === 'EXPRESS' && (
-                                                    <div className="absolute top-2 right-2 text-primary">
-                                                        <span className="material-symbols-outlined text-xl">check_circle</span>
-                                                    </div>
-                                                )}
-                                                <div className="flex flex-col h-full justify-between gap-2">
-                                                    <div>
-                                                        <h4 className="font-bold text-white text-base">{t('shipping.express.title')}</h4>
-                                                        <p className="text-xs text-gray-400 mt-1">{zone === 1 ? t('shipping.express.etaInner') : t('shipping.express.etaOther')}</p>
-                                                    </div>
-                                                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-dark/50">
-                                                        <span className="text-sm font-bold text-white">
-                                                            {formatCurrencyVND(calculateShippingFee('EXPRESS', zone, subtotal))}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </label>
+                                            </div>
                                         </div>
                                     )}
                                 </fieldset>
@@ -773,7 +829,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                     <div className="flex items-center justify-between">
                                         <span className="text-green-400 text-sm font-bold flex items-center gap-2">
                                             <span className="material-symbols-outlined text-[16px]">local_offer</span>
-                                            {appliedCoupon.coupon.code}
+                                            {appliedCoupon.code}
                                         </span>
                                         <button
                                             type="button"
@@ -797,9 +853,6 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                             <div className="flex justify-between items-start text-gray-400">
                                 <div className="flex flex-col">
                                     <span>{t('summary.shippingFee')}</span>
-                                    {selectedCityCode && (
-                                        <span className="text-[11px] text-gray-500 mt-0.5">{getShippingZoneName(zone)}</span>
-                                    )}
                                 </div>
                                 <span className={`text-right ${shippingFee === 0 && selectedCityCode ? 'text-green-500 font-bold' : 'text-white'}`}>
                                     {!selectedCityCode ? '---' : (shippingFee === 0 ? t('shipping.free') : formatCurrencyVND(shippingFee))}
@@ -808,8 +861,8 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                             {/* Dòng hiển thị tiền giảm giá nếu có voucher */}
                             {appliedCoupon && (
                                 <div className="flex justify-between text-green-400 font-medium animate-fade-in-up">
-                                    <span>{t('summary.discount', { code: appliedCoupon.coupon.code })}</span>
-                                    <span>-{formatCurrencyVND(appliedCoupon.discountAmount)}</span>
+                                    <span>{t('summary.discount', { code: appliedCoupon.code })}</span>
+                                    <span>-{formatCurrencyVND(discountValue)}</span>
                                 </div>
                             )}
                         </div>
@@ -825,10 +878,10 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                             </button>
                             <button
                                 onClick={handlePlaceOrder}
-                                disabled={loading}
-                                className={`flex-1 bg-primary text-white font-bold text-sm uppercase tracking-widest h-12 rounded-sm transition-all shadow-lg flex items-center justify-center gap-2 ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-700 shadow-primary/20'}`}
+                                disabled={loading || (Boolean(selectedCityCode) && isQuoteLoading)}
+                                className={`flex-1 bg-primary text-white font-bold text-sm uppercase tracking-widest h-12 rounded-sm transition-all shadow-lg flex items-center justify-center gap-2 ${loading || (Boolean(selectedCityCode) && isQuoteLoading) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-700 shadow-primary/20'}`}
                             >
-                                {loading ? t('actions.processing') : t('actions.placeOrder')}
+                                {loading || (Boolean(selectedCityCode) && isQuoteLoading) ? t('actions.processing') : t('actions.placeOrder')}
                             </button>
                         </div>
                     </OrderSummaryRail>

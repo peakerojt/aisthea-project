@@ -8,28 +8,16 @@ import {
     updateProductSchema,
     productQuerySchema,
 } from './product.validator';
-// Legacy controllers — reused to avoid duplication (will be migrated per sprint)
-import {
-    getAllCategories,
-    getAllBrands,
-} from '../../controllers/product.controller';
-import {
-    getProductImages,
-    uploadSingleProductImage,
-    uploadMultipleProductImages,
-    bulkUploadProductImages,
-    setPrimaryImage,
-    deleteProductImage,
-} from '../../controllers/productImage.controller';
+import { productMediaController } from './product-media.controller';
 import { upload } from '../../middlewares/upload.middleware';
 
 const router = Router();
 
 // ─── Meta routes — MUST be before /:id ───────────────────────────────────────
 // GET /api/products/meta/categories
-router.get('/meta/categories', cacheMiddleware(CACHE_TTL.CATEGORIES), getAllCategories);
+router.get('/meta/categories', cacheMiddleware(CACHE_TTL.CATEGORIES), productController.getCategories);
 // GET /api/products/meta/brands
-router.get('/meta/brands', cacheMiddleware(CACHE_TTL.BRANDS), getAllBrands);
+router.get('/meta/brands', cacheMiddleware(CACHE_TTL.BRANDS), productController.getBrands);
 
 // ─── Public Routes ────────────────────────────────────────────────────────────
 
@@ -41,17 +29,17 @@ router.get('/:id/edit', authenticateToken, requirePermission('MANAGE_PRODUCTS'),
 
 // ─── Product Images — MUST be before /:id ────────────────────────────────────
 // GET /api/products/:productId/images
-router.get('/:productId/images', getProductImages);
+router.get('/:productId/images', productMediaController.getProductImages);
 // POST /api/products/:productId/image  (single upload)
-router.post('/:productId/image', authenticateToken, requirePermission('MANAGE_PRODUCTS'), upload.single('file'), uploadSingleProductImage);
+router.post('/:productId/image', authenticateToken, requirePermission('MANAGE_PRODUCTS'), upload.single('file'), productMediaController.uploadSingleProductImage);
 // POST /api/products/:productId/images  (multi upload)
-router.post('/:productId/images', authenticateToken, requirePermission('MANAGE_PRODUCTS'), upload.array('files', 20), uploadMultipleProductImages);
+router.post('/:productId/images', authenticateToken, requirePermission('MANAGE_PRODUCTS'), upload.array('files', 20), productMediaController.uploadMultipleProductImages);
 // POST /api/products/:id/images/bulk
-router.post('/:id/images/bulk', authenticateToken, requirePermission('MANAGE_PRODUCTS'), upload.array('files', 20), bulkUploadProductImages);
+router.post('/:id/images/bulk', authenticateToken, requirePermission('MANAGE_PRODUCTS'), upload.array('files', 20), productMediaController.bulkUploadProductImages);
 // PATCH /api/products/:id/images/:imageId/primary
-router.patch('/:id/images/:imageId/primary', authenticateToken, requirePermission('MANAGE_PRODUCTS'), setPrimaryImage);
+router.patch('/:id/images/:imageId/primary', authenticateToken, requirePermission('MANAGE_PRODUCTS'), productMediaController.setPrimaryImage);
 // DELETE /api/products/images/:imageId  — MUST be before /:id
-router.delete('/images/:imageId', authenticateToken, requirePermission('MANAGE_PRODUCTS'), deleteProductImage);
+router.delete('/images/:imageId', authenticateToken, requirePermission('MANAGE_PRODUCTS'), productMediaController.deleteProductImage);
 
 /** GET /api/products/:id */
 router.get('/:id', productController.getOne);

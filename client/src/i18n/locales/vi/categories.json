@@ -35,9 +35,9 @@
         "loading": "Đang tải danh mục...",
         "loadError": "Không thể tải dữ liệu",
         "loadErrorDetail": "Không thể tải danh sách danh mục.",
-        "createSuccess": "Danh mục đã được tạo thành công!",
-        "updateSuccess": "Danh mục đã được cập nhật!",
-        "deleteSuccess": "Danh mục đã được xóa.",
+        "createSuccess": "Đã tạo danh mục thành công",
+        "updateSuccess": "Đã cập nhật danh mục",
+        "deleteSuccess": "Đã xóa danh mục",
         "deleteError": "Không thể xóa danh mục này.",
         "genericError": "Có lỗi xảy ra. Vui lòng thử lại."
     }

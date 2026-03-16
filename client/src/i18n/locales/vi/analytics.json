@@ -1,28 +1,28 @@
 {
   "page": {
     "title": "Phân tích và báo cáo",
-    "subtitle": "Cổng quản trị • Phân tích",
+    "subtitle": "Cổng quản trị · Thống kê",
     "apply": "Áp dụng",
-    "exportCSV": "Xuất báo cáo (CSV)"
+    "exportCSV": "Xuất báo cáo CSV"
   },
   "kpi": {
     "currentRevenue": "Doanh thu kỳ này",
     "revenueGrowth": "{{sign}}{{value}}% so với kỳ trước",
     "totalOrders": "Tổng đơn hàng",
-    "completedOrders": "{{count}} đơn hoàn thành",
+    "completedOrders": "{{count}} đơn đã hoàn tất",
     "avgOrderValue": "Giá trị đơn trung bình",
-    "avgOrderSub": "Dựa trên các đơn hoàn thành",
-    "topCustomers": "Khách hàng chi tiêu cao",
+    "avgOrderSub": "Tính trên các đơn đã hoàn tất",
+    "topCustomers": "Khách chi tiêu cao nhất",
     "topCustomersSub": "Top 5 khách hàng chi tiêu nhiều nhất",
     "revenue": "Doanh thu"
   },
   "charts": {
     "revenueByCategory": "Doanh thu theo danh mục",
-    "revenueByCategorySub": "Doanh thu từ đơn hoàn thành, phân theo danh mục sản phẩm",
-    "statusFunnel": "Tỷ lệ trạng thái đơn hàng",
-    "statusFunnelSub": "Phân bổ đơn hàng theo trạng thái trong kỳ",
-    "monthlyTrend": "Doanh thu và số lượng đơn hàng theo tháng",
-    "monthlyTrendSub": "Tổng hợp xu hướng doanh thu (vùng) và số đơn (cột) trên cùng biểu đồ",
+    "revenueByCategorySub": "Doanh thu từ các đơn hoàn tất, phân theo danh mục sản phẩm",
+    "statusFunnel": "Phân bố trạng thái đơn hàng",
+    "statusFunnelSub": "Tỷ trọng đơn hàng theo từng trạng thái trong kỳ",
+    "monthlyTrend": "Doanh thu và số đơn theo tháng",
+    "monthlyTrendSub": "Theo dõi đồng thời xu hướng doanh thu và số đơn trên cùng biểu đồ",
     "noData": "Chưa có dữ liệu",
     "noMonthlyData": "Chưa có dữ liệu theo tháng",
     "orders": "Đơn hàng",
@@ -35,8 +35,8 @@
     "topCustomersName": "Khách hàng",
     "topCustomersSpent": "Chi tiêu",
     "topCustomersOrders": "Đơn",
-    "cancelledTitle": "Sản phẩm bị hủy nhiều nhất",
-    "cancelledSub": "Phân tích hủy đơn — dữ liệu quan trọng cho chiến lược kinh doanh",
+    "cancelledTitle": "Sản phẩm xuất hiện nhiều trong đơn bị hủy",
+    "cancelledSub": "Theo dõi các sản phẩm thường xuất hiện trong đơn bị hủy để tối ưu bán hàng",
     "cancelledRank": "#",
     "cancelledProduct": "Sản phẩm",
     "cancelledCount": "Số lần hủy",
@@ -46,27 +46,55 @@
     "noCancelled": "Không có sản phẩm bị hủy"
   },
   "orderStatuses": {
-    "PENDING": "Chờ xử lý",
+    "PENDING": "Chờ xác nhận",
     "CONFIRMED": "Đã xác nhận",
     "PROCESSING": "Đang xử lý",
-    "SHIPPED": "Đang giao",
-    "SHIPPING": "Đang giao",
+    "SHIPPED": "Đang giao hàng",
+    "SHIPPING": "Đang giao hàng",
     "DELIVERED": "Đã giao hàng",
     "COMPLETED": "Hoàn thành",
     "CANCELLED": "Đã hủy",
-    "RETURN_REQUESTED": "Yêu cầu hoàn trả",
-    "RETURNED": "Đã hoàn trả",
+    "RETURN_REQUESTED": "Yêu cầu trả hàng",
+    "RETURNED": "Đã trả hàng",
     "REFUNDED": "Đã hoàn tiền",
     "UNKNOWN": "Không xác định"
   },
   "orderUnit": "{{count}} đơn",
   "feedback": {
-    "loadError": "Không thể tải dữ liệu."
+    "loadError": "Không thể tải báo cáo."
   },
   "aiInsights": {
-    "badge": "Phân tích AI",
-    "live": "Trực tiếp",
-    "message": "Cập nhật tự động từ dữ liệu thời gian thực"
+    "badge": "Phân tích bằng AI",
+    "live": "Theo thời gian thực",
+    "message": "Dữ liệu được cập nhật tự động theo thời gian thực"
+  },
+  "chatFunnel": {
+    "eyebrow": "Trợ lý hội thoại",
+    "title": "Hiệu quả chat",
+    "subtitle": "Theo dõi lượt mở chat, gửi tin nhắn và nhấn CTA theo từng ngữ cảnh.",
+    "noData": "Chưa có dữ liệu chat.",
+    "noTargets": "Chưa có lượt nhấn CTA.",
+    "opens": "Lượt mở chat",
+    "messagesSent": "Tin nhắn đã gửi",
+    "ctaClicks": "Lượt nhấn CTA",
+    "productClicks": "Lượt nhấn sản phẩm",
+    "sessions": "{{count}} phiên",
+    "openToSend": "{{value}}% từ mở chat đến gửi tin",
+    "sendToClick": "{{value}}% từ gửi tin đến nhấn CTA",
+    "recommendationCard": "Thẻ gợi ý sản phẩm",
+    "byPageTitle": "Chat theo ngữ cảnh trang",
+    "byPageSub": "Trang chủ, sản phẩm, tư vấn, thời tiết, hỗ trợ",
+    "columns": {
+      "page": "Trang",
+      "opens": "Mở",
+      "messages": "Gửi",
+      "products": "Sản phẩm",
+      "label": "Nhãn",
+      "target": "Đích đến",
+      "clicks": "Lượt nhấn"
+    },
+    "topTargetsTitle": "CTA nổi bật",
+    "topTargetsSub": "Những liên kết được nhấn nhiều nhất từ trợ lý"
   },
   "retention": {
     "title": "Tỷ lệ khách quay lại",

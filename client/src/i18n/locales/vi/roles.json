@@ -1,15 +1,15 @@
 {
     "page": {
         "title": "Phân quyền hệ thống",
-        "subtitle": "Quản lý quyền hạn theo từng vai trò người dùng"
+        "subtitle": "Quản lý quyền theo từng vai trò người dùng"
     },
     "modules": {
-        "PRODUCT": "Quản lý Sản phẩm",
-        "ORDER": "Quản lý Đơn hàng",
-        "INVENTORY": "Quản lý Tồn kho",
-        "CUSTOMER": "Quản lý Khách hàng",
-        "REVENUE": "Báo cáo Doanh thu",
-        "COUPON": "Quản lý Mã giảm giá"
+        "PRODUCT": "Quản lý sản phẩm",
+        "ORDER": "Quản lý đơn hàng",
+        "INVENTORY": "Quản lý tồn kho",
+        "CUSTOMER": "Quản lý khách hàng",
+        "REVENUE": "Báo cáo doanh thu",
+        "COUPON": "Quản lý mã giảm giá"
     },
     "actions": {
         "VIEW": "Xem",
@@ -23,7 +23,7 @@
     },
     "protected": {
         "title": "Vai trò được bảo vệ",
-        "description": "Super Admin mặc định có toàn bộ quyền hạn và không thể bị chỉnh sửa."
+        "description": "Super Admin mặc định có toàn bộ quyền và không thể chỉnh sửa."
     },
     "summary": {
         "text": "Vai trò <0>{{roleName}}</0> hiện có <1>{{active}}</1> / {{total}} quyền hạn được kích hoạt."
@@ -38,7 +38,7 @@
     },
     "feedback": {
         "loading": "Đang tải dữ liệu phân quyền...",
-        "saveSuccess": "Cập nhật quyền hạn thành công!",
+        "saveSuccess": "Đã cập nhật quyền hạn",
         "accessDenied": "Truy cập bị từ chối. Vui lòng liên hệ Quản trị viên."
     }
 }

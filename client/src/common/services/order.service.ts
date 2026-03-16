@@ -32,6 +32,26 @@ export interface OrderPricing {
   grandTotal: number;
 }
 
+export interface OrderQuoteCoupon {
+  couponId: number;
+  code: string;
+  type: string;
+  value: number;
+  maxDiscountAmount: number | null;
+  minOrderValue: number;
+}
+
+export interface OrderQuote {
+  itemsSubtotal: number;
+  shippingFee: number;
+  discountAmount: number;
+  totalAmount: number;
+  shippingMethod: 'STANDARD' | 'EXPRESS';
+  shippingCityCode: string | null;
+  appliedCouponCode: string | null;
+  coupon: OrderQuoteCoupon | null;
+}
+
 export interface OrderItem {
   orderItemId: number;
   productId: string | null;
@@ -103,6 +123,7 @@ export interface MyOrdersResponse {
     orderNumber: string;
     status: string;
     paymentStatus: string;
+    paymentMethod?: string;
     totalAmount: string;
     createdAt: string;
     trackingNumber?: string;
@@ -184,6 +205,7 @@ export interface AdminOrderDetail {
     status: string;
     paidAt?: string;
   }[];
+  pricing?: OrderPricing;
   statusHistory: {
     status: string;
     oldStatus: string | null;
@@ -212,6 +234,28 @@ export interface UpdateStatusPayload {
   estimatedDeliveryDate?: string;
 }
 
+const normalizePricing = (raw: any): OrderPricing => {
+  if (raw?.pricing) {
+    return raw.pricing;
+  }
+
+  const itemsTotal = Array.isArray(raw?.items)
+    ? raw.items.reduce((sum: number, item: any) => {
+      const unitPrice = parseFloat(item.unitPrice ?? item.price ?? '0');
+      const quantity = Number(item.quantity ?? 0);
+      return sum + unitPrice * quantity;
+    }, 0)
+    : parseFloat(raw?.totalAmount ?? '0') + parseFloat(raw?.discountAmount ?? '0');
+
+  return {
+    itemsTotal,
+    shippingFee: parseFloat(raw?.shippingFee ?? '0'),
+    discount: parseFloat(raw?.discountAmount ?? '0'),
+    tax: 0,
+    grandTotal: parseFloat(raw?.totalAmount ?? '0'),
+  };
+};
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // User order service
@@ -223,13 +267,7 @@ export const orderService = {
     const raw = response.data ? response.data : response;
     return {
       ...raw,
-      pricing: raw.pricing || {
-        itemsTotal: parseFloat(raw.totalAmount ?? '0') + parseFloat(raw.discountAmount ?? '0'),
-        shippingFee: 0,
-        discount: parseFloat(raw.discountAmount ?? '0'),
-        tax: 0,
-        grandTotal: parseFloat(raw.totalAmount ?? '0'),
-      },
+      pricing: normalizePricing(raw),
       items: (raw.items ?? []).map((item: any) => ({
         ...item,
         variantId: item.variantId ?? null,

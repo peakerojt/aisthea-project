@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getMyOrdersTracking } from '@/common/services/tracking.service';
+import { getStatusMeta, normalizeStatus } from '@/config/orderStatus.config';
 import { useTranslation } from 'react-i18next';
 
 interface TrackingOrder {
@@ -34,15 +35,30 @@ export function MyOrdersPage() {
     <main className="mx-auto max-w-3xl p-4">
       <h1 className="mb-4 text-2xl font-bold">{t('title')}</h1>
       <div className="space-y-3">
-        {orders.map((order) => (
-          <article key={order.orderId} className="rounded-xl bg-white p-4 shadow">
-            <p className="font-semibold">{order.orderCode || order.orderNumber}</p>
-            <p className="text-sm text-slate-600">{order.status}</p>
-            <Link className="mt-2 inline-block text-sm text-blue-600" to={`/tracking/${order.orderId}`}>
-              {t('actions.viewTracking')}
-            </Link>
-          </article>
-        ))}
+        {orders.map((order) => {
+          const normalizedStatus = normalizeStatus(order.status);
+          const statusMeta = normalizedStatus ? getStatusMeta(normalizedStatus) : null;
+
+          return (
+            <article key={order.orderId} className="rounded-xl bg-white p-4 shadow">
+              <p className="font-semibold">{order.orderCode || order.orderNumber}</p>
+              <p className="mt-2">
+                <span
+                  className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                    statusMeta
+                      ? `${statusMeta.badgeClass} ${statusMeta.textClass}`
+                      : 'border-slate-200 bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {statusMeta?.label || order.status}
+                </span>
+              </p>
+              <Link className="mt-2 inline-block text-sm text-blue-600" to={`/tracking/${order.orderId}`}>
+                {t('actions.viewTracking')}
+              </Link>
+            </article>
+          );
+        })}
       </div>
     </main>
   );

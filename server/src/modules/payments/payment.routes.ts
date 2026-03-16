@@ -12,7 +12,7 @@ export const refundModuleRoutes = Router();
 
 // ─── VNPay ────────────────────────────────────────────────────────────────────
 // POST /api/vnpay/create_payment_url   — create a VNPay payment URL
-vnpayModuleRoutes.post('/create_payment_url', createPaymentUrl);
+vnpayModuleRoutes.post('/create_payment_url', authenticateToken, createPaymentUrl);
 // GET  /api/vnpay/vnpay_return         — VNPay redirect return handler
 vnpayModuleRoutes.get('/vnpay_return', vnpayReturn);
 // GET  /api/vnpay/vnpay_ipn            — VNPay IPN (server-to-server) handler

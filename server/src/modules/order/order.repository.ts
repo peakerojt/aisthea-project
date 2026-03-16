@@ -75,12 +75,17 @@ export interface OrderWithRelations {
   userId: number | null;
   orderNumber: string;
   customerName: string;
+  customerEmail: string | null;
   customerPhone: string;
   shippingCity: string;
   shippingDistrict: string;
   shippingWard: string | null;
   shippingAddressDetail: string;
+  shippingFee: { toNumber(): number } | number;
+  shippingMethod: string;
+  shippingCityCode: string | null;
   totalAmount: { toNumber(): number } | number;
+  discountAmount: { toNumber(): number } | number | null;
   status: string | null;
   paymentMethod: string | null;
   createdAt: Date | null;

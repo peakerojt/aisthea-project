@@ -22,7 +22,7 @@
   "UPDATE_PERMISSIONS_FAILED": "Không thể cập nhật quyền hạn.",
   "SUPER_ADMIN_PROTECTED": "Không thể chỉnh sửa quyền hạn của vai trò Super Admin.",
   "INVALID_ORDER_ID": "Mã đơn hàng không hợp lệ.",
-  "INVALID_RETURN_ID": "Mã yêu cầu hoàn trả không hợp lệ.",
+  "INVALID_RETURN_ID": "Mã yêu cầu trả hàng không hợp lệ.",
   "REASON_REQUIRED": "Vui lòng nhập lý do trả hàng.",
   "INVALID_PROOF_IMAGES": "Hình ảnh minh chứng phải là một mảng URL.",
   "ADMIN_REQUIRED": "Chỉ Admin mới có quyền thực hiện thao tác này.",

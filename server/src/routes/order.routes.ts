@@ -4,6 +4,7 @@ import {
     getMyOrders,
     getMyOrderDetail,
     createOrder,
+    quoteOrder,
     getAllOrders,
     getAdminOrderDetail,
     updateOrderStatus,
@@ -15,6 +16,7 @@ const router = Router();
 // ── User Routes ──────────────────────────────────────────────────────────────
 router.get('/my', authenticateToken, getMyOrders);
 router.get('/my/:orderId', authenticateToken, getMyOrderDetail);
+router.post('/quote', authenticateToken, quoteOrder);
 router.post('/', authenticateToken, createOrder);
 // NOTE: /my/:orderId/confirm-receipt uses the orderId param name but here we have :id
 // Confirm receipt is on /:id/confirm-receipt — placed BEFORE generic /:id/status to avoid conflicts

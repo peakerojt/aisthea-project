@@ -140,7 +140,7 @@ const AIInsightsCard: React.FC = () => {
 
                 <div>
                     <p className="text-[10px] font-bold text-sky-400 uppercase tracking-[0.18em] mb-1">
-                        {t('aiInsights.badge', { defaultValue: 'AI Insights ✦ Beta' })}
+                        {t('aiInsights.badge')}
                     </p>
                     <p className="text-sm text-white/80 leading-relaxed font-medium">
                         {t('aiInsights.message', { defaultValue: AI_INSIGHT_TEXT })}
@@ -150,7 +150,7 @@ const AIInsightsCard: React.FC = () => {
                 {/* Live badge */}
                 <div className="ml-auto shrink-0 flex items-center gap-1.5 text-[10px] font-bold text-sky-400 border border-sky-500/30 rounded-full px-2.5 py-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
-                    {t('aiInsights.live', { defaultValue: 'LIVE' })}
+                    {t('aiInsights.live')}
                 </div>
             </div>
         </motion.div>
@@ -405,45 +405,45 @@ export const Analytics: React.FC = () => {
             <section className="space-y-4">
                 <div className="flex flex-col gap-1">
                     <p className="text-xs font-bold text-sky-400 tracking-[0.18em] uppercase">
-                        Assistant telemetry
+                        {t('chatFunnel.eyebrow')}
                     </p>
                     <h3 className="text-xl font-black text-white uppercase tracking-tight">
-                        Chat Funnel
+                        {t('chatFunnel.title')}
                     </h3>
                     <p className="text-xs text-white/35">
-                        Theo doi luong mo chat, gui tin nhan va click CTA theo tung context.
+                        {t('chatFunnel.subtitle')}
                     </p>
                 </div>
 
                 <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
                     <KPICard
-                        label="Chat Opens"
+                        label={t('chatFunnel.opens')}
                         value={(chatData?.overview.opens ?? 0).toLocaleString('vi-VN')}
-                        sub={`${(chatData?.overview.uniqueSessions ?? 0).toLocaleString('vi-VN')} sessions`}
+                        sub={t('chatFunnel.sessions', { count: (chatData?.overview.uniqueSessions ?? 0).toLocaleString('vi-VN') })}
                         positive={null}
                         icon={MessageCircleMore}
                         accentColor="text-sky-400"
                     />
                     <KPICard
-                        label="Messages Sent"
+                        label={t('chatFunnel.messagesSent')}
                         value={(chatData?.overview.sends ?? 0).toLocaleString('vi-VN')}
-                        sub={`${(chatData?.overview.sendRate ?? 0).toFixed(1)}% open -> send`}
+                        sub={t('chatFunnel.openToSend', { value: (chatData?.overview.sendRate ?? 0).toFixed(1) })}
                         positive={chatData ? chatData.overview.sendRate > 0 : null}
                         icon={Sparkles}
                         accentColor="text-fuchsia-400"
                     />
                     <KPICard
-                        label="CTA Clicks"
+                        label={t('chatFunnel.ctaClicks')}
                         value={(chatData?.overview.ctaClicks ?? 0).toLocaleString('vi-VN')}
-                        sub={`${(chatData?.overview.clickRate ?? 0).toFixed(1)}% send -> click`}
+                        sub={t('chatFunnel.sendToClick', { value: (chatData?.overview.clickRate ?? 0).toFixed(1) })}
                         positive={chatData ? chatData.overview.clickRate > 0 : null}
                         icon={ShoppingCart}
                         accentColor="text-amber-400"
                     />
                     <KPICard
-                        label="Product Clicks"
+                        label={t('chatFunnel.productClicks')}
                         value={(chatData?.overview.productClicks ?? 0).toLocaleString('vi-VN')}
-                        sub="Recommendation card"
+                        sub={t('chatFunnel.recommendationCard')}
                         positive={null}
                         icon={Users}
                         accentColor="text-emerald-400"
@@ -459,28 +459,28 @@ export const Analytics: React.FC = () => {
                     >
                         <div className="px-6 py-4 border-b border-white/15">
                             <h3 className="text-sm font-bold text-white uppercase tracking-widest">
-                                Chat theo page context
+                                {t('chatFunnel.byPageTitle')}
                             </h3>
                             <p className="text-[10px] text-white/30 mt-0.5">
-                                Home, product, stylist, weather, support
+                                {t('chatFunnel.byPageSub')}
                             </p>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-xs">
                                 <thead>
                                     <tr className="border-b border-white/15">
-                                        <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">Page</th>
-                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">Open</th>
-                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">Send</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">{t('chatFunnel.columns.page')}</th>
+                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">{t('chatFunnel.columns.opens')}</th>
+                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">{t('chatFunnel.columns.messages')}</th>
                                         <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">CTA</th>
-                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">Product</th>
+                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">{t('chatFunnel.columns.products')}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/[0.04]">
                                     {loading ? (
                                         Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
                                     ) : !chatData?.byPage.length ? (
-                                        <tr><td colSpan={5} className="px-4 py-10 text-center text-white/20">Chua co du lieu chat.</td></tr>
+                                        <tr><td colSpan={5} className="px-4 py-10 text-center text-white/20">{t('chatFunnel.noData')}</td></tr>
                                     ) : (
                                         chatData.byPage.map((row) => (
                                             <tr key={row.page} className="hover:bg-white/[0.025] transition-colors">
@@ -505,26 +505,26 @@ export const Analytics: React.FC = () => {
                     >
                         <div className="px-6 py-4 border-b border-white/15">
                             <h3 className="text-sm font-bold text-white uppercase tracking-widest">
-                                CTA target noi bat
+                                {t('chatFunnel.topTargetsTitle')}
                             </h3>
                             <p className="text-[10px] text-white/30 mt-0.5">
-                                Duong dan duoc bam nhieu nhat tu assistant
+                                {t('chatFunnel.topTargetsSub')}
                             </p>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-xs">
                                 <thead>
                                     <tr className="border-b border-white/15">
-                                        <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">Label</th>
-                                        <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">Target</th>
-                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">Clicks</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">{t('chatFunnel.columns.label')}</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">{t('chatFunnel.columns.target')}</th>
+                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">{t('chatFunnel.columns.clicks')}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/[0.04]">
                                     {loading ? (
                                         Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={3} />)
                                     ) : !chatData?.topTargets.length ? (
-                                        <tr><td colSpan={3} className="px-4 py-10 text-center text-white/20">Chua co CTA click.</td></tr>
+                                        <tr><td colSpan={3} className="px-4 py-10 text-center text-white/20">{t('chatFunnel.noTargets')}</td></tr>
                                     ) : (
                                         chatData.topTargets.map((row) => (
                                             <tr key={row.target} className="hover:bg-white/[0.025] transition-colors">

@@ -200,7 +200,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                         </div>
                         <div>
                             <h2 className="text-[15px] font-bold text-white">Nhập / Xuất Sản Phẩm</h2>
-                            <p className="text-[10px] text-white/40 uppercase tracking-widest mt-0.5">Bulk Import & Export</p>
+                            <p className="text-[10px] text-white/40 uppercase tracking-widest mt-0.5">Nhập và xuất hàng loạt</p>
                         </div>
                     </div>
                     <button
@@ -288,8 +288,8 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                             <div className="rounded-sm border border-white/5 bg-white/[0.015] p-4">
                                 <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">Cấu trúc cột trong file</p>
                                 <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-                                    {[
-                                        ['Handle', 'Slug — dùng để nhóm biến thể'],
+                                    {[ 
+                                        ['Mã handle', 'Slug dùng để nhóm biến thể'],
                                         ['Tên sản phẩm', 'Chỉ cần điền ở hàng đầu tiên'],
                                         ['Mô tả', 'Mô tả sản phẩm (tùy chọn)'],
                                         ['Danh mục', 'Tên danh mục khớp trong DB'],
@@ -388,7 +388,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                                         <AlertCircle size={14} className="text-yellow-400 shrink-0 mt-0.5" />
                                         <p className="text-xs text-white/50 leading-relaxed">
                                             <span className="text-white/70 font-semibold">Lưu ý:</span>{' '}
-                                            Hàng có Handle trùng nhau sẽ được gộp thành một sản phẩm. Nếu Handle đã tồn tại trong hệ thống, sản phẩm sẽ được <em>cập nhật</em>. Các hàng lỗi sẽ được bỏ qua và báo cáo riêng — không ảnh hưởng đến các hàng hợp lệ.
+                                            Hàng có mã handle trùng nhau sẽ được gộp thành một sản phẩm. Nếu mã handle đã tồn tại trong hệ thống, sản phẩm sẽ được <em>cập nhật</em>. Các hàng lỗi sẽ được bỏ qua và báo cáo riêng, không ảnh hưởng đến các hàng hợp lệ.
                                         </p>
                                     </div>
                                 </>
@@ -459,7 +459,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                                                     <thead className="bg-white/[0.02]">
                                                         <tr className="text-[10px] uppercase tracking-widest text-white/40">
                                                             <th className="px-4 py-2 font-semibold w-16">Hàng</th>
-                                                            <th className="px-4 py-2 font-semibold w-40">Handle</th>
+                                                            <th className="px-4 py-2 font-semibold w-40">Mã handle</th>
                                                             <th className="px-4 py-2 font-semibold">Lý do lỗi</th>
                                                         </tr>
                                                     </thead>
@@ -498,7 +498,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                 {/* Footer */}
                 <div className="px-6 py-4 border-t border-white/8 flex items-center justify-between">
                     <p className="text-[10px] text-white/30">
-                        Định dạng: Shopify-style flat Excel — mỗi hàng là một biến thể
+                        Định dạng: Excel phẳng kiểu Shopify, mỗi hàng là một biến thể
                     </p>
                     <button
                         onClick={handleClose}

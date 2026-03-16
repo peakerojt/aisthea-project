@@ -1,19 +1,5 @@
 import { Router } from 'express';
-import {
-    getProfile,
-    updateProfile,
-    uploadAvatar,
-    deleteAvatar,
-    getAddresses,
-    createAddress,
-    updateAddress,
-    deleteAddress,
-    setDefaultAddress,
-    getRecentOrders,
-    getAllUsers,
-    updateUserStatus,
-    updateUserRole,
-} from '../../controllers/user.controller';
+import { userController } from './user.controller';
 import { authenticateToken, checkRole } from '../../middlewares/auth.middleware';
 import { upload } from '../../middlewares/upload.middleware';
 import { validate } from '../../middlewares/validate.middleware';
@@ -25,26 +11,26 @@ const router = Router();
 router.use(authenticateToken);
 
 // ── Profile ──────────────────────────────────────────────────────────────────
-router.get('/profile', getProfile);
-router.put('/profile', validate(updateProfileSchema), updateProfile);
+router.get('/profile', userController.getProfile);
+router.put('/profile', validate(updateProfileSchema), userController.updateProfile);
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
-router.post('/avatar', upload.single('file'), uploadAvatar);
-router.delete('/avatar', deleteAvatar);
+router.post('/avatar', upload.single('file'), userController.uploadAvatar);
+router.delete('/avatar', userController.deleteAvatar);
 
 // ── Addresses ─────────────────────────────────────────────────────────────────
-router.get('/addresses', getAddresses);
-router.post('/addresses', validate(addressSchema), createAddress);
-router.put('/addresses/:id', validate(addressSchema), updateAddress);
-router.delete('/addresses/:id', deleteAddress);
-router.put('/addresses/:id/default', setDefaultAddress);
+router.get('/addresses', userController.getAddresses);
+router.post('/addresses', validate(addressSchema), userController.createAddress);
+router.put('/addresses/:id', validate(addressSchema), userController.updateAddress);
+router.delete('/addresses/:id', userController.deleteAddress);
+router.put('/addresses/:id/default', userController.setDefaultAddress);
 
 // ── Recent orders for profile ─────────────────────────────────────────────────
-router.get('/recent-orders', getRecentOrders);
+router.get('/recent-orders', userController.getRecentOrders);
 
 // ── Admin routes ──────────────────────────────────────────────────────────────
-router.get('/', checkRole(['Admin', 'Super Admin']), getAllUsers);
-router.patch('/:id/status', checkRole(['Admin', 'Super Admin']), updateUserStatus);
-router.patch('/:id/role', checkRole(['Admin', 'Super Admin']), updateUserRole);
+router.get('/', checkRole(['Admin', 'Super Admin']), userController.getAllUsers);
+router.patch('/:id/status', checkRole(['Admin', 'Super Admin']), userController.updateUserStatus);
+router.patch('/:id/role', checkRole(['Admin', 'Super Admin']), userController.updateUserRole);
 
 export default router;

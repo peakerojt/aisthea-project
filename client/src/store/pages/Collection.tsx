@@ -38,6 +38,32 @@ const formatPrice = (price: number): string => {
   return new Intl.NumberFormat('vi-VN').format(price);
 };
 
+const translateProductTag = (tag?: string): string => {
+  if (tag === 'Best Seller') return 'Bán chạy';
+  if (tag === 'Sale') return 'Giảm giá';
+  if (tag === 'New') return 'Mới';
+  return tag || '';
+};
+
+const COLLECTION_LABELS: Record<string, string> = {
+  Outerwear: 'Áo khoác',
+  Tops: 'Áo',
+  Bottoms: 'Quần',
+  Shoes: 'Giày',
+  Accessories: 'Phụ kiện',
+  Bags: 'Túi xách',
+  Jewelry: 'Trang sức',
+  Eyewear: 'Kính mắt',
+  Watches: 'Đồng hồ',
+  All: 'Tất cả',
+  Uncategorized: 'Chưa phân loại',
+};
+
+const translateCollectionLabel = (value?: string | null): string => {
+  if (!value) return '';
+  return COLLECTION_LABELS[value] || value;
+};
+
 // Map Route Categories to SQL Data Categories
 const CATEGORY_MAPPING: Record<string, Record<string, string[]>> = {
   Men: {
@@ -75,7 +101,7 @@ const ProductGridCard: React.FC<{ product: Product; onProductClick: (p: Product 
 
         {product.tag && (
           <div className={`absolute top-3 left-3 z-10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest ${product.tag === 'Best Seller' ? 'bg-white text-black' : product.tag === 'Sale' ? 'bg-primary text-white' : 'bg-black/50 backdrop-blur-md text-white border border-white/20'}`}>
-            {product.tag}
+            {translateProductTag(product.tag)}
           </div>
         )}
 
@@ -118,6 +144,7 @@ export const Collection: React.FC = () => {
   const searchTerm = searchParams.get('search') || '';
   const category = gender ? (gender.charAt(0).toUpperCase() + gender.slice(1)) : null;
   const collection = collectionName ? (collectionName.charAt(0).toUpperCase() + collectionName.slice(1)) : null;
+  const collectionLabel = translateCollectionLabel(collection);
   const heroImage = collection ? (HERO_IMAGES[collection as keyof typeof HERO_IMAGES] || HERO_IMAGES.Default) : HERO_IMAGES.Default;
 
   // State for Products from API
@@ -150,7 +177,7 @@ export const Collection: React.FC = () => {
           name: product.name,
           price: (typeof product.basePrice === 'string' ? parseFloat(product.basePrice) : product.basePrice) || 0,
           image: product.images?.[0]?.thumbnailUrl || product.images?.[0]?.imageUrl || '',
-          type: product.category?.name || 'Uncategorized',
+          type: product.category?.name || 'Chưa phân loại',
           tag: product.status === 'Active' ? undefined : product.status
         }));
 
@@ -358,10 +385,10 @@ export const Collection: React.FC = () => {
           <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-4">
             {searchTerm
               ? t('hero.searchResults')
-              : collection
-                ? t('hero.collectionTitle', { collection })
-                : t('hero.allProductsTitle')}
-          </h1>
+                : collection
+                  ? t('hero.collectionTitle', { collection: collectionLabel })
+                  : t('hero.allProductsTitle')}
+            </h1>
           <p className="max-w-2xl text-gray-300 text-lg leading-relaxed">
             {searchTerm ? t('hero.searchDescription', { count: filteredProducts.length, term: searchTerm }) : t('hero.defaultDescription')}
           </p>
@@ -381,7 +408,7 @@ export const Collection: React.FC = () => {
                     onClick={() => setActiveCategoryFilter(filter)}
                     className={`text-sm font-bold uppercase tracking-widest transition-colors pb-1 whitespace-nowrap ${activeCategoryFilter === filter ? 'text-white border-b-2 border-white' : 'text-gray-500 hover:text-white border-b-2 border-transparent'}`}
                   >
-                    {filter === 'All' ? t('filters.all') : filter}
+                    {filter === 'All' ? t('filters.all') : translateCollectionLabel(filter)}
                   </button>
                 ))}
               </div>

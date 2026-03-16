@@ -102,6 +102,20 @@ const resolveDefaultVariantIndex = (
 };
 
 export const productService = {
+  async getCategories() {
+    return prisma.category.findMany({
+      select: { categoryId: true, name: true, slug: true, parentId: true },
+      orderBy: { name: 'asc' },
+    });
+  },
+
+  async getBrands() {
+    return prisma.brand.findMany({
+      select: { brandId: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  },
+
   async getProducts(filters: ProductFilter) {
     return productRepository.findMany(filters);
   },

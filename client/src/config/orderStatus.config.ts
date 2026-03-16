@@ -66,7 +66,7 @@ export const ORDER_STATUS_META: Record<OrderStatusValue, StatusMeta> = {
         requiresNote: false,
     },
     [ORDER_STATUS.PROCESSING]: {
-        label: 'Đang chuẩn bị hàng',
+        label: 'Đang xử lý',
         icon: 'Package',
         badgeClass: 'border-sky-500/30 bg-sky-500/10',
         textClass: 'text-sky-400',
@@ -88,7 +88,7 @@ export const ORDER_STATUS_META: Record<OrderStatusValue, StatusMeta> = {
         requiresNote: false,
     },
     [ORDER_STATUS.DELIVERED]: {
-        label: 'Giao thành công',
+        label: 'Đã giao hàng',
         icon: 'CheckCircle2',
         badgeClass: 'border-emerald-500/30 bg-emerald-500/10',
         textClass: 'text-emerald-400',
@@ -110,7 +110,7 @@ export const ORDER_STATUS_META: Record<OrderStatusValue, StatusMeta> = {
         requiresNote: true, // requires "Lý do hủy"
     },
     [ORDER_STATUS.RETURNED]: {
-        label: 'Hoàn trả',
+        label: 'Đã trả hàng',
         icon: 'RotateCcw',
         badgeClass: 'border-orange-500/30 bg-orange-500/10',
         textClass: 'text-orange-400',
@@ -127,9 +127,9 @@ export const STATUS_ACTION_LABELS: Record<OrderStatusValue, string> = {
     [ORDER_STATUS.PENDING]: 'Chờ xác nhận',
     [ORDER_STATUS.PROCESSING]: 'Xác nhận đơn hàng',
     [ORDER_STATUS.SHIPPING]: 'Bắt đầu giao hàng',
-    [ORDER_STATUS.DELIVERED]: 'Xác nhận đã giao',
+    [ORDER_STATUS.DELIVERED]: 'Xác nhận giao hàng',
     [ORDER_STATUS.CANCELLED]: 'Hủy đơn hàng',
-    [ORDER_STATUS.RETURNED]: 'Xác nhận hoàn trả',
+    [ORDER_STATUS.RETURNED]: 'Xác nhận trả hàng',
 };
 
 /**

@@ -15,7 +15,7 @@
       "december": "Tháng 12"
     },
     "tabs": {
-      "unisex": "Phi giới tính",
+      "unisex": "Unisex",
       "men": "Nam",
       "women": "Nữ"
     },
@@ -44,7 +44,7 @@
       "stylist": {
         "label": "Gợi ý cá nhân",
         "title": "Tư vấn phong cách",
-        "cta": "Xem phối đồ gợi ý"
+        "cta": "Xem gợi ý phối đồ"
       }
     }
   },
@@ -57,6 +57,7 @@
     "viewAllCollections": "Xem tất cả bộ sưu tập"
   },
   "collection": {
+    "quickView": "Xem nhanh",
     "card": {
       "addToBag": "Thêm vào giỏ",
       "extraOff": "Giảm thêm 20%"
@@ -104,8 +105,8 @@
     "tabs": {
       "all": "Tất cả",
       "pending": "Chờ xác nhận",
-      "shipping": "Đang giao",
-      "delivered": "Đã giao",
+      "shipping": "Đang giao hàng",
+      "delivered": "Đã giao hàng",
       "cancelled": "Đã hủy"
     },
     "actions": {
@@ -145,8 +146,8 @@
   "shoppingBag": {
     "title": "Giỏ hàng",
     "meta": {
-      "kicker": "Bước 1 · Rà soát đơn hàng",
-      "subtitle": "Kiểm tra lại sản phẩm, số lượng và tổng tạm tính trước khi chuyển sang bước thanh toán."
+      "kicker": "Bước 1 · Kiểm tra đơn hàng",
+      "subtitle": "Kiểm tra lại sản phẩm, số lượng và tạm tính trước khi chuyển sang bước thanh toán."
     },
     "empty": {
       "title": "Giỏ hàng của bạn đang trống."
@@ -161,18 +162,18 @@
       "startShopping": "Bắt đầu mua sắm",
       "save": "Lưu",
       "remove": "Xóa",
-      "checkout": "Tiến hành thanh toán"
+      "checkout": "Thanh toán"
     },
     "summary": {
       "title": "Đơn hàng ({{count}} sản phẩm)",
       "itemsCount": "mặt hàng",
-      "linePrice": "Tổng dòng",
+      "linePrice": "Thành tiền",
       "subtotal": "Tạm tính",
       "shipping": "Vận chuyển",
       "free": "Miễn phí",
-      "shippingPending": "Tính ở bước thanh toán",
-      "couponAtCheckout": "Mã giảm giá sẽ được chọn ở bước thanh toán",
-      "couponHint": "Voucher và phí vận chuyển sẽ được xác nhận ở bước tiếp theo để tránh sai lệch tổng tiền.",
+      "shippingPending": "Sẽ tính ở bước thanh toán",
+      "couponAtCheckout": "Bạn có thể chọn mã giảm giá ở bước thanh toán",
+      "couponHint": "Mã giảm giá và phí vận chuyển sẽ được xác nhận ở bước tiếp theo để đảm bảo tổng tiền chính xác.",
       "promoPlaceholder": "Nhập mã giảm giá",
       "apply": "Áp dụng",
       "total": "Tổng cộng",
@@ -530,8 +531,8 @@
     },
     "status": {
       "title": "Trạng thái",
-      "value": "Đơn hàng đang chờ xử lý",
-      "description": "Chúng tôi sẽ xác minh thanh toán, chuẩn bị sản phẩm và cập nhật vận chuyển trong mục đơn hàng của bạn.",
+      "value": "Đơn hàng đang chờ xác nhận",
+      "description": "Chúng tôi sẽ xác nhận đơn, chuẩn bị sản phẩm và cập nhật vận chuyển trong mục đơn hàng của bạn.",
       "orderId": "Mã đơn #{{orderId}}"
     },
     "sections": {
@@ -560,6 +561,7 @@
       "viewOrders": "Xem đơn hàng"
     },
     "summary": {
+      "title": "Đơn hàng ({{count}} sản phẩm)",
       "title_one": "Đơn hàng ({{count}} sản phẩm)",
       "title_other": "Đơn hàng ({{count}} sản phẩm)",
       "subtotal": "Tạm tính",
@@ -613,6 +615,7 @@
       }
     },
     "summary": {
+      "title": "Đơn hàng ({{count}} sản phẩm)",
       "title_one": "Đơn hàng ({{count}} sản phẩm)",
       "title_other": "Đơn hàng ({{count}} sản phẩm)",
       "subtotal": "Tạm tính",
@@ -654,7 +657,7 @@
     "deliveryTime": "Hôm nay, 18:00",
     "progress": {
       "dispatched": "Đã xuất kho",
-      "delivered": "Đã giao"
+      "delivered": "Đã giao hàng"
     },
     "actions": {
       "support": "Hỗ trợ",
@@ -678,13 +681,13 @@
     },
     "actions": {
       "backToOrders": "Quay lại đơn hàng",
-      "lookup": "Tra cứu"
+      "lookup": "Xem trạng thái"
     },
     "states": {
       "loading": "Đang tra cứu..."
     },
     "features": {
-      "secureLookup": "Tra cứu bảo mật",
+      "secureLookup": "Tra cứu an toàn",
       "realtimeUpdate": "Cập nhật thời gian thực",
       "detailRoute": "Lộ trình chi tiết"
     },
@@ -692,7 +695,7 @@
       "enterOrderCode": "Vui lòng nhập mã đơn hàng.",
       "enterPhone": "Vui lòng nhập số điện thoại.",
       "notFound": "Không tìm thấy thông tin đơn hàng với dữ liệu đã nhập.",
-      "lookupFailed": "Tra cứu thất bại, vui lòng thử lại."
+      "lookupFailed": "Không thể tra cứu đơn hàng. Vui lòng thử lại."
     }
   },
   "paymentQR": {
@@ -724,7 +727,8 @@
     "title": "Hồ sơ của tôi",
     "states": {
       "loading": "Đang tải hồ sơ...",
-      "notProvided": "Chưa cung cấp"
+      "notProvided": "Chưa cung cấp",
+      "unknown": "Không xác định"
     },
     "errors": {
       "loadProfile": "Không thể tải hồ sơ.",
@@ -861,9 +865,9 @@
       "prefix": "Chỉ có thể hủy đơn khi",
       "pending": "chờ xác nhận",
       "middle": "theo dõi/xác nhận nhận hàng khi",
-      "shipping": "đang giao",
+      "shipping": "đang giao hàng",
       "suffix": "hoặc hoàn đơn trong 7 ngày sau khi",
-      "delivered": "giao thành công"
+      "delivered": "đã giao hàng"
     }
   },
   "checkout": {
@@ -907,26 +911,17 @@
       "selectWard": "3. Chọn Phường/Xã",
       "noteOptional": "Ghi chú (tùy chọn - tối đa 500 ký tự)"
     },
-    "shipping": {
-      "methodTitle": "Phương thức vận chuyển",
-      "selectProvinceFirst": "Vui lòng chọn Tỉnh/Thành để xem phương thức vận chuyển",
-      "free": "Miễn phí",
-      "freeShipBadge": "Miễn phí giao hàng",
-      "zone": {
-        "innerCity": "(Giao nội thành Đà Nẵng)",
-        "nearby": "(Giao lân cận)",
-        "nationwide": "(Giao toàn quốc)"
+      "shipping": {
+        "methodTitle": "Phương thức vận chuyển",
+        "selectProvinceFirst": "Vui lòng chọn Tỉnh/Thành để xem phương thức vận chuyển",
+        "free": "Miễn phí",
+        "freeShipBadge": "Đủ điều kiện freeship",
+        "freeShipPolicy": "Đơn từ 500.000 đ sẽ được miễn phí vận chuyển.",
+        "standard": {
+          "title": "Giao tiêu chuẩn",
+          "eta": "Nhận hàng sau 3-4 ngày"
+        }
       },
-      "standard": {
-        "title": "Giao tiêu chuẩn",
-        "eta": "Nhận hàng sau 3-4 ngày"
-      },
-      "express": {
-        "title": "Giao hỏa tốc",
-        "etaInner": "Nhận hàng trong ngày",
-        "etaOther": "Nhận hàng sau 1-2 ngày"
-      }
-    },
     "payment": {
       "vnpay": "Thanh toán qua VNPAY-QR",
       "cod": "Thanh toán khi giao hàng (COD)"
@@ -967,9 +962,9 @@
       "placeOrderFailed": "Đã xảy ra lỗi khi đặt hàng."
     },
     "actions": {
-      "backToCart": "Quay về giỏ hàng",
+      "backToCart": "Quay lại giỏ hàng",
       "processing": "Đang xử lý...",
-      "placeOrder": "ĐẶT HÀNG"
+      "placeOrder": "Xác nhận đặt hàng"
     }
   },
   "adminOrderDetail": {

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { RecentOrder, formatVND, STATUS_VI } from '@/common/services/dashboard.service';
@@ -20,42 +20,41 @@ const SkeletonRow: React.FC = () => (
 
 export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading }) => {
     const navigate = useNavigate();
+
     return (
         <div className="bg-surface-dark border border-white/5 rounded-lg overflow-hidden">
-            {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
                 <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                    �on h�ng g?n d�y
+                    Đơn hàng gần đây
                 </h3>
                 <button
                     onClick={() => navigate('/admin/orders')}
                     className="text-xs text-white/40 hover:text-primary transition-colors flex items-center gap-1 cursor-pointer"
                 >
-                    Xem t?t c?
+                    Xem tất cả
                     <ExternalLink className="w-3 h-3" />
                 </button>
             </div>
 
-            {/* Table */}
             <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                     <thead>
                         <tr className="border-b border-white/5">
                             <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">
-                                M� don
+                                Mã đơn
                             </th>
                             <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">
-                                Kh�ch h�ng
+                                Khách hàng
                             </th>
                             <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">
-                                T?ng ti?n
+                                Tổng tiền
                             </th>
                             <th className="px-4 py-3 text-center font-semibold text-white/30 uppercase tracking-widest">
-                                Tr?ng th�i
+                                Trạng thái
                             </th>
                             <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">
-                                Ng�y
+                                Ngày
                             </th>
                         </tr>
                     </thead>
@@ -65,7 +64,7 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading })
                         ) : orders.length === 0 ? (
                             <tr>
                                 <td colSpan={5} className="px-4 py-12 text-center text-white/20">
-                                    Chua c� don h�ng n�o
+                                    Chưa có đơn hàng nào
                                 </td>
                             </tr>
                         ) : (
@@ -73,37 +72,33 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading })
                                 const rawStatus = order.status?.toUpperCase() ?? 'PENDING';
                                 const statusInfo =
                                     STATUS_VI[rawStatus] ??
-                                    { label: order.status ?? '�', color: 'text-white/40 bg-white/5 border-white/10' };
+                                    { label: order.status ?? 'Không rõ', color: 'text-white/40 bg-white/5 border-white/10' };
                                 const dateStr = order.createdAt
                                     ? new Date(order.createdAt).toLocaleDateString('vi-VN', {
                                         day: '2-digit',
                                         month: '2-digit',
                                     })
-                                    : '�';
+                                    : '--';
 
                                 return (
                                     <tr
                                         key={order.orderId}
                                         className="hover:bg-white/[0.025] transition-colors group"
                                     >
-                                        {/* Order number */}
                                         <td className="px-4 py-3">
                                             <span className="font-mono font-semibold text-white/70 group-hover:text-white transition-colors">
                                                 #{order.orderNumber}
                                             </span>
                                         </td>
 
-                                        {/* Customer */}
                                         <td className="px-4 py-3 text-white/60 max-w-[160px] truncate">
                                             {order.userFullName || order.customerName}
                                         </td>
 
-                                        {/* Total */}
                                         <td className="px-4 py-3 text-right font-semibold text-white/80">
                                             {formatVND(order.totalAmount)}
                                         </td>
 
-                                        {/* Status badge */}
                                         <td className="px-4 py-3">
                                             <div className="flex justify-center">
                                                 <span
@@ -118,7 +113,6 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading })
                                             </div>
                                         </td>
 
-                                        {/* Date */}
                                         <td className="px-4 py-3 text-right text-white/30">
                                             {dateStr}
                                         </td>

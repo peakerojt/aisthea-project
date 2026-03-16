@@ -24,21 +24,21 @@ export type OrderStatusValue = (typeof ORDER_STATUS)[keyof typeof ORDER_STATUS];
  * FSM: Valid state transitions.
  * Any transition not listed is FORBIDDEN — throw 400.
  *
- * Pending          → Paid | Cancelled
+ * Pending          → Processing | Paid | Cancelled
  * Paid             → Processing | Cancelled
  * Processing       → Shipping | Cancelled
- * Shipping         → Delivered | Return_Requested
- * Delivered        → Return_Requested
+ * Shipping         → Delivered | Returned | Return_Requested
+ * Delivered        → Returned | Return_Requested
  * Return_Requested → Returned
  * Cancelled        → (terminal)
  * Returned         → (terminal)
  */
 export const FSM_TRANSITIONS: Record<OrderStatusValue, OrderStatusValue[]> = {
-    [ORDER_STATUS.PENDING]: [ORDER_STATUS.PAID, ORDER_STATUS.CANCELLED],
+    [ORDER_STATUS.PENDING]: [ORDER_STATUS.PROCESSING, ORDER_STATUS.PAID, ORDER_STATUS.CANCELLED],
     [ORDER_STATUS.PAID]: [ORDER_STATUS.PROCESSING, ORDER_STATUS.CANCELLED],
     [ORDER_STATUS.PROCESSING]: [ORDER_STATUS.SHIPPING, ORDER_STATUS.CANCELLED],
-    [ORDER_STATUS.SHIPPING]: [ORDER_STATUS.DELIVERED, ORDER_STATUS.RETURN_REQUESTED],
-    [ORDER_STATUS.DELIVERED]: [ORDER_STATUS.RETURN_REQUESTED],
+    [ORDER_STATUS.SHIPPING]: [ORDER_STATUS.DELIVERED, ORDER_STATUS.RETURNED, ORDER_STATUS.RETURN_REQUESTED],
+    [ORDER_STATUS.DELIVERED]: [ORDER_STATUS.RETURNED, ORDER_STATUS.RETURN_REQUESTED],
     [ORDER_STATUS.RETURN_REQUESTED]: [ORDER_STATUS.RETURNED],
     [ORDER_STATUS.CANCELLED]: [],
     [ORDER_STATUS.RETURNED]: [],

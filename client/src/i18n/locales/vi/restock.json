@@ -1,16 +1,16 @@
-﻿{
+{
   "page": {
-    "title": "Nhập Kho Nhanh",
+    "title": "Nhập kho nhanh",
     "subtitle": "Cập nhật số lượng tồn kho · Mỗi lần lưu đều được ghi log"
   },
   "stats": {
     "totalVariants": "Tổng biến thể",
-    "productGroups": "Nhóm SP",
+    "productGroups": "Nhóm sản phẩm",
     "lowStock": "Sắp hết hàng",
     "outOfStock": "Hết hàng"
   },
   "filters": {
-    "searchPlaceholder": "Tìm theo tên sản phẩm hoặc SKU…",
+    "searchPlaceholder": "Tìm theo tên sản phẩm hoặc SKU...",
     "onlyLowStock": "Chỉ hiện sắp hết hàng",
     "refresh": "Làm mới",
     "summary": "{{groups}} sản phẩm · {{variants}} biến thể"
@@ -19,13 +19,13 @@
     "productVariant": "Sản phẩm / Biến thể",
     "sku": "Mã SKU",
     "price": "Giá bán",
-    "currentStock": "Tồn kho HT",
+    "currentStock": "Tồn kho hiện tại",
     "update": "Cập nhật",
     "status": "Trạng thái",
     "history": "Lịch sử",
     "default": "Mặc định",
     "variantCount": "{{count}} biến thể",
-    "totalStock": "Tổng tồn:"
+    "totalStock": "Tổng tồn"
   },
   "stockStatus": {
     "outOfStock": "Hết hàng",
@@ -38,11 +38,11 @@
     "hasLow": "● Có biến thể sắp hết"
   },
   "actions": {
-    "cancel": "Huỷ ({{count}})",
+    "cancel": "Hủy ({{count}})",
     "save": "Lưu thay đổi",
-    "saving": "Đang lưu…",
+    "saving": "Đang lưu...",
     "saveWithCount": "Lưu thay đổi ({{count}})",
-    "cancelAll": "Huỷ bỏ"
+    "cancelAll": "Hủy thay đổi"
   },
   "stickyBar": {
     "unsaved": "{{count}} biến thể đã thay đổi chưa được lưu"
@@ -53,7 +53,7 @@
     "reasonLabel": "Lý do điều chỉnh",
     "reasonPlaceholder": "VD: Nhập hàng từ nhà cung cấp...",
     "confirm": "Xác nhận lưu",
-    "cancel": "Huỷ"
+    "cancel": "Hủy"
   },
   "reasonPresets": [
     "Nhập hàng từ nhà cung cấp",
@@ -69,13 +69,13 @@
   "logReasons": {
     "CHECKOUT": "Đơn hàng",
     "RESTOCK": "Nhập kho",
-    "CANCELLED_RESTORE": "Huỷ đơn - Hoàn",
+    "CANCELLED_RESTORE": "Hủy đơn - hoàn kho",
     "MANUAL_ADJUST": "Điều chỉnh"
   },
   "empty": {
     "noData": "Chưa có dữ liệu tồn kho",
     "noMatch": "Không tìm thấy sản phẩm phù hợp",
-    "clearFilter": "Xoá bộ lọc"
+    "clearFilter": "Xóa bộ lọc"
   },
   "feedback": {
     "saveError": "Lưu thất bại. Vui lòng thử lại.",
@@ -85,8 +85,8 @@
     "viewHistory": "Xem lịch sử tồn kho"
   },
   "po": {
-    "title": "Nhập Kho Theo Phiếu Nhập",
-    "subtitle": "Tạo phiếu nhập, nhận hàng theo từng dòng sản phẩm, theo dõi trạng thái nhập kho",
+    "title": "Nhập kho theo phiếu nhập",
+    "subtitle": "Tạo phiếu nhập, nhận hàng theo từng dòng sản phẩm và theo dõi trạng thái nhập kho",
     "filters": {
       "searchPlaceholder": "Tìm theo mã PO, nhà cung cấp, số hóa đơn..."
     },
@@ -124,7 +124,7 @@
       "receiving": "Đang ghi nhận..."
     },
     "create": {
-      "title": "Tạo Phiếu Nhập",
+      "title": "Tạo phiếu nhập",
       "supplier": "Tên nhà cung cấp *",
       "invoice": "Số hóa đơn",
       "contactName": "Người liên hệ",
@@ -146,7 +146,7 @@
       "received": "Đã nhận"
     },
     "inventory": {
-      "title": "Toàn Bộ Kho Hàng",
+      "title": "Toàn bộ kho hàng",
       "subtitle": "Trạng thái từng mặt hàng được phân loại theo số lượng tồn hiện tại",
       "searchPlaceholder": "Tìm mặt hàng theo tên, biến thể, SKU...",
       "resultSummary": "Hiển thị {{shown}}/{{total}} mặt hàng",

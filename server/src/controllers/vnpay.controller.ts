@@ -4,6 +4,7 @@ import querystring from 'qs';
 import moment from 'moment';
 import { prisma } from '../utils/prisma';
 import { logger } from '../lib/logger';
+import { AuthRequest } from '../middlewares/auth.middleware';
 
 function sortObject(obj: any) {
     let sorted: any = {};
@@ -23,6 +24,12 @@ function sortObject(obj: any) {
 
 export const createPaymentUrl = async (req: Request, res: Response) => {
     try {
+        const authReq = req as AuthRequest;
+        const userId = authReq.user?.userId;
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
         process.env.TZ = 'Asia/Ho_Chi_Minh';
         let date = new Date();
         let createDate = moment(date).format('YYYYMMDDHHmmss');
@@ -42,10 +49,44 @@ export const createPaymentUrl = async (req: Request, res: Response) => {
             req.socket.remoteAddress ||
             (req.connection as any).socket?.remoteAddress;
 
-        let { amount, bankCode, orderId, orderDescription, orderType } = req.body;
+        let { bankCode, orderId, orderDescription, orderType } = req.body;
 
-        if (!amount || !orderId) {
-            return res.status(400).json({ error: 'Missing required parameters: amount, orderId' });
+        if (!orderId) {
+            return res.status(400).json({ error: 'Missing required parameter: orderId' });
+        }
+
+        const parsedOrderId = parseInt(String(orderId), 10);
+        if (!Number.isFinite(parsedOrderId) || parsedOrderId <= 0) {
+            return res.status(400).json({ error: 'Invalid orderId' });
+        }
+
+        const order = await prisma.order.findUnique({
+            where: { orderId: parsedOrderId },
+            include: {
+                payments: {
+                    orderBy: { paymentId: 'desc' },
+                },
+            },
+        });
+
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        if (order.userId !== userId) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        if ((order.paymentMethod ?? '').toUpperCase() !== 'VNPAY') {
+            return res.status(400).json({ error: 'Order is not configured for VNPAY payment' });
+        }
+
+        const alreadyPaid = order.payments.some((payment) =>
+            ['COMPLETED', 'PAID', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes((payment.status ?? '').toUpperCase())
+        );
+
+        if (alreadyPaid) {
+            return res.status(409).json({ error: 'Order is already paid' });
         }
 
         let locale = req.body.language || 'vn';
@@ -60,10 +101,10 @@ export const createPaymentUrl = async (req: Request, res: Response) => {
         vnp_Params['vnp_TmnCode'] = tmnCode;
         vnp_Params['vnp_Locale'] = locale;
         vnp_Params['vnp_CurrCode'] = currCode;
-        vnp_Params['vnp_TxnRef'] = orderId;
-        vnp_Params['vnp_OrderInfo'] = orderDescription || `Thanh toan don hang ${orderId}`;
+        vnp_Params['vnp_TxnRef'] = parsedOrderId;
+        vnp_Params['vnp_OrderInfo'] = orderDescription || `Thanh toan don hang ${parsedOrderId}`;
         vnp_Params['vnp_OrderType'] = orderType || 'other';
-        vnp_Params['vnp_Amount'] = amount * 100;
+        vnp_Params['vnp_Amount'] = Math.round(Number(order.totalAmount) * 100);
         vnp_Params['vnp_ReturnUrl'] = returnUrl;
         vnp_Params['vnp_IpAddr'] = ipAddr;
         vnp_Params['vnp_CreateDate'] = createDate;
@@ -107,12 +148,57 @@ export const vnpayReturn = async (req: Request, res: Response) => {
     let hmac = crypto.createHmac("sha512", secretKey);
     let signed = hmac.update(Buffer.from(signData, 'utf-8')).digest("hex");
 
-    if (secureHash === signed) {
-        // Kiem tra cong thai thanh toan
-        res.status(200).json({ message: 'Success', code: vnp_Params['vnp_ResponseCode'] });
-    } else {
-        res.status(200).json({ message: 'Fail checksum', code: '97' });
+    if (secureHash !== signed) {
+        return res.status(200).json({ message: 'Fail checksum', code: '97' });
     }
+
+    const parsedOrderId = parseInt(String(vnp_Params['vnp_TxnRef'] ?? ''), 10);
+    if (!Number.isFinite(parsedOrderId) || parsedOrderId <= 0) {
+        return res.status(200).json({ message: 'Invalid order', code: '01' });
+    }
+
+    const order = await prisma.order.findUnique({
+        where: { orderId: parsedOrderId },
+        include: {
+            payments: {
+                orderBy: { paymentId: 'desc' },
+            },
+        },
+    });
+
+    if (!order) {
+        return res.status(200).json({ message: 'Order not found', code: '01' });
+    }
+
+    const responseCode = String(vnp_Params['vnp_ResponseCode'] ?? '');
+    if (responseCode !== '00') {
+        return res.status(200).json({
+            message: 'Failed',
+            code: responseCode || '99',
+            orderId: order.orderId,
+            paymentStatus: 'FAILED',
+        });
+    }
+
+    const hasCompletedPayment = order.payments.some((payment) =>
+        ['COMPLETED', 'PAID', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes((payment.status ?? '').toUpperCase())
+    );
+
+    if (hasCompletedPayment) {
+        return res.status(200).json({
+            message: 'Success',
+            code: '00',
+            orderId: order.orderId,
+            paymentStatus: 'COMPLETED',
+        });
+    }
+
+    return res.status(200).json({
+        message: 'Pending',
+        code: 'PENDING',
+        orderId: order.orderId,
+        paymentStatus: 'PENDING',
+    });
 };
 
 export const vnpayIpn = async (req: Request, res: Response) => {
@@ -152,10 +238,8 @@ export const vnpayIpn = async (req: Request, res: Response) => {
         }
 
         if (secureHash === signed) {
-            // Amount must be matched
-            let vnp_Amount = vnp_Params['vnp_Amount'];
-            // Verify amount (assuming stored totalAmount is USD, but needs translation, or stored amount is verified)
-            // The frontend uses USD, maybe 1 USD = 25000 VND. Let's assume frontend passes VND amount properly
+            const gatewayAmount = Number(vnp_Params['vnp_Amount']) / 100;
+            const expectedAmount = Number(order.totalAmount);
 
             const latestPayment = order.payments[0] ?? null;
             const alreadyPaid = order.payments.some((payment) =>
@@ -166,11 +250,46 @@ export const vnpayIpn = async (req: Request, res: Response) => {
                 return res.status(200).json({ RspCode: '02', Message: 'This order has been updated to the payment status' });
             } else {
                 if (rspCode == "00") {
+                    if (Math.round(gatewayAmount) !== Math.round(expectedAmount)) {
+                        const mismatchNote = `VNPay amount mismatch. Expected ${expectedAmount}, received ${gatewayAmount}.`;
+
+                        if (latestPayment && latestPayment.paymentMethod === 'VNPAY') {
+                            await prisma.payment.update({
+                                where: { paymentId: latestPayment.paymentId },
+                                data: {
+                                    amount: gatewayAmount,
+                                    status: 'FAILED',
+                                    transactionCode: (vnp_Params['vnp_TransactionNo'] as string) ?? latestPayment.transactionCode,
+                                    note: mismatchNote,
+                                }
+                            });
+                        } else {
+                            await prisma.payment.create({
+                                data: {
+                                    orderId: order.orderId,
+                                    paymentMethod: 'VNPAY',
+                                    amount: gatewayAmount,
+                                    status: 'FAILED',
+                                    transactionCode: (vnp_Params['vnp_TransactionNo'] as string) ?? null,
+                                    note: mismatchNote,
+                                }
+                            });
+                        }
+
+                        logger.warn('VNPay payment amount mismatch', {
+                            orderId: order.orderId,
+                            expectedAmount,
+                            gatewayAmount,
+                        });
+
+                        return res.status(200).json({ RspCode: '04', Message: 'Invalid amount' });
+                    }
+
                     if (latestPayment && latestPayment.paymentMethod === 'VNPAY') {
                         await prisma.payment.update({
                             where: { paymentId: latestPayment.paymentId },
                             data: {
-                                amount: parseFloat(order.totalAmount.toString()),
+                                amount: gatewayAmount,
                                 status: 'COMPLETED',
                                 transactionCode: vnp_Params['vnp_TransactionNo'] as string,
                                 note: null,
@@ -181,7 +300,7 @@ export const vnpayIpn = async (req: Request, res: Response) => {
                             data: {
                                 orderId: order.orderId,
                                 paymentMethod: 'VNPAY',
-                                amount: parseFloat(order.totalAmount.toString()),
+                                amount: gatewayAmount,
                                 status: 'COMPLETED',
                                 transactionCode: vnp_Params['vnp_TransactionNo'] as string
                             }
@@ -196,7 +315,7 @@ export const vnpayIpn = async (req: Request, res: Response) => {
                         await prisma.payment.update({
                             where: { paymentId: latestPayment.paymentId },
                             data: {
-                                amount: parseFloat(order.totalAmount.toString()),
+                                amount: gatewayAmount || parseFloat(order.totalAmount.toString()),
                                 status: 'FAILED',
                                 transactionCode: (vnp_Params['vnp_TransactionNo'] as string) ?? latestPayment.transactionCode,
                                 note: `VNPay IPN failed with response code ${rspCode}`,
@@ -207,7 +326,7 @@ export const vnpayIpn = async (req: Request, res: Response) => {
                             data: {
                                 orderId: order.orderId,
                                 paymentMethod: 'VNPAY',
-                                amount: parseFloat(order.totalAmount.toString()),
+                                amount: gatewayAmount || parseFloat(order.totalAmount.toString()),
                                 status: 'FAILED',
                                 transactionCode: (vnp_Params['vnp_TransactionNo'] as string) ?? null,
                                 note: `VNPay IPN failed with response code ${rspCode}`,

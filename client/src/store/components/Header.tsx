@@ -5,8 +5,10 @@ import { useAuth } from '@/common/contexts/AuthContext';
 import { useCart } from '@/common/contexts/CartContext';
 import { fetchProducts, Product } from '@/common/services/product.service';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
+import { useTranslation } from 'react-i18next';
 
 export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = false }) => {
+  const { t } = useTranslation('pages', { keyPrefix: 'home' });
   const navigate = useNavigate();
   const { user, role } = useAuth();
   const { totalItems } = useCart();
@@ -71,12 +73,11 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
     return () => window.removeEventListener('scroll', handler);
   }, []);
 
-  const handleNavClick = (item: string) => {
-    if (item === 'Stylist') { navigate('/stylist'); return; }
-    if (item === 'Men') { navigate('/category/men'); return; }
-    if (item === 'Women') { navigate('/category/women'); return; }
-    navigate('/collection');
-  };
+  const navItems = [
+    { key: 'men', label: t('tabs.men'), to: '/category/men' },
+    { key: 'women', label: t('tabs.women'), to: '/category/women' },
+    { key: 'stylist', label: 'Tư vấn', to: '/stylist' },
+  ];
 
   const handleUserClick = () => {
     if (!user) { navigate('/login'); return; }
@@ -111,13 +112,13 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
         </button>
 
         <nav className="hidden md:flex items-center gap-12">
-          {['Men', 'Women', 'Stylist'].map((item) => (
+          {navItems.map((item) => (
             <button
-              key={item}
-              onClick={() => handleNavClick(item)}
+              key={item.key}
+              onClick={() => navigate(item.to)}
               className="text-white/80 hover:text-white text-sm font-bold uppercase tracking-widest transition-colors relative after:content-[''] after:absolute after:-bottom-2 after:left-0 after:w-0 after:h-0.5 after:bg-primary after:transition-all hover:after:w-full"
             >
-              {item}
+              {item.label}
             </button>
           ))}
         </nav>
@@ -203,7 +204,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
               </span>
             )}
           </button>
-          <button onClick={handleUserClick} className="text-white/90 hover:text-white p-2" title={user ? 'Profile' : 'Sign In'}>
+          <button onClick={handleUserClick} className="text-white/90 hover:text-white p-2" title={user ? 'Hồ sơ' : 'Đăng nhập'}>
             <span className="material-symbols-outlined text-2xl">person</span>
           </button>
         </div>

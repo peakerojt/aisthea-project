@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Header } from '@/store/components/Header';
 import { CheckoutProgress } from '@/common/components/CheckoutProgress';
 import { OrderSummaryRail } from '@/common/components/OrderSummaryRail';
+import { PaymentMethodLabel, PaymentStatusBadge } from '@/common/components/PaymentStatusBadge';
 import { formatCurrencyVND } from '@/common/utils/currency';
 import { getLatestOrderData } from '@/common/utils/orderSnapshot';
 
@@ -15,6 +16,7 @@ export const VNPayReturn: React.FC = () => {
   const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
   const [message, setMessage] = useState(t('states.loadingMessage'));
+  const [paymentStatusCode, setPaymentStatusCode] = useState<string>('VERIFYING');
   const orderData = getLatestOrderData();
 
   const progressSteps = [
@@ -40,17 +42,24 @@ export const VNPayReturn: React.FC = () => {
       try {
         const data = await api.get<any>(`/api/vnpay/vnpay_return?${searchParams.toString()}`);
 
-        if (data.message === 'Success' && data.code === '00') {
+        if (data.paymentStatus === 'COMPLETED' && data.code === '00') {
           setStatus('success');
           setMessage(t('states.successMessage'));
+          setPaymentStatusCode('COMPLETED');
+        } else if (data.paymentStatus === 'PENDING' || data.code === 'PENDING') {
+          setStatus('loading');
+          setMessage(t('states.loadingMessage'));
+          setPaymentStatusCode(data.paymentStatus || 'PENDING');
         } else {
           setStatus('failed');
           setMessage(t('states.failedMessage'));
+          setPaymentStatusCode(data.paymentStatus || 'FAILED');
         }
       } catch (error) {
         console.error('Verification error:', error);
         setStatus('failed');
         setMessage(t('states.errorMessage'));
+        setPaymentStatusCode('FAILED');
       }
     };
 
@@ -122,9 +131,12 @@ export const VNPayReturn: React.FC = () => {
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <div className="rounded-sm border border-border-dark bg-white/[0.02] p-5">
                   <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-primary">{t('sections.paymentStatus')}</h3>
-                  <p className="text-sm font-medium text-white">{t(`sections.statusValues.${status}`)}</p>
+                  <PaymentStatusBadge paymentMethod="VNPAY" paymentStatus={paymentStatusCode} uppercase />
+                  <p className="mt-3 text-sm text-gray-400">{t(`sections.statusValues.${status}`)}</p>
                   <p className="mt-2 text-sm text-gray-400">{t('sections.paymentMethod')}</p>
-                  <p className="mt-1 text-sm text-white">{orderData?.paymentMethod === 'VNPAY' ? t('sections.paymentValues.vnpay') : t('sections.paymentValues.cod')}</p>
+                  <p className="mt-1 text-sm text-white">
+                    <PaymentMethodLabel paymentMethod={orderData?.paymentMethod ?? 'VNPAY'} />
+                  </p>
                 </div>
 
                 <div className="rounded-sm border border-border-dark bg-white/[0.02] p-5">

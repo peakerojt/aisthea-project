@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { findManyOrders } from '../modules/order/order.repository';
 import { updateOrderStatusAdmin, createOrder as createOrderService } from '../modules/order/order.service';
+import { quoteOrderPricing, ShippingMethod } from '../modules/order/order-pricing.service';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { emitNewOrder, emitOrderStatusUpdated } from '../socket';
 import {
@@ -140,6 +141,30 @@ function buildStatusHistory(order: any) {
   return history.sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime());
 }
 
+function buildPricingBreakdown(
+  items: Array<{ unitPrice: { toString(): string } | string | number; quantity: number }>,
+  shippingFee: unknown,
+  discountAmount: unknown,
+  totalAmount: unknown,
+) {
+  const itemsTotal = items.reduce((sum, item) => {
+    const unitPrice = Number(item.unitPrice?.toString?.() ?? item.unitPrice ?? 0);
+    return sum + unitPrice * item.quantity;
+  }, 0);
+
+  const shipping = Number(shippingFee ?? 0);
+  const discount = Number(discountAmount ?? 0);
+  const grandTotal = Number(totalAmount ?? 0);
+
+  return {
+    itemsTotal,
+    shippingFee: shipping,
+    discount,
+    tax: 0,
+    grandTotal,
+  };
+}
+
 // ─── ADMIN: Get All Orders | GET /api/orders/admin ───────────────────────────
 
 export const getAllOrders = async (req: AuthRequest, res: Response) => {
@@ -217,6 +242,10 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount?.toString() ?? '0',
       discountAmount: order.discountAmount?.toString() ?? '0',
+      shippingFee: order.shippingFee?.toString() ?? '0',
+      shippingMethod: order.shippingMethod ?? 'STANDARD',
+      shippingCityCode: order.shippingCityCode ?? null,
+      pricing: buildPricingBreakdown(order.items, order.shippingFee, order.discountAmount, order.totalAmount),
       note: order.note,
       createdAt: order.createdAt?.toISOString(),
       trackingNumber: shipment.trackingNumber,
@@ -375,6 +404,10 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount.toString(),
       discountAmount: order.discountAmount?.toString() ?? '0',
+      shippingFee: order.shippingFee?.toString() ?? '0',
+      shippingMethod: order.shippingMethod ?? 'STANDARD',
+      shippingCityCode: order.shippingCityCode ?? null,
+      pricing: buildPricingBreakdown(order.items, order.shippingFee, order.discountAmount, order.totalAmount),
       createdAt: order.createdAt?.toISOString(),
       updatedAt: order.updatedAt?.toISOString() ?? order.createdAt?.toISOString(),
       trackingNumber: shipment.trackingNumber,
@@ -423,6 +456,51 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// ─── USER: Quote Order | POST /api/orders/quote ──────────────────────────────
+
+export const quoteOrder = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { items, couponCode, shippingCityCode, shippingMethod } = req.body as {
+      items?: Array<{ variantId: number; quantity: number }>;
+      couponCode?: string;
+      shippingCityCode?: string;
+      shippingMethod?: ShippingMethod;
+    };
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ errorCode: ERROR_CODES.CART_EMPTY });
+    }
+
+    const pricing = await quoteOrderPricing({
+      userId,
+      items,
+      couponCode,
+      shippingCityCode,
+      shippingMethod,
+    });
+
+    return res.json({
+      itemsSubtotal: pricing.itemsSubtotal,
+      shippingFee: pricing.shippingFee,
+      discountAmount: pricing.discountAmount,
+      totalAmount: pricing.totalAmount,
+      shippingMethod: pricing.shippingMethod,
+      shippingCityCode: pricing.shippingCityCode,
+      appliedCouponCode: pricing.appliedCouponCode,
+      coupon: pricing.coupon,
+    });
+  } catch (error: any) {
+    logger.error('[quoteOrder] Failed', { message: error?.message, userId: req.user?.userId });
+    if (error.status) {
+      return res.status(error.status).json({ success: false, errorCode: error.code, message: error.message });
+    }
+    return res.status(500).json({ success: false, errorCode: 'CHECKOUT_QUOTE_FAILED', message: 'Failed to calculate pricing.' });
+  }
+};
+
 // ─── USER: Create Order | POST /api/orders ───────────────────────────────────
 
 export const createOrder = async (req: AuthRequest, res: Response) => {
@@ -431,13 +509,19 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const {
-      paymentMethod, customerName, customerPhone, shippingCity, shippingDistrict,
-      shippingWard, shippingAddressDetail, note, items, couponCode,
+      paymentMethod, customerName, customerEmail, customerPhone, shippingCity, shippingDistrict,
+      shippingWard, shippingAddressDetail, note, items, couponCode, shippingCityCode, shippingMethod,
     } = req.body;
 
     if (!paymentMethod) return res.status(400).json({ error: 'Payment method is required' });
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ errorCode: ERROR_CODES.CART_EMPTY });
+    }
+    if (!shippingCityCode || typeof shippingCityCode !== 'string') {
+      return res.status(400).json({ errorCode: 'INVALID_SHIPPING_CITY_CODE', message: 'Shipping city code is required.' });
+    }
+    if (shippingMethod !== 'STANDARD' && shippingMethod !== 'EXPRESS') {
+      return res.status(400).json({ errorCode: 'INVALID_SHIPPING_METHOD', message: 'Shipping method is invalid.' });
     }
 
     const currentUser = { userId: req.user.userId, roles: (req.user as any).roles || [] };
@@ -445,11 +529,15 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       items,
       paymentMethod,
       customerName: customerName || 'Khách hàng',
+      customerEmail: customerEmail || req.user.email || null,
       customerPhone: customerPhone || '0000000000',
       shippingCity: shippingCity || 'Hà Nội',
       shippingDistrict: shippingDistrict || 'Không xác định',
       shippingWard: shippingWard || null,
       shippingAddressDetail: shippingAddressDetail || 'Không xác định',
+      shippingCityCode,
+      shippingMethod,
+      couponCode: typeof couponCode === 'string' ? couponCode : null,
       note: note || null,
     });
     const orderId = Number(orderDetail.id);
@@ -457,34 +545,19 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     const cart = await prisma.cart.findFirst({ where: { userId } });
     if (cart) await prisma.cartItem.deleteMany({ where: { cartId: cart.cartId } });
 
-    let discountAmount = 0;
-    if (couponCode && typeof couponCode === 'string' && couponCode.trim()) {
-      try {
-        const currentOrder = await prisma.order.findUnique({ where: { orderId }, select: { totalAmount: true } });
-        if (currentOrder) {
-          const cartSubtotal = Number(currentOrder.totalAmount);
-          await prisma.$transaction(async (tx) => {
-            const { validateCoupon } = await import('../services/coupon.service');
-            const { coupon, discountAmount: discount } = await validateCoupon(couponCode.trim(), userId, cartSubtotal, tx as any);
-            discountAmount = discount;
-            const newTotal = Math.max(0, cartSubtotal - discount);
-            await (tx.order as any).update({ where: { orderId }, data: { totalAmount: newTotal, discountAmount: discount, couponId: coupon.couponId } });
-            await (tx.coupon as any).update({ where: { couponId: coupon.couponId }, data: { usedCount: { increment: 1 } } });
-          });
-        }
-      } catch (couponErr: any) {
-        logger.warn('[createOrder] Coupon validation failed (order still created)', { message: couponErr.message });
-      }
-    }
-
     try {
-      const finalOrder = await prisma.order.findUnique({ where: { orderId }, select: { totalAmount: true } });
-      emitNewOrder({ orderId, totalAmount: finalOrder ? Number(finalOrder.totalAmount) : 0 });
+      emitNewOrder({ orderId, totalAmount: orderDetail.pricing.grandTotal });
     } catch {
       // Non-critical socket emit
     }
 
-    return res.json({ success: true, orderId, discountAmount, message: 'Order created successfully' });
+    return res.json({
+      success: true,
+      orderId,
+      pricing: orderDetail.pricing,
+      paymentMethod: orderDetail.paymentMethod,
+      message: 'Order created successfully',
+    });
   } catch (error: any) {
     logger.error('[createOrder] Checkout failed', { message: error?.message, errorCode: error?.code, userId: req.user?.userId });
     if (error.status) return res.status(error.status).json({ success: false, errorCode: error.code, message: error.message });

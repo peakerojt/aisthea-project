@@ -2,22 +2,26 @@
   "_comment": "Maps raw DB enum values to Vietnamese display strings. Keys match the exact values returned by the Backend.",
   "orderStatus": {
     "PENDING": "Chờ xác nhận",
-    "PROCESSING": "Đang chuẩn bị hàng",
+    "PROCESSING": "Đang xử lý",
     "SHIPPING": "Đang giao hàng",
-    "DELIVERED": "Giao thành công",
+    "DELIVERED": "Đã giao hàng",
     "COMPLETED": "Hoàn thành",
     "CANCELLED": "Đã hủy",
-    "RETURNED": "Hoàn trả",
-    "RETURN_REQUESTED": "Yêu cầu hoàn trả",
+    "RETURNED": "Đã trả hàng",
+    "RETURN_REQUESTED": "Yêu cầu trả hàng",
     "REFUNDED": "Đã hoàn tiền",
     "UNKNOWN": "Không xác định"
   },
   "paymentStatus": {
     "PENDING": "Chờ thanh toán",
+    "UNPAID": "Chưa thanh toán",
+    "VERIFYING": "Đang xác nhận thanh toán",
+    "COD_PENDING": "Chờ thanh toán khi nhận hàng",
     "PAID": "Đã thanh toán",
     "REFUNDED": "Đã hoàn tiền",
     "FAILED": "Thanh toán thất bại",
-    "PARTIAL_REFUND": "Hoàn tiền một phần"
+    "PARTIAL_REFUND": "Hoàn tiền một phần",
+    "PARTIALLY_REFUNDED": "Hoàn tiền một phần"
   },
   "paymentMethod": {
     "COD": "Thanh toán khi nhận hàng",

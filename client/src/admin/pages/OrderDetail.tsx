@@ -6,7 +6,7 @@ import {
     ChevronRight, Copy, Check, RotateCcw,
 } from 'lucide-react';
 import { adminOrderService, AdminOrderDetail as OrderDetailType } from '@/common/services/order.service';
-import { formatVND, getOrderStatusColor } from '@/admin/pages/Orders';
+import { formatVND } from '@/admin/pages/Orders';
 import { OrderActionPanel } from '@/admin/components/OrderActionPanel';
 import { OrderTimeline } from '@/admin/components/OrderTimeline';
 import { OrderStatusBadge } from '@/admin/components/OrderStatusBadge';
@@ -17,6 +17,8 @@ import { adminRefundService, RefundRecord } from '@/admin/services/refund.servic
 import { getImageUrl } from '@/common/utils/cloudinary';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/common/contexts/ToastContext';
+import { getPaymentStatusMeta } from '@/common/utils/paymentStatus';
+import { PaymentMethodLabel, PaymentStatusBadge } from '@/common/components/PaymentStatusBadge';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design System (ui-ux-pro-max: luxury dark ecommerce admin)
@@ -86,6 +88,7 @@ interface AdminOrderDetailProps {
 
 export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
     const { t } = useTranslation('pages', { keyPrefix: 'adminOrderDetail' });
+    const { t: enumsT } = useTranslation('enums');
     const { showToast: fireToast } = useToast();
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
@@ -167,6 +170,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
     const status = order.status ?? 'PENDING';
     const c = cfg(status);
     const statusHistory = (order as any).statusHistory ?? [];
+    const paymentMeta = getPaymentStatusMeta(order.paymentMethod, order.paymentStatus);
 
     return (
         <>
@@ -199,7 +203,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                             <div className="w-px h-5 bg-white/10" />
 
                             {/* Hoàn tiền button — only when Paid or Partially Refunded */}
-                            {(['Paid', 'PAID', 'Partially_Refunded', 'PARTIALLY_REFUNDED'].includes(order.paymentStatus ?? '')) && (
+                            {paymentMeta.isPaidLike && (
                                 <button
                                     onClick={() => setShowRefundDialog(true)}
                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 hover:bg-cyan-500/20 transition-all text-[11px] font-bold uppercase tracking-wider cursor-pointer"
@@ -297,9 +301,8 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                         <span className="text-xs text-white/40 font-medium uppercase tracking-wider">{t('labels.orderTotal')}</span>
                                         <div className="text-right">
                                             <p className="text-2xl font-black text-white tracking-tight">{formatVND(order.totalAmount)}</p>
-                                            <p className={`text-[11px] font-semibold mt-0.5 ${order.paymentStatus === 'Paid' ? 'text-emerald-400' : 'text-amber-400'
-                                                }`}>
-                                                {order.paymentStatus === 'Paid' ? t('payment.paid') : t('payment.unpaid')}
+                                            <p className={`text-[11px] font-semibold mt-0.5 ${paymentMeta.textClass}`}>
+                                                {enumsT(paymentMeta.labelKey, { defaultValue: paymentMeta.defaultLabel })}
                                             </p>
                                         </div>
                                     </div>
@@ -324,19 +327,22 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                 <Card>
                                     <SectionTitle icon={CreditCard} title={t('sections.paymentDetails')} />
                                     <div className="p-5 space-y-3">
-                                        {order.payments.map((p) => (
-                                            <div key={p.paymentId} className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-none">
-                                                <div>
-                                                    <p className="text-sm text-white/80 font-medium">{p.method}</p>
-                                                    {p.paidAt && <p className="text-[11px] text-white/35 font-mono mt-0.5">{fmt(p.paidAt)}</p>}
+                                        {order.payments.map((p) => {
+                                            return (
+                                                <div key={p.paymentId} className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-none">
+                                                    <div>
+                                                        <p className="text-sm text-white/80 font-medium">
+                                                            <PaymentMethodLabel paymentMethod={p.method} />
+                                                        </p>
+                                                        {p.paidAt && <p className="text-[11px] text-white/35 font-mono mt-0.5">{fmt(p.paidAt)}</p>}
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-bold text-white">{formatVND(p.amount)}</p>
+                                                        <PaymentStatusBadge paymentMethod={p.method} paymentStatus={p.status} size="xs" uppercase className="tracking-wide" />
+                                                    </div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <p className="text-sm font-bold text-white">{formatVND(p.amount)}</p>
-                                                    <span className={`text-[10px] font-bold uppercase tracking-wide ${p.status === 'Completed' ? 'text-emerald-400' : 'text-amber-400'
-                                                        }`}>{p.status === 'Completed' ? t('payment.completed') : p.status}</span>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </Card>
                             )}
@@ -407,7 +413,10 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                 <SectionTitle icon={CreditCard} title={t('sections.payment')} />
                                 <div className="p-5 space-y-3">
                                     {[
-                                        { label: t('payment.method'), value: order.paymentMethod ?? 'COD' },
+                                        {
+                                            label: t('payment.method'),
+                                            value: <PaymentMethodLabel paymentMethod={order.paymentMethod ?? 'COD'} />,
+                                        },
                                     ].map(({ label, value }) => (
                                         <div key={label} className="flex items-center justify-between">
                                             <span className="text-[12px] text-white/40">{label}</span>
@@ -417,12 +426,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
                                     <div className="flex items-center justify-between pt-1 border-t border-white/[0.05]">
                                         <span className="text-[12px] text-white/40">{t('payment.status')}</span>
-                                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${order.paymentStatus === 'Paid'
-                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                            : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                                            }`}>
-                                            {order.paymentStatus === 'Paid' ? t('payment.paid') : t('payment.unpaid')}
-                                        </span>
+                                        <PaymentStatusBadge paymentMethod={order.paymentMethod} paymentStatus={order.paymentStatus} size="xs" />
                                     </div>
                                 </div>
                             </Card>

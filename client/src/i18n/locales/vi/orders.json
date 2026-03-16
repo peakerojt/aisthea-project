@@ -1,13 +1,13 @@
 {
     "page": {
-        "title": "Quản lý Đơn hàng",
+        "title": "Quản lý đơn hàng",
         "detail": "Chi tiết đơn hàng",
         "orderCount": "{{count}} đơn hàng",
         "loading": "Đang tải đơn hàng...",
         "loadError": "Không thể tải danh sách đơn hàng.",
-        "dataError": "Không thể tải dữ liệu",
+        "dataError": "Không thể tải danh sách đơn hàng.",
         "retry": "Thử lại",
-        "noOrders": "Chưa có đơn hàng nào trong trạng thái này.",
+        "noOrders": "Chưa có đơn hàng nào ở trạng thái này.",
         "changeFilter": "Hãy thử thay đổi bộ lọc hoặc chọn tab khác."
     },
     "fields": {
@@ -37,9 +37,9 @@
         "RETURNED": "Đã trả hàng"
     },
     "statusBadge": {
-        "PENDING": "Chờ",
-        "PROCESSING": "Xử lý",
-        "SHIPPING": "Giao hàng",
+        "PENDING": "Chờ xác nhận",
+        "PROCESSING": "Đang xử lý",
+        "SHIPPING": "Đang giao hàng",
         "DELIVERED": "Đã giao hàng",
         "COMPLETED": "Hoàn thành",
         "CANCELLED": "Đã hủy",
@@ -49,7 +49,7 @@
     "filters": {
         "all": "Tất cả",
         "allStatus": "Tất cả trạng thái",
-        "searchPlaceholder": "Tìm theo mã đơn, khách hàng…",
+        "searchPlaceholder": "Tìm theo mã đơn hoặc tên khách hàng…",
         "searchPlaceholderAdmin": "Tìm tên, SĐT, mã đơn...",
         "clear": "Xóa bộ lọc",
         "dateFrom": "Từ ngày",
@@ -60,6 +60,7 @@
         "customer": "Khách hàng",
         "date": "Ngày đặt",
         "total": "Tổng tiền",
+        "payment": "Thanh toán",
         "status": "Trạng thái",
         "actions": "Thao tác",
         "itemCount": "{{count}} sản phẩm"
@@ -73,7 +74,7 @@
         "cancelOrder": "Hủy đơn hàng"
     },
     "feedback": {
-        "updateSuccess": "Cập nhật đơn hàng thành công",
+        "updateSuccess": "Đã cập nhật đơn hàng thành công",
         "cancelConfirm": "Bạn có chắc muốn hủy đơn hàng #{{id}} không?"
     },
     "refund": {
@@ -94,7 +95,7 @@
             "reason": "Lý do hoàn tiền",
             "reasonPlaceholder": "Mô tả lý do hoàn tiền...",
             "cancel": "Hủy",
-            "submit": "Xác nhận hoàn {{amount}}",
+            "submit": "Xác nhận hoàn tiền {{amount}}",
             "submitting": "Đang xử lý..."
         },
         "errors": {
@@ -109,7 +110,7 @@
             "unknownError": "Lỗi không xác định."
         },
         "success": {
-            "initiated": "Lệnh hoàn tiền đã được gửi tới cổng thanh toán thành công."
+            "initiated": "Đã gửi yêu cầu hoàn tiền tới cổng thanh toán."
         },
         "method": {
             "ORIGINAL_GATEWAY": "Hoàn qua cổng thanh toán gốc",

@@ -4,6 +4,8 @@ import { Header } from '@/store/components/Header';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { userService, UserProfile, Address, RecentOrder } from '@/store/services/user.service';
 import { getImageUrl } from '@/common/utils/cloudinary';
+import { formatCurrencyVND } from '@/common/utils/currency';
+import { getStatusMeta, normalizeStatus } from '@/config/orderStatus.config';
 import { useTranslation } from 'react-i18next';
 
 export const Profile: React.FC = () => {
@@ -531,22 +533,35 @@ export const Profile: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {recentOrders.map((order) => (
-                    <div key={order.orderId} className="bg-black/20 p-6 rounded border border-white/5">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h5 className="font-bold text-sm uppercase tracking-wide mb-1">{t('recentOrders.orderNumber', { orderNumber: order.orderNumber })}</h5>
-                          <p className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleDateString()}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-lg">
-                            ${Number(order.totalAmount ?? 0).toFixed(2)}
-                          </p>
-                          <span className={`inline-block px-3 py-1 rounded text-xs font-bold uppercase ${order.status === 'Delivered' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>{order.status}</span>
+                  {recentOrders.map((order) => {
+                    const normalizedStatus = normalizeStatus(order.status);
+                    const statusMeta = normalizedStatus ? getStatusMeta(normalizedStatus) : null;
+
+                    return (
+                      <div key={order.orderId} className="bg-black/20 p-6 rounded border border-white/5">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h5 className="font-bold text-sm uppercase tracking-wide mb-1">{t('recentOrders.orderNumber', { orderNumber: order.orderNumber })}</h5>
+                            <p className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-lg">
+                              {formatCurrencyVND(Number(order.totalAmount ?? 0))}
+                            </p>
+                            <span
+                              className={`inline-block px-3 py-1 rounded text-xs font-bold uppercase ${
+                                statusMeta
+                                  ? `${statusMeta.badgeClass} ${statusMeta.textClass}`
+                                  : 'bg-white/10 text-white/70'
+                              }`}
+                            >
+                              {statusMeta?.label || order.status || t('states.unknown')}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   <button onClick={() => navigate('/my-orders')} className="w-full px-6 py-3 border border-white/20 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors">{t('recentOrders.actions.viewAll')}</button>
                 </div>
               )}

@@ -5,7 +5,7 @@ const STATUS_CONFIG: Record<
   { label: string; bg: string; text: string; ring: string; dot: string }
 > = {
   REQUESTED: {
-    label: 'Đang chờ',
+    label: 'Chờ duyệt',
     bg: 'bg-amber-50',
     text: 'text-amber-700',
     ring: 'ring-amber-600/20',
@@ -19,7 +19,7 @@ const STATUS_CONFIG: Record<
     dot: 'bg-blue-500',
   },
   REJECTED: {
-    label: 'Từ chối',
+    label: 'Đã từ chối',
     bg: 'bg-red-50',
     text: 'text-red-700',
     ring: 'ring-red-600/20',
