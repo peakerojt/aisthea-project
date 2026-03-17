@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { MoreHorizontal, ShieldCheck, Lock, Unlock, ClipboardList } from 'lucide-react';
+import { AdminIconButton } from '@/admin/components/AdminUI';
 import { AdminUser } from '@/common/services/user-admin.service';
 
 interface UserActionMenuProps {
@@ -112,14 +113,14 @@ export const UserActionMenu: React.FC<UserActionMenuProps> = ({
 
     return (
         <div className="inline-block" onClick={(e) => e.stopPropagation()}>
-            <button
+            <AdminIconButton
                 ref={triggerRef}
                 onClick={handleToggle}
-                className="p-2 rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-all duration-150 cursor-pointer"
+                className="h-9 w-9 border-transparent bg-transparent text-white/30 hover:border-white/10 hover:bg-white/10 hover:text-white"
                 title="Thao tác"
             >
                 <MoreHorizontal size={18} />
-            </button>
+            </AdminIconButton>
 
             {dropdown}
         </div>

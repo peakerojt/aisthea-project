@@ -9,72 +9,81 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { TrackingData } from '@/types/tracking';
+import { ORDER_STATUS } from '@/config/orderStatus.config';
 
 // ─── Status configuration ─────────────────────────────────────────────────────────
-type StepId = 'PENDING' | 'PACKING' | 'SHIPPING' | 'DELIVERED';
+type StepId = typeof ORDER_STATUS.PENDING | typeof ORDER_STATUS.PROCESSING | typeof ORDER_STATUS.SHIPPING | typeof ORDER_STATUS.DELIVERED;
+
+const toStatusKey = (status: string | null | undefined) =>
+  (status ?? '').trim().replace(/[\s-]+/g, '_').toUpperCase();
+
+const getCanonicalTrackingStatus = (status: string | null | undefined) => {
+  switch (toStatusKey(status)) {
+    case 'PENDING':
+      return ORDER_STATUS.PENDING;
+    case 'CONFIRMED':
+    case 'PACKING':
+    case 'PROCESSING':
+    case 'PAID':
+      return ORDER_STATUS.PROCESSING;
+    case 'SHIPPING':
+    case 'SHIPPED':
+    case 'OUT_FOR_DELIVERY':
+    case 'FAILED_DELIVERY':
+      return ORDER_STATUS.SHIPPING;
+    case 'DELIVERED':
+      return ORDER_STATUS.DELIVERED;
+    case 'CANCELLED':
+    case 'CANCELED':
+      return ORDER_STATUS.CANCELLED;
+    case 'RETURN_REQUESTED':
+      return 'Return_Requested';
+    case 'RETURNED':
+      return ORDER_STATUS.RETURNED;
+    default:
+      return status || ORDER_STATUS.PENDING;
+  }
+};
+
+const getTrackingStatusKey = (status: string | null | undefined) => toStatusKey(getCanonicalTrackingStatus(status));
 
 const MAIN_STEPS: Array<{ id: StepId; label: string; icon: typeof Clock }> = [
-  { id: 'PENDING', label: 'Chờ xác nhận', icon: Clock },
-  { id: 'PACKING', label: 'Đang đóng gói', icon: Box },
-  { id: 'SHIPPING', label: 'Đang giao hàng', icon: Truck },
-  { id: 'DELIVERED', label: 'Đã giao hàng', icon: CheckCircle2 },
+  { id: ORDER_STATUS.PENDING, label: 'Chờ xác nhận', icon: Clock },
+  { id: ORDER_STATUS.PROCESSING, label: 'Đang xử lý', icon: Box },
+  { id: ORDER_STATUS.SHIPPING, label: 'Đang giao hàng', icon: Truck },
+  { id: ORDER_STATUS.DELIVERED, label: 'Đã giao hàng', icon: CheckCircle2 },
 ];
 
 const STATUS_TO_STEP: Record<string, number> = {
-  // UPPERCASE (from tracking module)
-  PENDING: 0,
-  CONFIRMED: 0,
-  PACKING: 1,
-  PROCESSING: 1,
-  SHIPPING: 2,
-  SHIPPED: 2,
-  OUT_FOR_DELIVERY: 2,
-  DELIVERED: 3,
-  FAILED_DELIVERY: 2,
-  CANCELLED: -1,
-  RETURN_REQUESTED: -1,
-  RETURNED: -1,
-  // PascalCase (direct from DB / order.controller.ts)
-  Pending: 0,
-  Processing: 1,
-  Shipping: 2,
-  Delivered: 3,
-  Cancelled: -1,
-  Returned: -1,
+  [ORDER_STATUS.PENDING]: 0,
+  [ORDER_STATUS.PROCESSING]: 1,
+  [ORDER_STATUS.SHIPPING]: 2,
+  [ORDER_STATUS.DELIVERED]: 3,
+  [ORDER_STATUS.CANCELLED]: -1,
   Return_Requested: -1,
+  [ORDER_STATUS.RETURNED]: -1,
 };
 
 const STATUS_ICON: Record<string, typeof Clock> = {
-  PENDING: Clock,
-  CONFIRMED: CheckCircle2,
-  PACKING: Box,
-  PROCESSING: Box,
-  SHIPPING: Truck,
-  SHIPPED: Truck,
-  OUT_FOR_DELIVERY: Truck,
-  DELIVERED: CheckCircle2,
-  FAILED_DELIVERY: AlertTriangle,
-  CANCELLED: AlertTriangle,
-  RETURN_REQUESTED: RefreshCw,
-  RETURNED: RefreshCw,
+  [ORDER_STATUS.PENDING]: Clock,
+  [ORDER_STATUS.PROCESSING]: Box,
+  [ORDER_STATUS.SHIPPING]: Truck,
+  [ORDER_STATUS.DELIVERED]: CheckCircle2,
+  [ORDER_STATUS.CANCELLED]: AlertTriangle,
+  Return_Requested: RefreshCw,
+  [ORDER_STATUS.RETURNED]: RefreshCw,
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  PENDING: 'text-amber-400  bg-amber-400/10  border-amber-400/30',
-  CONFIRMED: 'text-blue-400   bg-blue-400/10   border-blue-400/30',
-  PACKING: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30',
-  PROCESSING: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30',
-  SHIPPING: 'text-sky-400    bg-sky-400/10    border-sky-400/30',
-  SHIPPED: 'text-sky-400    bg-sky-400/10    border-sky-400/30',
-  OUT_FOR_DELIVERY: 'text-sky-400    bg-sky-400/10    border-sky-400/30',
-  DELIVERED: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
-  FAILED_DELIVERY: 'text-red-400    bg-red-400/10    border-red-400/30',
-  CANCELLED: 'text-red-400    bg-red-400/10    border-red-400/30',
-  RETURN_REQUESTED: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
-  RETURNED: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
+  [ORDER_STATUS.PENDING]: 'text-amber-400 bg-amber-400/10 border-amber-400/30',
+  [ORDER_STATUS.PROCESSING]: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30',
+  [ORDER_STATUS.SHIPPING]: 'text-sky-400 bg-sky-400/10 border-sky-400/30',
+  [ORDER_STATUS.DELIVERED]: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
+  [ORDER_STATUS.CANCELLED]: 'text-red-400 bg-red-400/10 border-red-400/30',
+  Return_Requested: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
+  [ORDER_STATUS.RETURNED]: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
 };
 
-// Removed STATUS_LABEL constant
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getPublicLookupFromStorage() {
   const raw = window.sessionStorage.getItem('publicTrackingLookup');
@@ -102,7 +111,8 @@ function formatDateShort(ts?: string | Date | null) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function HorizontalStepper({ status, t }: { status: string; t: (k: string, opts?: { defaultValue?: string }) => string }) {
-  const currentStep = STATUS_TO_STEP[status] ?? 0;
+  const canonicalStatus = getCanonicalTrackingStatus(status);
+  const currentStep = STATUS_TO_STEP[canonicalStatus] ?? 0;
   const isCancelled = currentStep === -1;
 
   return (
@@ -128,7 +138,7 @@ function HorizontalStepper({ status, t }: { status: string; t: (k: string, opts?
               <span className={`text-xs font-medium text-center leading-tight max-w-[64px]
                 ${completed ? 'text-emerald-400' : active ? 'text-blue-400' : 'text-slate-500'}
               `}>
-                {t(`status.${step.id}`, { defaultValue: step.label })}
+                {t(`status.${getTrackingStatusKey(step.id)}`, { defaultValue: step.label })}
               </span>
             </div>
 
@@ -150,8 +160,10 @@ function HorizontalStepper({ status, t }: { status: string; t: (k: string, opts?
 }
 
 function TimelineItem({ item, isFirst, t }: { item: { status: string; timestamp: string; location?: string; note?: string }; isFirst: boolean; t: (k: string, opts?: { defaultValue?: string }) => string }) {
-  const Icon = STATUS_ICON[item.status.toUpperCase()] ?? STATUS_ICON[item.status] ?? Package;
-  const color = STATUS_COLOR[item.status.toUpperCase()] ?? STATUS_COLOR[item.status] ?? 'text-slate-400 bg-slate-400/10 border-slate-400/30';
+  const canonicalStatus = getCanonicalTrackingStatus(item.status);
+  const Icon = STATUS_ICON[canonicalStatus] ?? Package;
+  const color = STATUS_COLOR[canonicalStatus] ?? 'text-slate-400 bg-slate-400/10 border-slate-400/30';
+  const statusKey = getTrackingStatusKey(item.status);
 
   return (
     <div className="relative flex gap-4">
@@ -167,7 +179,7 @@ function TimelineItem({ item, isFirst, t }: { item: { status: string; timestamp:
       <div className="flex-1 pb-6">
         <div className="flex items-start justify-between gap-2 flex-wrap">
           <span className={`text-sm font-semibold ${color.split(' ')[0]}`}>
-            {item.status ? t(`status.${item.status.toUpperCase()}`, { defaultValue: item.status }) : item.status}
+            {item.status ? t(`status.${statusKey}`, { defaultValue: canonicalStatus }) : item.status}
           </span>
           <time className="text-xs text-slate-400 flex-shrink-0" dateTime={item.timestamp}>
             {formatDate(item.timestamp, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
@@ -293,12 +305,16 @@ export function TrackingDetailPage() {
 
   if (!tracking) return null;
 
-  const carrier = tracking.carrier ?? tracking.shipment?.carrier ?? null;
-  const trackingNum = tracking.trackingNumber ?? tracking.shipment?.trackingNumber ?? null;
+  const trackingCode = tracking.trackingCode ?? tracking.orderCode;
+  const provider = tracking.provider ?? tracking.shipment?.provider ?? null;
+  const providerOrderCode = tracking.providerOrderCode ?? tracking.shipment?.providerOrderCode ?? null;
+  const shippingMode = tracking.shippingMode ?? tracking.shipment?.shippingMode ?? 'manual';
   const eta = tracking.estimatedDeliveryDate ?? tracking.shipment?.eta ?? tracking.eta ?? null;
   const location = tracking.shipment?.lastKnownLocation ?? null;
   const timeline = [...(tracking.timeline ?? [])].reverse(); // newest first
-  const statusColor = STATUS_COLOR[tracking.currentStatus] ?? 'text-slate-400 bg-slate-400/10 border-slate-400/30';
+  const canonicalStatus = getCanonicalTrackingStatus(tracking.currentStatus);
+  const statusKey = getTrackingStatusKey(tracking.currentStatus);
+  const statusColor = STATUS_COLOR[canonicalStatus] ?? 'text-slate-400 bg-slate-400/10 border-slate-400/30';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
@@ -351,28 +367,35 @@ export function TrackingDetailPage() {
             </div>
             {/* Status badge */}
             <span className={`flex-shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full border ${statusColor}`}>
-              {tracking.currentStatus ? t(`status.${tracking.currentStatus.toUpperCase()}`, { defaultValue: tracking.currentStatus }) : tracking.currentStatus}
+              {tracking.currentStatus ? t(`status.${statusKey}`, { defaultValue: canonicalStatus }) : tracking.currentStatus}
             </span>
           </div>
 
-          {/* Carrier + Tracking number + ETA row */}
+          {/* Order-first info row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
             <InfoChip
-              label={t('page.carrier')}
-              value={carrier ?? '—'}
-              icon={<Truck className="size-3.5 text-blue-400" />}
-            />
-            <InfoChip
-              label={t('page.trackingNumber')}
-              value={trackingNum ?? '—'}
+              label={t('page.orderCode')}
+              value={trackingCode}
               icon={<Package className="size-3.5 text-cyan-400" />}
             />
             <InfoChip
-              label={t('page.estimatedDelivery')}
-              value={eta ? formatDateShort(eta) ?? '—' : '—'}
-              icon={<Clock className="size-3.5 text-amber-400" />}
+              label={t('page.shippingMode')}
+              value={shippingMode === 'provider' ? t('page.shippingModeProvider') : t('page.shippingModeManual')}
+              icon={<Truck className="size-3.5 text-blue-400" />}
+            />
+            <InfoChip
+              label={provider ? t('page.providerOrderCode') : t('page.estimatedDelivery')}
+              value={provider ? (providerOrderCode ?? '—') : (eta ? formatDateShort(eta) ?? '—' : '—')}
+              icon={provider ? <Truck className="size-3.5 text-sky-400" /> : <Clock className="size-3.5 text-amber-400" />}
             />
           </div>
+
+          {provider && (
+            <div className="flex items-center gap-2 text-xs text-slate-400 bg-white/3 rounded-lg px-3 py-2 mb-4">
+              <Truck className="size-3.5 text-sky-400 flex-shrink-0" />
+              <span>{t('page.provider')}: <span className="text-slate-200 uppercase">{provider}</span></span>
+            </div>
+          )}
 
           {/* Last known location */}
           {location && (
@@ -383,7 +406,7 @@ export function TrackingDetailPage() {
           )}
 
           {/* ── Horizontal stepper ──────────────────────────────────────── */}
-          <HorizontalStepper status={tracking.currentStatus} t={t} />
+          <HorizontalStepper status={canonicalStatus} t={t} />
         </div>
 
         {/* ── Product items ────────────────────────────────────────────── */}

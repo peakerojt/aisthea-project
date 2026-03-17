@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bell, Package, AlertTriangle, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useInventoryAlerts } from '@/common/hooks/useInventoryAlerts';
+import { AdminBadge, AdminIconButton, AdminSectionCard } from '@/admin/components/AdminUI';
 
 export const NotificationBell: React.FC = () => {
     const [open, setOpen] = useState(false);
@@ -25,37 +26,32 @@ export const NotificationBell: React.FC = () => {
 
     return (
         <div ref={wrapperRef} className="relative" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-            <style>{`@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');`}</style>
-
             {/* Bell Button */}
-            <button
+            <AdminIconButton
                 onClick={() => setOpen((p) => !p)}
-                className="relative w-10 h-10 rounded-full bg-surface-dark flex items-center justify-center hover:bg-white/10 transition-colors"
+                className="relative rounded-full bg-[#111318] hover:bg-white/[0.08]"
                 aria-label="Thông báo tồn kho"
             >
                 <Bell size={18} className="text-white/70" />
                 {!isLoading && totalLowStock > 0 && (
                     <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-bg-dark animate-pulse" />
                 )}
-            </button>
+            </AdminIconButton>
 
             {/* Dropdown */}
             {open && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-[#131313] border border-white/10 rounded-xl shadow-2xl shadow-black/60 z-50 overflow-hidden animate-fade-in">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+                <AdminSectionCard
+                    className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl animate-fade-in"
+                    bodyClassName="p-0"
+                    title={(
                         <div className="flex items-center gap-2">
                             <AlertTriangle size={14} className="text-amber-400" />
-                            <span className="text-xs font-bold uppercase tracking-widest text-white/80">
-                                Cảnh báo tồn kho
-                            </span>
+                            <span>Cảnh báo tồn kho</span>
                         </div>
-                        {totalLowStock > 0 && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20">
-                                {totalLowStock} sản phẩm
-                            </span>
-                        )}
-                    </div>
+                    )}
+                    actions={totalLowStock > 0 ? <AdminBadge tone="danger">{totalLowStock} sản phẩm</AdminBadge> : undefined}
+                    headerClassName="bg-white/[0.02]"
+                >
 
                     {/* Items */}
                     {isLoading ? (
@@ -129,7 +125,7 @@ export const NotificationBell: React.FC = () => {
                             </button>
                         </div>
                     )}
-                </div>
+                </AdminSectionCard>
             )}
         </div>
     );

@@ -74,25 +74,6 @@ export const trackingController = {
     }
   },
 
-  async getMyOrders(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const locale = resolveRequestLocale(req);
-      if (!req.user?.userId) {
-        throw new AppError(401, 'UNAUTHORIZED', 'common:errors.unauthorized');
-      }
-
-      const orders = await trackingService.getMyOrders(req.user.userId);
-      return res.json({
-        success: true,
-        messageKey: 'tracking:success.getMyOrders',
-        message: t(locale, 'tracking:success.getMyOrders'),
-        data: orders,
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-
   async getOrderTracking(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const locale = resolveRequestLocale(req);
@@ -124,8 +105,8 @@ export const trackingController = {
 
   /**
    * PATCH /api/admin/orders/:id/status
-   * Admin: update order status with optional logistics fields (carrier, trackingNumber, eta/location).
-   * When setting status to Shipping, carrier + trackingNumber should be provided.
+   * Admin alias for order fulfillment updates.
+   * Core flow is order-first: Shipping does not require carrier/tracking metadata.
    */
   async adminUpdateOrderStatus(req: AuthRequest, res: Response, next: NextFunction) {
     try {

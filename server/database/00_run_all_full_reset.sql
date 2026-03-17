@@ -32,22 +32,32 @@ PRINT '  AISTHEA DATABASE FULL RESET STARTING...';
 PRINT '==============================================';
 GO
 
-PRINT '> STEP 1/4 - Schema (Tables, Indexes, Functions)';
+PRINT '> STEP 1/5 - Schema (Tables, Indexes, Functions)';
 GO
 :r $(BasePath)\01_schema_all.sql
 GO
 
-PRINT '> STEP 2/4 - Schema Patch (PurchaseOrder extended fields)';
+PRINT '> STEP 2/5 - Schema Patch (PurchaseOrder extended fields)';
 GO
 :r $(BasePath)\04_purchase_order_fields.sql
 GO
 
-PRINT '> STEP 3/4 - Schema Patch (Order pricing fields)';
+PRINT '> STEP 3/5 - Schema Patch (Order pricing fields)';
 GO
 :r $(BasePath)\05_order_pricing_fields.sql
 GO
 
-PRINT '> STEP 4/4 - Seed Data (DESTRUCTIVE RESET)';
+PRINT '> STEP 4/6 - Schema Patch (Shipping provider metadata)';
+GO
+:r $(BasePath)\06_shipping_provider_metadata.sql
+GO
+
+PRINT '> STEP 5/6 - Schema Patch (Delivery proof metadata)';
+GO
+:r $(BasePath)\07_delivery_proof_metadata.sql
+GO
+
+PRINT '> STEP 6/6 - Seed Data (DESTRUCTIVE RESET)';
 GO
 :r $(BasePath)\03_seed_data_standard_fixed.sql
 GO

@@ -42,16 +42,16 @@ export const Sidebar: React.FC = () => {
   }, []);
 
   return (
-    <aside className="w-64 bg-black border-r border-white/10 flex flex-col h-screen sticky top-0">
+    <aside className="sticky top-0 flex h-screen w-[236px] flex-col border-r border-white/10 bg-black">
       <div
-        className="h-24 flex items-center px-6 border-b border-white/15 cursor-pointer"
+        className="flex h-24 cursor-pointer items-center border-b border-white/15 px-5"
         onClick={() => navigate('/')}
       >
         <Logo className="text-xl" />
       </div>
 
-      <nav className="flex-1 py-8 px-0 space-y-2">
-        <div className="px-6 mb-4">
+      <nav className="flex-1 space-y-2 px-0 py-7">
+        <div className="mb-4 px-5">
           <p className="text-[10px] uppercase tracking-[0.2em] text-white/40 font-bold">
             {t('sidebar:sections.mainMenu')}
           </p>
@@ -69,7 +69,7 @@ export const Sidebar: React.FC = () => {
               onMouseEnter={() => handlePreload(item.path)}
               onFocus={() => handlePreload(item.path)}
               className={({ isActive }) =>
-                `w-full flex items-center gap-4 px-6 py-3 transition-all group relative ${
+                `group relative flex w-full items-center gap-3.5 px-5 py-3 transition-colors duration-150 ${
                   isActive
                     ? 'bg-white/5 text-primary border-l-2 border-primary'
                     : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-2 border-transparent'
@@ -82,7 +82,7 @@ export const Sidebar: React.FC = () => {
                     size={20}
                     className={`transition-colors ${isActive ? 'text-primary' : 'text-gray-500 group-hover:text-white'}`}
                   />
-                  <span className={`text-sm font-medium tracking-wide ${isActive ? 'font-bold' : ''}`}>
+                  <span className={`text-sm font-medium tracking-wide truncate ${isActive ? 'font-bold' : ''}`}>
                     {label}
                   </span>
                 </>
@@ -92,7 +92,7 @@ export const Sidebar: React.FC = () => {
         })}
       </nav>
 
-      <div className="p-6 border-t border-white/15 bg-surface-dark/50">
+      <div className="border-t border-white/15 bg-surface-dark/50 p-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-primary font-bold border border-white/10">
             {user?.name?.charAt(0) || 'A'}

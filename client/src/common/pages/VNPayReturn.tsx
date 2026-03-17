@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '@/common/utils/api';
 import { useTranslation } from 'react-i18next';
@@ -9,11 +9,22 @@ import { PaymentMethodLabel, PaymentStatusBadge } from '@/common/components/Paym
 import { formatCurrencyVND } from '@/common/utils/currency';
 import { getLatestOrderData } from '@/common/utils/orderSnapshot';
 
+const VNPAY_RETURN_CACHE_KEY = 'aisthea:vnpay-return-status';
+
+type VNPayReturnCache = {
+  status: 'loading' | 'success' | 'failed';
+  message: string;
+  paymentStatusCode: string;
+  cachedAt: number;
+};
+
 export const VNPayReturn: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'vnpayReturn' });
   const { t: pagesT } = useTranslation('pages');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const initialQueryRef = useRef(searchParams.toString());
+  const hasVerifiedRef = useRef(false);
   const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
   const [message, setMessage] = useState(t('states.loadingMessage'));
   const [paymentStatusCode, setPaymentStatusCode] = useState<string>('VERIFYING');
@@ -39,32 +50,86 @@ export const VNPayReturn: React.FC = () => {
 
   useEffect(() => {
     const verifyPayment = async () => {
+      if (hasVerifiedRef.current) return;
+      hasVerifiedRef.current = true;
+
+      const queryString = initialQueryRef.current;
+      if (!queryString) {
+        try {
+          const cachedRaw = sessionStorage.getItem(VNPAY_RETURN_CACHE_KEY);
+          if (!cachedRaw) {
+            setStatus('failed');
+            setMessage(t('states.errorMessage'));
+            setPaymentStatusCode('FAILED');
+            return;
+          }
+
+          const cached = JSON.parse(cachedRaw) as VNPayReturnCache;
+          const isExpired = !cached.cachedAt || Date.now() - cached.cachedAt > 10 * 60 * 1000;
+
+          if (isExpired) {
+            sessionStorage.removeItem(VNPAY_RETURN_CACHE_KEY);
+            setStatus('failed');
+            setMessage(t('states.errorMessage'));
+            setPaymentStatusCode('FAILED');
+            return;
+          }
+
+          setStatus(cached.status);
+          setMessage(cached.message);
+          setPaymentStatusCode(cached.paymentStatusCode);
+        } catch {
+          setStatus('failed');
+          setMessage(t('states.errorMessage'));
+          setPaymentStatusCode('FAILED');
+        }
+        return;
+      }
+
       try {
-        const data = await api.get<any>(`/api/vnpay/vnpay_return?${searchParams.toString()}`);
+        const data = await api.get<any>(`/api/vnpay/vnpay_return?${queryString}`);
+        let nextStatus: 'loading' | 'success' | 'failed' = 'failed';
+        let nextMessage = t('states.failedMessage');
+        let nextPaymentStatus = data.paymentStatus || 'FAILED';
 
         if (data.paymentStatus === 'COMPLETED' && data.code === '00') {
-          setStatus('success');
-          setMessage(t('states.successMessage'));
-          setPaymentStatusCode('COMPLETED');
+          nextStatus = 'success';
+          nextMessage = t('states.successMessage');
+          nextPaymentStatus = 'COMPLETED';
         } else if (data.paymentStatus === 'PENDING' || data.code === 'PENDING') {
-          setStatus('loading');
-          setMessage(t('states.loadingMessage'));
-          setPaymentStatusCode(data.paymentStatus || 'PENDING');
-        } else {
-          setStatus('failed');
-          setMessage(t('states.failedMessage'));
-          setPaymentStatusCode(data.paymentStatus || 'FAILED');
+          nextStatus = 'loading';
+          nextMessage = t('states.loadingMessage');
+          nextPaymentStatus = data.paymentStatus || 'PENDING';
         }
+
+        setStatus(nextStatus);
+        setMessage(nextMessage);
+        setPaymentStatusCode(nextPaymentStatus);
+        sessionStorage.setItem(VNPAY_RETURN_CACHE_KEY, JSON.stringify({
+          status: nextStatus,
+          message: nextMessage,
+          paymentStatusCode: nextPaymentStatus,
+          cachedAt: Date.now(),
+        } satisfies VNPayReturnCache));
+
+        window.history.replaceState(window.history.state, '', window.location.pathname);
       } catch (error) {
         console.error('Verification error:', error);
         setStatus('failed');
         setMessage(t('states.errorMessage'));
         setPaymentStatusCode('FAILED');
+        sessionStorage.setItem(VNPAY_RETURN_CACHE_KEY, JSON.stringify({
+          status: 'failed',
+          message: t('states.errorMessage'),
+          paymentStatusCode: 'FAILED',
+          cachedAt: Date.now(),
+        } satisfies VNPayReturnCache));
+        window.history.replaceState(window.history.state, '', window.location.pathname);
       }
     };
 
     verifyPayment();
-  }, [searchParams, t]);
+  }, [t]);
 
   return (
     <div className="min-h-screen bg-bg-dark text-white overflow-hidden">

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticateToken, checkRole } from '../middlewares/auth.middleware';
+import { upload } from '../middlewares/upload.middleware';
 import {
     getMyOrders,
     getMyOrderDetail,
@@ -9,6 +10,7 @@ import {
     getAdminOrderDetail,
     updateOrderStatus,
     confirmReceipt,
+    uploadDeliveryProofImages,
 } from '../controllers/order.controller';
 
 const router = Router();
@@ -27,6 +29,7 @@ const adminGuard = [authenticateToken, checkRole(['Admin', 'Super Admin'])];
 // NOTE: /admin must come BEFORE /:id to avoid route collisions
 router.get('/admin', ...adminGuard, getAllOrders);
 router.get('/admin/:id', ...adminGuard, getAdminOrderDetail);
+router.post('/:id/delivery-proof-images', ...adminGuard, upload.array('files', 5), uploadDeliveryProofImages);
 router.patch('/:id/status', ...adminGuard, updateOrderStatus);
 
 export default router;

@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Upload, ImageIcon, Loader2, ChevronDown } from 'lucide-react';
+import { X, Upload, Loader2, ChevronDown } from 'lucide-react';
+import {
+    AdminModalShell,
+    AdminPrimaryButton,
+    AdminSecondaryButton,
+    adminUiTokens,
+} from '@/admin/components/AdminUI';
 import {
     CategoryFlat,
     CategoryNode,
@@ -144,45 +150,25 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
         ? 'Không có — Là danh mục gốc'
         : flatList.find(c => c.categoryId === parentId)?.name ?? 'Không có — Là danh mục gốc';
 
+    const fieldLabelClass = adminUiTokens.fieldLabel;
+    const inputClass = `${adminUiTokens.fieldControl} rounded-lg bg-white/5 placeholder:text-white/20`;
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-                onClick={onClose}
-            />
-
-            {/* Dialog */}
-            <div
-                className="relative bg-[#111113] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden"
-                style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}
-            >
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
-                    <div>
-                        <h2 className="text-base font-bold text-white">
-                            {mode === 'create' ? 'Thêm danh mục mới' : 'Chỉnh sửa danh mục'}
-                        </h2>
-                        <p className="text-[11px] text-white/40 mt-0.5">
-                            {mode === 'create'
-                                ? 'Tạo danh mục sản phẩm mới trong hệ thống'
-                                : `Đang chỉnh sửa: ${editingCategory?.name}`}
-                        </p>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-colors"
-                    >
-                        <X size={16} />
-                    </button>
-                </div>
-
-                {/* Form */}
-                <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-6 overflow-y-auto max-h-[75vh]">
+        <AdminModalShell
+            title={mode === 'create' ? 'Thêm danh mục mới' : 'Chỉnh sửa danh mục'}
+            subtitle={mode === 'create'
+                ? 'Tạo danh mục sản phẩm mới trong hệ thống'
+                : `Đang chỉnh sửa: ${editingCategory?.name}`}
+            onClose={onClose}
+            maxWidthClassName="max-w-lg"
+            panelClassName="overflow-hidden"
+            bodyClassName="max-h-[75vh] overflow-y-auto"
+        >
+                <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-6">
 
                     {/* Tên danh mục */}
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] uppercase tracking-widest text-white/50 font-bold">
+                        <label className={fieldLabelClass}>
                             Tên danh mục <span className="text-red-400">*</span>
                         </label>
                         <input
@@ -190,7 +176,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                             value={name}
                             onChange={e => setName(e.target.value)}
                             placeholder="VD: Áo Thun, Quần Jeans..."
-                            className={`w-full bg-white/5 border rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-1 transition-colors ${errors.name
+                            className={`${inputClass} ${errors.name
                                 ? 'border-red-500/60 focus:ring-red-500/40'
                                 : 'border-white/10 focus:ring-primary/50 focus:border-primary/50'
                                 }`}
@@ -208,13 +194,13 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
 
                     {/* Danh mục cha — Custom Combobox */}
                     <div className="flex flex-col gap-1.5" ref={parentRef}>
-                        <label className="text-[11px] uppercase tracking-widest text-white/50 font-bold">
+                        <label className={fieldLabelClass}>
                             Danh mục cha
                         </label>
                         <button
                             type="button"
                             onClick={() => setParentOpen(o => !o)}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white flex items-center justify-between hover:border-white/20 transition-colors focus:outline-none focus:ring-1 focus:ring-primary/50"
+                            className={`${inputClass} flex items-center justify-between text-left hover:border-white/20 focus:ring-1 focus:ring-primary/50`}
                         >
                             <span className={parentId === null ? 'text-white/40' : 'text-white'}>
                                 {selectedParentLabel}
@@ -269,7 +255,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
 
                     {/* Hình ảnh — Drag & Drop */}
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] uppercase tracking-widest text-white/50 font-bold">
+                        <label className={fieldLabelClass}>
                             Hình ảnh
                         </label>
 
@@ -279,7 +265,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                             onDragLeave={() => setIsDragOver(false)}
                             onDrop={handleDrop}
                             onClick={() => !imageUrl && fileRef.current?.click()}
-                            className={`relative border-2 border-dashed rounded-xl transition-all flex items-center justify-center overflow-hidden h-40 ${imageUrl
+                            className={`relative border-2 border-dashed rounded-xl transition-colors flex items-center justify-center overflow-hidden h-40 ${imageUrl
                                 ? 'border-white/10 cursor-default'
                                 : isDragOver
                                     ? 'border-primary/60 bg-primary/5 cursor-pointer'
@@ -342,7 +328,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
 
                     {/* Mô tả */}
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] uppercase tracking-widest text-white/50 font-bold">
+                        <label className={fieldLabelClass}>
                             Mô tả
                         </label>
                         <textarea
@@ -350,24 +336,24 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                             onChange={e => setDescription(e.target.value)}
                             placeholder="Mô tả ngắn về danh mục..."
                             rows={3}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-colors resize-none"
+                            className={`${inputClass} resize-none`}
                         />
                     </div>
 
                     {/* Action Buttons */}
                     <div className="flex gap-3 justify-end pt-2 border-t border-white/5">
-                        <button
+                        <AdminSecondaryButton
                             type="button"
                             onClick={onClose}
                             disabled={submitting}
-                            className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white/60 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-50"
+                            className="px-5 py-2.5"
                         >
                             Hủy
-                        </button>
-                        <button
+                        </AdminSecondaryButton>
+                        <AdminPrimaryButton
                             type="submit"
                             disabled={submitting || uploading}
-                            className="px-6 py-2.5 rounded-lg text-sm font-bold text-white bg-primary hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center gap-2 shadow-lg shadow-primary/20"
+                            className="px-6 py-2.5"
                         >
                             {submitting ? (
                                 <>
@@ -379,10 +365,9 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                             ) : (
                                 'Lưu thay đổi'
                             )}
-                        </button>
+                        </AdminPrimaryButton>
                     </div>
                 </form>
-            </div>
-        </div>
+        </AdminModalShell>
     );
 };

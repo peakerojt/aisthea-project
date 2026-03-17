@@ -338,15 +338,22 @@ model OrderStatusHistory {
 model Shipment {
   shipmentId          Int       @id @default(autoincrement()) @map("ShipmentId")
   orderId             Int       @unique @map("OrderId")
+  shippingMode        String    @default("manual") @map("ShippingMode") @db.NVarChar(20)
+  provider            String?   @map("Provider") @db.NVarChar(50)
+  providerOrderCode   String?   @map("ProviderOrderCode") @db.NVarChar(100)
+  providerStatus      String?   @map("ProviderStatus") @db.NVarChar(50)
   carrier             String?   @map("Carrier") @db.NVarChar(100)
   trackingNumber      String?   @map("TrackingNumber") @db.NVarChar(100)
   eta                 DateTime? @map("Eta")
   lastKnownLocation   String?   @map("LastKnownLocation") @db.NVarChar(255)
+  deliveryProofImages String    @default("[]") @map("DeliveryProofImages") @db.NVarChar(Max)
+  deliveryProofReviewed Boolean @default(false) @map("DeliveryProofReviewed")
   createdAt           DateTime  @default(now()) @map("CreatedAt")
   updatedAt           DateTime  @default(now()) @updatedAt @map("UpdatedAt")
   order               Order     @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
 
   @@index([trackingNumber], map: "IX_Shipments_TrackingNumber")
+  @@index([providerOrderCode], map: "IX_Shipments_ProviderOrderCode")
   @@map("Shipments")
 }
 

@@ -1,10 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { startTransition, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
     Loader2, ShoppingBag, Package, Truck, CheckCircle2,
-    XCircle, RotateCcw, AlertTriangle, MapPin,
+    XCircle, RotateCcw, AlertTriangle, ImagePlus, CheckSquare, Square,
 } from 'lucide-react';
+import {
+    AdminActionButton,
+    AdminModalShell,
+    AdminPrimaryButton,
+    AdminSecondaryButton,
+} from '@/admin/components/AdminUI';
 import {
     ORDER_STATUS,
     ORDER_STATUS_META,
@@ -12,7 +18,11 @@ import {
     getValidNextStatuses,
     type OrderStatusValue,
 } from '@/config/orderStatus.config';
-import { adminOrderService } from '@/common/services/order.service';
+import {
+    adminOrderService,
+    createDeliveryProofFileKey,
+    type DeliveryProofUploadProgress,
+} from '@/common/services/order.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Icon resolver — maps icon name string from config to Lucide component
@@ -26,6 +36,15 @@ const StatusIcon: React.FC<{ name: string; size?: number; className?: string }> 
 }) => {
     const Icon = ICON_MAP[name] ?? Package;
     return <Icon size={size} className={className} />;
+};
+
+const getActionTone = (targetStatus: OrderStatusValue) => {
+    if (targetStatus === ORDER_STATUS.PENDING) return 'warning' as const;
+    if (targetStatus === ORDER_STATUS.PROCESSING) return 'info' as const;
+    if (targetStatus === ORDER_STATUS.SHIPPING) return 'cyan' as const;
+    if (targetStatus === ORDER_STATUS.DELIVERED) return 'success' as const;
+    if (targetStatus === ORDER_STATUS.CANCELLED) return 'danger' as const;
+    return 'orange' as const;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -69,26 +88,41 @@ const NoteDialog: React.FC<NoteDialogProps> = ({ targetStatus, loading, onClose,
     useEffect(() => { setNote(''); }, [targetStatus]);
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4">
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-
-            {/* Sheet */}
-            <div className="relative w-full max-w-md bg-[#111114] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-                {/* Accent bar in status color */}
-                <div className={`h-0.5 w-full bg-gradient-to-r from-transparent via-current to-transparent ${meta.textClass}`} />
-
-                <div className="p-6 space-y-5">
-                    {/* Header */}
-                    <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${meta.badgeClass}`}>
-                            <AlertTriangle size={18} className={meta.textClass} />
-                        </div>
-                        <div>
-                            <h3 className="text-base font-bold text-white">{title}</h3>
-                            <p className="text-xs text-white/40 mt-0.5 leading-relaxed">{hint}</p>
-                        </div>
-                    </div>
+        <AdminModalShell
+            icon={AlertTriangle}
+            iconWrapperClassName={`${meta.badgeClass} rounded-xl`}
+            iconClassName={meta.textClass}
+            title={title}
+            subtitle={hint}
+            onClose={onClose}
+            align="center"
+            maxWidthClassName="max-w-md"
+            bodyClassName="space-y-5 p-6"
+            footer={(
+                <div className="flex gap-3 pt-1">
+                    <AdminSecondaryButton
+                        onClick={onClose}
+                        disabled={loading}
+                        className="flex-1 py-2.5"
+                    >
+                        Giữ lại
+                    </AdminSecondaryButton>
+                    <AdminActionButton
+                        onClick={() => onConfirm(note)}
+                        disabled={loading || !note.trim()}
+                        tone={getActionTone(targetStatus)}
+                        variant="solid"
+                        size="md"
+                        className="flex-1 py-2.5 text-sm font-bold shadow-lg"
+                    >
+                        {loading
+                            ? <Loader2 size={14} className="animate-spin" />
+                            : <StatusIcon name={meta.icon} size={14} />}
+                        {loading ? 'Đang xử lý...' : STATUS_ACTION_LABELS[targetStatus]}
+                    </AdminActionButton>
+                </div>
+            )}
+        >
 
                     {/* Reason textarea */}
                     <div>
@@ -100,7 +134,7 @@ const NoteDialog: React.FC<NoteDialogProps> = ({ targetStatus, loading, onClose,
                             value={note}
                             onChange={e => setNote(e.target.value)}
                             placeholder={placeholder}
-                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20 resize-none transition-all"
+                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20 resize-none transition-colors"
                         />
                     </div>
 
@@ -110,7 +144,7 @@ const NoteDialog: React.FC<NoteDialogProps> = ({ targetStatus, loading, onClose,
                             <button
                                 key={p}
                                 onClick={() => setNote(p)}
-                                className={`px-3 py-1.5 rounded-full text-[11px] font-medium border transition-all cursor-pointer ${note === p
+                                className={`px-3 py-1.5 rounded-full text-[11px] font-medium border transition-colors cursor-pointer ${note === p
                                     ? `${meta.badgeClass} ${meta.textClass}`
                                     : 'border-white/10 bg-white/[0.03] text-white/50 hover:text-white/80 hover:border-white/20'
                                     }`}
@@ -119,30 +153,7 @@ const NoteDialog: React.FC<NoteDialogProps> = ({ targetStatus, loading, onClose,
                             </button>
                         ))}
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-3 pt-1">
-                        <button
-                            onClick={onClose}
-                            disabled={loading}
-                            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white/60 bg-white/[0.04] border border-white/10 hover:bg-white/[0.07] transition-all cursor-pointer disabled:opacity-50"
-                        >
-                            Giữ lại
-                        </button>
-                        <button
-                            onClick={() => onConfirm(note)}
-                            disabled={loading || !note.trim()}
-                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg ${meta.actionClass}`}
-                        >
-                            {loading
-                                ? <Loader2 size={14} className="animate-spin" />
-                                : <StatusIcon name={meta.icon} size={14} />}
-                            {loading ? 'Đang xử lý...' : STATUS_ACTION_LABELS[targetStatus]}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div >,
+        </AdminModalShell>,
         document.body
     );
 };
@@ -161,42 +172,412 @@ interface ConfirmDialogProps {
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ targetStatus, loading, onClose, onConfirm }) => {
     const meta = ORDER_STATUS_META[targetStatus];
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-            <div className="relative w-full max-w-sm bg-[#111114] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-                <div className={`h-0.5 w-full bg-gradient-to-r from-transparent via-current to-transparent ${meta.textClass}`} />
-                <div className="p-6 space-y-5">
-                    <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${meta.badgeClass}`}>
-                            <StatusIcon name={meta.icon} size={18} className={meta.textClass} />
-                        </div>
-                        <div>
-                            <h3 className="text-base font-bold text-white">{STATUS_ACTION_LABELS[targetStatus]}</h3>
-                            <p className="text-xs text-white/40 mt-0.5">
-                                Xác nhận chuyển sang trạng thái <span className={`font-semibold ${meta.textClass}`}>{meta.label}</span>?
-                            </p>
-                        </div>
+        <AdminModalShell
+            icon={ICON_MAP[meta.icon] ?? Package}
+            iconWrapperClassName={`${meta.badgeClass} rounded-xl`}
+            iconClassName={meta.textClass}
+            title={STATUS_ACTION_LABELS[targetStatus]}
+            subtitle={<>Xác nhận chuyển sang trạng thái <span className={`font-semibold ${meta.textClass}`}>{meta.label}</span>?</>}
+            onClose={onClose}
+            maxWidthClassName="max-w-sm"
+            bodyClassName="p-6"
+            footer={(
+                <div className="flex gap-3">
+                    <AdminSecondaryButton
+                        onClick={onClose}
+                        disabled={loading}
+                        className="flex-1 py-2.5"
+                    >
+                        Hủy bỏ
+                    </AdminSecondaryButton>
+                    <AdminActionButton
+                        onClick={onConfirm}
+                        disabled={loading}
+                        tone={getActionTone(targetStatus)}
+                        variant="solid"
+                        size="md"
+                        className="flex-1 py-2.5 text-sm font-bold shadow-lg"
+                    >
+                        {loading ? <Loader2 size={14} className="animate-spin" /> : <StatusIcon name={meta.icon} size={14} />}
+                        {loading ? 'Đang xử lý...' : 'Xác nhận'}
+                    </AdminActionButton>
+                </div>
+            )}
+        />,
+        document.body
+    );
+};
+
+interface DeliveryProofDialogProps {
+    loading: boolean;
+    uploadProgress: Record<string, DeliveryProofUploadProgress>;
+    onClose: () => void;
+    onConfirm: (payload: { files: File[]; reviewed: boolean }) => void;
+}
+
+interface DeliveryProofPreviewCardProps {
+    fileKey: string;
+    fileName: string;
+    previewUrl: string | null;
+    progressPercent: number;
+    progressStatus?: DeliveryProofUploadProgress['status'];
+    disabled: boolean;
+    onRemove: (fileKey: string) => void;
+}
+
+const MAX_DELIVERY_PROOF_IMAGES = 5;
+const MAX_DELIVERY_PROOF_DIMENSION = 1600;
+const DELIVERY_PROOF_COMPRESSION_THRESHOLD = 1.25 * 1024 * 1024;
+
+const createPreviewUrl = (file: File) => {
+    if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+        return null;
+    }
+
+    return URL.createObjectURL(file);
+};
+
+const revokePreviewUrl = (previewUrl: string | null) => {
+    if (!previewUrl || typeof URL === 'undefined' || typeof URL.revokeObjectURL !== 'function') {
+        return;
+    }
+
+    URL.revokeObjectURL(previewUrl);
+};
+
+const loadImageFromUrl = (src: string) =>
+    new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('Không thể đọc ảnh giao hàng.'));
+        image.src = src;
+    });
+
+const canvasToBlob = (canvas: HTMLCanvasElement, type: string, quality?: number) =>
+    new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((blob) => resolve(blob), type, quality);
+    });
+
+const optimizeDeliveryProofFile = async (file: File): Promise<File> => {
+    if (
+        typeof document === 'undefined'
+        || typeof HTMLCanvasElement === 'undefined'
+        || !file.type.startsWith('image/')
+        || file.type === 'image/gif'
+    ) {
+        return file;
+    }
+
+    const tempUrl = createPreviewUrl(file);
+    if (!tempUrl) return file;
+
+    try {
+        const image = await loadImageFromUrl(tempUrl);
+        const longestEdge = Math.max(image.naturalWidth, image.naturalHeight);
+        const shouldResize = longestEdge > MAX_DELIVERY_PROOF_DIMENSION;
+        const shouldCompress = file.size > DELIVERY_PROOF_COMPRESSION_THRESHOLD;
+
+        if (!shouldResize && !shouldCompress) {
+            return file;
+        }
+
+        const scale = Math.min(
+            1,
+            MAX_DELIVERY_PROOF_DIMENSION / image.naturalWidth,
+            MAX_DELIVERY_PROOF_DIMENSION / image.naturalHeight,
+        );
+        const width = Math.max(1, Math.round(image.naturalWidth * scale));
+        const height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const context = canvas.getContext('2d');
+        if (!context) {
+            return file;
+        }
+
+        context.drawImage(image, 0, 0, width, height);
+
+        const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        const blob = await canvasToBlob(canvas, outputType, outputType === 'image/png' ? undefined : 0.82);
+
+        if (!blob || blob.size >= file.size) {
+            return file;
+        }
+
+        const nextName = outputType === 'image/png'
+            ? file.name.replace(/\.[^.]+$/u, '.png')
+            : file.name.replace(/\.[^.]+$/u, '.jpg');
+
+        return new File([blob], nextName, {
+            type: outputType,
+            lastModified: file.lastModified,
+        });
+    } catch {
+        return file;
+    } finally {
+        revokePreviewUrl(tempUrl);
+    }
+};
+
+const DeliveryProofPreviewCard = React.memo(function DeliveryProofPreviewCard({
+    fileKey,
+    fileName,
+    previewUrl,
+    progressPercent,
+    progressStatus,
+    disabled,
+    onRemove,
+}: DeliveryProofPreviewCardProps) {
+    const progressLabel = progressStatus === 'completed'
+        ? 'Đã tải lên'
+        : progressStatus === 'failed'
+            ? 'Tải lên thất bại'
+            : progressStatus === 'uploading'
+                ? `Đang tải lên ${progressPercent}%`
+                : 'Chờ xác nhận để bắt đầu tải lên';
+
+    return (
+        <div className="relative overflow-hidden rounded-xl border border-white/10 bg-black/30" style={{ contain: 'paint' }}>
+            {previewUrl ? (
+                <img src={previewUrl} alt={fileName} className="h-28 w-full object-cover" />
+            ) : (
+                <div className="flex h-28 w-full items-center justify-center bg-white/[0.03] text-white/35">
+                    <ImagePlus size={28} />
+                </div>
+            )}
+            <button
+                type="button"
+                onClick={() => onRemove(fileKey)}
+                disabled={disabled}
+                className="absolute right-2 top-2 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-black/70 text-white/70 transition-colors duration-150 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+                <XCircle size={14} />
+            </button>
+            <div className="space-y-1.5 px-2.5 py-2">
+                <div className="truncate text-[10px] text-white/60">{fileName}</div>
+                <div className="space-y-1">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                        <div
+                            className={`h-full origin-left transform-gpu transition-transform duration-200 ease-out will-change-transform ${progressStatus === 'failed'
+                                ? 'bg-red-400'
+                                : progressStatus === 'completed'
+                                    ? 'bg-emerald-400'
+                                    : 'bg-cyan-400'
+                                }`}
+                            style={{ transform: `scaleX(${Math.max(0, Math.min(progressPercent, 100)) / 100})` }}
+                        />
                     </div>
-                    <div className="flex gap-3">
-                        <button
-                            onClick={onClose}
-                            disabled={loading}
-                            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white/60 bg-white/[0.04] border border-white/10 hover:bg-white/[0.07] transition-all cursor-pointer"
-                        >
-                            Hủy bỏ
-                        </button>
-                        <button
-                            onClick={onConfirm}
-                            disabled={loading}
-                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all cursor-pointer disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg ${meta.actionClass}`}
-                        >
-                            {loading ? <Loader2 size={14} className="animate-spin" /> : <StatusIcon name={meta.icon} size={14} />}
-                            {loading ? 'Đang xử lý...' : 'Xác nhận'}
-                        </button>
+                    <div className={`text-[10px] ${progressStatus === 'failed'
+                        ? 'text-red-300'
+                        : progressStatus === 'completed'
+                            ? 'text-emerald-300'
+                            : 'text-white/45'
+                        }`}
+                    >
+                        {progressLabel}
                     </div>
                 </div>
             </div>
-        </div>,
+        </div>
+    );
+}, (prev, next) =>
+    prev.fileKey === next.fileKey
+    && prev.fileName === next.fileName
+    && prev.previewUrl === next.previewUrl
+    && prev.progressPercent === next.progressPercent
+    && prev.progressStatus === next.progressStatus
+    && prev.disabled === next.disabled
+);
+
+const DeliveryProofDialog: React.FC<DeliveryProofDialogProps> = ({
+    loading,
+    uploadProgress,
+    onClose,
+    onConfirm,
+}) => {
+    const [files, setFiles] = useState<Array<{ key: string; file: File; previewUrl: string | null }>>([]);
+    const [reviewed, setReviewed] = useState(false);
+    const [isPreparingFiles, setIsPreparingFiles] = useState(false);
+    const [reviewError, setReviewError] = useState('');
+    const isUploadingFiles = Object.values(uploadProgress).some(
+        (item) => item.status === 'pending' || item.status === 'uploading',
+    );
+    const handleClose = () => {
+        if (loading || isPreparingFiles) return;
+        onClose();
+    };
+
+    useEffect(() => {
+        return () => {
+            files.forEach((item) => revokePreviewUrl(item.previewUrl));
+        };
+    }, [files]);
+
+    const appendFiles = async (incoming: FileList | null) => {
+        if (!incoming) return;
+
+        const remainingSlots = Math.max(0, MAX_DELIVERY_PROOF_IMAGES - files.length);
+        const rawFiles = Array.from(incoming)
+            .filter((file) => file.type.startsWith('image/'))
+            .slice(0, remainingSlots);
+
+        if (rawFiles.length === 0) return;
+
+        setIsPreparingFiles(true);
+        try {
+            const nextFiles = await Promise.all(
+                rawFiles.map(async (rawFile) => {
+                    const optimizedFile = await optimizeDeliveryProofFile(rawFile);
+                    return {
+                        key: createDeliveryProofFileKey(optimizedFile),
+                        file: optimizedFile,
+                        previewUrl: createPreviewUrl(optimizedFile),
+                    };
+                }),
+            );
+
+            startTransition(() => {
+                setFiles((prev) => [...prev, ...nextFiles].slice(0, MAX_DELIVERY_PROOF_IMAGES));
+            });
+            if (nextFiles.length > 0) {
+                setReviewError('');
+            }
+        } finally {
+            setIsPreparingFiles(false);
+        }
+    };
+
+    const removeFile = (fileKey: string) => {
+        setFiles((prev) => {
+            const target = prev.find((item) => item.key === fileKey);
+            if (target) revokePreviewUrl(target.previewUrl);
+            return prev.filter((item) => item.key !== fileKey);
+        });
+    };
+
+    return createPortal(
+        <AdminModalShell
+            icon={ImagePlus}
+            iconWrapperClassName="rounded-xl border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+            iconClassName="text-emerald-400"
+            title="Xác nhận đã giao hàng"
+            subtitle="Tải lên ảnh xác nhận giao hàng và đánh dấu đã xem lại hình ảnh trước khi chuyển đơn sang trạng thái đã giao hàng."
+            onClose={handleClose}
+            maxWidthClassName="max-w-2xl"
+            panelClassName="shadow-xl shadow-black/30"
+            bodyClassName="space-y-5 p-6"
+            footer={(
+                <div className="flex gap-3">
+                    <AdminSecondaryButton
+                        onClick={handleClose}
+                        disabled={loading || isPreparingFiles}
+                        className="flex-1 py-2.5"
+                    >
+                        Hủy bỏ
+                    </AdminSecondaryButton>
+                    <AdminPrimaryButton
+                        onClick={() => {
+                            if (!reviewed) {
+                                setReviewError('Vui lòng xác nhận đã xem lại hình ảnh giao hàng trước khi tiếp tục.');
+                                return;
+                            }
+
+                            onConfirm({ files: files.map((item) => item.file), reviewed });
+                        }}
+                        disabled={loading || isPreparingFiles || files.length === 0}
+                        className="flex-1 bg-emerald-600 py-2.5 shadow-md shadow-emerald-950/20 hover:bg-emerald-500"
+                    >
+                        {loading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                        {loading ? (isUploadingFiles ? 'Đang tải ảnh...' : 'Đang xử lý...') : 'Xác nhận đã giao'}
+                    </AdminPrimaryButton>
+                </div>
+            )}
+        >
+
+                    <div className="space-y-3">
+                        <label className="block text-[11px] font-bold uppercase tracking-widest text-white/40">
+                            Ảnh xác nhận giao hàng <span className="text-emerald-400 normal-case">*</span>
+                        </label>
+                        <label className={`flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed px-5 py-8 text-center transition-colors duration-150 ${isPreparingFiles
+                            ? 'cursor-wait border-emerald-400/25 bg-emerald-400/[0.05]'
+                            : 'cursor-pointer border-white/15 bg-white/[0.03] hover:border-emerald-400/40 hover:bg-emerald-400/[0.04]'
+                            }`}>
+                            <ImagePlus size={22} className="text-emerald-400" />
+                            <div>
+                                <p className="text-sm font-semibold text-white">
+                                    {isPreparingFiles ? 'Đang tối ưu ảnh giao hàng...' : 'Chọn tối đa 5 ảnh giao hàng'}
+                                </p>
+                                <p className="text-xs text-white/40 mt-1">
+                                    JPEG, PNG, WEBP hoặc GIF. Mỗi ảnh tối đa 5MB. Ảnh sẽ được tối ưu nhẹ trước khi tải lên để giảm lag.
+                                </p>
+                            </div>
+                            <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,image/gif"
+                                multiple
+                                className="hidden"
+                                disabled={loading || isPreparingFiles}
+                                onChange={(e) => {
+                                    void appendFiles(e.target.files);
+                                    e.currentTarget.value = '';
+                                }}
+                            />
+                        </label>
+
+                        {files.length > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                {files.map((item) => {
+                                    const progress = uploadProgress[item.key];
+                                    const progressPercent = progress?.percent ?? 0;
+
+                                    return (
+                                        <DeliveryProofPreviewCard
+                                            key={item.key}
+                                            fileKey={item.key}
+                                            fileName={item.file.name}
+                                            previewUrl={item.previewUrl}
+                                            progressPercent={progressPercent}
+                                            progressStatus={progress?.status}
+                                            disabled={loading || isPreparingFiles}
+                                            onRemove={removeFile}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setReviewed((value) => {
+                                const nextValue = !value;
+                                if (nextValue) {
+                                    setReviewError('');
+                                }
+                                return nextValue;
+                            });
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-colors duration-150 cursor-pointer ${reviewed
+                            ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300'
+                            : reviewError
+                                ? 'border-amber-500/35 bg-amber-500/10 text-amber-200'
+                                : 'border-white/10 bg-white/[0.03] text-white/70 hover:border-white/20'
+                            }`}
+                    >
+                        {reviewed ? <CheckSquare size={18} /> : <Square size={18} />}
+                        <div>
+                            <p className="text-sm font-semibold">Đã xem lại hình ảnh giao hàng</p>
+                            <p className="text-xs opacity-70 mt-0.5">Mình xác nhận ảnh tải lên là đúng đơn hàng và đủ để chứng minh đã giao.</p>
+                        </div>
+                    </button>
+                    {reviewError && (
+                        <p className="text-xs text-amber-300 -mt-1">{reviewError}</p>
+                    )}
+        </AdminModalShell>,
         document.body
     );
 };
@@ -213,128 +594,12 @@ interface OrderActionPanelProps {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ShippingDialog — collects carrier + trackingNumber when going to SHIPPING
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface ShippingDialogProps {
-    loading: boolean;
-    onClose: () => void;
-    onConfirm: (carrier: string, trackingNumber: string) => void;
-}
-
-const CARRIER_PRESETS = [
-    'Giao Hàng Tiết Kiệm',
-    'Giao Hàng Nhanh',
-    'Viettel Post',
-    'J&T Express',
-    'Ninja Van',
-];
-
-const ShippingDialog: React.FC<ShippingDialogProps> = ({ loading, onClose, onConfirm }) => {
-    const [carrier, setCarrier] = useState('');
-    const [trackingNumber, setTracking] = useState('');
-
-    return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-            <div className="relative w-full max-w-md bg-[#111114] border border-cyan-500/20 rounded-2xl shadow-2xl overflow-hidden">
-                <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-cyan-500 to-transparent" />
-
-                <div className="p-6 space-y-5">
-                    {/* Header */}
-                    <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-xl border border-cyan-500/30 bg-cyan-500/10 flex items-center justify-center shrink-0">
-                            <Truck size={18} className="text-cyan-400" />
-                        </div>
-                        <div>
-                            <h3 className="text-base font-bold text-white">Bắt đầu giao hàng</h3>
-                            <p className="text-xs text-white/40 mt-0.5 leading-relaxed">
-                                Nhập thông tin vận chuyển để khách hàng có thể theo dõi đơn hàng.
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Carrier field */}
-                    <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-widest text-white/40 mb-2">
-                            Đơn vị vận chuyển
-                        </label>
-                        <input
-                            type="text"
-                            value={carrier}
-                            onChange={e => setCarrier(e.target.value)}
-                            placeholder="Ví dụ: Giao Hàng Tiết Kiệm"
-                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
-                        />
-                        {/* Quick-pick chips */}
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                            {CARRIER_PRESETS.map(c => (
-                                <button
-                                    key={c}
-                                    type="button"
-                                    onClick={() => setCarrier(c)}
-                                    className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all cursor-pointer ${carrier === c
-                                        ? 'border-cyan-500/50 bg-cyan-500/15 text-cyan-300'
-                                        : 'border-white/10 bg-white/[0.03] text-white/50 hover:text-white/80 hover:border-white/20'
-                                        }`}
-                                >
-                                    {c}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Tracking number field */}
-                    <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-widest text-white/40 mb-2">
-                            <span className="flex items-center gap-1.5">
-                                <MapPin size={10} className="text-cyan-400" />
-                                Mã vận đơn
-                            </span>
-                        </label>
-                        <input
-                            type="text"
-                            value={trackingNumber}
-                            onChange={e => setTracking(e.target.value)}
-                            placeholder="Ví dụ: GHTK-123456789"
-                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder-white/25 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
-                        />
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-3 pt-1">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            disabled={loading}
-                            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white/60 bg-white/[0.04] border border-white/10 hover:bg-white/[0.07] transition-all cursor-pointer disabled:opacity-50"
-                        >
-                            Hủy bỏ
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => onConfirm(carrier.trim(), trackingNumber.trim())}
-                            disabled={loading}
-                            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all cursor-pointer disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg bg-cyan-600 hover:bg-cyan-500 shadow-cyan-900/30"
-                        >
-                            {loading ? <Loader2 size={14} className="animate-spin" /> : <Truck size={14} />}
-                            {loading ? 'Đang xử lý...' : 'Bắt đầu giao hàng'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>,
-        document.body
-    );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 type DialogState =
     | { type: 'none' }
     | { type: 'confirm'; target: OrderStatusValue }
     | { type: 'note'; target: OrderStatusValue }
-    | { type: 'shipping' };
+    | { type: 'deliveryProof'; target: OrderStatusValue }
 
 /**
  * Fully data-driven action panel.
@@ -349,16 +614,22 @@ export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
     const { t } = useTranslation('errors');
     const [loading, setLoading] = useState(false);
     const [dialog, setDialog] = useState<DialogState>({ type: 'none' });
+    const [uploadProgress, setUploadProgress] = useState<Record<string, DeliveryProofUploadProgress>>({});
 
     const nextStatuses = getValidNextStatuses(currentStatus);
 
+    const closeDialog = () => {
+        setDialog({ type: 'none' });
+        setUploadProgress({});
+    };
+
     const handleButtonClick = (target: OrderStatusValue) => {
-        // SHIPPING transition: needs carrier + trackingNumber from admin
-        if (target === ORDER_STATUS.SHIPPING) {
-            setDialog({ type: 'shipping' });
+        const meta = ORDER_STATUS_META[target];
+        if (target === ORDER_STATUS.DELIVERED) {
+            setUploadProgress({});
+            setDialog({ type: 'deliveryProof', target });
             return;
         }
-        const meta = ORDER_STATUS_META[target];
         if (meta.requiresNote) {
             setDialog({ type: 'note', target });
         } else {
@@ -369,17 +640,61 @@ export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
     const executeTransition = async (
         target: OrderStatusValue,
         note?: string,
-        logistics?: { carrier?: string; trackingNumber?: string },
+        deliveryProof?: { files: File[]; reviewed: boolean },
     ) => {
         setLoading(true);
         try {
+            let deliveryProofImages: string[] | undefined;
+            let deliveryProofReviewed: boolean | undefined;
+
+            if (target === ORDER_STATUS.DELIVERED) {
+                const proof = deliveryProof ?? { files: [], reviewed: false };
+                if (proof.files.length === 0) {
+                    onError('Vui lòng tải lên ít nhất 1 ảnh xác nhận giao hàng.');
+                    setLoading(false);
+                    return;
+                }
+                if (!proof.reviewed) {
+                    onError('Vui lòng xác nhận đã xem lại hình ảnh giao hàng.');
+                    setLoading(false);
+                    return;
+                }
+
+                setUploadProgress(
+                    Object.fromEntries(
+                        proof.files.map((file) => [
+                            createDeliveryProofFileKey(file),
+                            {
+                                fileKey: createDeliveryProofFileKey(file),
+                                fileName: file.name,
+                                percent: 0,
+                                status: 'pending' as const,
+                            },
+                        ]),
+                    ),
+                );
+
+                const uploadedImages = await adminOrderService.uploadDeliveryProofImages(
+                    orderId,
+                    proof.files,
+                    (progress) => {
+                        setUploadProgress((prev) => ({
+                            ...prev,
+                            [progress.fileKey]: progress,
+                        }));
+                    },
+                );
+                deliveryProofImages = uploadedImages.map((item) => item.url);
+                deliveryProofReviewed = proof.reviewed;
+            }
+
             const res = await adminOrderService.updateStatus(orderId, {
                 status: target,
                 note,
-                ...(logistics?.carrier ? { carrier: logistics.carrier } : {}),
-                ...(logistics?.trackingNumber ? { trackingNumber: logistics.trackingNumber } : {}),
+                deliveryProofImages,
+                deliveryProofReviewed,
             });
-            setDialog({ type: 'none' });
+            closeDialog();
             const messageKey = (res as { messageKey?: string })?.messageKey || 'ORDER_STATUS_UPDATED';
             onStatusUpdated(messageKey);
         } catch (err: unknown) {
@@ -392,7 +707,9 @@ export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
                     || errorResponse?.message
                     || t('INTERNAL_SERVER_ERROR'));
             onError(msg);
-            setDialog({ type: 'none' });
+            if (target !== ORDER_STATUS.DELIVERED) {
+                closeDialog();
+            }
         } finally {
             setLoading(false);
         }
@@ -413,20 +730,11 @@ export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
     return (
         <>
             {/* Dialogs */}
-            {dialog.type === 'shipping' && (
-                <ShippingDialog
-                    loading={loading}
-                    onClose={() => setDialog({ type: 'none' })}
-                    onConfirm={(carrier, trackingNumber) =>
-                        executeTransition(ORDER_STATUS.SHIPPING, undefined, { carrier, trackingNumber })
-                    }
-                />
-            )}
             {dialog.type === 'note' && (
                 <NoteDialog
                     targetStatus={dialog.target}
                     loading={loading}
-                    onClose={() => setDialog({ type: 'none' })}
+                    onClose={closeDialog}
                     onConfirm={(note) => executeTransition(dialog.target, note)}
                 />
             )}
@@ -434,8 +742,16 @@ export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
                 <ConfirmDialog
                     targetStatus={dialog.target}
                     loading={loading}
-                    onClose={() => setDialog({ type: 'none' })}
+                    onClose={closeDialog}
                     onConfirm={() => executeTransition(dialog.target)}
+                />
+            )}
+            {dialog.type === 'deliveryProof' && (
+                <DeliveryProofDialog
+                    loading={loading}
+                    uploadProgress={uploadProgress}
+                    onClose={closeDialog}
+                    onConfirm={(proof) => executeTransition(dialog.target, undefined, proof)}
                 />
             )}
 
@@ -447,28 +763,33 @@ export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
 
                     if (isCancelLike) {
                         return (
-                            <button
+                            <AdminActionButton
                                 key={target}
                                 onClick={() => handleButtonClick(target)}
                                 disabled={loading}
-                                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer disabled:opacity-50 ${meta.badgeClass} ${meta.textClass} hover:brightness-110`}
+                                tone={getActionTone(target)}
+                                size="md"
+                                className="px-4 py-2.5 text-xs font-bold"
                             >
                                 {loading ? <Loader2 size={13} className="animate-spin" /> : <StatusIcon name={meta.icon} size={13} />}
                                 {STATUS_ACTION_LABELS[target]}
-                            </button>
+                            </AdminActionButton>
                         );
                     }
 
                     return (
-                        <button
+                        <AdminActionButton
                             key={target}
                             onClick={() => handleButtonClick(target)}
                             disabled={loading}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-lg transition-all cursor-pointer disabled:opacity-50 ${meta.actionClass}`}
+                            tone={getActionTone(target)}
+                            variant="solid"
+                            size="md"
+                            className="px-5 py-2.5 text-xs font-bold shadow-lg"
                         >
                             {loading ? <Loader2 size={13} className="animate-spin" /> : <StatusIcon name={meta.icon} size={13} />}
                             {STATUS_ACTION_LABELS[target]}
-                        </button>
+                        </AdminActionButton>
                     );
                 })}
             </div>

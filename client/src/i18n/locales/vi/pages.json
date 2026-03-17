@@ -125,7 +125,7 @@
     "labels": {
       "total": "Tổng tiền",
       "items": "Số món",
-      "carrier": "Đơn vị vận chuyển"
+      "orderCode": "Mã đơn hàng"
     },
     "errors": {
       "loadOrders": "Không thể tải đơn hàng"
@@ -992,6 +992,7 @@
       "placedAt": "Đặt lúc {{date}}"
     },
     "labels": {
+      "orderCode": "Mã đơn hàng",
       "shipping": "Vận chuyển",
       "tracking": "Theo dõi",
       "unitPrice": "Đơn giá",

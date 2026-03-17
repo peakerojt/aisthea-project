@@ -6,6 +6,8 @@ import { prisma } from '../utils/prisma';
 import { logger } from '../lib/logger';
 import { AuthRequest } from '../middlewares/auth.middleware';
 
+const SUCCESSFUL_PAYMENT_STATUSES = ['COMPLETED', 'PAID', 'REFUNDED', 'PARTIALLY_REFUNDED'];
+
 function sortObject(obj: any) {
     let sorted: any = {};
     let str = [];
@@ -21,6 +23,55 @@ function sortObject(obj: any) {
     }
     return sorted;
 }
+
+const hasCompletedPayment = (payments: Array<{ status: string | null | undefined }>) =>
+    payments.some((payment) => SUCCESSFUL_PAYMENT_STATUSES.includes((payment.status ?? '').toUpperCase()));
+
+const upsertVnpayPayment = async ({
+    orderId,
+    payments,
+    amount,
+    status,
+    transactionCode,
+    note,
+}: {
+    orderId: number;
+    payments: Array<{
+        paymentId: number;
+        paymentMethod: string | null;
+        transactionCode?: string | null;
+    }>;
+    amount: number;
+    status: 'COMPLETED' | 'FAILED';
+    transactionCode?: string | null;
+    note?: string | null;
+}) => {
+    const latestPayment = payments[0] ?? null;
+
+    if (latestPayment && (latestPayment.paymentMethod ?? '').toUpperCase() === 'VNPAY') {
+        await prisma.payment.update({
+            where: { paymentId: latestPayment.paymentId },
+            data: {
+                amount,
+                status,
+                transactionCode: transactionCode ?? latestPayment.transactionCode ?? null,
+                note: note ?? null,
+            },
+        });
+        return;
+    }
+
+    await prisma.payment.create({
+        data: {
+            orderId,
+            paymentMethod: 'VNPAY',
+            amount,
+            status,
+            transactionCode: transactionCode ?? null,
+            note: note ?? null,
+        },
+    });
+};
 
 export const createPaymentUrl = async (req: Request, res: Response) => {
     try {
@@ -171,7 +222,20 @@ export const vnpayReturn = async (req: Request, res: Response) => {
     }
 
     const responseCode = String(vnp_Params['vnp_ResponseCode'] ?? '');
+    const gatewayAmount = Number(vnp_Params['vnp_Amount']) / 100;
+    const expectedAmount = Number(order.totalAmount);
+    const transactionCode = (vnp_Params['vnp_TransactionNo'] as string) ?? null;
+
     if (responseCode !== '00') {
+        await upsertVnpayPayment({
+            orderId: order.orderId,
+            payments: order.payments,
+            amount: gatewayAmount || expectedAmount,
+            status: 'FAILED',
+            transactionCode,
+            note: `VNPay return failed with response code ${responseCode || '99'}`,
+        });
+
         return res.status(200).json({
             message: 'Failed',
             code: responseCode || '99',
@@ -180,11 +244,33 @@ export const vnpayReturn = async (req: Request, res: Response) => {
         });
     }
 
-    const hasCompletedPayment = order.payments.some((payment) =>
-        ['COMPLETED', 'PAID', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes((payment.status ?? '').toUpperCase())
-    );
+    if (Math.round(gatewayAmount) !== Math.round(expectedAmount)) {
+        const mismatchNote = `VNPay amount mismatch. Expected ${expectedAmount}, received ${gatewayAmount}.`;
 
-    if (hasCompletedPayment) {
+        await upsertVnpayPayment({
+            orderId: order.orderId,
+            payments: order.payments,
+            amount: gatewayAmount,
+            status: 'FAILED',
+            transactionCode,
+            note: mismatchNote,
+        });
+
+        logger.warn('VNPay return amount mismatch', {
+            orderId: order.orderId,
+            expectedAmount,
+            gatewayAmount,
+        });
+
+        return res.status(200).json({
+            message: 'Failed',
+            code: '04',
+            orderId: order.orderId,
+            paymentStatus: 'FAILED',
+        });
+    }
+
+    if (hasCompletedPayment(order.payments)) {
         return res.status(200).json({
             message: 'Success',
             code: '00',
@@ -193,11 +279,25 @@ export const vnpayReturn = async (req: Request, res: Response) => {
         });
     }
 
-    return res.status(200).json({
-        message: 'Pending',
-        code: 'PENDING',
+    await upsertVnpayPayment({
         orderId: order.orderId,
-        paymentStatus: 'PENDING',
+        payments: order.payments,
+        amount: gatewayAmount,
+        status: 'COMPLETED',
+        transactionCode,
+        note: 'Confirmed from VNPay return fallback',
+    });
+
+    logger.info('VNPay payment completed from return fallback', {
+        orderId: order.orderId,
+        transactionCode,
+    });
+
+    return res.status(200).json({
+        message: 'Success',
+        code: '00',
+        orderId: order.orderId,
+        paymentStatus: 'COMPLETED',
     });
 };
 
@@ -241,10 +341,7 @@ export const vnpayIpn = async (req: Request, res: Response) => {
             const gatewayAmount = Number(vnp_Params['vnp_Amount']) / 100;
             const expectedAmount = Number(order.totalAmount);
 
-            const latestPayment = order.payments[0] ?? null;
-            const alreadyPaid = order.payments.some((payment) =>
-                ['COMPLETED', 'PAID', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes((payment.status ?? '').toUpperCase())
-            );
+            const alreadyPaid = hasCompletedPayment(order.payments);
 
             if (alreadyPaid) {
                 return res.status(200).json({ RspCode: '02', Message: 'This order has been updated to the payment status' });
@@ -252,29 +349,14 @@ export const vnpayIpn = async (req: Request, res: Response) => {
                 if (rspCode == "00") {
                     if (Math.round(gatewayAmount) !== Math.round(expectedAmount)) {
                         const mismatchNote = `VNPay amount mismatch. Expected ${expectedAmount}, received ${gatewayAmount}.`;
-
-                        if (latestPayment && latestPayment.paymentMethod === 'VNPAY') {
-                            await prisma.payment.update({
-                                where: { paymentId: latestPayment.paymentId },
-                                data: {
-                                    amount: gatewayAmount,
-                                    status: 'FAILED',
-                                    transactionCode: (vnp_Params['vnp_TransactionNo'] as string) ?? latestPayment.transactionCode,
-                                    note: mismatchNote,
-                                }
-                            });
-                        } else {
-                            await prisma.payment.create({
-                                data: {
-                                    orderId: order.orderId,
-                                    paymentMethod: 'VNPAY',
-                                    amount: gatewayAmount,
-                                    status: 'FAILED',
-                                    transactionCode: (vnp_Params['vnp_TransactionNo'] as string) ?? null,
-                                    note: mismatchNote,
-                                }
-                            });
-                        }
+                        await upsertVnpayPayment({
+                            orderId: order.orderId,
+                            payments: order.payments,
+                            amount: gatewayAmount,
+                            status: 'FAILED',
+                            transactionCode: (vnp_Params['vnp_TransactionNo'] as string) ?? null,
+                            note: mismatchNote,
+                        });
 
                         logger.warn('VNPay payment amount mismatch', {
                             orderId: order.orderId,
@@ -285,54 +367,27 @@ export const vnpayIpn = async (req: Request, res: Response) => {
                         return res.status(200).json({ RspCode: '04', Message: 'Invalid amount' });
                     }
 
-                    if (latestPayment && latestPayment.paymentMethod === 'VNPAY') {
-                        await prisma.payment.update({
-                            where: { paymentId: latestPayment.paymentId },
-                            data: {
-                                amount: gatewayAmount,
-                                status: 'COMPLETED',
-                                transactionCode: vnp_Params['vnp_TransactionNo'] as string,
-                                note: null,
-                            }
-                        });
-                    } else {
-                        await prisma.payment.create({
-                            data: {
-                                orderId: order.orderId,
-                                paymentMethod: 'VNPAY',
-                                amount: gatewayAmount,
-                                status: 'COMPLETED',
-                                transactionCode: vnp_Params['vnp_TransactionNo'] as string
-                            }
-                        });
-                    }
+                    await upsertVnpayPayment({
+                        orderId: order.orderId,
+                        payments: order.payments,
+                        amount: gatewayAmount,
+                        status: 'COMPLETED',
+                        transactionCode: vnp_Params['vnp_TransactionNo'] as string,
+                        note: null,
+                    });
 
                     logger.info('VNPay payment successful', { orderId: order.orderId, transactionCode: vnp_Params['vnp_TransactionNo'] });
 
                     res.status(200).json({ RspCode: '00', Message: 'Confirm Success' });
                 } else {
-                    if (latestPayment && latestPayment.paymentMethod === 'VNPAY') {
-                        await prisma.payment.update({
-                            where: { paymentId: latestPayment.paymentId },
-                            data: {
-                                amount: gatewayAmount || parseFloat(order.totalAmount.toString()),
-                                status: 'FAILED',
-                                transactionCode: (vnp_Params['vnp_TransactionNo'] as string) ?? latestPayment.transactionCode,
-                                note: `VNPay IPN failed with response code ${rspCode}`,
-                            }
-                        });
-                    } else {
-                        await prisma.payment.create({
-                            data: {
-                                orderId: order.orderId,
-                                paymentMethod: 'VNPAY',
-                                amount: gatewayAmount || parseFloat(order.totalAmount.toString()),
-                                status: 'FAILED',
-                                transactionCode: (vnp_Params['vnp_TransactionNo'] as string) ?? null,
-                                note: `VNPay IPN failed with response code ${rspCode}`,
-                            }
-                        });
-                    }
+                    await upsertVnpayPayment({
+                        orderId: order.orderId,
+                        payments: order.payments,
+                        amount: gatewayAmount || parseFloat(order.totalAmount.toString()),
+                        status: 'FAILED',
+                        transactionCode: (vnp_Params['vnp_TransactionNo'] as string) ?? null,
+                        note: `VNPay IPN failed with response code ${rspCode}`,
+                    });
 
                     logger.warn('VNPay payment failed reported by IPN', { orderId: order.orderId, rspCode });
 

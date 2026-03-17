@@ -9,7 +9,7 @@ import { TrackingData, TrackingTimelineItem } from '@/types/tracking';
  *
  * Connects to a Socket.io room for the given orderId.
  * On `order:status_updated` events it merges the new status, timeline,
- * and logistics fields (carrier, trackingNumber, estimatedDeliveryDate)
+ * and optional provider metadata into the Zustand tracking store
  * into the Zustand tracking store — no page reload required.
  *
  * Falls back to HTTP polling (every 30 s) when the socket is disconnected
@@ -61,11 +61,15 @@ export function useOrderTrackingRealtime(orderId?: number, userId?: number, enab
 
     /**
      * `order:status_updated` payload from server:
-     * { orderId, status, timeline, carrier, trackingNumber, estimatedDeliveryDate }
+     * { orderId, orderCode, status, timeline, shippingMode, provider, providerOrderCode, providerStatus }
      */
     socket.on('order:status_updated', (payload: {
       status: string;
-      timeline: { status: string; changedAt: string; note?: string | null; }[];
+      timeline: { status: string; changedAt?: string; timestamp?: string; note?: string | null; }[];
+      shippingMode?: 'manual' | 'provider';
+      provider?: string | null;
+      providerOrderCode?: string | null;
+      providerStatus?: string | null;
       carrier?: string | null;
       trackingNumber?: string | null;
       estimatedDeliveryDate?: string | null;
@@ -74,11 +78,15 @@ export function useOrderTrackingRealtime(orderId?: number, userId?: number, enab
 
       const mappedTimeline: TrackingTimelineItem[] = payload.timeline.map(t => ({
         status: t.status as TrackingTimelineItem['status'],
-        timestamp: t.changedAt,
+        timestamp: t.timestamp ?? t.changedAt ?? new Date().toISOString(),
         note: t.note
       }));
 
       updateFromSocket(payload.status, mappedTimeline, {
+        shippingMode: payload.shippingMode,
+        provider: payload.provider ?? null,
+        providerOrderCode: payload.providerOrderCode ?? null,
+        providerStatus: payload.providerStatus ?? null,
         carrier: payload.carrier ?? null,
         trackingNumber: payload.trackingNumber ?? null,
         estimatedDeliveryDate: payload.estimatedDeliveryDate ?? null,

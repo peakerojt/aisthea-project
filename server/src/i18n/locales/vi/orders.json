@@ -6,6 +6,9 @@
     "cannotCancel": "Chỉ có thể hủy đơn hàng ở trạng thái chờ xác nhận.",
     "statusRequired": "Trạng thái đơn hàng là bắt buộc.",
     "invalidTransition": "Chuyển đổi trạng thái đơn hàng không hợp lệ.",
+    "deliveryProofRequired": "Cần tải lên ảnh xác nhận giao hàng trước khi chuyển đơn sang đã giao hàng.",
+    "deliveryProofReviewRequired": "Vui lòng xác nhận đã xem lại hình ảnh giao hàng trước khi chuyển đơn sang đã giao hàng.",
+    "stateConflict": "Đơn hàng vừa được cập nhật ở nơi khác. Vui lòng tải lại và thử lại.",
     "cartEmpty": "Không thể tạo đơn hàng khi giỏ hàng trống.",
     "outOfStock": "Số lượng yêu cầu vượt quá tồn kho hiện tại."
   },

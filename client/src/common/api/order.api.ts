@@ -27,5 +27,8 @@ export const orderApi = {
 
     getAdminOrderDetail: <T>(id: string | number) => api.get<T>(`/api/orders/admin/${id}`),
 
+    uploadDeliveryProofImages: (id: string | number, payload: FormData) =>
+        api.post<{ success: boolean; data: { images: Array<{ url: string; width: number; height: number }> } }>(`/api/orders/${id}/delivery-proof-images`, payload),
+
     updateOrderStatus: (id: string | number, payload: UpdateStatusPayload) => api.patch<{ success: boolean; message: string; stockRestored: boolean }>(`/api/orders/${id}/status`, payload),
 };

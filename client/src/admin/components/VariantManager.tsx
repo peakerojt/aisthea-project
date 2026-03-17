@@ -56,7 +56,7 @@ const GroupRow: React.FC<GroupRowProps> = ({
     };
 
     return (
-        <div className="border border-white/[0.07] rounded-xl p-5 space-y-4 bg-black/20 transition-all">
+        <div className="border border-white/[0.07] rounded-xl p-5 space-y-4 bg-black/20 transition-colors">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-[10px] font-bold text-primary">
@@ -68,7 +68,7 @@ const GroupRow: React.FC<GroupRowProps> = ({
                 </div>
                 {canRemove && (
                     <button type="button" onClick={() => onRemove(group.id)}
-                        className="p-1.5 text-white/30 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all">
+                        className="p-1.5 text-white/30 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors">
                         <X size={13} />
                     </button>
                 )}
@@ -83,7 +83,7 @@ const GroupRow: React.FC<GroupRowProps> = ({
                     {PRESET_NAMES.map(preset => (
                         <button key={preset} type="button"
                             onClick={() => onUpdateName(group.id, preset)}
-                            className={`px-2.5 py-1 text-[11px] rounded-full border transition-all ${group.name === preset
+                            className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${group.name === preset
                                 ? 'bg-primary/20 border-primary/40 text-primary'
                                 : 'bg-white/[0.03] border-white/10 text-white/50 hover:border-white/20 hover:text-white/70'
                                 }`}>
@@ -176,7 +176,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
     };
 
     return (
-        <div className={`border rounded-xl overflow-hidden transition-all ${open ? 'border-white/10' : 'border-white/[0.06]'
+        <div className={`border rounded-xl overflow-hidden transition-colors ${open ? 'border-white/10' : 'border-white/[0.06]'
             }`}>
             {/* ── Group Header ───────────────────────────────────────────── */}
             <button
@@ -240,7 +240,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
                                 className="w-24 bg-black/30 border border-white/10 rounded-md px-2 py-1 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-primary/40"
                             />
                             <button type="button" onClick={applyBulkPrice} disabled={!bulkPrice}
-                                className="px-2 py-1 text-[10px] font-semibold bg-primary/20 border border-primary/30 text-primary rounded-md hover:bg-primary/30 transition-all disabled:opacity-40">
+                                className="px-2 py-1 text-[10px] font-semibold bg-primary/20 border border-primary/30 text-primary rounded-md hover:bg-primary/30 transition-colors disabled:opacity-40">
                                 Áp dụng giá
                             </button>
                         </div>
@@ -251,7 +251,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
                                 className="w-20 bg-black/30 border border-white/10 rounded-md px-2 py-1 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-primary/40"
                             />
                             <button type="button" onClick={applyBulkStock} disabled={!bulkStock}
-                                className="px-2 py-1 text-[10px] font-semibold bg-primary/20 border border-primary/30 text-primary rounded-md hover:bg-primary/30 transition-all disabled:opacity-40">
+                                className="px-2 py-1 text-[10px] font-semibold bg-primary/20 border border-primary/30 text-primary rounded-md hover:bg-primary/30 transition-colors disabled:opacity-40">
                                 Áp dụng kho
                             </button>
                         </div>
@@ -361,7 +361,7 @@ const GlobalBulkBar: React.FC<GlobalBulkBarProps> = ({ onApplyPrice, onApplyStoc
                 className="w-28 bg-black/30 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-primary/40" />
             <button type="button" onClick={() => { if (price) { onApplyPrice(price); setPrice(''); } }}
                 disabled={!price}
-                className="px-2.5 py-1.5 text-[10px] font-semibold bg-primary/20 border border-primary/30 text-primary rounded-lg hover:bg-primary/30 transition-all disabled:opacity-40">
+                className="px-2.5 py-1.5 text-[10px] font-semibold bg-primary/20 border border-primary/30 text-primary rounded-lg hover:bg-primary/30 transition-colors disabled:opacity-40">
                 Áp dụng giá
             </button>
             <div className="w-px h-4 bg-white/10" />
@@ -370,12 +370,12 @@ const GlobalBulkBar: React.FC<GlobalBulkBarProps> = ({ onApplyPrice, onApplyStoc
                 className="w-24 bg-black/30 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-primary/40" />
             <button type="button" onClick={() => { if (stock) { onApplyStock(stock); setStock(''); } }}
                 disabled={!stock}
-                className="px-2.5 py-1.5 text-[10px] font-semibold bg-primary/20 border border-primary/30 text-primary rounded-lg hover:bg-primary/30 transition-all disabled:opacity-40">
+                className="px-2.5 py-1.5 text-[10px] font-semibold bg-primary/20 border border-primary/30 text-primary rounded-lg hover:bg-primary/30 transition-colors disabled:opacity-40">
                 Áp dụng kho
             </button>
             <div className="ml-auto">
                 <button type="button" onClick={onRegenSkus}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-semibold text-white/40 hover:text-white border border-white/10 hover:border-white/20 rounded-lg transition-all">
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-semibold text-white/40 hover:text-white border border-white/10 hover:border-white/20 rounded-lg transition-colors">
                     <RefreshCw size={10} />
                     Tạo lại SKU
                 </button>
@@ -480,7 +480,7 @@ export const VariantManager: React.FC<VariantManagerProps> = ({
                 ))}
                 {groups.length < MAX_GROUPS && (
                     <button type="button" onClick={addGroup}
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-white/15 text-white/40 hover:border-primary/40 hover:text-primary transition-all text-sm">
+                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-white/15 text-white/40 hover:border-primary/40 hover:text-primary transition-colors text-sm">
                         <Plus size={14} />
                         Thêm nhóm phân loại {groups.length + 1}
                         <span className="text-[10px] text-white/25">(tối đa {MAX_GROUPS} nhóm)</span>

@@ -41,13 +41,18 @@ export function getIO(): Server {
 /**
  * Emitted whenever an admin updates an order's status.
  * Clients listening on `order:<orderId>` or `user:<userId>` will receive
- * the `order:status_updated` event containing the full logistics update.
+ * the `order:status_updated` event containing the full order-tracking update.
  */
 export function emitOrderStatusUpdated(payload: {
   orderId: number;
   userId?: number | null;
+  orderCode?: string;
   status: string;
   timeline: unknown[];
+  shippingMode?: 'manual' | 'provider';
+  provider?: string | null;
+  providerOrderCode?: string | null;
+  providerStatus?: string | null;
   carrier?: string | null;
   trackingNumber?: string | null;
   estimatedDeliveryDate?: Date | null;

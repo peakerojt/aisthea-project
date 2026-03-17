@@ -19,9 +19,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    X, AlertTriangle, CheckCircle2, Loader2,
+    AlertTriangle, CheckCircle2, Loader2,
     BadgeDollarSign, ChevronDown
 } from 'lucide-react';
+import {
+    AdminModalShell,
+    AdminPrimaryButton,
+    AdminSecondaryButton,
+} from '@/admin/components/AdminUI';
 import {
     adminRefundService,
     RefundMethod,
@@ -140,41 +145,40 @@ export const RefundDialog: React.FC<AdminRefundDialogProps> = ({
 
     // ─────────────────────────────────────────────────────────────────────────
     return (
-        <div
-            className="fixed inset-0 z-[300] flex items-center justify-center p-4"
-            style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}
-            onClick={handleBackdrop}
-        >
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
-
-            {/* Panel */}
-            <div
-                className="relative z-10 w-full max-w-lg bg-[#0E0E12] border border-white/[0.08] rounded-sm shadow-2xl overflow-hidden"
-                onClick={e => e.stopPropagation()}
-            >
-                {/* ── Header ─────────────────────────────────────────────────── */}
-                <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/[0.06]">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-sm bg-primary/10 border border-primary/20 flex items-center justify-center">
-                            <BadgeDollarSign size={17} className="text-primary" />
-                        </div>
-                        <div>
-                            <h2 className="text-base font-black text-white tracking-tight">{t('refund.title')}</h2>
-                            <p className="text-[10px] text-white/35 uppercase tracking-widest mt-0.5">
-                                {t('refund.orderRef', { id: orderId })}
-                            </p>
-                        </div>
+        <div onClick={handleBackdrop}>
+            <AdminModalShell
+                icon={BadgeDollarSign}
+                title={t('refund.title')}
+                subtitle={t('refund.orderRef', { id: orderId })}
+                onClose={onClose}
+                maxWidthClassName="max-w-lg"
+                panelClassName="rounded-sm border-white/[0.08] bg-[#0E0E12]"
+                bodyClassName="max-h-[70vh] overflow-y-auto px-6 py-5 space-y-5"
+                footer={(
+                    <div className="flex gap-3">
+                        <AdminSecondaryButton
+                            onClick={onClose}
+                            disabled={submitting}
+                            className="flex-1 rounded-sm px-4 py-3 text-[12px] font-bold uppercase tracking-wider"
+                        >
+                            {t('refund.form.cancel')}
+                        </AdminSecondaryButton>
+                        {maxRefundable > 0 && (
+                            <AdminPrimaryButton
+                                onClick={handleSubmit}
+                                disabled={submitting || confirmAmount <= 0}
+                                className="flex-1 rounded-sm border border-primary/30 bg-primary/10 px-4 py-3 text-[12px] font-bold uppercase tracking-wider text-primary shadow-none hover:bg-primary/20"
+                            >
+                                {submitting ? (
+                                    <><Loader2 size={13} className="animate-spin" />{t('refund.form.submitting')}</>
+                                ) : (
+                                    t('refund.form.submit', { amount: formatVND(confirmAmount) })
+                                )}
+                            </AdminPrimaryButton>
+                        )}
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="w-8 h-8 rounded-sm border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:border-white/20 transition-all cursor-pointer"
-                    >
-                        <X size={14} />
-                    </button>
-                </div>
-
-                <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
+                )}
+            >
 
                     {/* ── Financial stats ──────────────────────────────────────── */}
                     <div className="grid grid-cols-3 gap-3">
@@ -212,7 +216,7 @@ export const RefundDialog: React.FC<AdminRefundDialogProps> = ({
                                         <button
                                             key={type}
                                             onClick={() => setRefundType(type)}
-                                            className={`flex items-center gap-2 px-4 py-3 rounded-sm border text-[12px] font-semibold transition-all cursor-pointer ${refundType === type
+                                            className={`flex items-center gap-2 px-4 py-3 rounded-sm border text-[12px] font-semibold transition-colors cursor-pointer ${refundType === type
                                                 ? 'bg-primary/10 border-primary/40 text-primary'
                                                 : 'bg-white/[0.03] border-white/[0.07] text-white/50 hover:border-white/15'
                                                 }`}
@@ -309,32 +313,7 @@ export const RefundDialog: React.FC<AdminRefundDialogProps> = ({
                             )}
                         </>
                     )}
-                </div>
-
-                {/* ── Footer ───────────────────────────────────────────────────── */}
-                <div className="px-6 pb-6 pt-4 border-t border-white/[0.06] flex gap-3">
-                    <button
-                        onClick={onClose}
-                        disabled={submitting}
-                        className="flex-1 px-4 py-3 rounded-sm border border-white/[0.1] text-white/50 hover:text-white hover:border-white/20 text-[12px] font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
-                    >
-                        {t('refund.form.cancel')}
-                    </button>
-                    {maxRefundable > 0 && (
-                        <button
-                            onClick={handleSubmit}
-                            disabled={submitting || confirmAmount <= 0}
-                            className="flex-1 px-4 py-3 rounded-sm bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-[12px] font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            {submitting ? (
-                                <><Loader2 size={13} className="animate-spin" />{t('refund.form.submitting')}</>
-                            ) : (
-                                t('refund.form.submit', { amount: formatVND(confirmAmount) })
-                            )}
-                        </button>
-                    )}
-                </div>
-            </div>
+            </AdminModalShell>
         </div>
     );
 };

@@ -10,7 +10,7 @@
  *  • i18n via react-i18next (coupons namespace)
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/common/contexts/ToastContext';
 import {
@@ -30,6 +30,21 @@ import {
     CalendarRange,
     Tag,
 } from 'lucide-react';
+import {
+    AdminActionButton,
+    AdminBadge,
+    AdminModalShell,
+    AdminPageHeader,
+    AdminPageShell,
+    AdminPrimaryButton,
+    AdminRowIconButton,
+    AdminSecondaryButton,
+    AdminSectionCard,
+    AdminStatCards,
+    AdminTabs,
+    AdminToolbar,
+    adminUiTokens,
+} from '@/admin/components/AdminUI';
 import {
     fetchCoupons,
     createCoupon,
@@ -77,12 +92,12 @@ const STATUS_ICON_MAP: Record<string, React.ElementType> = {
     INACTIVE: Ban,
 };
 
-const STATUS_CLASS_MAP: Record<string, string> = {
-    ACTIVE: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
-    EXPIRED: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/25',
-    DEPLETED: 'bg-red-500/15 text-red-400 border-red-500/25',
-    UPCOMING: 'bg-blue-500/15 text-blue-400 border-blue-500/25',
-    INACTIVE: 'bg-white/5 text-white/30 border-white/10',
+const getStatusBadgeTone = (status: string) => {
+    if (status === 'ACTIVE') return 'success' as const;
+    if (status === 'DEPLETED') return 'danger' as const;
+    if (status === 'UPCOMING') return 'info' as const;
+    if (status === 'INACTIVE') return 'default' as const;
+    return 'warning' as const;
 };
 
 // ─── Coupon Form Dialog ───────────────────────────────────────────────────────
@@ -168,43 +183,45 @@ const CouponDialog: React.FC<CouponDialogProps> = ({ coupon, onClose, onSaved, s
     };
 
     const inputClass = (field: string) =>
-        `w-full bg-white/[0.04] border rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-1 transition-all ${errors[field]
-            ? 'border-red-500/50 focus:ring-red-500/30'
-            : 'border-white/[0.10] focus:ring-primary/40 focus:border-primary/50'
+        `w-full ${adminUiTokens.fieldControl} rounded-lg px-4 placeholder:text-white/25 focus:ring-1 ${errors[field]
+            ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/30'
+            : 'focus:ring-primary/40'
         }`;
 
-    const labelClass = 'block text-[11px] font-bold text-white/50 uppercase tracking-wider mb-1.5';
+    const labelClass = `${adminUiTokens.fieldLabel} text-white/50 tracking-wider`;
 
     return (
         <>
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" onClick={onClose} />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div className="bg-[#0f0f0f] border border-white/[0.10] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scale-in">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06] sticky top-0 bg-[#0f0f0f] z-10">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
-                                <TicketPercent size={18} className="text-primary" />
-                            </div>
-                            <div>
-                                <h2 className="text-sm font-bold text-white">
-                                    {isEdit ? t('coupons:form.titleEdit') : t('coupons:form.titleCreate')}
-                                </h2>
-                                <p className="text-[11px] text-white/40">
-                                    {isEdit ? t('coupons:form.subtitleEdit', { code: coupon.code }) : t('coupons:form.subtitleCreate')}
-                                </p>
-                            </div>
-                        </div>
-                        <button
+            <AdminModalShell
+                icon={TicketPercent}
+                title={isEdit ? t('coupons:form.titleEdit') : t('coupons:form.titleCreate')}
+                subtitle={isEdit ? t('coupons:form.subtitleEdit', { code: coupon.code }) : t('coupons:form.subtitleCreate')}
+                onClose={onClose}
+                maxWidthClassName="max-w-2xl"
+                panelClassName="max-h-[90vh] overflow-y-auto"
+                bodyClassName="p-6 space-y-5"
+                stickyHeader
+                footer={(
+                    <div className="flex justify-end gap-3">
+                        <AdminSecondaryButton
+                            type="button"
                             onClick={onClose}
-                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
+                            className="rounded-lg px-4 py-2 text-xs"
                         >
-                            <X size={18} />
-                        </button>
+                            {t('common:actions.cancel')}
+                        </AdminSecondaryButton>
+                        <AdminPrimaryButton
+                            type="button"
+                            onClick={handleSubmit}
+                            disabled={saving}
+                            className="rounded-lg px-6 py-2 text-xs uppercase tracking-wider disabled:cursor-not-allowed"
+                        >
+                            {saving ? <Loader2 size={14} className="animate-spin" /> : null}
+                            {saving ? t('coupons:form.saving') : isEdit ? t('coupons:form.update') : t('coupons:form.create')}
+                        </AdminPrimaryButton>
                     </div>
-
-                    {/* Body */}
-                    <div className="p-6 space-y-5">
+                )}
+            >
                         {/* Code + Generator */}
                         <div>
                             <label className={labelClass}>{t('coupons:form.labelCode')}</label>
@@ -220,7 +237,7 @@ const CouponDialog: React.FC<CouponDialogProps> = ({ coupon, onClose, onSaved, s
                                     type="button"
                                     onClick={() => setCode(generateCode())}
                                     title={t('coupons:form.generateCode')}
-                                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/[0.04] border border-white/[0.10] text-white/50 hover:text-white hover:border-white/25 hover:bg-white/[0.07] transition-all text-xs font-semibold whitespace-nowrap"
+                                    className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2 text-xs font-semibold text-white/50 transition-colors hover:border-white/25 hover:bg-white/[0.07] hover:text-white"
                                 >
                                     <Wand2 size={14} />
                                     {t('coupons:form.generateCode')}
@@ -275,7 +292,7 @@ const CouponDialog: React.FC<CouponDialogProps> = ({ coupon, onClose, onSaved, s
                                     step={1000}
                                     value={maxDiscountAmount}
                                     onChange={(e) => setMaxDiscountAmount(e.target.value)}
-                                    className="w-full bg-white/[0.04] border border-blue-500/20 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-1 focus:ring-blue-500/30 focus:border-blue-500/40 transition-all"
+                                    className="w-full rounded-lg border border-blue-500/20 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-white/25 transition-colors focus:border-blue-500/40 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
                                     placeholder="VD: 50000 (để trống = không giới hạn)"
                                 />
                                 <p className="mt-1.5 text-[10px] text-white/30">
@@ -352,7 +369,7 @@ const CouponDialog: React.FC<CouponDialogProps> = ({ coupon, onClose, onSaved, s
                                 <button
                                     type="button"
                                     onClick={() => setIsActive((p) => !p)}
-                                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-all ${isActive
+                                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${isActive
                                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                                         : 'bg-white/[0.04] border-white/[0.10] text-white/40'
                                         }`}
@@ -370,27 +387,7 @@ const CouponDialog: React.FC<CouponDialogProps> = ({ coupon, onClose, onSaved, s
                                 </button>
                             </div>
                         </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="flex justify-end gap-3 px-6 py-4 border-t border-white/[0.06] bg-black/20">
-                        <button
-                            onClick={onClose}
-                            className="px-4 py-2 text-xs font-semibold text-white/40 hover:text-white border border-white/10 hover:border-white/25 rounded-lg transition-all"
-                        >
-                            {t('common:actions.cancel')}
-                        </button>
-                        <button
-                            onClick={handleSubmit}
-                            disabled={saving}
-                            className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {saving ? <Loader2 size={14} className="animate-spin" /> : null}
-                            {saving ? t('coupons:form.saving') : isEdit ? t('coupons:form.update') : t('coupons:form.create')}
-                        </button>
-                    </div>
-                </div>
-            </div>
+            </AdminModalShell>
         </>
     );
 };
@@ -404,18 +401,38 @@ const DeleteConfirmDialog: React.FC<{
     loading: boolean;
     t: (key: string, opts?: Record<string, unknown>) => string;
 }> = ({ coupon, onConfirm, onCancel, loading, t }) => (
-    <>
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" onClick={onCancel} />
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-[#0f0f0f] border border-white/[0.10] rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-scale-in">
+    <AdminModalShell
+        icon={Trash2}
+        iconWrapperClassName="border-red-500/20 bg-red-500/10 text-red-400"
+        iconClassName="text-red-400"
+        title={t('coupons:delete.title')}
+        subtitle={t('coupons:delete.subtitle')}
+        onClose={onCancel}
+        maxWidthClassName="max-w-sm"
+        bodyClassName="p-6"
+        footer={(
+            <div className="flex justify-end gap-3">
+                <AdminSecondaryButton
+                    type="button"
+                    onClick={onCancel}
+                    className="rounded-lg px-4 py-2 text-xs"
+                >
+                    {t('common:actions.cancel')}
+                </AdminSecondaryButton>
+                <button
+                    onClick={onConfirm}
+                    disabled={loading}
+                    className="flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                >
+                    {loading ? <Loader2 size={13} className="animate-spin" /> : null}
+                    {loading ? t('coupons:delete.processing') : t('coupons:delete.action')}
+                </button>
+            </div>
+        )}
+    >
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20">
-                        <Trash2 size={18} className="text-red-400" />
-                    </div>
-                    <div>
-                        <h3 className="text-sm font-bold text-white">{t('coupons:delete.title')}</h3>
-                        <p className="text-[11px] text-white/40">{t('coupons:delete.subtitle')}</p>
-                    </div>
+                    <AlertTriangle size={18} className="text-red-400" />
+                    <p className="text-sm font-semibold text-white/80">{t('coupons:delete.subtitle')}</p>
                 </div>
                 <p className="text-sm text-white/60 mb-5">
                     Bạn có chắc muốn vô hiệu hóa mã{' '}
@@ -424,25 +441,7 @@ const DeleteConfirmDialog: React.FC<{
                     </code>
                     ? Khách hàng sẽ không thể dùng mã này nữa.
                 </p>
-                <div className="flex justify-end gap-3">
-                    <button
-                        onClick={onCancel}
-                        className="px-4 py-2 text-xs font-semibold text-white/40 hover:text-white border border-white/10 hover:border-white/25 rounded-lg transition-all"
-                    >
-                        {t('common:actions.cancel')}
-                    </button>
-                    <button
-                        onClick={onConfirm}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-5 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all disabled:opacity-50"
-                    >
-                        {loading ? <Loader2 size={13} className="animate-spin" /> : null}
-                        {loading ? t('coupons:delete.processing') : t('coupons:delete.action')}
-                    </button>
-                </div>
-            </div>
-        </div>
-    </>
+    </AdminModalShell>
 );
 
 // ─── Skeleton ──────────────────────────────────────────────────────────────────
@@ -467,6 +466,7 @@ export const Coupons: React.FC = () => {
     const { showToast: fireToast } = useToast();
     const [coupons, setCoupons] = useState<Coupon[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -479,6 +479,8 @@ export const Coupons: React.FC = () => {
     const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<Coupon | null>(null);
     const [deleting, setDeleting] = useState(false);
+    const hasLoadedRef = useRef(false);
+    const requestIdRef = useRef(0);
 
     // Debounce search
     useEffect(() => {
@@ -487,7 +489,10 @@ export const Coupons: React.FC = () => {
     }, [search]);
 
     const loadCoupons = useCallback(async () => {
-        setLoading(true);
+        const requestId = ++requestIdRef.current;
+        const isFirstLoad = !hasLoadedRef.current;
+        if (isFirstLoad) setLoading(true);
+        else setIsRefreshing(true);
         setError(null);
         try {
             const resp = await fetchCoupons({
@@ -498,6 +503,7 @@ export const Coupons: React.FC = () => {
                         ? statusFilter === 'ACTIVE'
                         : undefined,
             });
+            if (requestIdRef.current !== requestId) return;
             let filtered = resp.coupons;
 
             // Client-side status filter (for computed statuses like EXPIRED/DEPLETED)
@@ -508,11 +514,15 @@ export const Coupons: React.FC = () => {
             setCoupons(filtered);
             setTotalPages(resp.pagination.totalPages);
             setTotal(resp.pagination.total);
+            hasLoadedRef.current = true;
         } catch (err: unknown) {
+            if (requestIdRef.current !== requestId) return;
             const error = err as { message?: string };
             setError(error.message ?? t('coupons:feedback.loadError'));
         } finally {
-            setLoading(false);
+            if (requestIdRef.current !== requestId) return;
+            if (isFirstLoad) setLoading(false);
+            else setIsRefreshing(false);
         }
     }, [page, debouncedSearch, statusFilter, t]);
 
@@ -576,72 +586,47 @@ export const Coupons: React.FC = () => {
     const depletedCnt = coupons.filter((c) => c.status === 'DEPLETED').length;
 
     const statsBar = [
-        { labelKey: 'coupons:stats.total', value: total, Icon: Tag, color: 'bg-white/5 text-white/60', border: 'border-white/[0.06]' },
-        { labelKey: 'coupons:stats.active', value: activeCnt, Icon: CheckCircle2, color: 'bg-emerald-500/10 text-emerald-400', border: 'border-emerald-500/10' },
-        { labelKey: 'coupons:stats.expired', value: expiredCnt, Icon: Clock, color: 'bg-zinc-500/10 text-zinc-400', border: 'border-zinc-500/10' },
-        { labelKey: 'coupons:stats.depleted', value: depletedCnt, Icon: Ban, color: 'bg-red-500/10 text-red-400', border: 'border-red-500/10' },
+        { key: 'total', label: t('coupons:stats.total'), value: loading ? '–' : total, icon: Tag, tone: 'default' as const },
+        { key: 'active', label: t('coupons:stats.active'), value: loading ? '–' : activeCnt, icon: CheckCircle2, tone: 'success' as const },
+        { key: 'expired', label: t('coupons:stats.expired'), value: loading ? '–' : expiredCnt, icon: Clock, tone: 'default' as const },
+        { key: 'depleted', label: t('coupons:stats.depleted'), value: loading ? '–' : depletedCnt, icon: Ban, tone: 'danger' as const },
     ];
 
-    return (
-        <div
-            className="min-h-full p-8 max-w-[1600px] mx-auto flex flex-col gap-6"
-            style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}
-        >
-            <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');
-        @keyframes fade-in-up { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
-        @keyframes scale-in { from { opacity: 0; transform: scale(0.95) } to { opacity: 1; transform: scale(1) } }
-        .animate-fade-in-up { animation: fade-in-up 0.2s ease-out both; }
-        .animate-scale-in { animation: scale-in 0.18s ease-out both; }
-      `}</style>
+    const pageControls = (
+        <div className="space-y-5 border-b border-white/[0.06] p-5 lg:p-6">
+            <AdminPageHeader
+                icon={TicketPercent}
+                title={t('coupons:page.title')}
+                subtitle={t('coupons:page.subtitle')}
+                actions={(
+                    <AdminPrimaryButton
+                        type="button"
+                        onClick={() => { setSelectedCoupon(null); setDialogMode('create'); }}
+                    >
+                        <Plus size={15} />
+                        {t('coupons:page.create')}
+                    </AdminPrimaryButton>
+                )}
+            />
 
-            {/* ── Header ── */}
-            <header className="flex items-start justify-between gap-4">
-                <div>
-                    <div className="flex items-center gap-3 mb-1">
-                        <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
-                            <TicketPercent size={20} className="text-primary" />
-                        </div>
-                        <h1 className="text-2xl font-bold text-white tracking-tight">{t('coupons:page.title')}</h1>
-                    </div>
-                    <p className="text-xs text-white/40 uppercase tracking-[0.15em] ml-[3.5rem]">
-                        {t('coupons:page.subtitle')}
-                    </p>
-                </div>
-                <button
-                    onClick={() => { setSelectedCoupon(null); setDialogMode('create'); }}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-lg shadow-primary/20"
-                >
-                    <Plus size={15} />
-                    {t('coupons:page.create')}
-                </button>
-            </header>
+            <AdminStatCards items={statsBar} />
 
-            {/* ── Stats Bar ── */}
-            <div className="grid grid-cols-4 gap-4">
-                {statsBar.map(({ labelKey, value, Icon, color, border }) => (
-                    <div key={labelKey} className={`bg-[#111] border ${border} rounded-xl px-5 py-4 flex items-center gap-4`}>
-                        <div className={`p-2.5 rounded-lg ${color.split(' ')[0]}`}>
-                            <Icon size={18} className={color.split(' ')[1]} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">{t(labelKey)}</p>
-                            <p className={`text-2xl font-black ${color.split(' ')[1]}`}>{loading ? '–' : value}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* ── Filter Bar ── */}
-            <div className="flex items-center gap-3 flex-wrap">
-                <div className="relative flex-1 min-w-[220px]">
+            <AdminToolbar
+                actions={(
+                    <AdminSecondaryButton type="button" onClick={loadCoupons} disabled={loading}>
+                        <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                        {t('coupons:filters.refresh')}
+                    </AdminSecondaryButton>
+                )}
+            >
+                <div className="relative min-w-[220px] flex-1">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" size={15} />
                     <input
                         type="text"
                         placeholder={t('coupons:filters.searchPlaceholder')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-[#111] border border-white/[0.08] rounded-lg pl-9 pr-8 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary/60 transition-colors"
+                        className={adminUiTokens.searchFieldControl}
                     />
                     {search && (
                         <button
@@ -652,42 +637,36 @@ export const Coupons: React.FC = () => {
                         </button>
                     )}
                 </div>
+            </AdminToolbar>
 
-                {/* Status filter pills */}
-                <div className="flex gap-1.5 flex-wrap">
-                    {statFilters.map((f) => (
-                        <button
-                            key={f.key}
-                            onClick={() => setStatusFilter(f.key)}
-                            className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition-all ${statusFilter === f.key
-                                ? 'bg-primary/15 border-primary/40 text-primary'
-                                : 'bg-white/[0.03] border-white/[0.08] text-white/40 hover:text-white/70 hover:border-white/20'
-                                }`}
-                        >
-                            {f.label}
-                        </button>
-                    ))}
-                </div>
+            <AdminTabs
+                items={statFilters.map((filter) => ({ key: filter.key, label: filter.label }))}
+                activeKey={statusFilter}
+                onChange={setStatusFilter}
+            />
+        </div>
+    );
 
-                <button
-                    onClick={loadCoupons}
-                    disabled={loading}
-                    className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold text-white/50 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg transition-all"
-                >
-                    <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                    {t('coupons:filters.refresh')}
-                </button>
-            </div>
+    return (
+        <AdminPageShell className="min-h-full">
+            <style>{`
+        @keyframes fade-in-up { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
+        @keyframes scale-in { from { opacity: 0; transform: scale(0.95) } to { opacity: 1; transform: scale(1) } }
+        .animate-fade-in-up { animation: fade-in-up 0.2s ease-out both; }
+        .animate-scale-in { animation: scale-in 0.18s ease-out both; }
+      `}</style>
 
             {/* ── Table ── */}
-            <div className="bg-[#0e0e0e] border border-white/[0.06] rounded-2xl shadow-2xl overflow-hidden flex-1">
+            <AdminSectionCard className="flex-1 overflow-hidden bg-[#0e0e0e]" bodyClassName="flex h-full flex-col">
+                {pageControls}
+                {isRefreshing && !loading && <div className="h-px w-full bg-primary/60" />}
                 {error ? (
                     <div className="flex flex-col items-center justify-center py-24 text-center">
                         <AlertTriangle size={40} className="text-red-400 mb-4" />
                         <p className="text-white/60 font-medium mb-6">{error}</p>
                         <button
                             onClick={loadCoupons}
-                            className="text-xs font-bold uppercase tracking-wider text-primary border border-primary/30 px-4 py-2 rounded-lg hover:bg-primary/10 transition-all"
+                            className="text-xs font-bold uppercase tracking-wider text-primary border border-primary/30 px-4 py-2 rounded-lg hover:bg-primary/10 transition-colors"
                         >
                             {t('coupons:feedback.retry')}
                         </button>
@@ -695,18 +674,18 @@ export const Coupons: React.FC = () => {
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-white/[0.025] border-b border-white/[0.06]">
-                                    <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">{t('coupons:table.code')}</th>
-                                    <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">{t('coupons:table.type')}</th>
-                                    <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">{t('coupons:table.condition')}</th>
-                                    <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">{t('coupons:table.period')}</th>
-                                    <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center">{t('coupons:table.usage')}</th>
-                                    <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">{t('coupons:table.status')}</th>
-                                    <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 text-center w-24">{t('coupons:table.actions')}</th>
+                            <thead className={adminUiTokens.tableHeaderSurface}>
+                                <tr>
+                                    <th className={`px-5 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.code')}</th>
+                                    <th className={`px-5 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.type')}</th>
+                                    <th className={`px-5 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.condition')}</th>
+                                    <th className={`px-5 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.period')}</th>
+                                    <th className={`px-5 py-3.5 text-center ${adminUiTokens.tableHeader}`}>{t('coupons:table.usage')}</th>
+                                    <th className={`px-5 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.status')}</th>
+                                    <th className={`w-24 px-5 py-3.5 text-center ${adminUiTokens.tableHeader}`}>{t('coupons:table.actions')}</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody className={adminUiTokens.tableBody}>
                                 {loading ? (
                                     Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
                                 ) : coupons.length === 0 ? (
@@ -732,13 +711,12 @@ export const Coupons: React.FC = () => {
                                     coupons.map((c) => {
                                         const statusLabel = t(`coupons:status.${c.status}`) || c.status;
                                         const StatusIcon = STATUS_ICON_MAP[c.status] ?? Ban;
-                                        const statusClassName = STATUS_CLASS_MAP[c.status] ?? STATUS_CLASS_MAP.INACTIVE;
                                         const usagePct = c.usageLimit > 0 ? Math.min(100, (c.usedCount / c.usageLimit) * 100) : 0;
 
                                         return (
                                             <tr
                                                 key={c.couponId}
-                                                className="border-b border-white/[0.04] hover:bg-white/[0.015] transition-colors"
+                                                className={adminUiTokens.tableRowSoft}
                                             >
                                                 {/* Code */}
                                                 <td className="px-5 py-4">
@@ -792,7 +770,7 @@ export const Coupons: React.FC = () => {
                                                         </span>
                                                         <div className="w-20 h-1.5 bg-white/5 rounded-full overflow-hidden">
                                                             <div
-                                                                className={`h-full rounded-full transition-all ${usagePct >= 100 ? 'bg-red-500' : usagePct >= 80 ? 'bg-amber-500' : 'bg-emerald-500'
+                                                                className={`h-full rounded-full transition-colors ${usagePct >= 100 ? 'bg-red-500' : usagePct >= 80 ? 'bg-amber-500' : 'bg-emerald-500'
                                                                     }`}
                                                                 style={{ width: `${usagePct}%` }}
                                                             />
@@ -802,32 +780,33 @@ export const Coupons: React.FC = () => {
 
                                                 {/* Status */}
                                                 <td className="px-5 py-4">
-                                                    <span
-                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${statusClassName}`}
+                                                    <AdminBadge
+                                                        tone={getStatusBadgeTone(c.status)}
+                                                        className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider"
                                                     >
                                                         <StatusIcon size={10} />
                                                         {statusLabel}
-                                                    </span>
+                                                    </AdminBadge>
                                                 </td>
 
                                                 {/* Actions */}
                                                 <td className="px-5 py-4 text-center">
                                                     <div className="flex items-center justify-center gap-1">
-                                                        <button
+                                                        <AdminRowIconButton
                                                             onClick={() => openEdit(c)}
                                                             title={t('coupons:form.titleEdit')}
-                                                            className="p-1.5 rounded-lg text-white/25 hover:text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all"
+                                                            tone="primary"
                                                         >
                                                             <Pencil size={14} />
-                                                        </button>
-                                                        <button
+                                                        </AdminRowIconButton>
+                                                        <AdminRowIconButton
                                                             onClick={() => setDeleteTarget(c)}
                                                             title={t('coupons:delete.action')}
                                                             disabled={!c.isActive}
-                                                            className="p-1.5 rounded-lg text-white/25 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+                                                            tone="danger"
                                                         >
                                                             <Trash2 size={14} />
-                                                        </button>
+                                                        </AdminRowIconButton>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -838,28 +817,28 @@ export const Coupons: React.FC = () => {
                         </table>
                     </div>
                 )}
-            </div>
+            </AdminSectionCard>
 
             {/* ── Pagination ── */}
             {!loading && totalPages > 1 && (
                 <div className="flex items-center justify-center gap-2">
-                    <button
+                    <AdminActionButton
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                         disabled={page === 1}
-                        className="px-3 py-1.5 text-xs font-semibold text-white/50 hover:text-white border border-white/10 hover:border-white/25 rounded-lg transition-all disabled:opacity-20"
+                        className="text-white/50 hover:text-white"
                     >
                         ← Trước
-                    </button>
+                    </AdminActionButton>
                     <span className="text-xs text-white/40 px-2">
                         Trang {page} / {totalPages}
                     </span>
-                    <button
+                    <AdminActionButton
                         onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                         disabled={page === totalPages}
-                        className="px-3 py-1.5 text-xs font-semibold text-white/50 hover:text-white border border-white/10 hover:border-white/25 rounded-lg transition-all disabled:opacity-20"
+                        className="text-white/50 hover:text-white"
                     >
                         Tiếp →
-                    </button>
+                    </AdminActionButton>
                 </div>
             )}
 
@@ -882,6 +861,6 @@ export const Coupons: React.FC = () => {
                     t={t as (key: string, opts?: Record<string, unknown>) => string}
                 />
             )}
-        </div>
+        </AdminPageShell>
     );
 };

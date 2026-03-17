@@ -13,7 +13,15 @@ import {
 } from '../config/orderStatus.config';
 import { ERROR_CODES, SUCCESS_MESSAGES } from '../utils/constants/responseKeys';
 import { logger } from '../lib/logger';
-import { deriveOrderPaymentStatus, getShipmentSummary } from '../shared/order-state';
+import { getOrderTrackingSummary } from '../shared/order-state';
+import {
+  buildCanonicalTimeline,
+  buildOrderSummaryRow,
+  deriveCanonicalPaymentStatus,
+  toCanonicalOrderStatus,
+} from '../shared/order-contract';
+import { fileToBase64 } from '../middlewares/upload.middleware';
+import { cloudinaryService } from '../services/cloudinary.service';
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
@@ -86,61 +94,6 @@ async function loadVariantFallbacksBySku(items: Array<{ sku: string; variant?: u
   return new Map(variants.map((variant) => [variant.sku, variant]));
 }
 
-type OrderRow = Awaited<ReturnType<typeof findManyOrders>>['data'][number];
-
-function formatOrderSummary(order: OrderRow) {
-  const paymentStatus = deriveOrderPaymentStatus(order.payments);
-  return {
-    orderId: order.orderId,
-    orderNumber: order.orderNumber,
-    customerName: order.customerName,
-    customerPhone: order.customerPhone,
-    status: order.status,
-    paymentStatus,
-    paymentMethod: order.paymentMethod,
-    totalAmount: order.totalAmount?.toString() ?? '0',
-    createdAt: order.createdAt?.toISOString(),
-    itemCount: order._count.items,
-    user: order.user
-      ? {
-        userId: order.user.userId,
-        email: order.user.email,
-        fullName: order.user.fullName,
-        avatarUrl: order.user.avatarUrl,
-      }
-      : null,
-  };
-}
-
-function buildStatusHistory(order: any) {
-  const history: Array<{
-    status: string;
-    oldStatus: string | null;
-    changedAt: string;
-    changedBy: number | null;
-    note: string | null;
-  }> = order.statusHistory.map((h: any) => ({
-    status: h.status,
-    oldStatus: h.oldStatus ?? null,
-    changedAt: h.changedAt.toISOString(),
-    changedBy: h.changedBy ?? null,
-    note: h.note ?? null,
-  }));
-
-  const hasPending = history.some((h) => h.status.toLowerCase() === 'pending');
-  if (history.length === 0 || !hasPending) {
-    history.unshift({
-      status: 'Pending',
-      oldStatus: null,
-      changedAt: (order.createdAt || new Date()).toISOString(),
-      changedBy: null,
-      note: 'Order placed',
-    });
-  }
-
-  return history.sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime());
-}
-
 function buildPricingBreakdown(
   items: Array<{ unitPrice: { toString(): string } | string | number; quantity: number }>,
   shippingFee: unknown,
@@ -165,6 +118,16 @@ function buildPricingBreakdown(
   };
 }
 
+function parseDeliveryProofImages(value: string | null | undefined): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string' && item.length > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
 // ─── ADMIN: Get All Orders | GET /api/orders/admin ───────────────────────────
 
 export const getAllOrders = async (req: AuthRequest, res: Response) => {
@@ -180,7 +143,7 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
       sort: firstQueryValue(sort),
     };
     const { data: orders, meta } = await findManyOrders(filters);
-    res.json({ data: orders.map(formatOrderSummary), meta });
+    res.json({ data: orders.map(buildOrderSummaryRow), meta });
   } catch (error: any) {
     logger.error('[getAllOrders] Failed', { message: error?.message, prismaCode: error?.code, meta: error?.meta, url: req.originalUrl });
     res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
@@ -231,13 +194,19 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
     if (!order) return res.status(404).json({ success: false, errorCode: 'ORDER_NOT_FOUND', message: 'Order not found' });
 
     const variantFallbackBySku = await loadVariantFallbacksBySku(order.items);
-    const shipment = getShipmentSummary(order.shipment);
-    const paymentStatus = deriveOrderPaymentStatus(order.payments);
+    const shipping = getOrderTrackingSummary(order.orderNumber, order.shipment);
+    const paymentStatus = deriveCanonicalPaymentStatus(order.payments, order.paymentMethod);
+    const timeline = buildCanonicalTimeline(order.statusHistory, order.createdAt);
+    const deliveryProof = {
+      images: parseDeliveryProofImages((order.shipment as any)?.deliveryProofImages),
+      reviewed: Boolean((order.shipment as any)?.deliveryProofReviewed),
+    };
 
     res.json({
       orderId: order.orderId,
       orderNumber: order.orderNumber,
-      status: order.status,
+      orderCode: order.orderNumber,
+      status: toCanonicalOrderStatus(order.status),
       paymentStatus,
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount?.toString() ?? '0',
@@ -248,8 +217,14 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
       pricing: buildPricingBreakdown(order.items, order.shippingFee, order.discountAmount, order.totalAmount),
       note: order.note,
       createdAt: order.createdAt?.toISOString(),
-      trackingNumber: shipment.trackingNumber,
-      carrier: shipment.carrier,
+      trackingCode: shipping.trackingCode,
+      shippingMode: shipping.shippingMode,
+      provider: shipping.provider,
+      providerOrderCode: shipping.providerOrderCode,
+      providerStatus: shipping.providerStatus,
+      trackingNumber: shipping.trackingNumber,
+      carrier: shipping.carrier,
+      deliveryProof,
       shippingAddress: {
         recipientName: order.customerName,
         phone: order.customerPhone,
@@ -281,7 +256,14 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
         status: p.status,
         paidAt: p.paymentDate?.toISOString(),
       })),
-      statusHistory: buildStatusHistory(order),
+      statusHistory: timeline.map((entry) => ({
+        status: entry.status,
+        oldStatus: entry.oldStatus,
+        changedAt: entry.timestamp,
+        changedBy: entry.changedBy,
+        note: entry.note,
+      })),
+      timeline,
     });
   } catch (error: any) {
     logger.error('[getAdminOrderDetail] Failed', { message: error?.message, orderId: req.params.id, url: req.originalUrl });
@@ -297,27 +279,46 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
     if (orderId === null) return res.status(400).json({ error: 'Invalid order ID' });
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
-    const { status, note, carrier, trackingNumber, estimatedDeliveryDate } = req.body as {
+    const { status, note, deliveryProofImages, deliveryProofReviewed } = req.body as {
       status: string;
       note?: string;
-      carrier?: string;
-      trackingNumber?: string;
-      estimatedDeliveryDate?: string;
+      deliveryProofImages?: string[];
+      deliveryProofReviewed?: boolean;
     };
 
     const result = await updateOrderStatusAdmin(orderId.toString(), req.user, {
       status,
       note,
-      carrier,
-      trackingNumber,
-      estimatedDeliveryDate,
+      deliveryProofImages,
+      deliveryProofReviewed,
     });
 
     res.json({ success: true, messageKey: SUCCESS_MESSAGES.ORDER_STATUS_UPDATED, ...result });
   } catch (error: any) {
-    logger.error('[updateOrderStatus] Failed', { message: error?.message, orderId: req.params.id, url: req.originalUrl });
-    if (error.status) {
-      res.status(error.status).json({ success: false, errorCode: error.code, message: error.message });
+    logger.error('[updateOrderStatus] Failed', {
+      message: error?.message,
+      stack: error?.stack,
+      statusCode: error?.statusCode ?? error?.status,
+      errorCode: error?.errorCode ?? error?.code,
+      details: error?.details,
+      payload: req.body,
+      orderId: req.params.id,
+      url: req.originalUrl,
+    });
+
+    const statusCode = error?.statusCode ?? error?.status;
+    const errorCode = error?.errorCode ?? error?.code;
+    const messageKey = error?.messageKey;
+
+    if (statusCode) {
+      res.status(statusCode).json({
+        success: false,
+        errorCode: errorCode ?? 'REQUEST_FAILED',
+        code: errorCode ?? 'REQUEST_FAILED',
+        messageKey,
+        message: error.message,
+        ...(process.env.NODE_ENV === 'production' ? {} : { details: error?.details }),
+      });
       return;
     }
     res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
@@ -341,7 +342,7 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
     };
 
     const { data: orders, meta } = await findManyOrders(filters);
-    res.json({ data: orders.map(formatOrderSummary), meta });
+    res.json({ data: orders.map(buildOrderSummaryRow), meta });
   } catch (error: any) {
     logger.error('[getMyOrders] Failed', { message: error?.message, userId: req.user?.userId, url: req.originalUrl });
     res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
@@ -393,13 +394,15 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
     const variantFallbackBySku = await loadVariantFallbacksBySku(order.items);
-    const shipment = getShipmentSummary(order.shipment);
-    const paymentStatus = deriveOrderPaymentStatus(order.payments);
+    const shipping = getOrderTrackingSummary(order.orderNumber, order.shipment);
+    const paymentStatus = deriveCanonicalPaymentStatus(order.payments, order.paymentMethod);
+    const timeline = buildCanonicalTimeline(order.statusHistory, order.createdAt);
 
     res.json({
       orderId: order.orderId,
       orderNumber: order.orderNumber,
-      status: order.status,
+      orderCode: order.orderNumber,
+      status: toCanonicalOrderStatus(order.status),
       paymentStatus,
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount.toString(),
@@ -410,8 +413,13 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
       pricing: buildPricingBreakdown(order.items, order.shippingFee, order.discountAmount, order.totalAmount),
       createdAt: order.createdAt?.toISOString(),
       updatedAt: order.updatedAt?.toISOString() ?? order.createdAt?.toISOString(),
-      trackingNumber: shipment.trackingNumber,
-      carrier: shipment.carrier,
+      trackingCode: shipping.trackingCode,
+      shippingMode: shipping.shippingMode,
+      provider: shipping.provider,
+      providerOrderCode: shipping.providerOrderCode,
+      providerStatus: shipping.providerStatus,
+      trackingNumber: shipping.trackingNumber,
+      carrier: shipping.carrier,
       shippingAddress: {
         recipientName: order.customerName,
         phone: order.customerPhone,
@@ -448,7 +456,7 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
         transactionCode: (p as any).transactionCode ?? null,
         note: (p as any).note ?? null,
       })),
-      timeline: order.statusHistory.map((h) => ({ status: h.status, at: h.changedAt.toISOString() })),
+      timeline,
     });
   } catch (error: any) {
     logger.error('[getMyOrderDetail] Failed', { message: error?.message, orderId: req.params.orderId, userId: req.user?.userId });
@@ -554,6 +562,13 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     return res.json({
       success: true,
       orderId,
+      orderCode: orderDetail.orderCode,
+      trackingCode: orderDetail.trackingCode,
+      status: toCanonicalOrderStatus(orderDetail.status),
+      paymentStatus: deriveCanonicalPaymentStatus(
+        orderDetail.paymentStatus ? [{ status: orderDetail.paymentStatus }] : [],
+        orderDetail.paymentMethod,
+      ),
       pricing: orderDetail.pricing,
       paymentMethod: orderDetail.paymentMethod,
       message: 'Order created successfully',
@@ -562,6 +577,57 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     logger.error('[createOrder] Checkout failed', { message: error?.message, errorCode: error?.code, userId: req.user?.userId });
     if (error.status) return res.status(error.status).json({ success: false, errorCode: error.code, message: error.message });
     return res.status(500).json({ success: false, errorCode: 'CHECKOUT_FAILED', message: 'Checkout failed. Please try again.' });
+  }
+};
+
+// ─── ADMIN: Upload Delivery Proof Images | POST /api/orders/:id/delivery-proof-images ─────
+
+export const uploadDeliveryProofImages = async (req: AuthRequest, res: Response) => {
+  try {
+    const orderId = parseIdParam(req.params.id);
+    if (orderId === null) return res.status(400).json({ error: 'Invalid order ID' });
+
+    const order = await prisma.order.findUnique({
+      where: { orderId },
+      select: { orderId: true },
+    });
+    if (!order) return res.status(404).json({ success: false, errorCode: 'ORDER_NOT_FOUND', message: 'Order not found' });
+
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (files.length === 0) {
+      return res.status(400).json({ success: false, errorCode: 'DELIVERY_PROOF_REQUIRED', message: 'At least one delivery proof image is required.' });
+    }
+
+    const uploaded = await Promise.all(
+      files.map(async (file) => {
+        const result = await cloudinaryService.uploadBase64(fileToBase64(file), {
+          folder: `orders/delivery-proof/${orderId}`,
+          transformation: {
+            width: 1600,
+            height: 1600,
+            crop: 'limit',
+            quality: 'auto:good',
+          },
+        });
+
+        return {
+          url: result.secureUrl,
+          width: result.width,
+          height: result.height,
+        };
+      }),
+    );
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        images: uploaded,
+      },
+      message: 'Delivery proof images uploaded successfully.',
+    });
+  } catch (error: any) {
+    logger.error('[uploadDeliveryProofImages] Failed', { message: error?.message, orderId: req.params.id });
+    return res.status(500).json({ success: false, errorCode: 'DELIVERY_PROOF_UPLOAD_FAILED', message: 'Failed to upload delivery proof images.' });
   }
 };
 
@@ -577,7 +643,13 @@ export const confirmReceipt = async (req: AuthRequest, res: Response) => {
 
     const order = await prisma.order.findUnique({
       where: { orderId },
-      select: { orderId: true, userId: true, status: true },
+      select: {
+        orderId: true,
+        userId: true,
+        status: true,
+        paymentMethod: true,
+        totalAmount: true,
+      },
     });
 
     if (!order) return res.status(404).json({ errorCode: ERROR_CODES.ORDER_NOT_FOUND });
@@ -585,6 +657,8 @@ export const confirmReceipt = async (req: AuthRequest, res: Response) => {
     if (order.status !== ORDER_STATUS.SHIPPING) {
       return res.status(400).json({ errorCode: ERROR_CODES.ORDER_NOT_SHIPPING, currentStatus: order.status });
     }
+
+    const isCodOrder = (order.paymentMethod ?? '').toUpperCase() === 'COD';
 
     await prisma.$transaction(async (tx) => {
       await tx.order.update({ where: { orderId }, data: { status: ORDER_STATUS.DELIVERED } });
@@ -597,6 +671,41 @@ export const confirmReceipt = async (req: AuthRequest, res: Response) => {
           note: 'Khách hàng xác nhận đã nhận hàng',
         },
       });
+
+      if (isCodOrder) {
+        const latestCodPayment = await tx.payment.findFirst({
+          where: { orderId, paymentMethod: 'COD' },
+          orderBy: { paymentId: 'desc' },
+        });
+
+        const paymentAlreadySettled = ['COMPLETED', 'PAID', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes(
+          (latestCodPayment?.status ?? '').toUpperCase(),
+        );
+
+        if (!paymentAlreadySettled && latestCodPayment) {
+          await tx.payment.update({
+            where: { paymentId: latestCodPayment.paymentId },
+            data: {
+              status: 'COMPLETED',
+              paymentDate: new Date(),
+              note: 'Customer confirmed receipt. COD payment marked as paid.',
+            },
+          });
+        }
+
+        if (!paymentAlreadySettled && !latestCodPayment) {
+          await tx.payment.create({
+            data: {
+              orderId,
+              paymentMethod: 'COD',
+              amount: order.totalAmount,
+              status: 'COMPLETED',
+              paymentDate: new Date(),
+              note: 'Customer confirmed receipt. COD payment marked as paid.',
+            },
+          });
+        }
+      }
     });
 
     return res.json({ success: true, messageKey: SUCCESS_MESSAGES.RECEIPT_CONFIRMED, orderId, newStatus: ORDER_STATUS.DELIVERED });

@@ -4,7 +4,21 @@ import { useNavigate } from 'react-router-dom';
 import { useProductsPageAPI, useUpdateProductMutation, useDeleteProductMutation } from '@/common/hooks/useProducts';
 import { deleteProductById, fetchCategories, type CategoryOption } from '@/common/services/product.service';
 import { useToast } from '@/common/contexts/ToastContext';
-import { Trash2, Edit2, AlertCircle, Loader2, UploadCloud, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { Trash2, Edit2, AlertCircle, Loader2, UploadCloud, ChevronLeft, ChevronRight, Search, Package, Download, Filter } from 'lucide-react';
+import {
+  AdminActionButton,
+  AdminIconButton,
+  AdminRowIconButton,
+  AdminModalShell,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminPrimaryButton,
+  AdminSectionCard,
+  AdminSecondaryButton,
+  AdminTabs,
+  AdminToolbar,
+  adminUiTokens,
+} from '@/admin/components/AdminUI';
 import { BulkImportExportModal } from '@/admin/components/BulkImportExportModal';
 
 export const Products: React.FC = () => {
@@ -21,6 +35,7 @@ export const Products: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+  const [productViewTab, setProductViewTab] = useState<'all' | 'published' | 'drafts'>('all');
 
   const serverStatusFilter =
     statusFilter === 'In Stock'
@@ -236,9 +251,14 @@ export const Products: React.FC = () => {
   const isAllSelected = filteredProducts.length > 0 && filteredProducts.every(p => selectedIds.includes(p.id));
   const totalPages = pagination?.totalPages ?? 1;
   const totalProducts = pagination?.total ?? mappedProducts.length;
+  const productTabs = [
+    { key: 'all', label: t('products:tabs.all') },
+    { key: 'published', label: t('products:tabs.published') },
+    { key: 'drafts', label: t('products:tabs.drafts') },
+  ];
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col relative">
+    <AdminPageShell className="relative h-full">
       {/* ── Import/Export Modal ── */}
       {showImportExport && (
         <BulkImportExportModal
@@ -250,91 +270,43 @@ export const Products: React.FC = () => {
       )}
       {/* ── Xác nhận xóa ──── */}
       {deleteModal?.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={() => !deleting && setDeleteModal(null)}
-          />
-          <div className="relative bg-surface-dark border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-5"
-            style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
-                <Trash2 size={18} className="text-red-400" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white">{t('products:modal.deleteTitle')}</h3>
-                <p className="text-[11px] text-white/40 mt-0.5 font-mono truncate max-w-[280px]">
-                  {deleteModal.name}
-                </p>
-              </div>
+        <AdminModalShell
+          icon={Trash2}
+          iconWrapperClassName="border-red-500/20 bg-red-500/10 text-red-400 rounded-full"
+          iconClassName="text-red-400"
+          title={t('products:modal.deleteTitle')}
+          subtitle={deleteModal.name}
+          onClose={() => !deleting && setDeleteModal(null)}
+          maxWidthClassName="max-w-md"
+          bodyClassName="space-y-5 p-6"
+          footer={(
+            <div className="flex justify-end gap-3">
+              <AdminSecondaryButton
+                type="button"
+                onClick={() => setDeleteModal(null)}
+                disabled={deleting}
+                className="px-5 py-2.5"
+              >
+                {t('common:actions.cancel')}
+              </AdminSecondaryButton>
+              <AdminPrimaryButton
+                type="button"
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="bg-red-600 px-5 py-2.5 shadow-lg shadow-red-900/30 hover:bg-red-700"
+              >
+                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                {deleting ? t('products:modal.deleting') : t('products:modal.delete')}
+              </AdminPrimaryButton>
             </div>
+          )}
+        >
             <p
               className="text-sm text-white/60 bg-white/[0.03] border border-white/5 rounded-lg px-4 py-3 leading-relaxed"
               dangerouslySetInnerHTML={{ __html: t('products:modal.deleteWarning') }}
             />
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => setDeleteModal(null)}
-                disabled={deleting}
-                className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-50"
-              >
-                {t('common:actions.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={confirmDelete}
-                disabled={deleting}
-                className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center gap-2 shadow-lg shadow-red-900/30"
-              >
-                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                {deleting ? t('products:modal.deleting') : t('products:modal.delete')}
-              </button>
-            </div>
-          </div>
-        </div>
+        </AdminModalShell>
       )}
-
-      {/* ── Header ── */}
-      <header className="h-20 flex items-center justify-between mb-8">
-        <div>
-          <h2 className="text-2xl font-bold text-white">{t('products:page.title')}</h2>
-          <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">
-            {t('products:page.subtitle')} • {totalProducts} {t('products:page.productCount')}
-          </p>
-          {isFetching && !initialLoading && (
-            <p className="text-[10px] text-white/35 uppercase tracking-[0.18em] mt-2">
-              {t('common:loading', { defaultValue: 'Đang tải' })}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative hidden md:block">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder={t('products:toolbar.searchPlaceholder')}
-              className="bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 w-72 transition-all"
-            />
-          </div>
-          <button
-            onClick={() => setShowImportExport(true)}
-            className="flex items-center gap-2 border border-white/15 hover:border-white/30 text-white/70 hover:text-white text-xs font-bold uppercase tracking-[0.1em] px-5 py-3 rounded shadow-md transition-all"
-          >
-            <UploadCloud size={15} />
-            {t('products:toolbar.importExport')}
-          </button>
-          <button
-            onClick={() => navigate('/admin/products/create')}
-            className="bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-[0.1em] px-6 py-3 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-[18px]">add</span>
-            {t('products:page.create')}
-          </button>
-        </div>
-      </header>
 
       {/* ── Loading ── */}
       {initialLoading && (
@@ -362,8 +334,56 @@ export const Products: React.FC = () => {
       {/* ── Table ── */}
       {!initialLoading && !error && (
         <div className="bg-surface-dark border border-white/5 rounded-xl shadow-2xl flex flex-col flex-1">
+          <div className="border-b border-white/5 p-5 lg:p-6">
+            <div className="space-y-5">
+              <AdminPageHeader
+                icon={Package}
+                title={t('products:page.title')}
+                subtitle={t('products:page.subtitle')}
+                meta={`${totalProducts} ${t('products:page.productCount')}`}
+              />
+
+              <AdminToolbar
+                actions={(
+                  <>
+                    <AdminSecondaryButton type="button" onClick={() => setShowImportExport(true)}>
+                      <UploadCloud size={15} />
+                      {t('products:toolbar.importExport')}
+                    </AdminSecondaryButton>
+                    <AdminPrimaryButton type="button" onClick={() => navigate('/admin/products/create')}>
+                      <span className="material-symbols-outlined text-[18px]">add</span>
+                      {t('products:page.create')}
+                    </AdminPrimaryButton>
+                  </>
+                )}
+              >
+                <div className="grid w-full gap-3 md:grid-cols-[minmax(280px,360px)_auto]">
+                  <label className="relative">
+                    <span className={adminUiTokens.fieldLabel}>Tìm kiếm</span>
+                    <Search size={15} className="pointer-events-none absolute left-3 top-[38px] -translate-y-1/2 text-white/30" />
+                    <input
+                      type="text"
+                      value={searchInput}
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                      placeholder={t('products:toolbar.searchPlaceholder')}
+                      className={adminUiTokens.searchFieldControl}
+                    />
+                  </label>
+
+                  {isFetching && !initialLoading && (
+                    <div className="flex items-end">
+                      <p className="pb-2 text-[10px] uppercase tracking-[0.18em] text-white/35">
+                        {t('common:loading', { defaultValue: 'Đang tải' })}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </AdminToolbar>
+            </div>
+          </div>
+
           {/* Toolbar */}
-          <div className={`p-6 border-b border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4 transition-colors ${selectedIds.length > 0 ? 'bg-primary/5' : ''}`}>
+          <div className={`border-b border-white/5 p-6 transition-colors ${selectedIds.length > 0 ? 'bg-primary/5' : ''}`}>
             {selectedIds.length > 0 ? (
               <div className="w-full flex items-center justify-between animate-fade-in">
                 <div className="flex items-center gap-4">
@@ -379,57 +399,61 @@ export const Products: React.FC = () => {
                   </button>
                 </div>
                 <div className="flex items-center gap-3">
-                  <button
+                  <AdminActionButton
                     onClick={markAsInStock}
-                    className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded text-xs uppercase tracking-wider font-bold transition-colors border border-emerald-500/20"
+                    tone="success"
+                    size="md"
+                    className="text-xs uppercase tracking-wider font-bold"
                   >
                     <span className="material-symbols-outlined text-[18px]">inventory_2</span>
                     {t('products:toolbar.markInStock')}
-                  </button>
-                  <button
+                  </AdminActionButton>
+                  <AdminActionButton
                     onClick={deleteSelected}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded text-xs uppercase tracking-wider font-bold transition-colors border border-red-500/20"
+                    tone="danger"
+                    size="md"
+                    className="text-xs uppercase tracking-wider font-bold"
                   >
                     <Trash2 size={16} />
                     {t('products:toolbar.deleteSelected')}
-                  </button>
+                  </AdminActionButton>
                 </div>
               </div>
             ) : (
-              <>
-                <div className="flex items-center gap-4">
-                  <button className="text-xs uppercase tracking-widest font-bold text-primary border-b-2 border-primary pb-1">
-                    {t('products:tabs.all')}
-                  </button>
-                  <button className="text-xs uppercase tracking-widest font-bold text-white/40 hover:text-white pb-1 transition-colors">
-                    {t('products:tabs.published')}
-                  </button>
-                  <button className="text-xs uppercase tracking-widest font-bold text-white/40 hover:text-white pb-1 transition-colors">
-                    {t('products:tabs.drafts')}
-                  </button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={`flex items-center gap-2 px-3 py-1.5 border rounded text-xs uppercase tracking-wider transition-colors ${showFilters ? 'bg-white text-black border-white' : 'border-white/10 text-white/60 hover:text-white hover:border-white/30'}`}
-                  >
-                    <span className="material-symbols-outlined text-[16px]">filter_list</span>
-                    {t('products:toolbar.filter')}
-                  </button>
-                  <button className="flex items-center gap-2 px-3 py-1.5 border border-white/10 rounded text-xs uppercase tracking-wider text-white/60 hover:text-white hover:border-white/30 transition-colors">
-                    <span className="material-symbols-outlined text-[16px]">download</span>
-                    {t('products:toolbar.export')}
-                  </button>
-                </div>
-              </>
+              <AdminToolbar
+                className="gap-4"
+                actions={(
+                  <>
+                    <AdminSecondaryButton
+                      type="button"
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={showFilters ? 'border-white/25 bg-white/[0.1] text-white' : ''}
+                    >
+                      <Filter size={15} />
+                      {t('products:toolbar.filter')}
+                    </AdminSecondaryButton>
+                    <AdminSecondaryButton type="button">
+                      <Download size={15} />
+                      {t('products:toolbar.export')}
+                    </AdminSecondaryButton>
+                  </>
+                )}
+              >
+                <AdminTabs
+                  items={productTabs}
+                  activeKey={productViewTab}
+                  onChange={(key) => setProductViewTab(key as 'all' | 'published' | 'drafts')}
+                />
+              </AdminToolbar>
             )}
           </div>
 
           {/* Filter Panel */}
           {showFilters && selectedIds.length === 0 && (
-            <div className="p-6 border-b border-white/5 bg-white/[0.02] flex flex-wrap gap-6 animate-fade-in">
-              <div className="flex flex-col gap-2">
-                <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">
+            <div className="animate-fade-in border-b border-white/5 bg-white/[0.02] p-6">
+              <div className="flex flex-wrap items-end gap-5">
+                <div className="min-w-[180px] flex-1 max-w-[240px]">
+                <label className={adminUiTokens.fieldLabel}>
                   {t('products:table.status')}
                 </label>
                 <select
@@ -438,7 +462,7 @@ export const Products: React.FC = () => {
                     setStatusFilter(e.target.value);
                     setPage(1);
                   }}
-                  className="bg-black/20 border border-white/10 rounded px-3 py-1.5 text-xs text-white focus:border-primary focus:ring-0 min-w-[140px]"
+                  className={adminUiTokens.fieldControl}
                 >
                   <option value="All">{t('products:status.allStatuses')}</option>
                   <option value="In Stock">{t('products:status.inStock')}</option>
@@ -446,8 +470,8 @@ export const Products: React.FC = () => {
                   <option value="Out of Stock">{t('products:status.outOfStock')}</option>
                 </select>
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold">
+              <div className="min-w-[180px] flex-1 max-w-[240px]">
+                <label className={adminUiTokens.fieldLabel}>
                   {t('products:fields.category')}
                 </label>
                 <select
@@ -456,7 +480,7 @@ export const Products: React.FC = () => {
                     setCategoryFilter(e.target.value);
                     setPage(1);
                   }}
-                  className="bg-black/20 border border-white/10 rounded px-3 py-1.5 text-xs text-white focus:border-primary focus:ring-0 min-w-[140px]"
+                  className={adminUiTokens.fieldControl}
                 >
                   <option value="All">{t('products:status.allCategories')}</option>
                   {categories.map((category) => (
@@ -467,12 +491,14 @@ export const Products: React.FC = () => {
                 </select>
               </div>
               <div className="flex items-end">
-                <button
+                <AdminSecondaryButton
+                  type="button"
                   onClick={handleResetFilters}
-                  className="text-xs text-gray-500 hover:text-white uppercase tracking-wider font-bold h-[30px] px-2"
+                  className="mb-[1px] px-4"
                 >
                   {t('products:toolbar.resetFilters')}
-                </button>
+                </AdminSecondaryButton>
+              </div>
               </div>
             </div>
           )}
@@ -598,20 +624,20 @@ export const Products: React.FC = () => {
 
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button
+                          <AdminRowIconButton
                             onClick={() => navigate(`/admin/products/${p.id}/edit`)}
-                            className="text-white/40 hover:text-primary transition-colors p-2 rounded hover:bg-white/10"
+                            tone="primary"
                             title={t('products:page.edit')}
                           >
                             <Edit2 size={16} />
-                          </button>
-                          <button
+                          </AdminRowIconButton>
+                          <AdminRowIconButton
                             onClick={() => handleDeleteRow(p.id, p.name)}
-                            className="text-white/40 hover:text-red-500 transition-colors p-2 rounded hover:bg-white/10"
+                            tone="danger"
                             title={t('products:modal.delete')}
                           >
                             <Trash2 size={18} />
-                          </button>
+                          </AdminRowIconButton>
                         </div>
                       </td>
                     </tr>
@@ -638,40 +664,39 @@ export const Products: React.FC = () => {
                 {t('products:pagination.summary', { page, totalPages, total: totalProducts })}
               </p>
               <div className="flex items-center gap-2">
-                <button
+                <AdminIconButton
                   onClick={() => setPage((current) => Math.max(1, current - 1))}
                   disabled={page <= 1}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white hover:border-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="h-8 w-8 rounded-lg text-white/50 hover:border-white/20 hover:text-white"
                 >
                   <ChevronLeft size={15} />
-                </button>
+                </AdminIconButton>
                 {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
                   const pageNumber = Math.max(1, Math.min(page - 2, totalPages - 4)) + index;
                   return (
-                    <button
+                    <AdminActionButton
                       key={pageNumber}
                       onClick={() => setPage(pageNumber)}
-                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${pageNumber === page
-                        ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                        : 'border border-white/10 text-white/50 hover:text-white hover:border-white/20'
-                        }`}
+                      tone={pageNumber === page ? 'primary' : 'default'}
+                      variant={pageNumber === page ? 'solid' : 'soft'}
+                      className="h-8 w-8 rounded-lg px-0 text-xs font-bold"
                     >
                       {pageNumber}
-                    </button>
+                    </AdminActionButton>
                   );
                 })}
-                <button
+                <AdminIconButton
                   onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                   disabled={page >= totalPages}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white hover:border-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="h-8 w-8 rounded-lg text-white/50 hover:border-white/20 hover:text-white"
                 >
                   <ChevronRight size={15} />
-                </button>
+                </AdminIconButton>
               </div>
             </div>
           )}
         </div>
       )}
-    </div>
+    </AdminPageShell>
   );
 };

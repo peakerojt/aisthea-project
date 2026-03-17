@@ -8,7 +8,6 @@ import { AppError } from '../../../middlewares/error.middleware';
 jest.mock('../tracking.service', () => ({
   trackingService: {
     getPublicTracking: jest.fn(),
-    getMyOrders: jest.fn(),
     getOrderTrackingById: jest.fn(),
     updateOrderStatus: jest.fn(),
   },
@@ -147,44 +146,6 @@ describe('Tracking i18n — Integration Tests', () => {
       expect(res.body.errorCode).toBe('VALIDATION_ERROR');
       expect(res.body.messageKey).toBe('common:errors.validation');
       expect(res.body.details).toBeDefined();
-    });
-  });
-
-  // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │  GET /api/orders/my — My Orders                                         │
-  // └─────────────────────────────────────────────────────────────────────────┘
-  describe('GET /api/orders/my', () => {
-    it('[EN] returns localized success message for my orders in English', async () => {
-      (trackingService.getMyOrders as jest.Mock).mockResolvedValue([MOCK_ORDER]);
-
-      const res = await request(app)
-        .get('/api/orders/my')
-        .set('Authorization', `Bearer ${customerToken}`)
-        .set('x-lang', 'en');
-
-      expect(res.status).toBe(200);
-      expect(res.body.messageKey).toBe('tracking:success.getMyOrders');
-      expect(res.body.message).toContain('successfully');
-    });
-
-    it('[VI] returns localized success message for my orders in Vietnamese', async () => {
-      (trackingService.getMyOrders as jest.Mock).mockResolvedValue([MOCK_ORDER]);
-
-      const res = await request(app)
-        .get('/api/orders/my')
-        .set('Authorization', `Bearer ${customerToken}`)
-        .set('x-lang', 'vi');
-
-      expect(res.status).toBe(200);
-      expect(res.body.message).toContain('thành công');
-    });
-
-    it('[UNAUTH] returns localized 401 when no token provided with vi locale', async () => {
-      const res = await request(app).get('/api/orders/my').set('x-lang', 'vi');
-
-      expect(res.status).toBe(401);
-      expect(res.body.success).toBe(false);
-      expect(res.body.messageKey).toBeDefined();
     });
   });
 

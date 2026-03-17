@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/common/contexts/ToastContext';
 import {
@@ -6,6 +6,16 @@ import {
     CornerDownRight, AlertCircle, ImageIcon, Loader2,
     Tag,
 } from 'lucide-react';
+import {
+    AdminEmptyState,
+    AdminModalShell,
+    AdminPageHeader,
+    AdminPageShell,
+    AdminPrimaryButton,
+    AdminRowIconButton,
+    AdminSectionCard,
+    AdminSecondaryButton,
+} from '@/admin/components/AdminUI';
 import {
     CategoryNode,
     CategoryFlat,
@@ -143,20 +153,20 @@ const TreeRow: React.FC<TreeRowProps> = ({
                 {/* Thao tác */}
                 <td className="py-3 pr-4 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
+                        <AdminRowIconButton
                             onClick={() => onEdit(node)}
-                            className="p-1.5 rounded-lg text-white/40 hover:text-primary hover:bg-white/10 transition-colors"
+                            tone="primary"
                             title={t('actions.edit')}
                         >
                             <Edit2 size={15} />
-                        </button>
-                        <button
+                        </AdminRowIconButton>
+                        <AdminRowIconButton
                             onClick={() => onDelete(node.categoryId, node.name)}
-                            className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-white/10 transition-colors"
+                            tone="danger"
                             title={t('actions.delete')}
                         >
                             <Trash2 size={15} />
-                        </button>
+                        </AdminRowIconButton>
                     </div>
                 </td>
             </tr>
@@ -186,7 +196,10 @@ export const Categories: React.FC<AdminCategoriesProps> = () => {
     const [tree, setTree] = useState<CategoryNode[]>([]);
     const [flat, setFlat] = useState<CategoryFlat[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const hasLoadedRef = useRef(false);
+    const requestIdRef = useRef(0);
 
     // Collapse state — all roots expanded by default
     const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
@@ -207,22 +220,30 @@ export const Categories: React.FC<AdminCategoriesProps> = () => {
     };
 
     const loadData = useCallback(async () => {
-        setLoading(true);
+        const requestId = ++requestIdRef.current;
+        const isFirstLoad = !hasLoadedRef.current;
+        if (isFirstLoad) setLoading(true);
+        else setIsRefreshing(true);
         setError(null);
         try {
             const [treeData, flatData] = await Promise.all([
                 fetchCategoryTree(),
                 fetchCategoryFlat(),
             ]);
+            if (requestIdRef.current !== requestId) return;
             setTree(treeData);
             setFlat(flatData);
             // Auto-expand all roots
             setExpandedIds(new Set(treeData.map(n => n.categoryId)));
+            hasLoadedRef.current = true;
         } catch (error) {
+            if (requestIdRef.current !== requestId) return;
             const e = error as Error | { message?: string; error?: string; data?: unknown };
             setError(e.message || t('feedback.loadErrorDetail'));
         } finally {
-            setLoading(false);
+            if (requestIdRef.current !== requestId) return;
+            if (isFirstLoad) setLoading(false);
+            else setIsRefreshing(false);
         }
     }, [t]);
 
@@ -291,7 +312,7 @@ export const Categories: React.FC<AdminCategoriesProps> = () => {
     const rootCount = tree.length;
 
     return (
-        <div className="p-8 max-w-[1400px] mx-auto h-full flex flex-col relative" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+        <AdminPageShell className="max-w-[1400px] relative h-full">
 
             {/* ── CategoryFormModal ──────────────────────────────────────────── */}
             {formModal.open && (
@@ -306,83 +327,73 @@ export const Categories: React.FC<AdminCategoriesProps> = () => {
 
             {/* ── Delete Confirmation ────────────────────────────────────────── */}
             {deleteModal?.open && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div
-                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-                        onClick={() => !deleting && setDeleteModal(null)}
-                    />
-                    <div className="relative bg-[#111113] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-5">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
-                                <Trash2 size={18} className="text-red-400" />
-                            </div>
-                            <div>
-                                <h3 className="text-base font-bold text-white">{t('delete.title')}</h3>
-                                <p className="text-[11px] text-white/40 mt-0.5 font-mono truncate max-w-[280px]">
-                                    {deleteModal.name}
-                                </p>
-                            </div>
+                <AdminModalShell
+                    icon={Trash2}
+                    iconWrapperClassName="border-red-500/20 bg-red-500/10 text-red-400 rounded-full"
+                    iconClassName="text-red-400"
+                    title={t('delete.title')}
+                    subtitle={deleteModal.name}
+                    onClose={() => !deleting && setDeleteModal(null)}
+                    maxWidthClassName="max-w-md"
+                    bodyClassName="space-y-5 p-6"
+                    footer={(
+                        <div className="flex justify-end gap-3">
+                            <AdminSecondaryButton
+                                onClick={() => setDeleteModal(null)}
+                                disabled={deleting}
+                                className="px-5 py-2.5"
+                            >
+                                {t('delete.cancel')}
+                            </AdminSecondaryButton>
+                            <AdminPrimaryButton
+                                onClick={handleConfirmDelete}
+                                disabled={deleting}
+                                className="bg-red-600 px-5 py-2.5 shadow-lg shadow-red-900/30 hover:bg-red-700"
+                            >
+                                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                                {deleting ? t('delete.deleting') : t('delete.confirm')}
+                            </AdminPrimaryButton>
                         </div>
+                    )}
+                >
                         <p
                             className="text-sm text-white/60 bg-white/[0.03] border border-white/5 rounded-lg px-4 py-3 leading-relaxed"
                             dangerouslySetInnerHTML={{ __html: t('delete.warning') }}
                         />
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                onClick={() => setDeleteModal(null)}
-                                disabled={deleting}
-                                className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-50"
-                            >
-                                {t('delete.cancel')}
-                            </button>
-                            <button
-                                onClick={handleConfirmDelete}
-                                disabled={deleting}
-                                className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center gap-2 shadow-lg shadow-red-900/30"
-                            >
-                                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                                {deleting ? t('delete.deleting') : t('delete.confirm')}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                </AdminModalShell>
             )}
 
-            {/* ── Header ────────────────────────────────────────────────────── */}
-            <header className="h-20 flex items-center justify-between mb-6">
-                <div>
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                            <Tag size={16} className="text-primary" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-white">{t('page.title')}</h2>
-                    </div>
-                    <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1 pl-11">
-                        {t('page.summary', { total: totalCategories, roots: rootCount })}
-                    </p>
+            <AdminSectionCard className="flex-1 overflow-hidden" bodyClassName="h-full">
+                <div className="space-y-5 border-b border-white/[0.06] p-5 lg:p-6">
+                    <AdminPageHeader
+                        icon={Tag}
+                        title={t('page.title')}
+                        meta={t('page.summary', { total: totalCategories, roots: rootCount })}
+                        actions={(
+                            <AdminPrimaryButton onClick={handleOpenCreate}>
+                                <Plus size={16} />
+                                {t('actions.addCategory')}
+                            </AdminPrimaryButton>
+                        )}
+                    />
                 </div>
-                <button
-                    onClick={handleOpenCreate}
-                    className="bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-[0.1em] px-6 py-3 rounded-lg shadow-lg shadow-primary/20 transition-all flex items-center gap-2"
-                >
-                    <Plus size={16} />
-                    {t('actions.addCategory')}
-                </button>
-            </header>
 
             {/* ── Loading ──────────────────────────────────────────────────── */}
             {loading && (
-                <div className="bg-white/[0.02] border border-white/5 rounded-xl flex-1 flex items-center justify-center">
+                <div className="flex-1">
+                    <div className="flex h-full min-h-[420px] items-center justify-center">
                     <div className="flex flex-col items-center gap-4">
                         <div className="w-10 h-10 border-4 border-white/10 border-t-primary rounded-full animate-spin" />
                         <p className="text-sm text-white/40">{t('feedback.loading')}</p>
+                    </div>
                     </div>
                 </div>
             )}
 
             {/* ── Error ────────────────────────────────────────────────────── */}
             {error && !loading && (
-                <div className="bg-white/[0.02] border border-white/5 rounded-xl flex-1 flex items-center justify-center">
+                <div className="flex-1">
+                    <div className="flex h-full min-h-[420px] items-center justify-center">
                     <div className="flex flex-col items-center gap-4 max-w-sm text-center">
                         <AlertCircle size={40} className="text-red-400" />
                         <div>
@@ -396,28 +407,28 @@ export const Categories: React.FC<AdminCategoriesProps> = () => {
                             {t('actions.retry')}
                         </button>
                     </div>
+                    </div>
                 </div>
             )}
 
             {/* ── Tree Table ───────────────────────────────────────────────── */}
             {!loading && !error && (
-                <div className="bg-white/[0.02] border border-white/5 rounded-xl shadow-2xl flex flex-col flex-1 overflow-hidden">
+                <div className="flex-1 overflow-hidden">
+                    {isRefreshing && <div className="h-px w-full bg-primary/60" />}
                     {tree.length === 0 ? (
-                        <div className="flex-1 flex flex-col items-center justify-center py-20 gap-4">
-                            <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center">
-                                <Tag size={24} className="text-white/20" />
-                            </div>
-                            <div className="text-center">
-                                <p className="text-base font-semibold text-white/60">{t('empty.noCategories')}</p>
-                                <p className="text-sm text-white/30 mt-1">{t('empty.startHint')}</p>
-                            </div>
-                            <button
-                                onClick={handleOpenCreate}
-                                className="mt-2 text-xs font-bold text-primary uppercase tracking-wider hover:underline flex items-center gap-1"
-                            >
-                                <Plus size={13} /> {t('actions.createFirst')}
-                            </button>
-                        </div>
+                        <AdminEmptyState
+                            icon={Tag}
+                            title={t('empty.noCategories')}
+                            description={t('empty.startHint')}
+                            action={(
+                                <button
+                                    onClick={handleOpenCreate}
+                                    className="mt-2 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-primary hover:underline"
+                                >
+                                    <Plus size={13} /> {t('actions.createFirst')}
+                                </button>
+                            )}
+                        />
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
@@ -450,7 +461,8 @@ export const Categories: React.FC<AdminCategoriesProps> = () => {
                     )}
                 </div>
             )}
-        </div>
+            </AdminSectionCard>
+        </AdminPageShell>
     );
 };
 
