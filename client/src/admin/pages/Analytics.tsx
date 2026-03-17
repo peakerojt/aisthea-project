@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -10,6 +10,12 @@ import {
     Download, TrendingUp, TrendingDown,
     DollarSign, ShoppingCart, Users, AlertTriangle, Calendar, Sparkles, MessageCircleMore,
 } from 'lucide-react';
+import {
+    AdminPageHeader,
+    AdminPageShell,
+    AdminPrimaryButton,
+    AdminSecondaryButton,
+} from '@/admin/components/AdminUI';
 import {
     fetchAnalyticsSummary, exportToCSV, formatVND, formatVNDShort,
     formatMonthLabel, firstOfMonthStr, todayStr,
@@ -76,9 +82,9 @@ interface KPICardProps {
 
 const KPICard: React.FC<KPICardProps> = ({ label, value, sub, icon: Icon, positive, accentColor }) => (
     <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={false}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-surface-dark border border-white/15 p-5 rounded-sm relative overflow-hidden group hover:border-white/10 transition-all"
+        className="bg-surface-dark border border-white/15 p-5 rounded-sm relative overflow-hidden group hover:border-white/10 transition-colors"
     >
         <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-5 group-hover:opacity-10 transition-opacity ${accentColor.replace('text-', 'bg-')}`} />
         <div className="relative z-10">
@@ -113,7 +119,7 @@ const AIInsightsCard: React.FC = () => {
     const { t } = useTranslation('analytics');
     return (
         <motion.div
-            initial={{ opacity: 0, y: -12 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
             className="relative rounded-sm border border-sky-500/30 bg-[#0d0f1e] overflow-hidden"
@@ -179,7 +185,7 @@ const RetentionChart: React.FC<RetentionChartProps> = ({ newCustomers, returning
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 }}
             className="bg-surface-dark border border-white/15 rounded-sm p-6 flex flex-col"
@@ -274,23 +280,34 @@ export const Analytics: React.FC = () => {
     const [data, setData] = useState<AnalyticsSummary | null>(null);
     const [chatData, setChatData] = useState<ChatTelemetrySummaryPayload | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const hasLoadedRef = useRef(false);
+    const requestIdRef = useRef(0);
 
     const load = useCallback(async (sd: string, ed: string) => {
-        setLoading(true);
+        const requestId = ++requestIdRef.current;
+        const isFirstLoad = !hasLoadedRef.current;
+        if (isFirstLoad) setLoading(true);
+        else setIsRefreshing(true);
         setError(null);
         try {
             const [analyticsResult, chatTelemetryResult] = await Promise.all([
                 fetchAnalyticsSummary(sd, ed),
                 fetchChatTelemetrySummary(sd, ed),
             ]);
+            if (requestIdRef.current !== requestId) return;
             setData(analyticsResult);
             setChatData(chatTelemetryResult);
+            hasLoadedRef.current = true;
         } catch (error) {
+            if (requestIdRef.current !== requestId) return;
             const e = error as Error | { message?: string; error?: string; data?: unknown };
             setError(e?.message ?? t('feedback.loadError'));
         } finally {
-            setLoading(false);
+            if (requestIdRef.current !== requestId) return;
+            if (isFirstLoad) setLoading(false);
+            else setIsRefreshing(false);
         }
     }, []);
 
@@ -306,54 +323,49 @@ export const Analytics: React.FC = () => {
     const momPositive = mom >= 0;
 
     return (
-        <div className="p-6 xl:p-8 max-w-[1600px] mx-auto space-y-6 animate-fade-in">
+        <AdminPageShell>
+            {isRefreshing && !loading && <div className="h-px w-full bg-primary/60" />}
 
             {/* ── Header ──────────────────────────────────────────────────────── */}
-            <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-white/15">
-                <div>
-                    <p className="text-xs font-bold text-primary tracking-[0.2em] uppercase mb-1.5">
-                        {t('page.subtitle')}
-                    </p>
-                    <h2 className="text-3xl xl:text-4xl font-black text-white tracking-tighter uppercase">
-                        {t('page.title')}
-                    </h2>
-                </div>
+            <div className="border-b border-white/15 pb-5">
+                <AdminPageHeader
+                    eyebrow={t('page.subtitle')}
+                    title={t('page.title')}
+                    actions={(
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
+                                <Calendar className="h-4 w-4 shrink-0 text-white/30" />
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={e => setStartDate(e.target.value)}
+                                    className="w-32 cursor-pointer bg-transparent text-xs text-white/70 outline-none"
+                                />
+                                <span className="text-xs text-white/20">→</span>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={e => setEndDate(e.target.value)}
+                                    className="w-32 cursor-pointer bg-transparent text-xs text-white/70 outline-none"
+                                />
+                                <AdminPrimaryButton type="button" onClick={handleApply} className="ml-1 rounded-lg px-3 py-1.5 text-xs">
+                                    {t('page.apply')}
+                                </AdminPrimaryButton>
+                            </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                    {/* Date range inputs */}
-                    <div className="flex items-center gap-2 bg-white/[0.04] border border-white/10 rounded-sm px-3 py-2">
-                        <Calendar className="w-4 h-4 text-white/30 shrink-0" />
-                        <input
-                            type="date"
-                            value={startDate}
-                            onChange={e => setStartDate(e.target.value)}
-                            className="bg-transparent text-xs text-white/70 outline-none w-32 cursor-pointer"
-                        />
-                        <span className="text-white/20 text-xs">→</span>
-                        <input
-                            type="date"
-                            value={endDate}
-                            onChange={e => setEndDate(e.target.value)}
-                            className="bg-transparent text-xs text-white/70 outline-none w-32 cursor-pointer"
-                        />
-                        <button
-                            onClick={handleApply}
-                            className="ml-1 px-3 py-1 bg-primary text-white text-xs font-bold rounded-md hover:bg-primary/80 transition-colors cursor-pointer"
-                        >{t('page.apply')}
-                        </button>
-                    </div>
-
-                    {/* Export CSV */}
-                    <button
-                        onClick={handleExport}
-                        disabled={!data}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 hover:border-white/20 rounded-sm text-xs font-bold text-white/70 hover:text-white transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                        <Download className="w-4 h-4" />
-                        {t('page.exportCSV')}
-                    </button>
-                </div>
-            </header>
+                            <AdminSecondaryButton
+                                type="button"
+                                onClick={handleExport}
+                                disabled={!data}
+                                className="rounded-xl px-4 py-2.5 text-xs font-bold"
+                            >
+                                <Download className="h-4 w-4" />
+                                {t('page.exportCSV')}
+                            </AdminSecondaryButton>
+                        </div>
+                    )}
+                />
+            </div>
 
             {/* ── AI Insights Card ─────────────────────────────────────────────── */}
             <AIInsightsCard />
@@ -452,7 +464,7 @@ export const Analytics: React.FC = () => {
 
                 <div className="grid grid-cols-1 xl:grid-cols-[6fr_6fr] gap-5">
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={false}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.35 }}
                         className="bg-surface-dark border border-white/15 rounded-sm overflow-hidden"
@@ -498,7 +510,7 @@ export const Analytics: React.FC = () => {
                     </motion.div>
 
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={false}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 }}
                         className="bg-surface-dark border border-white/15 rounded-sm overflow-hidden"
@@ -546,7 +558,7 @@ export const Analytics: React.FC = () => {
 
                 {/* Chart 1: Revenue by Category (BarChart) */}
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                    initial={false} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                     className="lg:col-span-5 bg-surface-dark border border-white/15 rounded-sm p-6 flex flex-col"
                 >
                     <div className="mb-5">
@@ -596,7 +608,7 @@ export const Analytics: React.FC = () => {
 
                 {/* Chart 2: Order Status Funnel (PieChart) */}
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                    initial={false} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
                     className="lg:col-span-4 bg-surface-dark border border-white/15 rounded-sm p-6 flex flex-col"
                 >
                     <div className="mb-5">
@@ -661,7 +673,7 @@ export const Analytics: React.FC = () => {
 
             {/* ── Chart Row 2: Composed Chart (Revenue + Orders) ───────────────── */}
             <motion.div
-                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                initial={false} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
                 className="bg-surface-dark border border-white/15 rounded-sm p-6"
             >
                 <div className="mb-5">
@@ -726,7 +738,7 @@ export const Analytics: React.FC = () => {
 
                 {/* Table 1: Top Customers */}
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+                    initial={false} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
                     className="bg-surface-dark border border-white/15 rounded-sm overflow-hidden"
                 >
                     <div className="px-6 py-4 border-b border-white/15">
@@ -778,7 +790,7 @@ export const Analytics: React.FC = () => {
 
                 {/* Table 2: Most Cancelled Products */}
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+                    initial={false} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
                     className="bg-surface-dark border border-white/15 rounded-sm overflow-hidden"
                 >
                     <div className="px-6 py-4 border-b border-white/15">
@@ -829,6 +841,6 @@ export const Analytics: React.FC = () => {
                 </motion.div>
             </div>
 
-        </div>
+        </AdminPageShell>
     );
 };

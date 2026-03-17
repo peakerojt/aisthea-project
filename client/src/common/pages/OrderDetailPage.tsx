@@ -14,23 +14,21 @@ import { RotateCcw, XCircle, ArrowLeft, PackageCheck, Loader2, MapPin, ShoppingC
 import { useCart } from '@/common/contexts/CartContext';
 import { useToast } from '@/common/contexts/ToastContext';
 import { useTranslation } from 'react-i18next';
+import { normalizeStatus, ORDER_STATUS } from '@/config/orderStatus.config';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
 const canCancelStatus = (status: string | null | undefined) => {
-  const s = (status || '').toLowerCase();
-  return s === 'pending';
+  return normalizeStatus(status) === ORDER_STATUS.PENDING;
 };
 
 const canReturnStatus = (
   status: string | null | undefined,
   timeline: OrderTimelineItem[] | undefined
 ) => {
-  const s = (status || '').toLowerCase();
+  if (normalizeStatus(status) !== ORDER_STATUS.DELIVERED) return false;
 
-  if (s !== 'delivered') return false;
-
-  const deliveredEvent = timeline?.find((t) => t.status.toLowerCase() === 'delivered' || t.status.toLowerCase() === 'giaothanhcong');
+  const deliveredEvent = timeline?.find((t) => normalizeStatus(t.status) === ORDER_STATUS.DELIVERED);
   if (!deliveredEvent) return false;
 
   const deliveredDate = new Date(deliveredEvent.at);
@@ -40,12 +38,16 @@ const canReturnStatus = (
 };
 
 const canConfirmReceiptStatus = (status: string | null | undefined) => {
-  return (status || '').toLowerCase() === 'shipping';
+  return normalizeStatus(status) === ORDER_STATUS.SHIPPING;
 };
 
 const canTrackOrderStatus = (status: string | null | undefined) => {
-  const s = (status || '').toLowerCase();
-  return ['confirmed', 'shipping', 'delivered'].includes(s);
+  const normalized = normalizeStatus(status);
+  return (
+    normalized === ORDER_STATUS.PROCESSING ||
+    normalized === ORDER_STATUS.SHIPPING ||
+    normalized === ORDER_STATUS.DELIVERED
+  );
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────

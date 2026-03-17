@@ -447,16 +447,23 @@ BEGIN
     CREATE TABLE Shipments (
         ShipmentId        INT           IDENTITY(1,1) PRIMARY KEY,
         OrderId           INT           NOT NULL UNIQUE,
+        ShippingMode      NVARCHAR(20)  NOT NULL DEFAULT 'manual',
+        Provider          NVARCHAR(50)  NULL,
+        ProviderOrderCode NVARCHAR(100) NULL,
+        ProviderStatus    NVARCHAR(50)  NULL,
         Carrier           NVARCHAR(100) NULL,
         TrackingNumber    NVARCHAR(100) NULL,
         Eta               DATETIME2     NULL,
         LastKnownLocation NVARCHAR(255) NULL,
+        DeliveryProofImages NVARCHAR(MAX) NOT NULL DEFAULT '[]',
+        DeliveryProofReviewed BIT NOT NULL DEFAULT 0,
         CreatedAt         DATETIME2     NOT NULL DEFAULT GETDATE(),
         UpdatedAt         DATETIME2     NOT NULL DEFAULT GETDATE(),
         CONSTRAINT FK_Shipments_Orders
             FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) ON DELETE CASCADE
     );
-    CREATE NONCLUSTERED INDEX IX_Shipments_TrackingNumber ON Shipments(TrackingNumber) WHERE TrackingNumber IS NOT NULL;
+    EXEC('CREATE NONCLUSTERED INDEX IX_Shipments_TrackingNumber ON Shipments(TrackingNumber) WHERE TrackingNumber IS NOT NULL;');
+    EXEC('CREATE NONCLUSTERED INDEX IX_Shipments_ProviderOrderCode ON Shipments(ProviderOrderCode) WHERE ProviderOrderCode IS NOT NULL;');
     PRINT 'âœ“ Shipments';
 END
 GO

@@ -1,10 +1,14 @@
 import { AppError } from '../../middlewares/error.middleware';
-import { emitOrderStatusUpdated } from '../../socket';
-import { canTransition } from '../../shared/orderTracking.constants';
-import { getShipmentSummary } from '../../shared/order-state';
-import { prisma } from '../../utils/prisma';
+import { getOrderTrackingSummary } from '../../shared/order-state';
+import {
+  buildCanonicalTimeline,
+  deriveCanonicalPaymentStatus,
+  toCanonicalOrderStatus,
+  toCanonicalTrackingStatus,
+} from '../../shared/order-contract';
 import { trackingRepository } from './tracking.repository';
 import { UpdateOrderStatusInput } from './tracking.validator';
+import { updateOrderStatusAdmin } from '../order/order.service';
 
 function maskPhone(phone: string) {
   if (phone.length < 4) return '***';
@@ -18,61 +22,52 @@ function maskEmail(email: string) {
   return `${keep}${'*'.repeat(Math.max(1, name.length - 2))}@${domain}`;
 }
 
-function normalizeStatus(status: string | null | undefined): string {
-  if (!status) return 'PENDING';
-  return status.toUpperCase();
-}
-
 function hydrateTimeline(order: any, isPublic = false) {
-  const mapped = (order.statusHistory || []).map((history: any) => {
-    const status = normalizeStatus(history.status);
+  return buildCanonicalTimeline(order.statusHistory, order.createdAt).map((history) => {
+    const status = toCanonicalTrackingStatus(history.status);
     return {
       status,
       statusLabelKey: `tracking:status.${status}`,
-      timestamp: history.changedAt,
+      timestamp: history.timestamp,
       note: history.note,
-      location: (history as any).location ?? null,
-      description: (history as any).description ?? null,
+      location: null,
+      description: null,
       updatedBy: isPublic ? null : history.changedBy,
     };
   });
-
-  // Synthesize initial PENDING entry if missing
-  if (mapped.length === 0 || !mapped.some((h: any) => h.status === 'PENDING')) {
-    mapped.unshift({
-      status: 'PENDING',
-      statusLabelKey: 'tracking:status.PENDING',
-      timestamp: order.createdAt || new Date(),
-      note: 'Đơn hàng đã được đặt',
-      location: null,
-      description: null,
-      updatedBy: null,
-    });
-  }
-
-  // Chronological order
-  return mapped.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
 function toTrackingPayload(order: any, isPublic = false) {
-  const currentStatus = normalizeStatus(order.status);
-  const shipment = getShipmentSummary(order.shipment);
+  const currentStatus = toCanonicalTrackingStatus(order.status);
+  const shipping = getOrderTrackingSummary(order.orderNumber, order.shipment);
 
   return {
     orderId: order.orderId,
     orderCode: order.orderNumber,
+    trackingCode: shipping.trackingCode,
     currentStatus,
     currentStatusLabelKey: `tracking:status.${currentStatus}`,
-    carrier: shipment.carrier,
-    trackingNumber: isPublic ? null : shipment.trackingNumber,
-    estimatedDeliveryDate: shipment.estimatedDeliveryDate,
+    paymentMethod: order.paymentMethod ?? null,
+    paymentStatus: deriveCanonicalPaymentStatus(order.payments, order.paymentMethod),
+    eta: shipping.estimatedDeliveryDate,
+    shippingMode: shipping.shippingMode,
+    provider: shipping.provider,
+    providerOrderCode: isPublic ? null : shipping.providerOrderCode,
+    providerStatus: shipping.providerStatus,
+    carrier: shipping.carrier,
+    trackingNumber: isPublic ? null : shipping.trackingNumber,
+    estimatedDeliveryDate: shipping.estimatedDeliveryDate,
     // Shipment sub-object
     shipment: order.shipment
       ? {
-        carrier: shipment.carrier,
-        trackingNumber: isPublic ? null : shipment.trackingNumber,
+        carrier: shipping.carrier,
+        trackingNumber: isPublic ? null : shipping.trackingNumber,
         lastKnownLocation: order.shipment.lastKnownLocation,
         eta: order.shipment.eta,
+        shippingMode: shipping.shippingMode,
+        provider: shipping.provider,
+        providerOrderCode: isPublic ? null : shipping.providerOrderCode,
+        providerStatus: shipping.providerStatus,
       }
       : null,
     // Masked contact for public mode
@@ -105,10 +100,6 @@ export const trackingService = {
     return toTrackingPayload(order, true);
   },
 
-  async getMyOrders(userId: number) {
-    return trackingRepository.findMyOrders(userId);
-  },
-
   async getOrderTrackingById(orderId: number, requester: { userId: number; isAdmin: boolean }) {
     const order = await trackingRepository.findOrderTrackingById(orderId);
     if (!order) {
@@ -132,80 +123,13 @@ export const trackingService = {
       throw new AppError(404, 'ORDER_NOT_FOUND', 'tracking:errors.orderNotFound');
     }
 
-    const currentStatus = normalizeStatus(order.status);
-    if (!canTransition(currentStatus, payload.status)) {
-      throw new AppError(
-        400,
-        'INVALID_STATUS_TRANSITION',
-        'tracking:errors.invalidStatusTransition',
-        { from: currentStatus, to: payload.status },
-      );
-    }
+    await updateOrderStatusAdmin(
+      String(orderId),
+      { userId: updatedBy, roles: ['Admin'] },
+      { status: toCanonicalOrderStatus(payload.status), note: payload.note },
+    );
 
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Update Order status
-      const updated = await tx.order.update({
-        where: { orderId },
-        data: { status: payload.status },
-      });
-
-      // 2. Create history entry
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId,
-          oldStatus: currentStatus,
-          status: payload.status,
-          note: payload.note,
-          changedBy: updatedBy,
-        },
-      });
-
-      // 3. Upsert Shipment if any logistics data is provided
-      if (payload.eta || payload.location || payload.carrier || payload.trackingNumber || payload.estimatedDeliveryDate) {
-        await tx.shipment.upsert({
-          where: { orderId },
-          update: {
-            eta: payload.estimatedDeliveryDate
-              ? new Date(payload.estimatedDeliveryDate)
-              : payload.eta
-                ? new Date(payload.eta)
-                : undefined,
-            lastKnownLocation: payload.location,
-            carrier: payload.carrier,
-            trackingNumber: payload.trackingNumber,
-          },
-          create: {
-            orderId,
-            eta: payload.estimatedDeliveryDate
-              ? new Date(payload.estimatedDeliveryDate)
-              : payload.eta
-                ? new Date(payload.eta)
-                : undefined,
-            lastKnownLocation: payload.location,
-            carrier: payload.carrier ?? null,
-            trackingNumber: payload.trackingNumber ?? null,
-          },
-        });
-      }
-
-      return updated;
-    });
-
-    // Re-fetch the full order to build the real-time payload
     const latest = await trackingRepository.findOrderTrackingById(orderId);
-    const timeline = latest ? hydrateTimeline(latest, false) : [];
-
-    // Emit Socket.io event to the order room so all live viewers see instant update
-    emitOrderStatusUpdated({
-      orderId,
-      userId: latest?.userId,
-      status: normalizeStatus(result.status || payload.status),
-      timeline,
-      carrier: latest?.shipment?.carrier ?? null,
-      trackingNumber: latest?.shipment?.trackingNumber ?? null,
-      estimatedDeliveryDate: latest?.shipment?.eta ?? null,
-    });
-
     return latest ? toTrackingPayload(latest, false) : null;
   },
 };

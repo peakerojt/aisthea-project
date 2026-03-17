@@ -11,7 +11,9 @@ import {
   INVENTORY_RESTORE_STATUSES,
 } from '../../config/orderStatus.config';
 import { emitOrderStatusUpdated } from '../../socket';
-import { deriveOrderPaymentStatus, normalizeOrderStatus } from '../../shared/order-state';
+import { getOrderTrackingSummary, normalizeOrderStatus } from '../../shared/order-state';
+import { buildCanonicalTimeline, deriveCanonicalPaymentStatus, toCanonicalOrderStatus } from '../../shared/order-contract';
+import { syncOrderWithShippingProvider } from '../shipping/shipping-provider.adapter';
 
 export type Role = 'Admin' | 'Customer' | string;
 
@@ -47,6 +49,11 @@ export interface OrderPricingDto {
 export interface OrderDetailDto {
   id: string;
   orderCode: string;
+  trackingCode: string;
+  shippingMode: 'manual' | 'provider';
+  provider: string | null;
+  providerOrderCode: string | null;
+  providerStatus: string | null;
   status: string;
   paymentMethod: string | null;
   paymentStatus: string | null;
@@ -71,6 +78,7 @@ export interface OrderDetailDto {
 }
 
 const isAdmin = (user: CurrentUser) => user.roles.includes('Admin');
+const LEGACY_MANUAL_CARRIER = 'AISTHEA Manual Delivery';
 
 const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto => {
   const itemsTotal = order.items.reduce((sum, item) => {
@@ -84,16 +92,16 @@ const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto =
   const grandTotal = Number(order.totalAmount);
 
   const timeline = (order.statusHistory ?? [])
-    .slice()
-    .sort((a, b) => (a.changedAt?.getTime() ?? 0) - (b.changedAt?.getTime() ?? 0))
-    .map((h) => ({
-      status: normalizeOrderStatus(h.status),
-      at: h.changedAt ? h.changedAt.toISOString() : new Date().toISOString(),
-    }));
+    .length
+    ? buildCanonicalTimeline(order.statusHistory, order.createdAt).map((entry) => ({
+        status: normalizeOrderStatus(entry.status),
+        at: entry.timestamp,
+      }))
+    : [];
 
   if (timeline.length === 0 && order.createdAt && order.status) {
     timeline.push({
-      status: normalizeOrderStatus(order.status),
+      status: normalizeOrderStatus(toCanonicalOrderStatus(order.status)),
       at: order.createdAt.toISOString(),
     });
   }
@@ -121,12 +129,19 @@ const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto =
     };
   });
 
+  const shipping = getOrderTrackingSummary(order.orderNumber, order.shipment);
+
   return {
     id: String(order.orderId),
     orderCode: order.orderNumber,
-    status: normalizeOrderStatus(order.status),
+    trackingCode: shipping.trackingCode,
+    shippingMode: shipping.shippingMode,
+    provider: shipping.provider,
+    providerOrderCode: shipping.providerOrderCode,
+    providerStatus: shipping.providerStatus,
+    status: normalizeOrderStatus(toCanonicalOrderStatus(order.status)),
     paymentMethod: order.paymentMethod,
-    paymentStatus: normalizeOrderStatus(deriveOrderPaymentStatus(order.payments)),
+    paymentStatus: normalizeOrderStatus(deriveCanonicalPaymentStatus(order.payments, order.paymentMethod)),
     createdAt: order.createdAt ? order.createdAt.toISOString() : null,
     customer: {
       name: order.customerName,
@@ -252,6 +267,8 @@ export async function updateOrderStatusAdmin(
     carrier?: string;
     trackingNumber?: string;
     estimatedDeliveryDate?: string;
+    deliveryProofImages?: string[];
+    deliveryProofReviewed?: boolean;
   }
 ) {
   if (!isAdmin(currentUser)) {
@@ -263,14 +280,28 @@ export async function updateOrderStatusAdmin(
     throw new AppError(400, 'BAD_REQUEST', 'orders:errors.invalidOrderId');
   }
 
-  const { status: newStatus, note, carrier, trackingNumber, estimatedDeliveryDate } = payload;
+  const { status: newStatus, note, deliveryProofImages, deliveryProofReviewed } = payload;
   if (!newStatus) {
     throw new AppError(400, 'BAD_REQUEST', 'orders:errors.statusRequired');
   }
 
+  const isDeliveredTransition = normalizeOrderStatus(newStatus) === 'delivered';
+  if (isDeliveredTransition) {
+    if (!Array.isArray(deliveryProofImages) || deliveryProofImages.length === 0) {
+      throw new AppError(400, 'DELIVERY_PROOF_REQUIRED', 'orders:errors.deliveryProofRequired');
+    }
+    if (deliveryProofReviewed !== true) {
+      throw new AppError(400, 'DELIVERY_PROOF_REVIEW_REQUIRED', 'orders:errors.deliveryProofReviewRequired');
+    }
+  }
+
   const order = await prisma.order.findUnique({
     where: { orderId: parsedId },
-    include: {
+    select: {
+      orderId: true,
+      orderNumber: true,
+      status: true,
+      userId: true,
       items: {
         select: { orderItemId: true, variantId: true, quantity: true },
       },
@@ -314,7 +345,17 @@ export async function updateOrderStatusAdmin(
     const orderData: Record<string, any> = { status: newStatus };
     if (note !== undefined) orderData.note = note;
 
-    await tx.order.update({ where: { orderId: parsedId }, data: orderData });
+    const guardedUpdate = await tx.order.updateMany({
+      where: { orderId: parsedId, status: currentStatus },
+      data: orderData,
+    });
+
+    if (guardedUpdate.count !== 1) {
+      throw new AppError(409, 'ORDER_STATE_CONFLICT', 'orders:errors.stateConflict', {
+        orderId: parsedId,
+        expectedStatus: currentStatus,
+      });
+    }
 
     await tx.orderStatusHistory.create({
       data: {
@@ -326,38 +367,97 @@ export async function updateOrderStatusAdmin(
       },
     });
 
-    if (carrier || trackingNumber || estimatedDeliveryDate) {
-      const eta = estimatedDeliveryDate ? new Date(estimatedDeliveryDate) : undefined;
-      await tx.shipment.upsert({
+    if (isDeliveredTransition) {
+      await (tx.shipment.upsert as any)({
         where: { orderId: parsedId },
-        update: { carrier: carrier ?? undefined, trackingNumber: trackingNumber ?? undefined, eta },
-        create: { orderId: parsedId, carrier: carrier ?? null, trackingNumber: trackingNumber ?? null, eta },
+        update: {
+          deliveryProofImages: JSON.stringify(deliveryProofImages ?? []),
+          deliveryProofReviewed: Boolean(deliveryProofReviewed),
+        },
+        create: {
+          orderId: parsedId,
+          shippingMode: 'manual',
+          // Legacy databases may still require carrier/tracking columns on insert.
+          carrier: LEGACY_MANUAL_CARRIER,
+          trackingNumber: order.orderNumber,
+          deliveryProofImages: JSON.stringify(deliveryProofImages ?? []),
+          deliveryProofReviewed: Boolean(deliveryProofReviewed),
+        },
       });
     }
   });
 
   try {
-    const latest = await prisma.order.findUnique({
+    let latest = await prisma.order.findUnique({
       where: { orderId: parsedId },
       include: {
         statusHistory: { orderBy: { changedAt: 'asc' } },
         shipment: true,
       },
     });
+
+    if (latest && normalizeOrderStatus(newStatus) === 'shipping') {
+      const providerSync = await syncOrderWithShippingProvider({
+        orderId: latest.orderId,
+        orderCode: latest.orderNumber,
+        currentStatus: latest.status ?? newStatus,
+        shipment: latest.shipment,
+      });
+
+      if (providerSync && providerSync.shippingMode === 'provider') {
+        await (prisma.shipment.upsert as any)({
+          where: { orderId: parsedId },
+          update: {
+            carrier: providerSync.carrier,
+            trackingNumber: providerSync.trackingNumber,
+            eta: providerSync.estimatedDeliveryDate ? new Date(providerSync.estimatedDeliveryDate) : null,
+            shippingMode: providerSync.shippingMode,
+            provider: providerSync.provider,
+            providerOrderCode: providerSync.providerOrderCode,
+            providerStatus: providerSync.providerStatus,
+          },
+          create: {
+            orderId: parsedId,
+            carrier: providerSync.carrier,
+            trackingNumber: providerSync.trackingNumber,
+            eta: providerSync.estimatedDeliveryDate ? new Date(providerSync.estimatedDeliveryDate) : null,
+            shippingMode: providerSync.shippingMode,
+            provider: providerSync.provider,
+            providerOrderCode: providerSync.providerOrderCode,
+            providerStatus: providerSync.providerStatus,
+          },
+        });
+
+        latest = await prisma.order.findUnique({
+          where: { orderId: parsedId },
+          include: {
+            statusHistory: { orderBy: { changedAt: 'asc' } },
+            shipment: true,
+          },
+        });
+      }
+    }
+
     if (latest) {
+      const trackingSummary = getOrderTrackingSummary(latest.orderNumber, latest.shipment);
       const timeline = (latest.statusHistory || []).map((h: any) => ({
         status: h.status,
-        timestamp: h.changedAt,
+        timestamp: h.changedAt ? h.changedAt.toISOString() : new Date().toISOString(),
         note: h.note ?? null,
       }));
       emitOrderStatusUpdated({
         orderId: parsedId,
         userId: latest.userId ?? undefined,
+        orderCode: latest.orderNumber,
         status: newStatus,
         timeline,
-        carrier: carrier ?? latest.shipment?.carrier ?? null,
-        trackingNumber: trackingNumber ?? latest.shipment?.trackingNumber ?? null,
-        estimatedDeliveryDate: latest.shipment?.eta ?? null,
+        shippingMode: trackingSummary.shippingMode,
+        provider: trackingSummary.provider,
+        providerOrderCode: trackingSummary.providerOrderCode,
+        providerStatus: trackingSummary.providerStatus,
+        carrier: trackingSummary.carrier,
+        trackingNumber: trackingSummary.trackingNumber,
+        estimatedDeliveryDate: trackingSummary.estimatedDeliveryDate ? new Date(trackingSummary.estimatedDeliveryDate) : null,
       });
     }
   } catch (socketErr: any) {
@@ -536,6 +636,19 @@ export async function createOrder(
         note: 'Order placed',
       },
     });
+
+    if ((paymentMethod ?? '').toUpperCase() === 'VNPAY') {
+      await (tx.payment.create as any)({
+        data: {
+          orderId,
+          paymentMethod: 'VNPAY',
+          amount: pricing.totalAmount,
+          status: 'PENDING',
+          transactionCode: null,
+          note: 'Awaiting VNPay confirmation',
+        },
+      });
+    }
 
     logger.info('Order successfully created', {
       orderId,

@@ -15,7 +15,7 @@ jest.mock('../../utils/prisma', () => ({
   prisma: prismaMock,
 }));
 
-import { createPaymentUrl, vnpayIpn } from '../vnpay.controller';
+import { createPaymentUrl, vnpayIpn, vnpayReturn } from '../vnpay.controller';
 
 const createResponse = () => {
   const res: any = {};
@@ -136,5 +136,49 @@ describe('vnpay.controller', () => {
     });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ RspCode: '04', Message: 'Invalid amount' });
+  });
+
+  it('finalizes a successful payment from vnpay_return when localhost sandbox cannot call IPN', async () => {
+    prismaMock.order.findUnique.mockResolvedValue({
+      orderId: 19,
+      totalAmount: 326000,
+      payments: [
+        {
+          paymentId: 15,
+          paymentMethod: 'VNPAY',
+          status: 'PENDING',
+          transactionCode: null,
+        },
+      ],
+    });
+
+    const req: any = {
+      query: signVnpParams({
+        vnp_Amount: '32600000',
+        vnp_ResponseCode: '00',
+        vnp_TransactionNo: 'TXN-RETURN-19',
+        vnp_TxnRef: '19',
+      }),
+    };
+    const res = createResponse();
+
+    await vnpayReturn(req, res);
+
+    expect(prismaMock.payment.update).toHaveBeenCalledWith({
+      where: { paymentId: 15 },
+      data: {
+        amount: 326000,
+        status: 'COMPLETED',
+        transactionCode: 'TXN-RETURN-19',
+        note: 'Confirmed from VNPay return fallback',
+      },
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'Success',
+      code: '00',
+      orderId: 19,
+      paymentStatus: 'COMPLETED',
+    });
   });
 });

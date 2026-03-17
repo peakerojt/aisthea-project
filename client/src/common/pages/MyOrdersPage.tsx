@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getMyOrdersTracking } from '@/common/services/tracking.service';
+import { orderService } from '@/common/services/order.service';
 import { getStatusMeta, normalizeStatus } from '@/config/orderStatus.config';
 import { useTranslation } from 'react-i18next';
 
@@ -18,10 +18,9 @@ export function MyOrdersPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getMyOrdersTracking()
-      .then((res: unknown) => {
-        const data = (res as { data?: TrackingOrder[] }).data || res;
-        setOrders(data as TrackingOrder[]);
+    orderService.getMyOrders({ page: 1, pageSize: 20, sort: 'createdAt_desc' })
+      .then((res) => {
+        setOrders((res.orders ?? []) as TrackingOrder[]);
       })
       .catch((err) => setError(err.message || t('errors.loadOrders')))
       .finally(() => setLoading(false));

@@ -1,5 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ClipboardList } from 'lucide-react';
+import {
+    AdminActionButton,
+    AdminBadge,
+    AdminEmptyState,
+    AdminModalShell,
+    AdminPageHeader,
+    AdminPageShell,
+    AdminPrimaryButton,
+    AdminSecondaryButton,
+    AdminSectionCard,
+    AdminTabs,
+} from '@/admin/components/AdminUI';
 import { adminReturnService, OrderReturn } from '@/common/services/return.service';
 import { ReasonLabel } from '@/common/components/ReasonLabel';
 import { useToast } from '@/common/contexts/ToastContext';
@@ -30,12 +43,12 @@ const getStatusLabel = (s: string, t: (key: string, options?: any) => string) =>
     return s;
 };
 
-const statusTone = (s: string) => {
-    if (s === 'PENDING_APPROVAL') return 'border-amber-500/30 text-amber-200 bg-amber-500/10';
-    if (s === 'APPROVED') return 'border-sky-500/30 text-sky-200 bg-sky-500/10';
-    if (s === 'REJECTED') return 'border-red-500/30 text-red-200 bg-red-500/10';
-    if (s === 'COMPLETED') return 'border-emerald-500/30 text-emerald-200 bg-emerald-500/10';
-    return 'border-white/10 text-white/60 bg-white/5';
+const getStatusBadgeTone = (s: string) => {
+    if (s === 'PENDING_APPROVAL') return 'warning' as const;
+    if (s === 'APPROVED') return 'info' as const;
+    if (s === 'REJECTED') return 'danger' as const;
+    if (s === 'COMPLETED') return 'success' as const;
+    return 'default' as const;
 };
 
 // ─── ReviewModal ──────────────────────────────────────────────────────────────
@@ -72,39 +85,75 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
 
     return (
         <>
-            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
-                <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-                <div
-                    className="relative z-10 w-full max-w-2xl bg-[#0f0f0f] border border-white/10 rounded-sm shadow-2xl max-h-[90vh] flex flex-col"
-                    onClick={e => e.stopPropagation()}
-                >
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-5 border-b border-white/5 shrink-0">
-                        <div>
-                            <h2 className="text-lg font-black uppercase tracking-tighter text-white">
-                                {t('modal.title')}
-                            </h2>
-                            <p className="text-[10px] uppercase tracking-widest text-white/40 mt-1">
-                                {t('modal.orderInfo', { orderNumber: item.order?.orderNumber, customer: item.user?.fullName ?? t('table.guest') })}
-                            </p>
+            <AdminModalShell
+                icon={ClipboardList}
+                title={t('modal.title')}
+                subtitle={t('modal.orderInfo', { orderNumber: item.order?.orderNumber, customer: item.user?.fullName ?? t('table.guest') })}
+                onClose={onClose}
+                maxWidthClassName="max-w-2xl"
+                panelClassName="max-h-[90vh] rounded-sm bg-[#0f0f0f]"
+                bodyClassName="max-h-[68vh] overflow-y-auto p-6 space-y-6"
+                footer={!isTerminal ? (
+                    !showRejectForm ? (
+                        <div className="flex flex-wrap gap-3">
+                            <AdminActionButton
+                                onClick={() => setShowRejectForm(true)}
+                                disabled={processing}
+                                tone="danger"
+                                size="md"
+                                className="flex-1 cursor-pointer py-3 text-xs font-bold uppercase tracking-widest"
+                            >
+                                {t('modal.actionReject')}
+                            </AdminActionButton>
+                            {item.status !== 'APPROVED' && (
+                                <AdminActionButton
+                                    onClick={() => handleAction('APPROVE')}
+                                    disabled={processing}
+                                    tone="info"
+                                    size="md"
+                                    className="flex-1 cursor-pointer py-3 text-xs font-bold uppercase tracking-widest"
+                                >
+                                    {t('modal.actionApprove')}
+                                </AdminActionButton>
+                            )}
+                            <AdminActionButton
+                                onClick={() => handleAction('COMPLETE_REFUND')}
+                                disabled={processing}
+                                tone="success"
+                                size="md"
+                                className="flex-1 cursor-pointer py-3 text-xs font-bold uppercase tracking-widest"
+                            >
+                                {processing ? t('modal.processing') : t('modal.actionRefund')}
+                            </AdminActionButton>
                         </div>
-                        <button onClick={onClose} className="text-white/40 hover:text-white transition-colors cursor-pointer">
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    {/* Body */}
-                    <div className="overflow-y-auto flex-1 p-6 space-y-6">
+                    ) : (
+                        <div className="flex gap-3">
+                            <AdminSecondaryButton
+                                onClick={() => setShowRejectForm(false)}
+                                className="px-4 py-3 text-xs font-bold uppercase tracking-widest"
+                            >{t('modal.actionCancelReject')}
+                            </AdminSecondaryButton>
+                            <AdminPrimaryButton
+                                onClick={() => handleAction('REJECT')}
+                                disabled={processing || !rejectNote.trim()}
+                                className="flex-1 bg-red-600 px-4 py-3 text-xs font-bold uppercase tracking-widest shadow-none hover:bg-red-700"
+                            >{processing ? t('modal.processing') : t('modal.actionConfirmReject')}
+                            </AdminPrimaryButton>
+                        </div>
+                    )
+                ) : undefined}
+            >
 
                         {/* Status + Info row */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-white/5 border border-white/5 rounded p-4">
                                 <div className="text-[10px] uppercase tracking-widest text-white/40 mb-1">{t('modal.requestDate')}</div>
-                                <span className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded border inline-block ${statusTone(item.status)}`}>
+                                <AdminBadge
+                                    tone={getStatusBadgeTone(item.status)}
+                                    className="rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                                >
                                     {getStatusLabel(item.status, t)}
-                                </span>
+                                </AdminBadge>
                             </div>
                             <div className="bg-white/5 border border-white/5 rounded p-4">
                                 <div className="text-[10px] uppercase tracking-widest text-white/40 mb-1">{t('modal.requestDate')}</div>
@@ -184,53 +233,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
                         {toast && (
                             <div className="p-3 border border-red-500/20 bg-red-500/10 text-red-200 text-sm rounded">{toast}</div>
                         )}
-                    </div>
-
-                    {/* Footer Actions */}
-                    {!isTerminal && (
-                        <div className="flex flex-wrap gap-3 px-6 py-5 border-t border-white/5 shrink-0">
-                            {!showRejectForm ? (
-                                <>
-                                    <button
-                                        onClick={() => setShowRejectForm(true)}
-                                        disabled={processing}
-                                        className="flex-1 px-4 py-3 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-300 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
-                                    >{t('modal.actionReject')}
-                                    </button>
-                                    {item.status !== 'APPROVED' && (
-                                        <button
-                                            onClick={() => handleAction('APPROVE')}
-                                            disabled={processing}
-                                            className="flex-1 px-4 py-3 border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
-                                        >{t('modal.actionApprove')}
-                                        </button>
-                                    )}
-                                    <button
-                                        onClick={() => handleAction('COMPLETE_REFUND')}
-                                        disabled={processing}
-                                        className="flex-1 px-4 py-3 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
-                                    >{processing ? t('modal.processing') : t('modal.actionRefund')}
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <button
-                                        onClick={() => setShowRejectForm(false)}
-                                        className="px-4 py-3 border border-white/10 text-white/60 hover:text-white hover:bg-white/5 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer"
-                                    >{t('modal.actionCancelReject')}
-                                    </button>
-                                    <button
-                                        onClick={() => handleAction('REJECT')}
-                                        disabled={processing || !rejectNote.trim()}
-                                        className="flex-1 px-4 py-3 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-300 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                    >{processing ? t('modal.processing') : t('modal.actionConfirmReject')}
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </div>
+            </AdminModalShell>
 
             {/* Lightbox */}
             {lightboxImg && (
@@ -270,25 +273,36 @@ export const Returns: React.FC = () => {
     ];
     const [returns, setReturns] = useState<OrderReturn[]>([]);
     const [loading, setLoading] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [statusFilter, setStatusFilter] = useState<ReturnStatusFilter>('ALL');
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [selectedReturn, setSelectedReturn] = useState<OrderReturn | null>(null);
+    const hasLoadedRef = useRef(false);
+    const requestIdRef = useRef(0);
 
     const load = useCallback(async () => {
-        setLoading(true);
+        const requestId = ++requestIdRef.current;
+        const isFirstLoad = !hasLoadedRef.current;
+        if (isFirstLoad) setLoading(true);
+        else setIsRefreshing(true);
         try {
             const data = await adminReturnService.list({ status: statusFilter, page, pageSize: 15 });
+            if (requestIdRef.current !== requestId) return;
             setReturns(data.returns);
             setTotalPages(data.pagination.totalPages);
+            hasLoadedRef.current = true;
         } catch (error) {
+            if (requestIdRef.current !== requestId) return;
             const e = error as Error | { message?: string; error?: string; data?: unknown };
             showToast({
                 type: 'error',
                 title: e?.message || t('feedback.loadError'),
             });
         } finally {
-            setLoading(false);
+            if (requestIdRef.current !== requestId) return;
+            if (isFirstLoad) setLoading(false);
+            else setIsRefreshing(false);
         }
     }, [page, showToast, statusFilter, t]);
 
@@ -318,47 +332,43 @@ export const Returns: React.FC = () => {
     };
 
     const pendingCount = useMemo(() => returns.filter(r => r.status === 'PENDING_APPROVAL').length, [returns]);
+    const statusTabs = STATUS_FILTERS.map((filter) => ({
+        key: filter.value,
+        label: filter.label,
+        count: filter.value === 'ALL'
+            ? returns.length
+            : returns.filter((item) => item.status === filter.value).length,
+    }));
+
+    const pageControls = (
+        <div className="space-y-5 border-b border-white/[0.06] p-5 lg:p-6">
+            <AdminPageHeader
+                icon={ClipboardList}
+                title={t('page.title')}
+                subtitle={t('page.subtitle')}
+                actions={pendingCount > 0 ? (
+                    <AdminBadge tone="warning" dot className="px-3 py-2 text-xs uppercase tracking-[0.14em]">
+                        {t('page.pendingBadge', { count: pendingCount })}
+                    </AdminBadge>
+                ) : undefined}
+            />
+
+            <AdminTabs
+                items={statusTabs}
+                activeKey={statusFilter}
+                onChange={(key) => {
+                    setStatusFilter(key as ReturnStatusFilter);
+                    setPage(1);
+                }}
+            />
+        </div>
+    );
 
     return (
-        <div className="p-6 md:p-8 min-h-screen bg-bg-dark text-white font-sans">
-            {/* Page Header */}
-            <div className="mb-8 flex items-end justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-black uppercase tracking-tighter text-white">
-                        {t('page.title')}
-                    </h1>
-                    <p className="text-white/40 text-xs uppercase tracking-widest mt-2">
-                        {t('page.subtitle')}
-                    </p>
-                </div>
-                {pendingCount > 0 && (
-                    <div className="flex items-center gap-2 px-4 py-2 border border-amber-500/30 bg-amber-500/10 rounded">
-                        <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                        <span className="text-amber-200 text-xs font-bold uppercase tracking-widest">
-                            {t('page.pendingBadge', { count: pendingCount })}
-                        </span>
-                    </div>
-                )}
-            </div>
-
-            {/* Filter Tabs */}
-            <div className="flex flex-wrap gap-2 mb-6">
-                {STATUS_FILTERS.map(f => (
-                    <button
-                        key={f.value}
-                        onClick={() => { setStatusFilter(f.value); setPage(1); }}
-                        className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest border transition-colors cursor-pointer ${statusFilter === f.value
-                            ? 'border-primary/40 bg-primary/15 text-primary'
-                            : 'border-white/10 text-white/50 hover:text-white hover:bg-white/5'
-                            }`}
-                    >
-                        {f.label}
-                    </button>
-                ))}
-            </div>
-
-            {/* Data Table */}
-            <div className="bg-surface-dark border border-white/5 rounded-sm overflow-hidden">
+        <AdminPageShell className="min-h-screen bg-bg-dark text-white">
+            <AdminSectionCard className="overflow-hidden" bodyClassName="h-full">
+                {pageControls}
+                {isRefreshing && !loading && <div className="h-px w-full bg-primary/60" />}
                 {loading ? (
                     <div className="p-8 space-y-3 animate-pulse">
                         {[...Array(5)].map((_, i) => (
@@ -366,13 +376,11 @@ export const Returns: React.FC = () => {
                         ))}
                     </div>
                 ) : returns.length === 0 ? (
-                    <div className="p-12 text-center text-white/40">
-                        <svg className="w-12 h-12 mx-auto mb-4 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
-                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        <p className="text-sm">{t('table.empty')}</p>
-                    </div>
+                    <AdminEmptyState
+                        icon={ClipboardList}
+                        title={t('table.empty')}
+                        description={t('page.subtitle')}
+                    />
                 ) : (
                     <>
                         {/* Table Header */}
@@ -422,48 +430,51 @@ export const Returns: React.FC = () => {
                                     <div className="text-xs text-white/50 whitespace-nowrap">{formatDateTime(ret.createdAt)}</div>
 
                                     <div>
-                                        <span className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded border whitespace-nowrap ${statusTone(ret.status)}`}>
+                                        <AdminBadge
+                                            tone={getStatusBadgeTone(ret.status)}
+                                            className="rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap"
+                                        >
                                             {getStatusLabel(ret.status, t)}
-                                        </span>
+                                        </AdminBadge>
                                     </div>
 
                                     <div>
-                                        <button
+                                        <AdminActionButton
                                             onClick={() => setSelectedReturn(ret)}
-                                            className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-colors cursor-pointer whitespace-nowrap"
+                                            className="cursor-pointer whitespace-nowrap px-3 py-2 text-[10px] font-bold uppercase tracking-widest"
                                         >
                                             {t('table.viewDetail')}
-                                        </button>
+                                        </AdminActionButton>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </>
                 )}
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-6">
-                    <button
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        disabled={page <= 1}
-                        className="px-4 py-2 border border-white/10 text-white/60 hover:text-white hover:bg-white/5 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                        {t('pagination.previous')}
-                    </button>
-                    <span className="text-xs text-white/40 px-3">
-                        {t('pagination.page', { page, total: totalPages })}
-                    </span>
-                    <button
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                        disabled={page >= totalPages}
-                        className="px-4 py-2 border border-white/10 text-white/60 hover:text-white hover:bg-white/5 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                        {t('pagination.next')}
-                    </button>
-                </div>
-            )}
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 border-t border-white/[0.06] px-6 py-5">
+                        <AdminActionButton
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={page <= 1}
+                            size="md"
+                            className="cursor-pointer text-xs font-bold uppercase tracking-widest"
+                        >
+                            {t('pagination.previous')}
+                        </AdminActionButton>
+                        <span className="text-xs text-white/40 px-3">
+                            {t('pagination.page', { page, total: totalPages })}
+                        </span>
+                        <AdminActionButton
+                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                            disabled={page >= totalPages}
+                            size="md"
+                            className="cursor-pointer text-xs font-bold uppercase tracking-widest"
+                        >
+                            {t('pagination.next')}
+                        </AdminActionButton>
+                    </div>
+                )}
+            </AdminSectionCard>
 
             {/* Review Modal */}
             {selectedReturn && (
@@ -473,6 +484,6 @@ export const Returns: React.FC = () => {
                     onAction={handleAction}
                 />
             )}
-        </div>
+        </AdminPageShell>
     );
 };

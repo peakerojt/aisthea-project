@@ -13,6 +13,7 @@ import React from 'react';
 import { RefundRecord, RefundStatus } from '@/admin/services/refund.service';
 import { Landmark } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { adminUiTokens } from '@/admin/components/AdminUI';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
     const { t } = useTranslation(['orders']);
 
     return (
-        <div className="bg-white/[0.025] border border-white/[0.07] rounded-2xl backdrop-blur-sm overflow-hidden">
+        <div className="bg-[#111318] border border-white/[0.07] rounded-2xl overflow-hidden">
             {/* Header */}
             <div className="flex items-center gap-2.5 px-5 py-4 border-b border-white/[0.06]">
                 <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
@@ -90,8 +91,8 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
             {!loading && refunds.length > 0 && (
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-[12px]">
-                        <thead>
-                            <tr className="border-b border-white/[0.04]">
+                        <thead className={adminUiTokens.tableHeaderSurface}>
+                            <tr>
                                 {[
                                     t('refund.financials.table.createdAt'),
                                     t('refund.financials.table.transactionId'),
@@ -99,15 +100,15 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                                     t('refund.financials.table.method'),
                                     t('refund.financials.table.status')
                                 ].map((h) => (
-                                    <th key={h} className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-white/30 whitespace-nowrap">
+                                    <th key={h} className={`whitespace-nowrap px-4 py-2.5 ${adminUiTokens.tableHeader}`}>
                                         {h}
                                     </th>
                                 ))}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/[0.03]">
+                        <tbody className={adminUiTokens.tableBody}>
                             {refunds.map((r) => (
-                                <tr key={r.refundId} className="hover:bg-white/[0.015] transition-colors">
+                                <tr key={r.refundId} className={adminUiTokens.tableRowSoft}>
                                     <td className="px-4 py-3 text-white/50 font-mono whitespace-nowrap">
                                         {formatDate(r.createdAt)}
                                     </td>

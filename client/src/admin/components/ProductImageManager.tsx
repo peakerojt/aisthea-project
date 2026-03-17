@@ -136,7 +136,7 @@ const ToastList: React.FC<{ toasts: Toast[]; remove: (id: string) => void }> = (
                 style={VN_FONT}
                 onClick={() => remove(t.id)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border text-[13px] font-medium
-                    pointer-events-auto cursor-pointer select-none transition-all duration-300
+                    pointer-events-auto cursor-pointer select-none transition-colors duration-300
                     ${t.type === 'success' ? 'bg-emerald-950/95 border-emerald-500/40 text-emerald-300'
                         : t.type === 'error' ? 'bg-red-950/95 border-red-500/40 text-red-300'
                             : 'bg-slate-900/95 border-white/10 text-white/80'}`}
@@ -182,7 +182,7 @@ const CardA: React.FC<CardAProps> = ({ img, onPrimary, onRemove }) => {
 
     return (
         <div ref={setNodeRef} style={style} className="relative group aspect-square">
-            <div className={`relative w-full h-full rounded-xl overflow-hidden border-2 transition-all duration-200
+            <div className={`relative w-full h-full rounded-xl overflow-hidden border-2 transition-colors duration-200
                 ${img.isPrimary ? 'border-yellow-400 shadow-[0_0_16px_rgba(250,204,21,0.25)]'
                     : img.status === 'error' ? 'border-red-500/50'
                         : 'border-white/[0.08] group-hover:border-white/20'}`}
@@ -224,14 +224,14 @@ const CardA: React.FC<CardAProps> = ({ img, onPrimary, onRemove }) => {
                     <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-px">
                         {!img.isPrimary && (
                             <button type="button" onClick={() => onPrimary(img.id)}
-                                className="w-full bg-black/70 hover:bg-yellow-500/20 backdrop-blur-sm py-1 text-[9px]
+                                className="w-full bg-black/78 hover:bg-yellow-500/20 py-1 text-[9px]
                                            text-white/70 hover:text-yellow-300 flex items-center justify-center gap-0.5 transition-colors cursor-pointer">
                                 <Star size={8} /> Đặt làm ảnh bìa
                             </button>
                         )}
                         {!confirmDelete ? (
                             <button type="button" onClick={() => setConfirmDelete(true)}
-                                className="w-full bg-red-900/70 hover:bg-red-700/80 backdrop-blur-sm py-1 text-[9px]
+                                className="w-full bg-red-900/78 hover:bg-red-700/80 py-1 text-[9px]
                                            text-white/70 hover:text-white flex items-center justify-center gap-0.5 transition-colors cursor-pointer">
                                 <Trash2 size={8} /> Xóa
                             </button>
@@ -255,7 +255,7 @@ const CardA: React.FC<CardAProps> = ({ img, onPrimary, onRemove }) => {
             {img.status === 'done' && (
                 <div {...listeners} {...attributes}
                     className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-60 hover:!opacity-100
-                               bg-black/50 backdrop-blur-sm rounded-full p-1 cursor-grab active:cursor-grabbing transition-opacity z-10">
+                               bg-black/55 rounded-full p-1 cursor-grab active:cursor-grabbing transition-opacity z-10">
                     <GripVertical size={9} className="text-white" />
                 </div>
             )}
@@ -274,7 +274,7 @@ const CardB: React.FC<CardBProps> = ({ img, onRemove, accentColor }) => {
 
     return (
         <div className="relative group shrink-0 w-24 h-28">
-            <div className="relative w-full h-full rounded-xl overflow-hidden border-2 transition-all duration-200
+            <div className="relative w-full h-full rounded-xl overflow-hidden border-2 transition-colors duration-200
                             border-white/[0.08] group-hover:border-white/20"
                 style={{ borderColor: img.status === 'done' ? `${accentColor}55` : undefined }}>
                 <img src={img.thumbnailUrl || img.url} alt="" className="w-full h-full object-cover" draggable={false} />
@@ -341,7 +341,7 @@ const ZoneBRow: React.FC<ZoneBRowProps> = ({ attrVal, variantCount, images, onRe
     };
 
     return (
-        <div className="rounded-xl overflow-hidden border border-white/[0.07] transition-all duration-200"
+        <div className="rounded-xl overflow-hidden border border-white/[0.07] transition-colors duration-200"
             style={{ borderColor: over ? `${accentColor}55` : undefined }}>
             {/* Row header */}
             <div className="flex items-center gap-3 px-4 py-2.5 bg-white/[0.025] border-b border-white/[0.05]">
@@ -371,7 +371,7 @@ const ZoneBRow: React.FC<ZoneBRowProps> = ({ attrVal, variantCount, images, onRe
                         onClick={() => inputRef.current?.click()}
                         className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium
                                    bg-white/[0.05] hover:bg-white/10 text-white/50 hover:text-white
-                                   border border-white/[0.06] hover:border-white/15 transition-all cursor-pointer"
+                                   border border-white/[0.06] hover:border-white/15 transition-colors cursor-pointer"
                     >
                         <Plus size={10} /> Thêm ảnh
                     </button>
@@ -393,7 +393,7 @@ const ZoneBRow: React.FC<ZoneBRowProps> = ({ attrVal, variantCount, images, onRe
                     /* Empty drop prompt */
                     <div
                         className="flex items-center gap-3 h-20 rounded-xl border-2 border-dashed cursor-pointer
-                                   transition-all duration-200 px-5"
+                                   transition-colors duration-200 px-5"
                         style={{ borderColor: over ? accentColor : 'rgba(255,255,255,0.08)' }}
                         onClick={() => inputRef.current?.click()}
                     >
@@ -419,7 +419,7 @@ const ZoneBRow: React.FC<ZoneBRowProps> = ({ attrVal, variantCount, images, onRe
                         {/* Inline add button at end of strip */}
                         <div
                             className="shrink-0 w-24 h-28 rounded-xl border-2 border-dashed flex flex-col
-                                       items-center justify-center gap-1.5 cursor-pointer transition-all duration-200
+                                       items-center justify-center gap-1.5 cursor-pointer transition-colors duration-200
                                        border-white/[0.08] hover:border-white/20 hover:bg-white/[0.03]"
                             onClick={() => inputRef.current?.click()}
                         >
@@ -685,7 +685,7 @@ export const ProductImageManager: React.FC<ProductImageManagerProps> = ({
                                 onClick={() => inputRef.current?.click()}
                                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium
                                            bg-blue-500/10 hover:bg-blue-500/20 text-blue-400/80 hover:text-blue-300
-                                           border border-blue-500/20 hover:border-blue-400/30 transition-all cursor-pointer"
+                                           border border-blue-500/20 hover:border-blue-400/30 transition-colors cursor-pointer"
                             >
                                 <Plus size={10} /> Thêm ảnh
                             </button>
@@ -708,7 +708,7 @@ export const ProductImageManager: React.FC<ProductImageManagerProps> = ({
                                 addFiles(Array.from(e.dataTransfer.files));
                             }}
                             className={`flex items-center gap-4 rounded-xl border-2 border-dashed px-5 py-4
-                                        cursor-pointer transition-all duration-200 select-none
+                                        cursor-pointer transition-colors duration-200 select-none
                                         ${dropActive
                                     ? 'border-blue-400 bg-blue-500/10 scale-[1.005]'
                                     : 'border-white/10 hover:border-blue-500/30 hover:bg-white/[0.02]'}`}

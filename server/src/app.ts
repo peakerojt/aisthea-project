@@ -102,7 +102,6 @@ export function createApp() {
   // ── Order/payment/return routes — left as-is during this cleanup wave ───────
   // ORDERING MATTERS: named paths before catch-all /:id
   // Backward-compatible tracking endpoints expected by legacy i18n tests.
-  app.get('/api/orders/my', authenticateToken, trackingController.getMyOrders);
   app.patch('/api/admin/orders/:id/status', authenticateToken, trackingController.adminUpdateOrderStatus);
   app.use('/api/orders', orderRoutes);            // /admin, /my, /my/:id, POST /, PATCH /:id/status
   app.post('/api/orders/:id/return', authenticateToken, postReturnRequest);

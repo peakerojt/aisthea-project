@@ -17,6 +17,15 @@ import type { CategoryOption, BrandOption } from '@/common/services/product.serv
 import { API_BASE_URL } from '@/common/utils/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { productKeys } from '@/common/hooks/useProducts';
+import {
+    AdminPageHeader,
+    AdminPageShell,
+    AdminPrimaryButton,
+    AdminIconButton,
+    AdminModalShell,
+    AdminSecondaryButton,
+    AdminSectionCard,
+} from '@/admin/components/AdminUI';
 import VariantManager from '@/admin/components/VariantManager';
 import type { AttributeGroup as VMGroup, VariantRow as VMRow } from '@/admin/components/VariantManager';
 import ProductImageManager from '@/admin/components/ProductImageManager';
@@ -593,8 +602,6 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
             : 'border-white/10 focus:border-primary focus:ring-primary'
         }`;
     const labelCls = 'block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5';
-    const cardCls = 'bg-surface-dark rounded-xl p-6 border border-white/5 space-y-5';
-
     // ─── Loading / Error States ───────────────────────────────────────────
     if (loadingProduct) return <EditSkeleton />;
 
@@ -615,7 +622,7 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
     const hasPrimary = activeExisting.some(i => i.isPrimary) || newImages.some(i => i.isPrimary);
 
     return (
-        <div className="flex flex-col h-full bg-bg-dark" style={VN_FONT}>
+        <AdminPageShell className="h-full bg-bg-dark">
 
             {/* Toasts */}
             <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">
@@ -634,43 +641,32 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
             </div>
 
             {showLeaveDialog && (
-                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-                    <div
-                        className="absolute inset-0 bg-black/75 backdrop-blur-sm"
-                        onClick={() => {
-                            setShowLeaveDialog(false);
-                            setPendingNavigation(null);
-                        }}
-                    />
-                    <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-surface-dark shadow-2xl overflow-hidden">
-                        <div className="px-6 py-5 border-b border-white/5">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-                                    <AlertCircle size={18} className="text-amber-400" />
-                                </div>
-                                <div>
-                                    <h3 className="text-base font-bold text-white">{t('editor.modal.unsavedTitle')}</h3>
-                                    <p className="text-xs text-white/40 mt-0.5">{t('editor.modal.unsavedSubtitle')}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-6 py-5">
-                            <p className="text-sm text-white/65 leading-relaxed">
-                                {t('editor.feedback.unsavedChanges')}
-                            </p>
-                        </div>
-                        <div className="px-6 pb-6 flex items-center justify-end gap-3">
-                            <button
+                <AdminModalShell
+                    icon={AlertCircle}
+                    iconWrapperClassName="rounded-full border-amber-500/20 bg-amber-500/10 text-amber-400"
+                    iconClassName="text-amber-400"
+                    title={t('editor.modal.unsavedTitle')}
+                    subtitle={t('editor.modal.unsavedSubtitle')}
+                    onClose={() => {
+                        setShowLeaveDialog(false);
+                        setPendingNavigation(null);
+                    }}
+                    maxWidthClassName="max-w-md"
+                    panelClassName="bg-surface-dark"
+                    bodyClassName="px-6 py-5"
+                    footer={(
+                        <div className="flex items-center justify-end gap-3">
+                            <AdminSecondaryButton
                                 type="button"
                                 onClick={() => {
                                     setShowLeaveDialog(false);
                                     setPendingNavigation(null);
                                 }}
-                                className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                                className="px-4 py-2.5"
                             >
                                 {t('editor.actions.stayHere')}
-                            </button>
-                            <button
+                            </AdminSecondaryButton>
+                            <AdminPrimaryButton
                                 type="button"
                                 onClick={() => {
                                     setShowLeaveDialog(false);
@@ -678,46 +674,40 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                                     setPendingNavigation(null);
                                     proceed?.();
                                 }}
-                                className="px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-primary hover:bg-red-700 transition-colors shadow-lg shadow-primary/20"
+                                className="px-4 py-2.5"
                             >
                                 {t('editor.actions.leavePage')}
-                            </button>
+                            </AdminPrimaryButton>
                         </div>
-                    </div>
-                </div>
+                    )}
+                >
+                    <p className="text-sm text-white/65 leading-relaxed">
+                        {t('editor.feedback.unsavedChanges')}
+                    </p>
+                </AdminModalShell>
             )}
 
-            {/* Sticky Header */}
-            <div className="sticky top-0 z-30 bg-bg-dark/95 backdrop-blur-sm border-b border-white/5 px-8 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <button
-                        type="button"
-                        onClick={() => attemptNavigation(() => navigate('/admin/products'))}
-                        className="p-2 rounded-lg hover:bg-white/5 text-white/60 hover:text-white transition-colors"
-                    >
-                        <ArrowLeft size={18} />
-                    </button>
-                    <div>
-                        <nav className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-white/40">
-                            <span>{t('editor.breadcrumbs.products')}</span>
-                            <ChevronRight size={10} />
-                            <span className="text-white/70">{t('editor.breadcrumbs.update')}</span>
-                        </nav>
-                        <h1 className="text-sm font-bold text-white mt-0.5 line-clamp-1">
-                            {productName}
-                        </h1>
-                    </div>
-                </div>
-                <button
-                    type="button"
-                    onClick={handleSubmit(onSubmit)}
-                    disabled={saving}
-                    className="flex items-center gap-2 bg-primary hover:bg-red-700 disabled:opacity-60 text-white text-xs font-bold uppercase tracking-[0.1em] px-6 py-3 rounded shadow-lg shadow-primary/20 transition-all"
-                >
-                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                    {saving ? t('editor.actions.saving') : t('editor.actions.saveChanges')}
-                </button>
-            </div>
+            <AdminPageHeader
+                icon={Tag}
+                eyebrow={t('editor.breadcrumbs.products')}
+                title={productName}
+                subtitle={t('editor.breadcrumbs.update')}
+                actions={(
+                    <>
+                        <AdminIconButton
+                            type="button"
+                            onClick={() => attemptNavigation(() => navigate('/admin/products'))}
+                            aria-label={t('editor.actions.backToList')}
+                        >
+                            <ArrowLeft size={18} />
+                        </AdminIconButton>
+                        <AdminPrimaryButton type="button" onClick={handleSubmit(onSubmit)} disabled={saving}>
+                            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                            {saving ? t('editor.actions.saving') : t('editor.actions.saveChanges')}
+                        </AdminPrimaryButton>
+                    </>
+                )}
+            />
 
             {/* Body */}
             <form
@@ -725,13 +715,13 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                 onChange={() => setFormDirty(true)}
                 className="flex-1 overflow-y-auto"
             >
-                <div className="p-8 grid grid-cols-[1fr_320px] gap-6 max-w-[1400px] mx-auto">
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
 
                     {/* ─── Left column ─────────────────────────────────────── */}
                     <div className="space-y-6">
 
                         {/* Section 1: Thông tin cơ bản */}
-                        <div className={cardCls}>
+                        <AdminSectionCard bodyClassName="space-y-5 p-6">
                             <div className="flex items-center gap-2 mb-1">
                                 <Tag size={15} className="text-primary" />
                                 <h2 className="text-sm font-bold text-white uppercase tracking-wider">{t('editor.sections.basicInfo')}</h2>
@@ -761,10 +751,10 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                                     className={inputCls() + ' resize-none'}
                                 />
                             </div>
-                        </div>
+                        </AdminSectionCard>
 
                         {/* Section 2: Phân loại hàng — VariantManager */}
-                        <div className={cardCls}>
+                        <AdminSectionCard bodyClassName="p-6">
                             {vmInitialGroups !== undefined ? (
                                 <VariantManager
                                     baseSku={watch('baseSku') ?? ''}
@@ -779,10 +769,10 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                                     {t('editor.feedback.loadingVariants')}
                                 </div>
                             )}
-                        </div>
+                        </AdminSectionCard>
 
                         {/* Section 3: Hình ảnh — ProductImageManager */}
-                        <div className={cardCls}>
+                        <AdminSectionCard bodyClassName="p-6">
                             {imInitialized && (
                                 <ProductImageManager
                                     productId={resolvedProductId}
@@ -797,7 +787,7 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                                     {t('editor.feedback.loadingImages')}
                                 </div>
                             )}
-                        </div>
+                        </AdminSectionCard>
 
                     </div>{/* end left column */}
 
@@ -806,17 +796,17 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
 
 
                         {/* Status */}
-                        < div className={cardCls} >
+                        <AdminSectionCard bodyClassName="space-y-5 p-6">
                             <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3">{t('editor.sections.status')}</h3>
                             <select {...register('status')} className={inputCls()}>
                                 <option value="Active">{t('editor.fields.statusActiveEdit')}</option>
                                 <option value="Draft">{t('editor.fields.statusDraftEdit')}</option>
                                 <option value="Archived">{t('editor.fields.statusArchivedEdit')}</option>
                             </select>
-                        </div >
+                        </AdminSectionCard>
 
                         {/* Category & Brand */}
-                        < div className={cardCls} >
+                        <AdminSectionCard bodyClassName="space-y-5 p-6">
                             <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3">{t('editor.sections.categoryAndBrand')}</h3>
                             <div>
                                 <label className={labelCls}>{t('editor.fields.category')} *</label>
@@ -837,10 +827,10 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                                     ))}
                                 </select>
                             </div>
-                        </div >
+                        </AdminSectionCard>
 
                         {/* Pricing */}
-                        < div className={cardCls} >
+                        <AdminSectionCard bodyClassName="space-y-5 p-6">
                             <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3">{t('editor.sections.priceAndSku')}</h3>
                             <div>
                                 <label className={labelCls}>{t('editor.fields.basePrice')} *</label>
@@ -857,7 +847,7 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                                 />
                                 <p className="mt-1 text-[10px] text-white/30">{t('editor.fields.baseSkuHintEdit')}</p>
                             </div>
-                        </div >
+                        </AdminSectionCard>
 
                         {/* Summary card */}
                         < div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2" >
@@ -882,7 +872,7 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                     </div >
                 </div >
             </form >
-        </div >
+        </AdminPageShell>
     );
 };
 

@@ -3,6 +3,7 @@ import { prisma } from '../../utils/prisma';
 const ORDER_INCLUDE = {
   items: { orderBy: { orderItemId: 'asc' as const } },
   statusHistory: { orderBy: { changedAt: 'asc' as const } },
+  payments: true,
   shipment: true,
 };
 
@@ -30,6 +31,7 @@ export const trackingRepository = {
     return {
       ...order,
       orderCode: order.orderNumber,
+      trackingCode: order.orderNumber,
       customerEmail: order.customerEmail || null,
     };
   },
@@ -49,6 +51,7 @@ export const trackingRepository = {
     return orders.map((order) => ({
       ...order,
       orderCode: order.orderNumber,
+      trackingCode: order.orderNumber,
     }));
   },
 
@@ -63,6 +66,7 @@ export const trackingRepository = {
     return {
       ...order,
       orderCode: order.orderNumber,
+      trackingCode: order.orderNumber,
       customerEmail: order.customerEmail || null,
     };
   },

@@ -16,7 +16,7 @@
     "PENDING": "Chờ thanh toán",
     "UNPAID": "Chưa thanh toán",
     "VERIFYING": "Đang xác nhận thanh toán",
-    "COD_PENDING": "Chờ thanh toán khi nhận hàng",
+    "COD_PENDING": "Chờ thanh toán",
     "PAID": "Đã thanh toán",
     "REFUNDED": "Đã hoàn tiền",
     "FAILED": "Thanh toán thất bại",

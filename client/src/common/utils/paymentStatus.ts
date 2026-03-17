@@ -176,7 +176,7 @@ export const getPaymentStatusMeta = (
     return {
       canonicalStatus: 'COD_PENDING',
       labelKey: 'paymentStatus.COD_PENDING',
-      defaultLabel: 'Cho thanh toan khi nhan hang',
+      defaultLabel: 'Cho thanh toan',
       ...TONE_STYLES.neutral,
       isPaidLike: false,
     };

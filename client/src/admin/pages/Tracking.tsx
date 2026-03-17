@@ -1,15 +1,22 @@
 import React from 'react';
-import { Header } from '@/store/components/Header';
+import { Headset, MapPinned, Truck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import {
+  AdminBadge,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminPrimaryButton,
+  AdminSecondaryButton,
+  AdminSectionCard,
+  adminUiTokens,
+} from '@/admin/components/AdminUI';
 
 export const Tracking: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'adminTracking' });
 
   return (
-    <div className="flex flex-col h-screen w-full bg-bg-dark text-white font-display overflow-hidden relative">
-      <Header />
-
-      <div className="absolute inset-0 z-0 bg-neutral-900 overflow-hidden">
+    <AdminPageShell className="relative min-h-full overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[28px] border border-white/[0.04] bg-neutral-900">
         <img
           src="https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=2000&auto=format&fit=crop"
           className="w-full h-full object-cover opacity-30 grayscale mix-blend-overlay"
@@ -22,55 +29,79 @@ export const Tracking: React.FC = () => {
         </svg>
       </div>
 
-      <div className="absolute top-28 left-8 md:top-32 md:left-12 w-[380px] z-20">
-        <div className="bg-black/80 backdrop-blur-md p-5 rounded-lg shadow-2xl flex flex-col gap-5 border border-white/10">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="size-2 bg-green-500 rounded-full animate-pulse"></span>
-                <span className="text-primary text-xs font-bold tracking-wider uppercase">{t('badge')}</span>
+      <div className="relative z-10 flex min-h-full flex-col gap-6">
+        <AdminPageHeader
+          icon={MapPinned}
+          eyebrow={t('badge')}
+          title={t('orderCode')}
+          subtitle={t('statusMessage')}
+          meta={`${t('deliveryLabel')}: ${t('deliveryTime')}`}
+          actions={<AdminBadge tone="success" dot>{t('badge')}</AdminBadge>}
+        />
+
+        <div className="flex flex-1 items-start">
+          <AdminSectionCard
+            className="w-full max-w-[420px] bg-black/82 shadow-[0_22px_60px_rgba(0,0,0,0.45)]"
+            bodyClassName="space-y-5 p-5 lg:p-6"
+          >
+            <div className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.04] p-3.5">
+              <div className="h-16 w-16 overflow-hidden rounded-xl bg-white/10">
+                <img
+                  src="https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=200"
+                  alt={t('productImageAlt')}
+                  className="h-full w-full object-cover"
+                />
               </div>
-              <h2 className="text-white text-2xl font-bold">{t('orderCode')}</h2>
-            </div>
-          </div>
-
-          <div className="flex gap-4 items-center bg-white/5 p-3 rounded border border-white/5">
-            <div className="w-16 h-16 bg-white/10 rounded overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=200" alt={t('productImageAlt')} className="w-full h-full object-cover" />
-            </div>
-            <div className="flex flex-col gap-1 min-w-0">
-              <h3 className="text-white text-sm font-medium truncate">{t('productName')}</h3>
-              <p className="text-gray-400 text-xs">{t('productMeta')}</p>
-              <p className="text-white text-xs font-medium mt-1">{t('statusMessage')}</p>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-end">
-              <span className="text-gray-400 text-xs font-medium">{t('deliveryLabel')}</span>
-              <span className="text-primary text-sm font-bold">{t('deliveryTime')}</span>
-            </div>
-            <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-              <div className="h-full bg-primary w-[75%] rounded-full relative overflow-hidden">
-                <div className="absolute inset-0 bg-white/20 w-full animate-pulse"></div>
+              <div className="min-w-0 space-y-1">
+                <h3 className="truncate text-sm font-semibold text-white">{t('productName')}</h3>
+                <p className="text-xs text-white/42">{t('productMeta')}</p>
+                <div className="inline-flex">
+                  <AdminBadge tone="info" dot>{t('statusMessage')}</AdminBadge>
+                </div>
               </div>
             </div>
-            <div className="flex justify-between text-[10px] text-gray-500 uppercase tracking-wide mt-1">
-              <span>{t('progress.dispatched')}</span>
-              <span>{t('progress.delivered')}</span>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3 mt-1">
-            <button className="flex items-center justify-center gap-2 h-10 rounded border border-white/10 hover:bg-white/5 text-white text-xs font-semibold transition-all">
-              {t('actions.support')}
-            </button>
-            <button className="flex items-center justify-center gap-2 h-10 rounded bg-primary hover:bg-red-700 text-white text-xs font-semibold shadow-lg shadow-primary/20 transition-all">
-              {t('actions.viewDetails')}
-            </button>
-          </div>
+            <div className="space-y-2">
+              <div className="flex items-end justify-between">
+                <span className="text-xs font-medium text-white/45">{t('deliveryLabel')}</span>
+                <span className="text-sm font-bold text-primary">{t('deliveryTime')}</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="relative h-full w-[75%] overflow-hidden rounded-full bg-primary">
+                  <div className="absolute inset-0 w-full animate-pulse bg-white/20" />
+                </div>
+              </div>
+              <div className="mt-1 flex justify-between text-[10px] uppercase tracking-wide text-white/34">
+                <span>{t('progress.dispatched')}</span>
+                <span>{t('progress.delivered')}</span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] px-4 py-3">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/18 bg-primary/10">
+                  <Truck size={16} className="text-primary" />
+                </div>
+                <div>
+                  <p className={adminUiTokens.labelText}>{t('deliveryLabel')}</p>
+                  <p className="mt-1 text-sm text-white/74">{t('statusMessage')}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <AdminSecondaryButton type="button" className="w-full">
+                <Headset size={15} />
+                {t('actions.support')}
+              </AdminSecondaryButton>
+              <AdminPrimaryButton type="button" className="w-full">
+                <Truck size={15} />
+                {t('actions.viewDetails')}
+              </AdminPrimaryButton>
+            </div>
+          </AdminSectionCard>
         </div>
       </div>
-    </div>
+    </AdminPageShell>
   );
 };

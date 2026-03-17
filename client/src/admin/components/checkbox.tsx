@@ -43,7 +43,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
                 data-state={checked ? 'checked' : 'unchecked'}
                 className={`
                     flex items-center justify-center
-                    w-5 h-5 rounded border transition-all duration-150
+                    w-5 h-5 rounded border transition-colors duration-150
                     ${checked
                         ? 'bg-[#e63946] border-[#e63946] shadow-sm shadow-[#e63946]/30'
                         : 'bg-transparent border-white/25 hover:border-white/50'

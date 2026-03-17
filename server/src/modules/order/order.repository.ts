@@ -55,10 +55,16 @@ export interface OrderPayment {
 export interface OrderShipment {
   shipmentId: number;
   orderId: number;
+  shippingMode: string | null;
+  provider: string | null;
+  providerOrderCode: string | null;
+  providerStatus: string | null;
   carrier: string | null;
   trackingNumber: string | null;
   eta: Date | null;
   lastKnownLocation: string | null;
+  deliveryProofImages: string;
+  deliveryProofReviewed: boolean;
 }
 
 export interface OrderUser {

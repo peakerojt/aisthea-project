@@ -8,6 +8,10 @@ const DEFAULT_LANGUAGE = 'vi';
 interface FetchOptions extends RequestInit {
     params?: Record<string, string>;
     skipAuthRedirect?: boolean;
+    cacheTtlMs?: number;
+    dedupeKey?: string;
+    skipDedupe?: boolean;
+    skipCache?: boolean;
 }
 
 type ApiErrorPayload = {
@@ -45,6 +49,8 @@ const resolveApiMessage = (payload: ApiErrorPayload, fallback: string) => {
 
 class ApiClient {
     private baseUrl: string;
+    private pendingGetRequests = new Map<string, Promise<unknown>>();
+    private responseCache = new Map<string, { expiresAt: number; data: unknown }>();
 
     constructor(baseUrl: string) {
         this.baseUrl = baseUrl;
@@ -79,7 +85,15 @@ class ApiClient {
     }
 
     private async request<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
-        const { params, skipAuthRedirect, ...fetchOptions } = options;
+        const {
+            params,
+            skipAuthRedirect,
+            cacheTtlMs = 0,
+            dedupeKey,
+            skipDedupe = false,
+            skipCache = false,
+            ...fetchOptions
+        } = options;
 
         let url = `${this.baseUrl}${endpoint}`;
         if (params) {
@@ -91,12 +105,13 @@ class ApiClient {
         const shouldAttachCsrf = !['GET', 'HEAD', 'OPTIONS'].includes(method);
         const csrfToken = shouldAttachCsrf ? await this.ensureCsrfToken() : undefined;
         const activeLanguage = getActiveLanguage();
+        const requestKey = dedupeKey || `${method}:${url}:${activeLanguage}`;
 
         const config: RequestInit = {
             ...fetchOptions,
             credentials: 'include',
             headers: {
-                'Content-Type': 'application/json',
+                ...(!(fetchOptions.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
                 'x-lang': activeLanguage,
                 'accept-language': activeLanguage,
                 ...(csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {}),
@@ -104,7 +119,24 @@ class ApiClient {
             },
         };
 
-        try {
+        if (method === 'GET' && !skipCache) {
+            const cached = this.responseCache.get(requestKey);
+            if (cached && cached.expiresAt > Date.now()) {
+                return cached.data as T;
+            }
+            if (cached) {
+                this.responseCache.delete(requestKey);
+            }
+        }
+
+        if (method === 'GET' && !skipDedupe) {
+            const pending = this.pendingGetRequests.get(requestKey);
+            if (pending) {
+                return pending as Promise<T>;
+            }
+        }
+
+        const executeRequest = async (): Promise<T> => {
             const response = await fetch(url, config);
 
             if (!response.ok) {
@@ -165,8 +197,17 @@ class ApiClient {
                 throw err;
             }
 
-            return await response.json();
-        } catch (error) {
+            const data = await response.json();
+            if (method === 'GET' && cacheTtlMs > 0 && !skipCache) {
+                this.responseCache.set(requestKey, {
+                    expiresAt: Date.now() + cacheTtlMs,
+                    data,
+                });
+            }
+            return data;
+        };
+
+        const requestPromise = executeRequest().catch((error) => {
             const apiErr = error as Error & { status?: number; skipAuthRedirect?: boolean };
             const isExpectedAuthError = apiErr.status === 401 && apiErr.skipAuthRedirect === true;
             if (!isExpectedAuthError) {
@@ -183,7 +224,17 @@ class ApiClient {
                 }));
             }
             throw error;
+        }).finally(() => {
+            if (method === 'GET') {
+                this.pendingGetRequests.delete(requestKey);
+            }
+        });
+
+        if (method === 'GET' && !skipDedupe) {
+            this.pendingGetRequests.set(requestKey, requestPromise);
         }
+
+        return requestPromise;
     }
 
     async get<T>(endpoint: string, options?: FetchOptions): Promise<T> {
@@ -194,7 +245,7 @@ class ApiClient {
         return this.request<T>(endpoint, {
             ...options,
             method: 'POST',
-            body: JSON.stringify(data),
+            body: data instanceof FormData ? data : JSON.stringify(data),
         });
     }
 
@@ -202,7 +253,7 @@ class ApiClient {
         return this.request<T>(endpoint, {
             ...options,
             method: 'PUT',
-            body: JSON.stringify(data),
+            body: data instanceof FormData ? data : JSON.stringify(data),
         });
     }
 
@@ -210,7 +261,7 @@ class ApiClient {
         return this.request<T>(endpoint, {
             ...options,
             method: 'PATCH',
-            body: JSON.stringify(data),
+            body: data instanceof FormData ? data : JSON.stringify(data),
         });
     }
 

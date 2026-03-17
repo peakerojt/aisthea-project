@@ -1,4 +1,7 @@
+import axios from 'axios';
 import { orderApi } from '@/common/api/order.api';
+import { API_BASE_URL } from '@/common/utils/api';
+import i18n from '@/i18n/config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // User-facing types
@@ -22,6 +25,7 @@ export type OrderStatus =
 export interface OrderTimelineItem {
   status: OrderStatus;
   at: string;
+  note?: string | null;
 }
 
 export interface OrderPricing {
@@ -75,6 +79,11 @@ export interface OrderDetail {
   orderId: number;
   orderNumber: string;
   orderCode?: string; // used by some storefront components
+  trackingCode?: string;
+  shippingMode?: 'manual' | 'provider';
+  provider?: string | null;
+  providerOrderCode?: string | null;
+  providerStatus?: string | null;
   status: string;
   paymentStatus: string;
   paymentMethod?: string;
@@ -121,6 +130,8 @@ export interface MyOrdersResponse {
   orders: {
     orderId: number;
     orderNumber: string;
+    orderCode?: string;
+    trackingCode?: string;
     status: string;
     paymentStatus: string;
     paymentMethod?: string;
@@ -173,6 +184,11 @@ export interface AdminOrderItem extends OrderItem {
 export interface AdminOrderDetail {
   orderId: number;
   orderNumber: string;
+  trackingCode?: string;
+  shippingMode?: 'manual' | 'provider';
+  provider?: string | null;
+  providerOrderCode?: string | null;
+  providerStatus?: string | null;
   status: string;
   statusLabel: string;
   paymentStatus: string;
@@ -183,6 +199,10 @@ export interface AdminOrderDetail {
   updatedAt?: string;
   trackingNumber?: string;
   carrier?: string;
+  deliveryProof?: {
+    images: string[];
+    reviewed: boolean;
+  };
   shippingAddress: {
     recipientName: string;
     phone: string;
@@ -229,10 +249,57 @@ export interface AdminOrdersResponse {
 export interface UpdateStatusPayload {
   status: string;
   note?: string;
-  carrier?: string;
-  trackingNumber?: string;
-  estimatedDeliveryDate?: string;
+  deliveryProofImages?: string[];
+  deliveryProofReviewed?: boolean;
 }
+
+export type DeliveryProofUploadProgress = {
+  fileKey: string;
+  fileName: string;
+  percent: number;
+  status: 'pending' | 'uploading' | 'completed' | 'failed';
+};
+
+const CSRF_COOKIE_NAME = 'csrfToken';
+const CSRF_HEADER_NAME = 'x-csrf-token';
+const DEFAULT_LANGUAGE = 'vi';
+
+const getCookie = (name: string): string | undefined => {
+  if (typeof document === 'undefined') return undefined;
+  const source = `; ${document.cookie}`;
+  const parts = source.split(`; ${name}=`);
+  if (parts.length !== 2) return undefined;
+  return decodeURIComponent(parts.pop()!.split(';').shift() || '');
+};
+
+const getActiveLanguage = () => {
+  const current = i18n.resolvedLanguage || i18n.language || DEFAULT_LANGUAGE;
+  return current.split('-')[0] || DEFAULT_LANGUAGE;
+};
+
+export const createDeliveryProofFileKey = (file: File) =>
+  `${file.name}::${file.size}::${file.lastModified}`;
+
+const ensureCsrfToken = async () => {
+  const existing = getCookie(CSRF_COOKIE_NAME);
+  if (existing) return existing;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/csrf-token`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    if (response.ok) {
+      const payload = (await response.json().catch(() => null)) as { data?: { csrfToken?: string } } | null;
+      return getCookie(CSRF_COOKIE_NAME) || payload?.data?.csrfToken;
+    }
+  } catch {
+    // Let the request fail naturally if the token still cannot be obtained.
+  }
+
+  return getCookie(CSRF_COOKIE_NAME);
+};
 
 const normalizePricing = (raw: any): OrderPricing => {
   if (raw?.pricing) {
@@ -267,6 +334,8 @@ export const orderService = {
     const raw = response.data ? response.data : response;
     return {
       ...raw,
+      orderCode: raw.orderCode ?? raw.orderNumber,
+      trackingCode: raw.trackingCode ?? raw.orderCode ?? raw.orderNumber,
       pricing: normalizePricing(raw),
       items: (raw.items ?? []).map((item: any) => ({
         ...item,
@@ -279,8 +348,13 @@ export const orderService = {
       })),
       timeline: raw.statusHistory?.map((h: any) => ({
         status: h.status,
-        at: h.changedAt ?? h.at ?? new Date().toISOString(),
-      })) || raw.timeline || [],
+        at: h.changedAt ?? h.timestamp ?? h.at ?? new Date().toISOString(),
+        note: h.note ?? null,
+      })) || (raw.timeline ?? []).map((entry: any) => ({
+        status: entry.status,
+        at: entry.timestamp ?? entry.changedAt ?? entry.at ?? new Date().toISOString(),
+        note: entry.note ?? null,
+      })),
     };
   },
 
@@ -308,15 +382,26 @@ export const orderService = {
     const query = queryParams.toString();
 
     const response = await orderApi.getMyOrders(query ? `?${query}` : '');
+    const orders = (response.data || []).map((order: any) => ({
+      ...order,
+      orderCode: order.orderCode ?? order.orderNumber,
+      trackingCode: order.trackingCode ?? order.orderCode ?? order.orderNumber,
+      itemCount: order.itemCount ?? order._count?.items ?? order.items?.length ?? 0,
+    }));
     return {
-      orders: response.data || [],
+      orders,
       pagination: response.meta || { page: 1, pageSize: 20, total: 0, totalPages: 1 },
     };
   },
 
   async getMyOrderDetail(orderId: number): Promise<OrderDetail> {
     const res = await orderApi.getMyOrderDetail<any>(orderId);
-    return res.data ? res.data : res;
+    const raw = res.data ? res.data : res;
+    return {
+      ...raw,
+      orderCode: raw.orderCode ?? raw.orderNumber,
+      trackingCode: raw.trackingCode ?? raw.orderCode ?? raw.orderNumber,
+    };
   },
 
   async cancelMyOrder(orderId: number): Promise<OrderDetail> {
@@ -340,6 +425,7 @@ export const adminOrderService = {
     search?: string;
     startDate?: string;
     endDate?: string;
+    sort?: string;
   }): Promise<AdminOrdersResponse> {
     const q = new URLSearchParams();
     if (params?.status && params.status !== 'ALL') q.append('status', params.status);
@@ -348,6 +434,7 @@ export const adminOrderService = {
     if (params?.search) q.append('search', params.search);
     if (params?.startDate) q.append('startDate', params.startDate);
     if (params?.endDate) q.append('endDate', params.endDate);
+    if (params?.sort) q.append('sort', params.sort);
     const query = q.toString();
 
     const response = await orderApi.getAdminOrders<AdminOrder[]>(query ? `?${query}` : '');
@@ -361,7 +448,80 @@ export const adminOrderService = {
    * Get full order detail including items with images, shipping, payments.
    */
   async getDetail(orderId: number): Promise<AdminOrderDetail> {
-    return orderApi.getAdminOrderDetail<AdminOrderDetail>(orderId);
+    const raw = await orderApi.getAdminOrderDetail<any>(orderId);
+    return {
+      ...raw,
+      trackingCode: raw.trackingCode ?? raw.orderCode ?? raw.orderNumber,
+      deliveryProof: raw.deliveryProof ?? { images: [], reviewed: false },
+    };
+  },
+
+  async uploadDeliveryProofImages(
+    orderId: number,
+    files: File[],
+    onProgress?: (progress: DeliveryProofUploadProgress) => void,
+  ) {
+    const uploadedImages: Array<{ url: string; width: number; height: number }> = [];
+    const csrfToken = await ensureCsrfToken();
+    const activeLanguage = getActiveLanguage();
+
+    for (const file of files) {
+      const fileKey = createDeliveryProofFileKey(file);
+
+      onProgress?.({
+        fileKey,
+        fileName: file.name,
+        percent: 0,
+        status: 'pending',
+      });
+
+      const formData = new FormData();
+      formData.append('files', file);
+
+      try {
+        const response = await axios.post<{
+          success: boolean;
+          data?: { images?: Array<{ url: string; width: number; height: number }> };
+        }>(`${API_BASE_URL}/api/orders/${orderId}/delivery-proof-images`, formData, {
+          withCredentials: true,
+          headers: {
+            'x-lang': activeLanguage,
+            'accept-language': activeLanguage,
+            ...(csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {}),
+          },
+          onUploadProgress: (event) => {
+            const total = event.total || file.size || 1;
+            const percent = Math.min(99, Math.round((event.loaded / total) * 100));
+
+            onProgress?.({
+              fileKey,
+              fileName: file.name,
+              percent,
+              status: 'uploading',
+            });
+          },
+        });
+
+        const nextImages = response.data?.data?.images ?? [];
+        uploadedImages.push(...nextImages);
+        onProgress?.({
+          fileKey,
+          fileName: file.name,
+          percent: 100,
+          status: 'completed',
+        });
+      } catch (error) {
+        onProgress?.({
+          fileKey,
+          fileName: file.name,
+          percent: 100,
+          status: 'failed',
+        });
+        throw error;
+      }
+    }
+
+    return uploadedImages;
   },
 
   /**

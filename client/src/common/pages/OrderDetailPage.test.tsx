@@ -259,5 +259,38 @@ describe('OrderDetailPage', () => {
       }),
     );
   });
+
+  it('shows track order action for processing orders', async () => {
+    fetchOrderDetail.mockResolvedValueOnce({
+      id: '11',
+      orderCode: 'ORD-20260011',
+      status: 'Processing',
+      paymentMethod: 'cod',
+      paymentStatus: 'COD_PENDING',
+      createdAt: '2026-02-24T08:00:00.000Z',
+      shippingAddress: {
+        recipientName: 'A',
+        recipientPhone: '090',
+        addressLine: '123',
+        ward: 'W',
+        district: 'D',
+        city: 'C',
+      },
+      items: [],
+      pricing: {
+        itemsTotal: 100000,
+        shippingFee: 0,
+        discount: 0,
+        tax: 0,
+        grandTotal: 100000,
+      },
+      timeline: [{ status: 'Processing', timestamp: '2026-02-24T08:00:00.000Z' }],
+      note: null,
+    });
+
+    renderPage('/orders/11');
+
+    expect(await screen.findByRole('button', { name: /Theo dõi đơn hàng|actions\.trackOrder/ })).toBeInTheDocument();
+  });
 });
 

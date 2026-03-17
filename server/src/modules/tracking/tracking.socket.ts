@@ -1,12 +1,15 @@
 import { emitOrderStatusUpdated } from '../../socket';
 
-// Update the emitOrderStatusUpdated function signature to accept logistics fields
-// (this is just type documentation - actual changes are in socket.ts)
 export type OrderStatusUpdatedPayload = {
     orderId: number;
     userId?: number | null;
+    orderCode?: string;
     status: string;
     timeline: unknown[];
+    shippingMode?: 'manual' | 'provider';
+    provider?: string | null;
+    providerOrderCode?: string | null;
+    providerStatus?: string | null;
     carrier?: string | null;
     trackingNumber?: string | null;
     estimatedDeliveryDate?: Date | null;

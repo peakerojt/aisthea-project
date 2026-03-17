@@ -1,7 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Ban, ChevronLeft, ChevronRight, Eye, Plus, RefreshCw, Truck, X } from 'lucide-react';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import {
+  AdminActionButton,
+  AdminBadge,
+  AdminIconButton,
+  AdminModalShell,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminPrimaryButton,
+  AdminSectionCard,
+  AdminSecondaryButton,
+  AdminStatCards,
+  AdminToolbar,
+  adminUiTokens,
+} from '@/admin/components/AdminUI';
 import {
   fetchAllInventory,
   fetchInventorySummary,
@@ -50,16 +63,15 @@ const formatDate = (value: string | null) => {
   return dt.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
-const getStatusClass = (status: PurchaseOrderStatus) => {
-  if (status === 'RECEIVED') return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
-  if (status === 'PARTIALLY_RECEIVED') return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
-  if (status === 'CANCELLED') return 'bg-red-500/15 text-red-300 border-red-500/30';
-  return 'bg-blue-500/15 text-blue-300 border-blue-500/30';
+const getStatusBadgeTone = (status: PurchaseOrderStatus) => {
+  if (status === 'RECEIVED') return 'success' as const;
+  if (status === 'PARTIALLY_RECEIVED') return 'warning' as const;
+  if (status === 'CANCELLED') return 'danger' as const;
+  return 'info' as const;
 };
 
 const INVENTORY_PAGE_SIZE = 40;
 const PO_PAGE_SIZE = 20;
-const INVENTORY_ROW_HEIGHT = 76;
 const INVENTORY_GRID_TEMPLATE = 'minmax(320px,2.4fr) minmax(140px,1fr) minmax(130px,0.9fr) minmax(160px,1fr) minmax(220px,1.2fr)';
 const makeDefaultMeta = (pageSize: number): PaginationMeta => ({
   total: 0,
@@ -166,9 +178,6 @@ export const Restock: React.FC = () => {
 
       setVariants(rows);
       setInventoryMeta(res.meta ?? makeDefaultMeta(INVENTORY_PAGE_SIZE));
-      if (inventoryScrollRef.current) {
-        inventoryScrollRef.current.scrollTop = 0;
-      }
     } catch (e) {
       if (inventoryRequestIdRef.current !== requestId) return;
       const err = e as Error;
@@ -253,13 +262,6 @@ export const Restock: React.FC = () => {
   const inventoryCanNext = inventoryPage < Math.max(1, inventoryMeta.totalPages);
   const poCanPrev = poPage > 1;
   const poCanNext = poPage < Math.max(1, poMeta.totalPages);
-
-  const inventoryRowVirtualizer = useVirtualizer({
-    count: variants.length,
-    getScrollElement: () => inventoryScrollRef.current,
-    estimateSize: () => INVENTORY_ROW_HEIGHT,
-    overscan: 8,
-  });
 
   const addItem = () => setDraftItems((prev) => [...prev, { variantId: '', orderedQty: 1, unitCost: 0 }]);
   const removeItem = (idx: number) => setDraftItems((prev) => prev.filter((_, i) => i !== idx));
@@ -360,22 +362,60 @@ export const Restock: React.FC = () => {
     void Promise.all([loadOrders(), loadInventory(), loadInventorySummary()]);
   }, [loadOrders, loadInventory, loadInventorySummary]);
 
+  const changeInventoryPage = useCallback((nextPage: number) => {
+    if (nextPage === inventoryPage) return;
+    if (inventoryScrollRef.current) {
+      inventoryScrollRef.current.scrollTo({ top: 0, behavior: 'auto' });
+    }
+    setInventoryPage(nextPage);
+  }, [inventoryPage]);
+
+  const summaryCards = [
+    {
+      key: 'total',
+      label: tt('restock:po.inventory.stats.total'),
+      value: loadingInventorySummary ? '-' : inventorySummary.total || inventoryMeta.total,
+      tone: 'default' as const,
+    },
+    {
+      key: 'out',
+      label: tt('restock:po.inventory.stats.out'),
+      value: loadingInventorySummary ? '-' : inventorySummary.out,
+      tone: 'danger' as const,
+    },
+    {
+      key: 'low',
+      label: tt('restock:po.inventory.stats.low'),
+      value: loadingInventorySummary ? '-' : inventorySummary.low,
+      tone: 'warning' as const,
+    },
+    {
+      key: 'ok',
+      label: tt('restock:po.inventory.stats.ok'),
+      value: loadingInventorySummary ? '-' : inventorySummary.ok,
+      tone: 'success' as const,
+    },
+  ];
+
+  const modalFieldClass = `${adminUiTokens.fieldControl} rounded-lg bg-black/20`;
+  const modalTextareaClass = `${adminUiTokens.fieldControl} rounded-lg bg-black/20 min-h-[80px]`;
+
   return (
-    <div className="p-6 md:p-8 max-w-[1400px] mx-auto space-y-6" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white">{tt('restock:po.title')}</h1>
-          <p className="text-sm text-white/50">{tt('restock:po.subtitle')}</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={handleRefresh} className="px-4 py-2 rounded-lg border border-white/10 text-white/70 hover:text-white hover:border-white/30 transition flex items-center gap-2">
-            <RefreshCw size={14} />{tt('restock:po.actions.refresh')}
-          </button>
-          <button onClick={openCreateModal} className="px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-red-700 transition flex items-center gap-2">
-            <Plus size={14} />{tt('restock:po.actions.newPo')}
-          </button>
-        </div>
-      </header>
+    <AdminPageShell className="max-w-[1400px]">
+      <AdminPageHeader
+        title={tt('restock:po.title')}
+        subtitle={tt('restock:po.subtitle')}
+        actions={(
+          <>
+            <AdminSecondaryButton onClick={handleRefresh}>
+              <RefreshCw size={14} />{tt('restock:po.actions.refresh')}
+            </AdminSecondaryButton>
+            <AdminPrimaryButton onClick={openCreateModal}>
+              <Plus size={14} />{tt('restock:po.actions.newPo')}
+            </AdminPrimaryButton>
+          </>
+        )}
+      />
 
       {error && (
         <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-sm flex items-center justify-between">
@@ -384,82 +424,78 @@ export const Restock: React.FC = () => {
         </div>
       )}
 
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div className="bg-[#111] border border-white/10 rounded-xl px-4 py-3"><p className="text-xs text-white/50">{tt('restock:po.inventory.stats.total')}</p><p className="text-2xl font-bold text-white">{loadingInventorySummary ? '-' : inventorySummary.total || inventoryMeta.total}</p></div>
-        <div className="bg-[#111] border border-red-500/20 rounded-xl px-4 py-3"><p className="text-xs text-red-300/70">{tt('restock:po.inventory.stats.out')}</p><p className="text-2xl font-bold text-red-300">{loadingInventorySummary ? '-' : inventorySummary.out}</p></div>
-        <div className="bg-[#111] border border-amber-500/20 rounded-xl px-4 py-3"><p className="text-xs text-amber-300/70">{tt('restock:po.inventory.stats.low')}</p><p className="text-2xl font-bold text-amber-300">{loadingInventorySummary ? '-' : inventorySummary.low}</p></div>
-        <div className="bg-[#111] border border-emerald-500/20 rounded-xl px-4 py-3"><p className="text-xs text-emerald-300/70">{tt('restock:po.inventory.stats.ok')}</p><p className="text-2xl font-bold text-emerald-300">{loadingInventorySummary ? '-' : inventorySummary.ok}</p></div>
-      </section>
+      <AdminStatCards items={summaryCards} />
 
-      <section className="bg-[#0f0f0f] border border-white/10 rounded-2xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-white/10">
-          <h3 className="text-white font-semibold">{tt('restock:po.inventory.title')}</h3>
-          <p className="text-xs text-white/40">{tt('restock:po.inventory.subtitle')}</p>
-        </div>
-        <div className="px-4 py-3 border-b border-white/10 bg-white/[0.02] flex flex-wrap items-center gap-3">
-          <input
-            type="text"
-            value={inventorySearch}
-            onChange={(e) => {
-              setInventorySearch(e.target.value);
-              setInventoryPage(1);
-            }}
-            placeholder={tt('restock:po.inventory.searchPlaceholder')}
-            className="w-full md:w-[440px] bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/40"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              setShowLowStockOnly((prev) => !prev);
-              setInventoryPage(1);
-            }}
-            className={`px-3 py-2 rounded-lg border text-sm font-medium transition ${
-              showLowStockOnly
-                ? 'bg-amber-500/20 border-amber-400/40 text-amber-300'
-                : 'bg-black/20 border-white/10 text-white/70 hover:text-white hover:border-white/30'
-            }`}
-          >
-            {tt('restock:po.inventory.stats.low')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowOutOfStockOnly((prev) => !prev);
-              setInventoryPage(1);
-            }}
-            className={`px-3 py-2 rounded-lg border text-sm font-medium transition ${
-              showOutOfStockOnly
-                ? 'bg-red-500/20 border-red-400/40 text-red-300'
-                : 'bg-black/20 border-white/10 text-white/70 hover:text-white hover:border-white/30'
-            }`}
-          >
-            {tt('restock:po.inventory.stats.out')}
-          </button>
-          <p className="text-xs text-white/40">{tt('restock:po.inventory.resultSummary', { shown: variants.length, total: inventoryMeta.total })}</p>
-          <div className="ml-auto flex items-center gap-2">
+      <AdminSectionCard
+        title={tt('restock:po.inventory.title')}
+        subtitle={tt('restock:po.inventory.subtitle')}
+        bodyClassName="min-h-0"
+      >
+        <div className="border-b border-white/[0.06] bg-white/[0.02] px-4 py-3">
+          <AdminToolbar>
+            <input
+              type="text"
+              value={inventorySearch}
+              onChange={(e) => {
+                setInventorySearch(e.target.value);
+                setInventoryPage(1);
+              }}
+              placeholder={tt('restock:po.inventory.searchPlaceholder')}
+              className={`w-full md:w-[440px] ${adminUiTokens.fieldControl} placeholder:text-white/40`}
+            />
             <button
               type="button"
-              onClick={() => setInventoryPage((prev) => Math.max(1, prev - 1))}
-              disabled={!inventoryCanPrev || fetchingInventory}
-              className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-white/15 text-white/70 hover:text-white hover:border-white/40 disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Trang trước"
+              onClick={() => {
+                setShowLowStockOnly((prev) => !prev);
+                setInventoryPage(1);
+              }}
+              className={`rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                showLowStockOnly
+                  ? 'border-amber-400/40 bg-amber-500/20 text-amber-300'
+                  : 'border-white/10 bg-white/[0.04] text-white/70 hover:border-white/30 hover:text-white'
+              }`}
             >
-              <ChevronLeft size={14} />
+              {tt('restock:po.inventory.stats.low')}
             </button>
-            <span className="text-xs text-white/50 min-w-[76px] text-center">
-              {inventoryMeta.page}/{Math.max(1, inventoryMeta.totalPages)}
-            </span>
             <button
               type="button"
-              onClick={() => setInventoryPage((prev) => Math.min(inventoryMeta.totalPages, prev + 1))}
-              disabled={!inventoryCanNext || fetchingInventory}
-              className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-white/15 text-white/70 hover:text-white hover:border-white/40 disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Trang sau"
+              onClick={() => {
+                setShowOutOfStockOnly((prev) => !prev);
+                setInventoryPage(1);
+              }}
+              className={`rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                showOutOfStockOnly
+                  ? 'border-red-400/40 bg-red-500/20 text-red-300'
+                  : 'border-white/10 bg-white/[0.04] text-white/70 hover:border-white/30 hover:text-white'
+              }`}
             >
-              <ChevronRight size={14} />
+              {tt('restock:po.inventory.stats.out')}
             </button>
-            {fetchingInventory && <span className="text-[10px] text-white/45">{tt('restock:po.inventory.states.loading')}</span>}
-          </div>
+            <p className="text-xs text-white/40">{tt('restock:po.inventory.resultSummary', { shown: variants.length, total: inventoryMeta.total })}</p>
+            <div className="ml-auto flex items-center gap-2">
+              <AdminIconButton
+                type="button"
+                onClick={() => changeInventoryPage(Math.max(1, inventoryPage - 1))}
+                disabled={!inventoryCanPrev || fetchingInventory}
+                aria-label="Trang trước"
+                className="h-8 w-8 rounded-lg"
+              >
+                <ChevronLeft size={14} />
+              </AdminIconButton>
+              <span className="min-w-[76px] text-center text-xs text-white/50">
+                {inventoryMeta.page}/{Math.max(1, inventoryMeta.totalPages)}
+              </span>
+              <AdminIconButton
+                type="button"
+                onClick={() => changeInventoryPage(Math.min(inventoryMeta.totalPages, inventoryPage + 1))}
+                disabled={!inventoryCanNext || fetchingInventory}
+                aria-label="Trang sau"
+                className="h-8 w-8 rounded-lg"
+              >
+                <ChevronRight size={14} />
+              </AdminIconButton>
+            </div>
+          </AdminToolbar>
         </div>
         <div className="grid items-center px-4 py-3 border-b border-white/10 bg-[#161616] text-white/60 uppercase text-[11px] tracking-wider"
           style={{ gridTemplateColumns: INVENTORY_GRID_TEMPLATE }}
@@ -470,7 +506,10 @@ export const Restock: React.FC = () => {
           <div className="text-center">{tt('restock:po.inventory.columns.status')}</div>
           <div className="text-center">{tt('restock:po.inventory.columns.message')}</div>
         </div>
-        <div ref={inventoryScrollRef} className="overflow-auto max-h-[420px] relative isolate">
+        <div
+          ref={inventoryScrollRef}
+          className={`overflow-auto max-h-[420px] relative isolate transition-opacity ${fetchingInventory ? 'opacity-95' : 'opacity-100'}`}
+        >
           {loadingInventory && variants.length === 0 ? (
             <div className="px-4 py-8 text-center text-white/40">{tt('restock:po.inventory.states.loading')}</div>
           ) : variants.length === 0 ? (
@@ -478,26 +517,17 @@ export const Restock: React.FC = () => {
               {(inventorySearch || showLowStockOnly || showOutOfStockOnly) ? tt('restock:po.inventory.states.noMatch') : tt('restock:po.inventory.states.empty')}
             </div>
           ) : (
-            <div
-              className="relative w-full"
-              style={{ height: `${inventoryRowVirtualizer.getTotalSize()}px` }}
-            >
-              {inventoryRowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const v = variants[virtualRow.index];
-                if (!v) return null;
+            <div className="w-full">
+              {variants.map((v) => {
                 const s = renderInventoryStatus(v.stockQuantity);
 
                 return (
                   <div
                     key={v.variantId}
-                    className="absolute left-0 top-0 w-full border-b border-white/5 hover:bg-white/[0.03]"
-                    style={{
-                      height: `${virtualRow.size}px`,
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
+                    className="w-full border-b border-white/5 hover:bg-white/[0.03]"
                   >
                     <div
-                      className="grid h-full items-center px-4 text-sm"
+                      className="grid min-h-[76px] items-center px-4 py-3 text-sm"
                       style={{ gridTemplateColumns: INVENTORY_GRID_TEMPLATE }}
                     >
                       <div className="flex items-center gap-3">
@@ -529,77 +559,93 @@ export const Restock: React.FC = () => {
             </div>
           )}
         </div>
-      </section>
+      </AdminSectionCard>
 
-      <section className="bg-[#0f0f0f] border border-white/10 rounded-2xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-white/10 bg-white/[0.02] flex flex-wrap items-center gap-3">
-          <input
-            type="text"
-            value={poSearch}
-            onChange={(e) => {
-              setPoSearch(e.target.value);
-              setPoPage(1);
-            }}
-            placeholder={tt('restock:po.filters.searchPlaceholder')}
-            className="w-full md:w-[460px] bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/40"
-          />
-          <p className="text-xs text-white/40">{poMeta.total} PO</p>
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPoPage((prev) => Math.max(1, prev - 1))}
-              disabled={!poCanPrev || loadingOrders}
-              className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-white/15 text-white/70 hover:text-white hover:border-white/40 disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Trang trước PO"
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <span className="text-xs text-white/50 min-w-[76px] text-center">
-              {poMeta.page}/{Math.max(1, poMeta.totalPages)}
-            </span>
-            <button
-              type="button"
-              onClick={() => setPoPage((prev) => Math.min(poMeta.totalPages, prev + 1))}
-              disabled={!poCanNext || loadingOrders}
-              className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-white/15 text-white/70 hover:text-white hover:border-white/40 disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Trang sau PO"
-            >
-              <ChevronRight size={14} />
-            </button>
-          </div>
+      <AdminSectionCard bodyClassName="min-h-0">
+        <div className="border-b border-white/[0.06] bg-white/[0.02] px-4 py-3">
+          <AdminToolbar>
+            <input
+              type="text"
+              value={poSearch}
+              onChange={(e) => {
+                setPoSearch(e.target.value);
+                setPoPage(1);
+              }}
+              placeholder={tt('restock:po.filters.searchPlaceholder')}
+              className={`w-full md:w-[460px] ${adminUiTokens.fieldControl} placeholder:text-white/40`}
+            />
+            <p className="text-xs text-white/40">{poMeta.total} PO</p>
+            <div className="ml-auto flex items-center gap-2">
+              <AdminIconButton
+                type="button"
+                onClick={() => setPoPage((prev) => Math.max(1, prev - 1))}
+                disabled={!poCanPrev || loadingOrders}
+                aria-label="Trang trước PO"
+                className="h-8 w-8 rounded-lg"
+              >
+                <ChevronLeft size={14} />
+              </AdminIconButton>
+              <span className="min-w-[76px] text-center text-xs text-white/50">
+                {poMeta.page}/{Math.max(1, poMeta.totalPages)}
+              </span>
+              <AdminIconButton
+                type="button"
+                onClick={() => setPoPage((prev) => Math.min(poMeta.totalPages, prev + 1))}
+                disabled={!poCanNext || loadingOrders}
+                aria-label="Trang sau PO"
+                className="h-8 w-8 rounded-lg"
+              >
+                <ChevronRight size={14} />
+              </AdminIconButton>
+            </div>
+          </AdminToolbar>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-white/5 border-b border-white/10 text-white/60 uppercase text-[11px] tracking-wider">
+            <thead className={adminUiTokens.tableHeaderSurface}>
               <tr>
-                <th className="px-4 py-3 text-left">PO</th>
-                <th className="px-4 py-3 text-left">{tt('restock:po.columns.supplier')}</th>
-                <th className="px-4 py-3 text-center">{tt('restock:po.columns.expected')}</th>
-                <th className="px-4 py-3 text-center">{tt('restock:po.columns.status')}</th>
-                <th className="px-4 py-3 text-center">{tt('restock:po.columns.qty')}</th>
-                <th className="px-4 py-3 text-center">{tt('restock:po.columns.cost')}</th>
-                <th className="px-4 py-3 text-center">{tt('restock:po.columns.actions')}</th>
+                <th className={`px-4 py-3 text-left ${adminUiTokens.tableHeader}`}>PO</th>
+                <th className={`px-4 py-3 text-left ${adminUiTokens.tableHeader}`}>{tt('restock:po.columns.supplier')}</th>
+                <th className={`px-4 py-3 text-center ${adminUiTokens.tableHeader}`}>{tt('restock:po.columns.expected')}</th>
+                <th className={`px-4 py-3 text-center ${adminUiTokens.tableHeader}`}>{tt('restock:po.columns.status')}</th>
+                <th className={`px-4 py-3 text-center ${adminUiTokens.tableHeader}`}>{tt('restock:po.columns.qty')}</th>
+                <th className={`px-4 py-3 text-center ${adminUiTokens.tableHeader}`}>{tt('restock:po.columns.cost')}</th>
+                <th className={`px-4 py-3 text-center ${adminUiTokens.tableHeader}`}>{tt('restock:po.columns.actions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className={adminUiTokens.tableBody}>
               {loadingOrders ? (
                 <tr><td colSpan={7} className="px-4 py-8 text-center text-white/40">{tt('restock:po.states.loading')}</td></tr>
               ) : orders.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-10 text-center text-white/30">{tt('restock:po.states.empty')}</td></tr>
               ) : (
                 orders.map((o) => (
-                  <tr key={o.purchaseOrderId} className="hover:bg-white/[0.03]">
+                  <tr key={o.purchaseOrderId} className={adminUiTokens.tableRowSoft}>
                     <td className="px-4 py-3"><div className="font-semibold text-white">{o.purchaseOrderNumber}</div><div className="text-white/40 text-xs">{formatDate(o.orderedAt)}</div></td>
                     <td className="px-4 py-3"><div className="text-white">{o.supplier}</div><div className="text-white/50 text-xs">{o.invoiceNumber || '-'}</div></td>
                     <td className="px-4 py-3 text-center text-white/70">{formatDate(o.expectedReceivedAt)}</td>
-                    <td className="px-4 py-3 text-center"><span className={`inline-flex px-2 py-1 rounded-full border text-xs font-semibold ${getStatusClass(o.status)}`}>{tt(`restock:po.statusOptions.${o.status}`)}</span></td>
+                    <td className="px-4 py-3 text-center">
+                      <AdminBadge tone={getStatusBadgeTone(o.status)} className="px-2 py-1 text-xs font-semibold">
+                        {tt(`restock:po.statusOptions.${o.status}`)}
+                      </AdminBadge>
+                    </td>
                     <td className="px-4 py-3 text-center text-white">{o.totals.receivedQty}/{o.totals.orderedQty}</td>
                     <td className="px-4 py-3 text-center text-white">{o.totals.totalCost.toLocaleString('vi-VN')} d</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => setViewingOrder(o)} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 text-white/80 border border-white/15 hover:bg-white/10 transition flex items-center gap-1"><Eye size={12} />{tt('restock:po.actions.view')}</button>
-                        {(o.status === 'PENDING' || o.status === 'PARTIALLY_RECEIVED') && <button onClick={() => openReceive(o)} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/25 transition flex items-center gap-1"><Truck size={12} />{tt('restock:po.actions.receive')}</button>}
-                        {(o.status === 'PENDING' || o.status === 'PARTIALLY_RECEIVED') && <button onClick={() => handleCancel(o)} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/25 transition flex items-center gap-1"><Ban size={12} />{tt('restock:po.actions.cancelPo')}</button>}
+                        <AdminActionButton onClick={() => setViewingOrder(o)}>
+                          <Eye size={12} />{tt('restock:po.actions.view')}
+                        </AdminActionButton>
+                        {(o.status === 'PENDING' || o.status === 'PARTIALLY_RECEIVED') && (
+                          <AdminActionButton onClick={() => openReceive(o)} tone="info">
+                            <Truck size={12} />{tt('restock:po.actions.receive')}
+                          </AdminActionButton>
+                        )}
+                        {(o.status === 'PENDING' || o.status === 'PARTIALLY_RECEIVED') && (
+                          <AdminActionButton onClick={() => handleCancel(o)} tone="danger">
+                            <Ban size={12} />{tt('restock:po.actions.cancelPo')}
+                          </AdminActionButton>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -608,68 +654,89 @@ export const Restock: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </section>
+      </AdminSectionCard>
       {showCreate && (
-        <div className="fixed inset-0 z-40 bg-black/70 p-4 overflow-y-auto">
-          <div className="max-w-4xl mx-auto bg-[#111] border border-white/10 rounded-2xl p-6 space-y-5">
-            <div className="flex items-center justify-between"><h2 className="text-lg font-bold text-white">{tt('restock:po.create.title')}</h2><button onClick={() => setShowCreate(false)} className="text-white/50 hover:text-white"><X size={18} /></button></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder={tt('restock:po.create.supplier')} className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
-              <input type="datetime-local" value={expectedReceivedAt} onChange={(e) => setExpectedReceivedAt(e.target.value)} className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
-              <input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder={tt('restock:po.create.invoice')} className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
-              <input value={supplierContactName} onChange={(e) => setSupplierContactName(e.target.value)} placeholder={tt('restock:po.create.contactName')} className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
-              <input value={supplierPhone} onChange={(e) => setSupplierPhone(e.target.value)} placeholder={tt('restock:po.create.phone')} className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
-              <input value={supplierEmail} onChange={(e) => setSupplierEmail(e.target.value)} placeholder={tt('restock:po.create.email')} className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+        <AdminModalShell
+          title={tt('restock:po.create.title')}
+          onClose={() => setShowCreate(false)}
+          align="start"
+          maxWidthClassName="max-w-4xl"
+          bodyClassName="space-y-5 p-6"
+          footer={(
+            <div className="flex justify-end gap-3">
+              <AdminSecondaryButton type="button" onClick={() => { setShowCreate(false); resetCreate(); }} className="rounded-lg px-4 py-2">{tt('restock:po.actions.close')}</AdminSecondaryButton>
+              <AdminPrimaryButton type="button" onClick={handleCreate} disabled={creating} className="rounded-lg px-4 py-2">{creating ? tt('restock:po.states.creating') : tt('restock:po.actions.create')}</AdminPrimaryButton>
             </div>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={tt('restock:po.create.notes')} className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white min-h-[80px]" />
+          )}
+        >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder={tt('restock:po.create.supplier')} className={modalFieldClass} />
+              <input type="datetime-local" value={expectedReceivedAt} onChange={(e) => setExpectedReceivedAt(e.target.value)} className={modalFieldClass} />
+              <input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder={tt('restock:po.create.invoice')} className={modalFieldClass} />
+              <input value={supplierContactName} onChange={(e) => setSupplierContactName(e.target.value)} placeholder={tt('restock:po.create.contactName')} className={modalFieldClass} />
+              <input value={supplierPhone} onChange={(e) => setSupplierPhone(e.target.value)} placeholder={tt('restock:po.create.phone')} className={modalFieldClass} />
+              <input value={supplierEmail} onChange={(e) => setSupplierEmail(e.target.value)} placeholder={tt('restock:po.create.email')} className={modalFieldClass} />
+            </div>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={tt('restock:po.create.notes')} className={modalTextareaClass} />
             <div className="space-y-3">
-              <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-white">{tt('restock:po.create.items')}</h3><button onClick={addItem} className="text-xs px-3 py-1.5 rounded-lg border border-white/15 text-white/70 hover:text-white">{tt('restock:po.create.addItem')}</button></div>
+              <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-white">{tt('restock:po.create.items')}</h3><AdminSecondaryButton type="button" onClick={addItem} className="rounded-lg px-3 py-1.5 text-xs">{tt('restock:po.create.addItem')}</AdminSecondaryButton></div>
               {draftItems.map((item, idx) => (
                 <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
-                  <select value={item.variantId} onChange={(e) => updateItem(idx, { variantId: e.target.value === '' ? '' : Number(e.target.value) })} className="md:col-span-7 bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+                  <select value={item.variantId} onChange={(e) => updateItem(idx, { variantId: e.target.value === '' ? '' : Number(e.target.value) })} className={`md:col-span-7 ${modalFieldClass}`}>
                     <option value="">{tt('restock:po.create.chooseVariant')}</option>
                     {variantOptions.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
                   </select>
-                  <input type="number" min={1} value={item.orderedQty} onChange={(e) => updateItem(idx, { orderedQty: Math.max(1, Number(e.target.value) || 1) })} className="md:col-span-2 bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
-                  <input type="number" min={0} step="0.01" value={item.unitCost} onChange={(e) => updateItem(idx, { unitCost: Math.max(0, Number(e.target.value) || 0) })} className="md:col-span-2 bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+                  <input type="number" min={1} value={item.orderedQty} onChange={(e) => updateItem(idx, { orderedQty: Math.max(1, Number(e.target.value) || 1) })} className={`md:col-span-2 ${modalFieldClass}`} />
+                  <input type="number" min={0} step="0.01" value={item.unitCost} onChange={(e) => updateItem(idx, { unitCost: Math.max(0, Number(e.target.value) || 0) })} className={`md:col-span-2 ${modalFieldClass}`} />
                   <button onClick={() => removeItem(idx)} disabled={draftItems.length === 1} className="md:col-span-1 px-2 py-2 rounded-lg border border-red-500/30 text-red-300 disabled:opacity-40"><X size={14} /></button>
                 </div>
               ))}
             </div>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => { setShowCreate(false); resetCreate(); }} className="px-4 py-2 rounded-lg border border-white/15 text-white/70 hover:text-white">{tt('restock:po.actions.close')}</button>
-              <button onClick={handleCreate} disabled={creating} className="px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-red-700 disabled:opacity-60">{creating ? tt('restock:po.states.creating') : tt('restock:po.actions.create')}</button>
-            </div>
-          </div>
-        </div>
+        </AdminModalShell>
       )}
 
       {receivingOrder && (
-        <div className="fixed inset-0 z-40 bg-black/70 p-4 overflow-y-auto">
-          <div className="max-w-3xl mx-auto bg-[#111] border border-white/10 rounded-2xl p-6 space-y-5">
-            <div className="flex items-center justify-between"><h2 className="text-lg font-bold text-white">{tt('restock:po.receive.title')} {receivingOrder.purchaseOrderNumber}</h2><button onClick={() => setReceivingOrder(null)} className="text-white/50 hover:text-white"><X size={18} /></button></div>
+        <AdminModalShell
+          title={`${tt('restock:po.receive.title')} ${receivingOrder.purchaseOrderNumber}`}
+          onClose={() => setReceivingOrder(null)}
+          align="start"
+          maxWidthClassName="max-w-3xl"
+          bodyClassName="space-y-5 p-6"
+          footer={(
+            <div className="flex justify-end gap-3">
+              <AdminSecondaryButton type="button" onClick={() => setReceivingOrder(null)} className="rounded-lg px-4 py-2">{tt('restock:po.actions.close')}</AdminSecondaryButton>
+              <AdminActionButton onClick={handleReceive} disabled={receiving} tone="info" size="md" className="min-w-[136px]">
+                {receiving ? tt('restock:po.states.receiving') : tt('restock:po.actions.confirmReceive')}
+              </AdminActionButton>
+            </div>
+          )}
+        >
             <div className="space-y-2">
               {receivingOrder.items.map((i) => (
                 <div key={i.purchaseOrderItemId} className="grid grid-cols-12 gap-2 items-center bg-black/20 border border-white/10 rounded-lg p-2">
                   <div className="col-span-6 text-white text-sm"><div>{i.productName || '-'}</div><div className="text-white/50 text-xs">{i.sku || '-'}</div></div>
                   <div className="col-span-3 text-white/60 text-xs">{i.receivedQty}/{i.orderedQty} ({tt('restock:po.receive.remaining')}: {i.remainingQty})</div>
-                  <input type="number" min={0} max={i.remainingQty} value={receivingMap[i.purchaseOrderItemId] ?? 0} onChange={(e) => setReceivingMap((p) => ({ ...p, [i.purchaseOrderItemId]: Math.max(0, Math.min(i.remainingQty, Number(e.target.value) || 0)) }))} className="col-span-3 bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+                  <input type="number" min={0} max={i.remainingQty} value={receivingMap[i.purchaseOrderItemId] ?? 0} onChange={(e) => setReceivingMap((p) => ({ ...p, [i.purchaseOrderItemId]: Math.max(0, Math.min(i.remainingQty, Number(e.target.value) || 0)) }))} className={`col-span-3 ${modalFieldClass}`} />
                 </div>
               ))}
             </div>
-            <textarea value={receivingNote} onChange={(e) => setReceivingNote(e.target.value)} placeholder={tt('restock:po.receive.note')} className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white min-h-[72px]" />
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setReceivingOrder(null)} className="px-4 py-2 rounded-lg border border-white/15 text-white/70 hover:text-white">{tt('restock:po.actions.close')}</button>
-              <button onClick={handleReceive} disabled={receiving} className="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-60">{receiving ? tt('restock:po.states.receiving') : tt('restock:po.actions.confirmReceive')}</button>
-            </div>
-          </div>
-        </div>
+            <textarea value={receivingNote} onChange={(e) => setReceivingNote(e.target.value)} placeholder={tt('restock:po.receive.note')} className={`${modalTextareaClass} min-h-[72px]`} />
+        </AdminModalShell>
       )}
 
       {viewingOrder && (
-        <div className="fixed inset-0 z-40 bg-black/70 p-4 overflow-y-auto">
-          <div className="max-w-3xl mx-auto bg-[#111] border border-white/10 rounded-2xl p-6 space-y-5">
-            <div className="flex items-center justify-between"><h2 className="text-lg font-bold text-white">{tt('restock:po.view.title')} {viewingOrder.purchaseOrderNumber}</h2><button onClick={() => setViewingOrder(null)} className="text-white/50 hover:text-white"><X size={18} /></button></div>
+        <AdminModalShell
+          title={`${tt('restock:po.view.title')} ${viewingOrder.purchaseOrderNumber}`}
+          onClose={() => setViewingOrder(null)}
+          align="start"
+          maxWidthClassName="max-w-3xl"
+          bodyClassName="space-y-5 p-6"
+          footer={(
+            <div className="flex justify-end">
+              <AdminSecondaryButton type="button" onClick={() => setViewingOrder(null)} className="rounded-lg px-4 py-2">{tt('restock:po.actions.close')}</AdminSecondaryButton>
+            </div>
+          )}
+        >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
               <div className="bg-black/20 border border-white/10 rounded-lg p-3"><p className="text-white/40 text-xs">{tt('restock:po.columns.supplier')}</p><p className="text-white mt-1">{viewingOrder.supplier}</p></div>
               <div className="bg-black/20 border border-white/10 rounded-lg p-3"><p className="text-white/40 text-xs">{tt('restock:po.columns.status')}</p><p className="text-white mt-1">{tt(`restock:po.statusOptions.${viewingOrder.status}`)}</p></div>
@@ -685,11 +752,9 @@ export const Restock: React.FC = () => {
                 </div>
               ))}
             </div>
-            <div className="flex justify-end"><button onClick={() => setViewingOrder(null)} className="px-4 py-2 rounded-lg border border-white/15 text-white/70 hover:text-white">{tt('restock:po.actions.close')}</button></div>
-          </div>
-        </div>
+        </AdminModalShell>
       )}
-    </div>
+    </AdminPageShell>
   );
 };
 

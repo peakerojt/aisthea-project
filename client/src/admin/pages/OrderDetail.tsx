@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeft, Package, MapPin, CreditCard, User, Clock,
     Truck, ShoppingBag, AlertCircle,
-    ChevronRight, Copy, Check, RotateCcw,
+    ChevronLeft, ChevronRight, Copy, Check, RotateCcw, X,
 } from 'lucide-react';
 import { adminOrderService, AdminOrderDetail as OrderDetailType } from '@/common/services/order.service';
 import { formatVND } from '@/admin/pages/Orders';
@@ -19,6 +19,12 @@ import { useTranslation } from 'react-i18next';
 import { useToast } from '@/common/contexts/ToastContext';
 import { getPaymentStatusMeta } from '@/common/utils/paymentStatus';
 import { PaymentMethodLabel, PaymentStatusBadge } from '@/common/components/PaymentStatusBadge';
+import {
+    AdminPageHeader,
+    AdminPageShell,
+    AdminSectionCard,
+    AdminSecondaryButton,
+} from '@/admin/components/AdminUI';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design System (ui-ux-pro-max: luxury dark ecommerce admin)
@@ -39,7 +45,7 @@ const StatusPill: React.FC<{ status: string; size?: 'sm' | 'md' }> = ({ status, 
 
 /* Glassmorphic card wrapper */
 const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-    <div className={`bg-white/[0.025] border border-white/[0.07] rounded-2xl backdrop-blur-sm ${className}`}>
+    <div className={`bg-[#111318] border border-white/[0.07] rounded-2xl ${className}`}>
         {children}
     </div>
 );
@@ -66,7 +72,7 @@ const CopyButton: React.FC<{ text: string; copiedLabel: string; copyLabel: strin
     return (
         <button
             onClick={handleCopy}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg border border-white/10 text-white/30 hover:text-white/70 hover:border-white/20 transition-all text-[10px]"
+            className="flex items-center gap-1 px-2 py-1 rounded-lg border border-white/10 text-white/30 hover:text-white/70 hover:border-white/20 transition-colors text-[10px]"
         >
             {copied ? <Check size={11} /> : <Copy size={11} />}
             {copied ? copiedLabel : copyLabel}
@@ -101,6 +107,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
     const [showRefundDialog, setShowRefundDialog] = useState(false);
     const [refunds, setRefunds] = useState<RefundRecord[]>([]);
     const [refundsLoading, setRefundsLoading] = useState(false);
+    const [deliveryProofLightboxIndex, setDeliveryProofLightboxIndex] = useState<number | null>(null);
 
     const loadRefunds = useCallback(async (oId: number) => {
         setRefundsLoading(true);
@@ -139,7 +146,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
     // ── Loading ─────────────────────────────────────────────────────────────
 
     if (loading) return (
-        <div className="h-full flex items-center justify-center" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+        <AdminPageShell className="justify-center">
             <div className="flex flex-col items-center gap-5">
                 <div className="relative w-14 h-14">
                     <div className="absolute inset-0 rounded-full border-4 border-white/[0.05]" />
@@ -147,11 +154,11 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                 </div>
                 <p className="text-sm text-white/40 font-medium">{t('states.loading')}</p>
             </div>
-        </div>
+        </AdminPageShell>
     );
 
     if (error || !order) return (
-        <div className="h-full flex items-center justify-center" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+        <AdminPageShell className="justify-center">
             <div className="text-center flex flex-col items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
                     <AlertCircle size={24} className="text-red-400" />
@@ -164,75 +171,70 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                     {t('actions.backToList')}
                 </button>
             </div>
-        </div>
+        </AdminPageShell>
     );
 
     const status = order.status ?? 'PENDING';
     const c = cfg(status);
     const statusHistory = (order as any).statusHistory ?? [];
     const paymentMeta = getPaymentStatusMeta(order.paymentMethod, order.paymentStatus);
+    const deliveryProofImages = order.deliveryProof?.images ?? [];
+    const activeDeliveryProofImage = deliveryProofLightboxIndex !== null
+        ? deliveryProofImages[deliveryProofLightboxIndex] ?? null
+        : null;
 
     return (
         <>
-            <div className="min-h-full" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-                {/* ── Sticky Navigation Bar ──────────────────────────────────────── */}
-                <div className="sticky top-0 z-20 border-b border-white/[0.05] bg-[#0A0A0C]/90 backdrop-blur-xl">
-                    <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between">
-
-                        {/* Breadcrumb */}
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => navigate('/admin/orders')}
-                                className="flex items-center gap-1.5 text-sm text-white/40 hover:text-white transition-colors cursor-pointer group"
+            <AdminPageShell>
+                <div className="space-y-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <AdminSecondaryButton type="button" onClick={() => navigate('/admin/orders')}>
+                            <ArrowLeft size={15} />
+                            {t('actions.backToList')}
+                        </AdminSecondaryButton>
+                        <StatusPill status={status} />
+                        {paymentMeta.isPaidLike && (
+                            <AdminSecondaryButton
+                                type="button"
+                                onClick={() => setShowRefundDialog(true)}
+                                className="border-cyan-500/25 bg-cyan-500/10 text-cyan-300 hover:border-cyan-500/35 hover:bg-cyan-500/18 hover:text-cyan-200"
                             >
-                                <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
-                                {t('breadcrumb.orders')}
-                            </button>
-                            <ChevronRight size={13} className="text-white/20" />
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-white font-mono tracking-wide">
-                                    {order.orderNumber}
-                                </span>
-                                <CopyButton text={order.orderNumber} copiedLabel={t('actions.copied')} copyLabel={t('actions.copy')} />
-                            </div>
-                        </div>
-
-                        {/* Status + Actions */}
-                        <div className="flex items-center gap-3">
-                            <StatusPill status={status} />
-                            <div className="w-px h-5 bg-white/10" />
-
-                            {/* Hoàn tiền button — only when Paid or Partially Refunded */}
-                            {paymentMeta.isPaidLike && (
-                                <button
-                                    onClick={() => setShowRefundDialog(true)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 hover:bg-cyan-500/20 transition-all text-[11px] font-bold uppercase tracking-wider cursor-pointer"
-                                >
-                                    <RotateCcw size={11} />
-                                    {t('actions.refund')}
-                                </button>
-                            )}
-
-                            <div className="w-px h-5 bg-white/10" />
-                            <OrderActionPanel
-                                orderId={order.orderId}
-                                currentStatus={status}
-                                onStatusUpdated={loadOrder}
-                                onError={(msg) => showToast(msg, 'error')}
-                            />
-                        </div>
+                                <RotateCcw size={14} />
+                                {t('actions.refund')}
+                            </AdminSecondaryButton>
+                        )}
+                        <OrderActionPanel
+                            orderId={order.orderId}
+                            currentStatus={status}
+                            onStatusUpdated={loadOrder}
+                            onError={(msg) => showToast(msg, 'error')}
+                        />
                     </div>
+
+                    <AdminSectionCard bodyClassName="p-5 lg:p-6">
+                        <AdminPageHeader
+                            icon={Package}
+                            eyebrow={t('breadcrumb.orders')}
+                            title={(
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <span className="font-mono">{order.orderNumber}</span>
+                                    <CopyButton text={order.orderNumber} copiedLabel={t('actions.copied')} copyLabel={t('actions.copy')} />
+                                </div>
+                            )}
+                            subtitle={t('meta.placedAt', { date: fmt(order.createdAt) })}
+                            meta={order.trackingCode ? `${t('labels.orderCode')}: ${order.trackingCode}` : undefined}
+                        />
+                    </AdminSectionCard>
                 </div>
 
-                {/* ── Page Body ─────────────────────────────────────────────────── */}
-                <div className="max-w-[1400px] mx-auto px-6 py-7">
+                <div className="space-y-6">
                     {/* Order metadata row */}
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mb-6 text-[11px] text-white/35 font-mono">
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-[11px] text-white/35 font-mono">
                         <span>{t('meta.placedAt', { date: fmt(order.createdAt) })}</span>
-                        {order.trackingNumber && (
+                        {order.trackingCode && (
                             <>
                                 <span className="text-white/15">·</span>
-                                <span>{order.carrier ?? t('labels.shipping')}: <span className="text-white/60">{order.trackingNumber}</span></span>
+                                <span>{t('labels.orderCode')}: <span className="text-white/60">{order.trackingCode}</span></span>
                             </>
                         )}
                         <span className="text-white/15">·</span>
@@ -396,12 +398,12 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                             {`, ${order.shippingAddress.city}`}
                                         </p>
                                     </div>
-                                    {order.trackingNumber && (
+                                    {order.trackingCode && (
                                         <div className="flex items-center gap-2 pt-1">
                                             <Truck size={12} className="text-cyan-400 shrink-0" />
                                             <div>
-                                                <p className="text-[10px] text-white/35 uppercase tracking-wider">{order.carrier ?? t('labels.tracking')}</p>
-                                                <p className="text-[12px] text-cyan-400 font-mono font-semibold">{order.trackingNumber}</p>
+                                                <p className="text-[10px] text-white/35 uppercase tracking-wider">{t('labels.orderCode')}</p>
+                                                <p className="text-[12px] text-cyan-400 font-mono font-semibold">{order.trackingCode}</p>
                                             </div>
                                         </div>
                                     )}
@@ -437,12 +439,47 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                 <OrderTimeline history={statusHistory} />
                             </Card>
 
+                            {order.deliveryProof && deliveryProofImages.length > 0 && (
+                                <Card>
+                                    <SectionTitle icon={Truck} title="Hình ảnh giao hàng" />
+                                    <div className="p-5 space-y-4">
+                                        <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold ${order.deliveryProof.reviewed
+                                            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
+                                            : 'border-amber-500/25 bg-amber-500/10 text-amber-300'
+                                            }`}>
+                                            <Check size={14} />
+                                            {order.deliveryProof.reviewed ? 'Đã xem lại hình ảnh giao hàng' : 'Chưa xác nhận xem lại hình ảnh'}
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {deliveryProofImages.map((imageUrl, index) => (
+                                                <button
+                                                    key={`${imageUrl}-${index}`}
+                                                    type="button"
+                                                    onClick={() => setDeliveryProofLightboxIndex(index)}
+                                                    className="group relative block rounded-xl overflow-hidden border border-white/10 bg-black/20 hover:border-white/20 transition-colors cursor-pointer"
+                                                >
+                                                    <img
+                                                        src={getImageUrl(imageUrl)}
+                                                        alt={`delivery-proof-${index + 1}`}
+                                                        loading="lazy"
+                                                        className="w-full h-36 object-cover group-hover:scale-[1.02] transition-transform"
+                                                    />
+                                                    <div className="absolute inset-x-0 bottom-0 px-3 py-2 bg-gradient-to-t from-black/80 via-black/20 to-transparent text-[11px] text-white/80 text-left">
+                                                        Xem ảnh giao hàng {index + 1}
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </Card>
+                            )}
+
                             {/* ── Financial History ──────────────────────────────────── */}
                             <OrderFinancials refunds={refunds} loading={refundsLoading} />
                         </div>
                     </div>
                 </div>
-            </div>
+            </AdminPageShell>
 
             {/* ── Refund Dialog ─────────────────────────────────────────────────── */}
             {
@@ -460,6 +497,75 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                     />
                 )
             }
+
+            {activeDeliveryProofImage && (
+                <div
+                    className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-[2px] flex items-center justify-center px-4 py-8"
+                    onClick={() => setDeliveryProofLightboxIndex(null)}
+                >
+                    <button
+                        type="button"
+                        className="absolute top-5 right-5 w-11 h-11 rounded-full border border-white/10 bg-white/5 text-white/70 hover:text-white hover:border-white/20 transition-colors cursor-pointer"
+                        onClick={() => setDeliveryProofLightboxIndex(null)}
+                    >
+                        <X size={18} className="mx-auto" />
+                    </button>
+
+                    {deliveryProofImages.length > 1 && (
+                        <button
+                            type="button"
+                            className="absolute left-4 md:left-6 w-11 h-11 rounded-full border border-white/10 bg-white/5 text-white/70 hover:text-white hover:border-white/20 transition-colors cursor-pointer"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                setDeliveryProofLightboxIndex((current) => {
+                                    if (current === null) return 0;
+                                    return current === 0 ? deliveryProofImages.length - 1 : current - 1;
+                                });
+                            }}
+                        >
+                            <ChevronLeft size={18} className="mx-auto" />
+                        </button>
+                    )}
+
+                    <div
+                        className="max-w-[92vw] max-h-[88vh] flex flex-col gap-3"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <img
+                            src={getImageUrl(activeDeliveryProofImage)}
+                            alt={`delivery-proof-preview-${deliveryProofLightboxIndex !== null ? deliveryProofLightboxIndex + 1 : 1}`}
+                            className="max-w-[92vw] max-h-[78vh] object-contain rounded-2xl shadow-2xl"
+                        />
+                        <div className="flex items-center justify-between text-sm text-white/70">
+                            <span>Ảnh giao hàng {deliveryProofLightboxIndex !== null ? deliveryProofLightboxIndex + 1 : 1}/{deliveryProofImages.length}</span>
+                            <a
+                                href={getImageUrl(activeDeliveryProofImage)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary hover:text-primary/80 transition-colors"
+                            >
+                                Mở ảnh gốc
+                            </a>
+                        </div>
+                    </div>
+
+                    {deliveryProofImages.length > 1 && (
+                        <button
+                            type="button"
+                            className="absolute right-4 md:right-6 w-11 h-11 rounded-full border border-white/10 bg-white/5 text-white/70 hover:text-white hover:border-white/20 transition-colors cursor-pointer"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                setDeliveryProofLightboxIndex((current) => {
+                                    if (current === null) return 0;
+                                    return current === deliveryProofImages.length - 1 ? 0 : current + 1;
+                                });
+                            }}
+                        >
+                            <ChevronRight size={18} className="mx-auto" />
+                        </button>
+                    )}
+                </div>
+            )}
         </>
     );
 };

@@ -6,6 +6,21 @@ interface CloudflareAiResponse {
   };
 }
 
+const DEFAULT_TIMEOUT_MS = 25_000;
+const MAX_RETRY_ATTEMPTS = 2;
+
+const normalizeAiError = (error: unknown) => {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+
+  return { message: String(error) };
+};
+
 const extractJsonPayload = (value: string) => {
   const trimmed = value.trim();
 
@@ -22,7 +37,7 @@ export const callAiModel = async ({
   apiToken,
   prompt,
   model,
-  timeoutMs = 12000,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
   mockMode = false,
 }: {
   accountId?: string;
@@ -47,42 +62,67 @@ export const callAiModel = async ({
     });
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let lastError: unknown;
 
-  try {
-    const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiToken}`,
-      },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a fashion assistant that outputs only valid JSON based on the provided schema.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-      }),
-      signal: controller.signal,
-    });
+  for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Cloudflare AI error: ${response.status} ${text}`);
+    try {
+      const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiToken}`,
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a fashion assistant that outputs only valid JSON based on the provided schema.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Cloudflare AI error: ${response.status} ${text}`);
+      }
+
+      const data = (await response.json()) as CloudflareAiResponse;
+      return extractJsonPayload(data.result?.response || '');
+    } catch (error) {
+      lastError = error;
+      const isAbortError =
+        error instanceof Error &&
+        (error.name === 'AbortError' || error.message.toLowerCase().includes('aborted'));
+      const shouldRetry = attempt < MAX_RETRY_ATTEMPTS && isAbortError;
+
+      logger.error('Failed to call AI model', {
+        attempt,
+        timeoutMs,
+        model,
+        retrying: shouldRetry,
+        error: normalizeAiError(error),
+      });
+
+      if (!shouldRetry) {
+        if (isAbortError) {
+          throw new Error('AI request timed out');
+        }
+
+        throw error;
+      }
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const data = (await response.json()) as CloudflareAiResponse;
-    return extractJsonPayload(data.result?.response || '');
-  } catch (error) {
-    logger.error('Failed to call AI model', { error });
-    throw error;
-  } finally {
-    clearTimeout(timeout);
   }
+
+  throw lastError instanceof Error ? lastError : new Error('AI request failed');
 };

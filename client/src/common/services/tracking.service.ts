@@ -8,11 +8,6 @@ export async function publicTracking(orderCode: string, contact: string) {
   return response.data || response;
 }
 
-export async function getMyOrdersTracking() {
-  const response = await trackingApi.getMyOrders();
-  return response.data || response;
-}
-
 export async function getOrderTracking(orderId: number) {
   const response = await trackingApi.getOrderTrack(orderId);
   return response.data || response;

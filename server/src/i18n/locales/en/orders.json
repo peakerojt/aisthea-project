@@ -6,6 +6,9 @@
     "cannotCancel": "Order can only be cancelled when status is pending.",
     "statusRequired": "Order status is required.",
     "invalidTransition": "Invalid order status transition.",
+    "deliveryProofRequired": "Delivery proof images are required before marking this order as delivered.",
+    "deliveryProofReviewRequired": "Please confirm that you reviewed the delivery proof images before marking this order as delivered.",
+    "stateConflict": "This order was updated elsewhere. Please refresh and try again.",
     "cartEmpty": "Cannot create an order with no items.",
     "outOfStock": "Requested quantity exceeds available stock."
   },

@@ -7,6 +7,7 @@ import { logger } from '../lib/logger';
 // ─────────────────────────────────────────────────────────────────────────────
 
 type DateRange = 'today' | 'week' | 'month' | 'year';
+const REVENUE_ORDER_STATUSES = ['DELIVERED', 'Delivered', 'COMPLETED', 'Completed'] as const;
 
 function getDateRange(range: DateRange): { start: Date; end: Date } {
     const now = new Date();
@@ -49,29 +50,21 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
 
         const { start, end } = getDateRange(range);
 
-        // ── KPI 1: Total Revenue (COMPLETED orders in range) ──────────────────
-        const revenueResult = await prisma.order.aggregate({
+        // Execute independent dashboard queries in parallel to reduce wait time.
+        const revenuePromise = prisma.order.aggregate({
             where: {
-                status: 'COMPLETED',
+                status: { in: [...REVENUE_ORDER_STATUSES] },
                 createdAt: { gte: start, lte: end },
             },
             _sum: { totalAmount: true },
         });
-
-        const totalRevenue = Number(revenueResult._sum.totalAmount ?? 0);
-
-        // ── KPI 2: Total Orders in range ─────────────────────────────────────
-        const totalOrders = await prisma.order.count({
+        const totalOrdersPromise = prisma.order.count({
             where: { createdAt: { gte: start, lte: end } },
         });
-
-        // ── KPI 3: Total Customers (role = Customer) ─────────────────────────
-        const totalCustomers = await prisma.userRole.count({
+        const totalCustomersPromise = prisma.userRole.count({
             where: { role: { roleName: 'Customer' } },
         });
-
-        // ── KPI 4: Low Stock Alerts (stockQuantity <= 10, not deleted) ────────
-        const lowStockCount = await prisma.productVariant.count({
+        const lowStockCountPromise = prisma.productVariant.count({
             where: {
                 stockQuantity: { lte: 10 },
                 isDeleted: false,
@@ -83,30 +76,28 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
         // SQL Server: format date with CONVERT
         const isYearRange = range === 'year';
 
-        const chartData: { label: string; revenue: number }[] = await (async () => {
+        const chartDataPromise: Promise<{ label: string; revenue: number }[]> = (async () => {
             if (isYearRange) {
-                // Group by YYYY-MM
                 const rows: Array<{ label: string; revenue: string | number }> = await prisma.$queryRaw`
           SELECT
-            FORMAT(CreatedAt, 'yyyy-MM') AS label,
+            CONVERT(char(7), DATEFROMPARTS(YEAR(CreatedAt), MONTH(CreatedAt), 1), 120) AS label,
             SUM(CAST(TotalAmount AS FLOAT)) AS revenue
           FROM Orders
           WHERE CreatedAt >= ${start} AND CreatedAt <= ${end}
-            AND Status = 'COMPLETED'
-          GROUP BY FORMAT(CreatedAt, 'yyyy-MM')
+            AND UPPER(Status) IN ('DELIVERED', 'COMPLETED')
+          GROUP BY YEAR(CreatedAt), MONTH(CreatedAt)
           ORDER BY label ASC
         `;
                 return rows.map((r) => ({ label: r.label, revenue: Number(r.revenue ?? 0) }));
             } else {
-                // Group by YYYY-MM-DD
                 const rows: Array<{ label: string; revenue: string | number }> = await prisma.$queryRaw`
           SELECT
-            FORMAT(CreatedAt, 'yyyy-MM-dd') AS label,
+            CONVERT(char(10), CAST(CreatedAt AS date), 23) AS label,
             SUM(CAST(TotalAmount AS FLOAT)) AS revenue
           FROM Orders
           WHERE CreatedAt >= ${start} AND CreatedAt <= ${end}
-            AND Status = 'COMPLETED'
-          GROUP BY FORMAT(CreatedAt, 'yyyy-MM-dd')
+            AND UPPER(Status) IN ('DELIVERED', 'COMPLETED')
+          GROUP BY CAST(CreatedAt AS date)
           ORDER BY label ASC
         `;
                 return rows.map((r) => ({ label: r.label, revenue: Number(r.revenue ?? 0) }));
@@ -114,12 +105,12 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
         })();
 
         // ── Top 5 Selling Products ────────────────────────────────────────────
-        const topProducts: Array<{
+        const topProductsPromise: Promise<Array<{
             productId: number;
             name: string;
             totalSold: number;
             imageUrl: string | null;
-        }> = await (async () => {
+        }>> = (async () => {
             const rows: Array<{
                 ProductId: number;
                 ProductName: string;
@@ -140,6 +131,7 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
         INNER JOIN ProductVariants pv ON oi.VariantId = pv.VariantId
         INNER JOIN Products p ON pv.ProductId = p.ProductId
         WHERE o.CreatedAt >= ${start} AND o.CreatedAt <= ${end}
+          AND UPPER(o.Status) IN ('DELIVERED', 'COMPLETED')
         GROUP BY p.ProductId, p.Name
         ORDER BY TotalSold DESC
       `;
@@ -152,7 +144,7 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
         })();
 
         // ── Recent 5 Orders ───────────────────────────────────────────────────
-        const recentOrders = await prisma.order.findMany({
+        const recentOrdersPromise = prisma.order.findMany({
             orderBy: { createdAt: 'desc' },
             take: 5,
             select: {
@@ -167,6 +159,26 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
                 },
             },
         });
+
+        const [
+            revenueResult,
+            totalOrders,
+            totalCustomers,
+            lowStockCount,
+            chartData,
+            topProducts,
+            recentOrders,
+        ] = await Promise.all([
+            revenuePromise,
+            totalOrdersPromise,
+            totalCustomersPromise,
+            lowStockCountPromise,
+            chartDataPromise,
+            topProductsPromise,
+            recentOrdersPromise,
+        ]);
+
+        const totalRevenue = Number(revenueResult._sum.totalAmount ?? 0);
 
         const recentOrdersFormatted = recentOrders.map((o) => ({
             orderId: o.orderId,

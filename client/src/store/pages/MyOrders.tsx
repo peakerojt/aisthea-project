@@ -152,9 +152,9 @@ export const MyOrders: React.FC = () => {
                           <span className="text-white/30 mx-2">•</span>
                           {t('labels.items')}: <span className="text-white font-semibold">{o.itemCount}</span>
                         </div>
-                        {(o.trackingNumber || o.carrier) && (
+                        {(o.orderCode || o.orderNumber) && (
                           <div className="mt-2 text-xs text-white/40">
-                            {o.carrier ? `${o.carrier}` : t('labels.carrier')} {o.trackingNumber ? `• ${o.trackingNumber}` : ''}
+                            {t('labels.orderCode')}: {o.orderCode ?? o.orderNumber}
                           </div>
                         )}
                       </div>

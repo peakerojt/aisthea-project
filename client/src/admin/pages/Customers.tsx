@@ -3,8 +3,19 @@ import { useTranslation } from 'react-i18next';
 import { useToast } from '@/common/contexts/ToastContext';
 import {
     Search, Users, AlertCircle, Loader2, Shield,
-    X, ShieldCheck, ChevronDown,
+    ShieldCheck, ChevronDown,
 } from 'lucide-react';
+import {
+    AdminEmptyState,
+    AdminModalShell,
+    AdminPageHeader,
+    AdminPageShell,
+    AdminPrimaryButton,
+    AdminSecondaryButton,
+    AdminSectionCard,
+    AdminToolbar,
+    adminUiTokens,
+} from '@/admin/components/AdminUI';
 import {
     AdminUser,
     fetchAdminUsers,
@@ -92,7 +103,10 @@ export const Customers: React.FC = () => {
     const { showToast: fireToast } = useToast();
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const hasLoadedRef = useRef(false);
+    const requestIdRef = useRef(0);
 
     // Filters
     const [searchInput, setSearchInput] = useState('');
@@ -118,7 +132,10 @@ export const Customers: React.FC = () => {
 
     // ─── Data loading ─────────────────────────────────────────────────────────
     const loadUsers = useCallback(async () => {
-        setLoading(true);
+        const requestId = ++requestIdRef.current;
+        const isFirstLoad = !hasLoadedRef.current;
+        if (isFirstLoad) setLoading(true);
+        else setIsRefreshing(true);
         setError(null);
         try {
             const data = await fetchAdminUsers({
@@ -126,12 +143,17 @@ export const Customers: React.FC = () => {
                 role: roleFilter !== 'all' ? roleFilter : undefined,
                 status: statusFilter !== 'all' ? statusFilter : undefined,
             });
+            if (requestIdRef.current !== requestId) return;
             setUsers(data);
+            hasLoadedRef.current = true;
         } catch (error) {
+            if (requestIdRef.current !== requestId) return;
             const e = error as Error | { message?: string; error?: string; data?: unknown };
             setError(e.message || t('feedback.loadError'));
         } finally {
-            setLoading(false);
+            if (requestIdRef.current !== requestId) return;
+            if (isFirstLoad) setLoading(false);
+            else setIsRefreshing(false);
         }
     }, [search, roleFilter, statusFilter]);
 
@@ -203,44 +225,93 @@ export const Customers: React.FC = () => {
         { roleId: 3, roleName: 'Staff' },
     ];
 
+    const pageControls = (
+        <div className="space-y-5 border-b border-white/5 p-5 lg:p-6">
+            <AdminPageHeader
+                icon={Users}
+                title={t('page.title')}
+                meta={loading ? t('page.loading') : t('page.userCount', { count: users.length })}
+            />
+
+            <AdminToolbar>
+                <div className="relative group flex-1 min-w-[240px] max-w-sm">
+                    <Search
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-white/60 transition-colors"
+                        size={16}
+                    />
+                    <input
+                        type="text"
+                        placeholder={t('filters.searchPlaceholder')}
+                        value={searchInput}
+                        onChange={(e) => handleSearchChange(e.target.value)}
+                        className={adminUiTokens.searchFieldControl}
+                    />
+                </div>
+
+                <div className="relative">
+                    <select
+                        value={roleFilter}
+                        onChange={(e) => setRoleFilter(e.target.value)}
+                        className={`appearance-none cursor-pointer pl-4 pr-9 ${adminUiTokens.fieldControl}`}
+                    >
+                        <option value="all">{t('filters.allRoles')}</option>
+                        {Object.entries(ROLE_LABELS).map(([key]) => (
+                            <option key={key} value={key}>{t(`role.labels.${key.toLowerCase()}`, { defaultValue: getRoleLabel(key) })}</option>
+                        ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
+                </div>
+
+                <div className="relative">
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className={`appearance-none cursor-pointer pl-4 pr-9 ${adminUiTokens.fieldControl}`}
+                    >
+                        <option value="all">{t('filters.allStatuses')}</option>
+                        <option value="Active">{t('filters.statusActive')}</option>
+                        <option value="Banned">{t('filters.statusBanned')}</option>
+                        <option value="Pending">{t('filters.statusPending')}</option>
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
+                </div>
+            </AdminToolbar>
+        </div>
+    );
+
     return (
-        <div
-            className="p-8 max-w-[1600px] mx-auto h-full flex flex-col relative"
-            style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}
-        >
+        <AdminPageShell className="relative h-full">
             {/* ── Ban Confirmation Dialog ───────────────────────────────────── */}
             {banTarget && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div
-                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-                        onClick={() => !banLoading && setBanTarget(null)}
-                    />
-                    <div className="relative bg-[#111113] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-5">
-                        {/* Header */}
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
-                                    <Shield size={18} className="text-red-400" />
-                                </div>
-                                <div>
-                                    <h3 className="text-base font-bold text-white">
-                                        {banTarget.status === 'Banned' ? t('ban.titleUnban') : t('ban.titleBan')}
-                                    </h3>
-                                    <p className="text-xs text-white/40 mt-0.5 truncate max-w-[260px]">
-                                        {banTarget.fullName}
-                                    </p>
-                                </div>
-                            </div>
-                            <button
+                <AdminModalShell
+                    icon={Shield}
+                    iconWrapperClassName="border-red-500/20 bg-red-500/10 text-red-400 rounded-full"
+                    iconClassName="text-red-400"
+                    title={banTarget.status === 'Banned' ? t('ban.titleUnban') : t('ban.titleBan')}
+                    subtitle={banTarget.fullName}
+                    onClose={() => !banLoading && setBanTarget(null)}
+                    maxWidthClassName="max-w-md"
+                    bodyClassName="space-y-5 p-6"
+                    footer={(
+                        <div className="flex justify-end gap-3">
+                            <AdminSecondaryButton
                                 onClick={() => setBanTarget(null)}
                                 disabled={banLoading}
-                                className="text-white/30 hover:text-white transition-colors cursor-pointer"
+                                className="px-5 py-2.5"
                             >
-                                <X size={18} />
-                            </button>
+                                {t('ban.cancel')}
+                            </AdminSecondaryButton>
+                            <AdminPrimaryButton
+                                onClick={handleConfirmBan}
+                                disabled={banLoading}
+                                className="bg-red-600 px-5 py-2.5 shadow-lg shadow-red-900/30 hover:bg-red-700"
+                            >
+                                {banLoading ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
+                                {banLoading ? t('ban.processing') : banTarget.status === 'Banned' ? t('ban.actionUnban') : t('ban.actionBan')}
+                            </AdminPrimaryButton>
                         </div>
-
-                        {/* Warning box */}
+                    )}
+                >
                         <div className="bg-red-500/[0.05] border border-red-500/20 rounded-lg px-4 py-3 space-y-1">
                             <p className="text-sm font-semibold text-white">
                                 {banTarget.status === 'Banned' ?
@@ -253,64 +324,46 @@ export const Customers: React.FC = () => {
                                 </p>
                             )}
                         </div>
-
-                        {/* Actions */}
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                onClick={() => setBanTarget(null)}
-                                disabled={banLoading}
-                                className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-50 cursor-pointer"
-                            >
-                                {t('ban.cancel')}
-                            </button>
-                            <button
-                                onClick={handleConfirmBan}
-                                disabled={banLoading}
-                                className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center gap-2 shadow-lg shadow-red-900/30 cursor-pointer"
-                            >
-                                {banLoading ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
-                                {banLoading ? t('ban.processing') : banTarget.status === 'Banned' ? t('ban.actionUnban') : t('ban.actionBan')}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                </AdminModalShell>
             )}
 
             {/* ── Role Management Modal ─────────────────────────────────────── */}
             {roleTarget && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div
-                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-                        onClick={() => !roleLoading && setRoleTarget(null)}
-                    />
-                    <div className="relative bg-[#111113] border border-white/10 rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
-                        {/* Header */}
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
-                                    <ShieldCheck size={16} className="text-teal-400" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-bold text-white">{t('role.title')}</h3>
-                                    <p className="text-[11px] text-white/40 truncate max-w-[180px]">{roleTarget.fullName}</p>
-                                </div>
-                            </div>
-                            <button
+                <AdminModalShell
+                    icon={ShieldCheck}
+                    iconWrapperClassName="border-teal-500/20 bg-teal-500/10 text-teal-400"
+                    iconClassName="text-teal-400"
+                    title={t('role.title')}
+                    subtitle={roleTarget.fullName}
+                    onClose={() => !roleLoading && setRoleTarget(null)}
+                    maxWidthClassName="max-w-sm"
+                    bodyClassName="space-y-5 p-6"
+                    footer={(
+                        <div className="flex gap-3">
+                            <AdminSecondaryButton
                                 onClick={() => setRoleTarget(null)}
                                 disabled={roleLoading}
-                                className="text-white/30 hover:text-white transition-colors cursor-pointer"
+                                className="flex-1 py-2.5"
                             >
-                                <X size={18} />
-                            </button>
+                                {t('role.cancel')}
+                            </AdminSecondaryButton>
+                            <AdminPrimaryButton
+                                onClick={handleConfirmRole}
+                                disabled={roleLoading || selectedRoleId === null}
+                                className="flex-1 py-2.5"
+                            >
+                                {roleLoading ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+                                {roleLoading ? t('role.saving') : t('role.saveRole')}
+                            </AdminPrimaryButton>
                         </div>
-
-                        {/* Role list */}
+                    )}
+                >
                         <div className="space-y-2">
                             {KNOWN_ROLES.map((r) => (
                                 <button
                                     key={r.roleId}
                                     onClick={() => setSelectedRoleId(r.roleId)}
-                                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all cursor-pointer ${selectedRoleId === r.roleId
+                                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-colors cursor-pointer ${selectedRoleId === r.roleId
                                         ? 'border-primary/50 bg-primary/10 text-white'
                                         : 'border-white/10 bg-white/[0.02] text-white/60 hover:border-white/20 hover:text-white/80'
                                         }`}
@@ -325,105 +378,27 @@ export const Customers: React.FC = () => {
                                 </button>
                             ))}
                         </div>
-
-                        {/* Actions */}
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setRoleTarget(null)}
-                                disabled={roleLoading}
-                                className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
-                            >
-                                {t('role.cancel')}
-                            </button>
-                            <button
-                                onClick={handleConfirmRole}
-                                disabled={roleLoading || selectedRoleId === null}
-                                className="flex-1 py-2.5 rounded-lg text-sm font-bold text-white bg-primary hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-primary/20 cursor-pointer"
-                            >
-                                {roleLoading ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
-                                {roleLoading ? t('role.saving') : t('role.saveRole')}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                </AdminModalShell>
             )}
-
-            {/* ── Header ────────────────────────────────────────────────────── */}
-            <header className="flex items-center justify-between mb-6">
-                <div>
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                            <Users size={16} className="text-primary" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-white">{t('page.title')}</h2>
-                    </div>
-                    <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1 pl-11">
-                        {loading ? t('page.loading') : t('page.userCount', { count: users.length })}
-                    </p>
-                </div>
-            </header>
-
-            {/* ── Toolbar ───────────────────────────────────────────────────── */}
-            <div className="flex flex-wrap items-center gap-3 mb-5">
-                {/* Search */}
-                <div className="relative group flex-1 min-w-[240px] max-w-sm">
-                    <Search
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-white/60 transition-colors"
-                        size={16}
-                    />
-                    <input
-                        type="text"
-                        placeholder={t('filters.searchPlaceholder')}
-                        value={searchInput}
-                        onChange={(e) => handleSearchChange(e.target.value)}
-                        className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
-                    />
-                </div>
-
-                {/* Role Filter */}
-                <div className="relative">
-                    <select
-                        value={roleFilter}
-                        onChange={(e) => setRoleFilter(e.target.value)}
-                        className="appearance-none bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-4 pr-9 text-sm text-white/80 focus:outline-none focus:border-primary/50 transition-all cursor-pointer"
-                    >
-                        <option value="all">{t('filters.allRoles')}</option>
-                        {Object.entries(ROLE_LABELS).map(([key]) => (
-                            <option key={key} value={key}>{t(`role.labels.${key.toLowerCase()}`, { defaultValue: getRoleLabel(key) })}</option>
-                        ))}
-                    </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
-                </div>
-
-                {/* Status Filter */}
-                <div className="relative">
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="appearance-none bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-4 pr-9 text-sm text-white/80 focus:outline-none focus:border-primary/50 transition-all cursor-pointer"
-                    >
-                        <option value="all">{t('filters.allStatuses')}</option>
-                        <option value="Active">{t('filters.statusActive')}</option>
-                        <option value="Banned">{t('filters.statusBanned')}</option>
-                        <option value="Pending">{t('filters.statusPending')}</option>
-                    </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
-                </div>
-            </div>
 
             {/* ── Loading ───────────────────────────────────────────────────── */}
             {loading && (
-                <div className="bg-white/[0.02] border border-white/5 rounded-xl flex-1 flex items-center justify-center">
+                <AdminSectionCard className="flex-1 overflow-hidden">
+                    {pageControls}
+                    <div className="flex h-full min-h-[420px] items-center justify-center">
                     <div className="flex flex-col items-center gap-4">
                         <div className="w-10 h-10 border-4 border-white/10 border-t-primary rounded-full animate-spin" />
                         <p className="text-sm text-white/40">{t('feedback.loadingList')}</p>
                     </div>
-                </div>
+                    </div>
+                </AdminSectionCard>
             )}
 
             {/* ── Error ─────────────────────────────────────────────────────── */}
             {error && !loading && (
-                <div className="bg-white/[0.02] border border-white/5 rounded-xl flex-1 flex items-center justify-center">
+                <AdminSectionCard className="flex-1 overflow-hidden">
+                    {pageControls}
+                    <div className="flex h-full min-h-[420px] items-center justify-center">
                     <div className="flex flex-col items-center gap-4 max-w-sm text-center">
                         <AlertCircle size={40} className="text-red-400" />
                         <div>
@@ -437,41 +412,40 @@ export const Customers: React.FC = () => {
                             {t('feedback.retry')}
                         </button>
                     </div>
-                </div>
+                    </div>
+                </AdminSectionCard>
             )}
 
             {/* ── Table ─────────────────────────────────────────────────────── */}
             {!loading && !error && (
-                <div className="bg-white/[0.02] border border-white/5 rounded-xl shadow-2xl flex flex-col flex-1 overflow-hidden">
+                <AdminSectionCard className="flex-1 overflow-hidden">
+                    {pageControls}
+                    {isRefreshing && <div className="h-px w-full bg-primary/60" />}
                     {users.length === 0 ? (
-                        <div className="flex-1 flex flex-col items-center justify-center py-20 gap-4">
-                            <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center">
-                                <Users size={24} className="text-white/20" />
-                            </div>
-                            <div className="text-center">
-                                <p className="text-base font-semibold text-white/60">{t('feedback.notFound')}</p>
-                                <p className="text-sm text-white/30 mt-1">{t('feedback.changeFilter')}</p>
-                            </div>
-                        </div>
+                        <AdminEmptyState
+                            icon={Users}
+                            title={t('feedback.notFound')}
+                            description={t('feedback.changeFilter')}
+                        />
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
-                                <thead className="bg-white/[0.02] border-b border-white/[0.06]">
-                                    <tr className="text-[10px] uppercase tracking-widest text-white/40 font-bold">
-                                        <th className="py-4 px-6">{t('table.customer')}</th>
-                                        <th className="py-4 px-4">{t('table.contact')}</th>
-                                        <th className="py-4 px-4">{t('table.role')}</th>
-                                        <th className="py-4 px-4">{t('table.status')}</th>
-                                        <th className="py-4 px-4">{t('table.orders')}</th>
-                                        <th className="py-4 px-4">{t('table.joined')}</th>
-                                        <th className="py-4 px-4 text-right">{t('table.actions')}</th>
+                                <thead className={adminUiTokens.tableHeaderSurface}>
+                                    <tr>
+                                        <th className={`px-6 py-4 ${adminUiTokens.tableHeader}`}>{t('table.customer')}</th>
+                                        <th className={`px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.contact')}</th>
+                                        <th className={`px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.role')}</th>
+                                        <th className={`px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.status')}</th>
+                                        <th className={`px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.orders')}</th>
+                                        <th className={`px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.joined')}</th>
+                                        <th className={`px-4 py-4 text-right ${adminUiTokens.tableHeader}`}>{t('table.actions')}</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-white/[0.04]">
+                                <tbody className={adminUiTokens.tableBody}>
                                     {users.map((user) => (
                                         <tr
                                             key={user.userId}
-                                            className="group hover:bg-white/[0.02] transition-colors"
+                                            className={`group ${adminUiTokens.tableRowSoft}`}
                                         >
                                             {/* Khách hàng */}
                                             <td className="py-4 px-6">
@@ -551,8 +525,8 @@ export const Customers: React.FC = () => {
                             </table>
                         </div>
                     )}
-                </div>
+                </AdminSectionCard>
             )}
-        </div>
+        </AdminPageShell>
     );
 };
