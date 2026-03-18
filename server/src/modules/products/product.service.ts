@@ -305,6 +305,25 @@ export const productService = {
     });
   },
 
+  async updateProductStatus(productId: number, status: 'Active' | 'Inactive' | 'Draft' | 'Archived') {
+    const existingProduct = await prisma.product.findFirst({
+      where: { productId, isDeleted: false },
+      select: { productId: true },
+    });
+
+    if (!existingProduct) {
+      throw new AppError(404, 'PRODUCT_NOT_FOUND', 'products:errors.notFound');
+    }
+
+    const updatedProduct = await prisma.product.update({
+      where: { productId },
+      data: { status },
+      select: { productId: true, status: true },
+    });
+
+    return updatedProduct;
+  },
+
   async deleteProduct(id: number) {
     const product = await productRepository.findActiveWithDeleteRelations(id);
 

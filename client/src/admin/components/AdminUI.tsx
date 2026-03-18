@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Inbox, LucideIcon, X } from 'lucide-react';
 
 export type AdminStatCardItem = {
@@ -66,6 +66,8 @@ export interface AdminModalShellProps {
   bodyClassName?: string;
   stickyHeader?: boolean;
   closeOnOverlayClick?: boolean;
+  backdropClassName?: string;
+  lockBodyScroll?: boolean;
 }
 
 const SURFACE_BASE = 'border border-white/[0.06] bg-[#101217] shadow-[0_18px_50px_rgba(0,0,0,0.24)]';
@@ -462,53 +464,73 @@ export const AdminModalShell: React.FC<AdminModalShellProps> = ({
   bodyClassName = '',
   stickyHeader = false,
   closeOnOverlayClick = true,
-}) => (
-  <>
-    <div
-      className="fixed inset-0 z-40 bg-black/72 backdrop-brightness-75 backdrop-blur-[2px]"
-      onClick={closeOnOverlayClick && onClose ? onClose : undefined}
-    />
-    <div className="fixed inset-0 z-50 overflow-y-auto p-4">
-      <div className={`flex min-h-full justify-center ${align === 'center' ? 'items-center' : 'items-start py-6'}`}>
-        <div
-          className={`w-full rounded-2xl border border-white/[0.10] bg-[#0f0f0f] shadow-2xl animate-scale-in ${maxWidthClassName} ${panelClassName}`}
-        >
-          {(title || subtitle || Icon || onClose || headerActions) && (
-            <div
-              className={`flex items-center justify-between gap-4 border-b border-white/[0.06] px-6 py-5 ${
-                stickyHeader ? 'sticky top-0 z-10 bg-[#0f0f0f]' : ''
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                {Icon && (
-                  <div className={`rounded-lg border p-2 ${iconWrapperClassName}`}>
-                    <Icon size={18} className={iconClassName} />
-                  </div>
-                )}
-                {(title || subtitle) && (
-                  <div>
-                    {title && <h2 className="text-sm font-bold text-white">{title}</h2>}
-                    {subtitle && <p className="text-[11px] text-white/40">{subtitle}</p>}
-                  </div>
-                )}
+  backdropClassName = 'bg-black/86',
+  lockBodyScroll = true,
+}) => {
+  useEffect(() => {
+    if (!lockBodyScroll || typeof document === 'undefined') return undefined;
+
+    const { body, documentElement } = document;
+    const previousBodyOverflow = body.style.overflow;
+    const previousDocumentOverflow = documentElement.style.overflow;
+
+    body.style.overflow = 'hidden';
+    documentElement.style.overflow = 'hidden';
+
+    return () => {
+      body.style.overflow = previousBodyOverflow;
+      documentElement.style.overflow = previousDocumentOverflow;
+    };
+  }, [lockBodyScroll]);
+
+  return (
+    <>
+      <div
+        className={`fixed inset-0 z-40 ${backdropClassName}`}
+        onClick={closeOnOverlayClick && onClose ? onClose : undefined}
+      />
+      <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain p-3 md:p-4">
+        <div className={`flex min-h-full justify-center ${align === 'center' ? 'items-center' : 'items-start py-6'}`}>
+          <div
+            className={`flex max-h-[calc(100vh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl border border-white/[0.10] bg-[#0f0f0f] shadow-2xl md:max-h-[calc(100vh-2rem)] ${maxWidthClassName} ${panelClassName}`}
+          >
+            {(title || subtitle || Icon || onClose || headerActions) && (
+              <div
+                className={`shrink-0 flex items-center justify-between gap-4 border-b border-white/[0.06] px-6 py-5 ${
+                  stickyHeader ? 'sticky top-0 z-10 bg-[#0f0f0f]' : ''
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  {Icon && (
+                    <div className={`rounded-lg border p-2 ${iconWrapperClassName}`}>
+                      <Icon size={18} className={iconClassName} />
+                    </div>
+                  )}
+                  {(title || subtitle) && (
+                    <div>
+                      {title && <h2 className="text-sm font-bold text-white">{title}</h2>}
+                      {subtitle && <p className="text-[11px] text-white/40">{subtitle}</p>}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {headerActions}
+                  {onClose && (
+                    <AdminIconButton type="button" onClick={onClose} className="h-9 w-9 rounded-lg">
+                      <X size={18} />
+                    </AdminIconButton>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {headerActions}
-                {onClose && (
-                  <AdminIconButton type="button" onClick={onClose} className="h-9 w-9 rounded-lg">
-                    <X size={18} />
-                  </AdminIconButton>
-                )}
-              </div>
-            </div>
-          )}
-          <div className={bodyClassName}>{children}</div>
-          {footer && <div className="border-t border-white/[0.06] bg-black/20 px-6 py-4">{footer}</div>}
+            )}
+            <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${bodyClassName}`}>{children}</div>
+            {footer && <div className="shrink-0 border-t border-white/[0.06] bg-black/20 px-6 py-4">{footer}</div>}
+          </div>
         </div>
       </div>
-    </div>
-  </>
-);
+    </>
+  );
+};
 
 export const AdminEmptyState: React.FC<AdminEmptyStateProps> = ({
   icon: Icon = Inbox,

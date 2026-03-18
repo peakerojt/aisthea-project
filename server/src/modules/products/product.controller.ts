@@ -19,6 +19,7 @@ const toProductFilters = (query: ProductQueryDto): ProductFilter => ({
   minPrice: query.minPrice,
   maxPrice: query.maxPrice,
   status: query.status,
+  sort: query.sort,
   page: query.page,
   limit: query.limit,
 });
@@ -86,6 +87,23 @@ export const productController = {
       const id = parseProductId(req.params.id as string);
       const result = await productService.updateProduct(id, req.body);
       res.json({ success: true, data: result, message: 'Product updated successfully.' });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  updateStatus: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = parseProductId(req.params.id as string);
+      const { status } = req.body as { status?: string };
+      const allowedStatuses = ['Active', 'Inactive', 'Draft', 'Archived'] as const;
+
+      if (!status || !allowedStatuses.includes(status as (typeof allowedStatuses)[number])) {
+        throw new AppError(400, 'INVALID_STATUS', 'common:errors.validation');
+      }
+
+      const result = await productService.updateProductStatus(id, status as (typeof allowedStatuses)[number]);
+      res.json({ success: true, data: result, message: 'Product status updated successfully.' });
     } catch (error) {
       next(error);
     }

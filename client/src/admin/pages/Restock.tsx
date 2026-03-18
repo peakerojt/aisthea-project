@@ -33,6 +33,7 @@ import {
 } from '@/common/services/purchase-order.service';
 
 type DraftItem = { variantId: number | ''; orderedQty: number; unitCost: number };
+type VariantOption = { value: number; label: string };
 type ReceiveMap = Record<number, number>;
 type PaginationMeta = {
   total: number;
@@ -74,7 +75,7 @@ const getStatusBadgeTone = (status: PurchaseOrderStatus) => {
 
 const INVENTORY_PAGE_SIZE = 40;
 const PO_PAGE_SIZE = 20;
-const LOW_STOCK_THRESHOLD = 10;
+const LOW_STOCK_THRESHOLD = 20;
 const INVENTORY_GRID_TEMPLATE = 'minmax(320px,2.4fr) minmax(140px,1fr) minmax(130px,0.9fr) minmax(160px,1fr) minmax(220px,1.2fr)';
 const makeDefaultMeta = (pageSize: number): PaginationMeta => ({
   total: 0,
@@ -82,6 +83,112 @@ const makeDefaultMeta = (pageSize: number): PaginationMeta => ({
   pageSize,
   totalPages: 1,
 });
+
+type PurchaseOrderDraftRowProps = {
+  index: number;
+  item: DraftItem;
+  canRemove: boolean;
+  variantOptions: VariantOption[];
+  selectedVariantLabel?: string;
+  modalFieldClass: string;
+  modalFieldLabelClass: string;
+  chooseVariantLabel: string;
+  variantLabelText: string;
+  qtyLabelText: string;
+  costLabelText: string;
+  removeItemLabel: string;
+  onUpdateItem: (idx: number, patch: Partial<DraftItem>) => void;
+  onRemoveItem: (idx: number) => void;
+};
+
+const PurchaseOrderDraftRow = React.memo(({
+  index,
+  item,
+  canRemove,
+  variantOptions,
+  selectedVariantLabel,
+  modalFieldClass,
+  modalFieldLabelClass,
+  chooseVariantLabel,
+  variantLabelText,
+  qtyLabelText,
+  costLabelText,
+  removeItemLabel,
+  onUpdateItem,
+  onRemoveItem,
+}: PurchaseOrderDraftRowProps) => {
+  const [optionsExpanded, setOptionsExpanded] = useState(false);
+
+  const expandOptions = useCallback(() => {
+    setOptionsExpanded(true);
+  }, []);
+
+  const handleVariantChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    onUpdateItem(index, { variantId: e.target.value === '' ? '' : Number(e.target.value) });
+  }, [index, onUpdateItem]);
+
+  const handleOrderedQtyChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    onUpdateItem(index, { orderedQty: Math.max(1, Number(e.target.value) || 1) });
+  }, [index, onUpdateItem]);
+
+  const handleUnitCostChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    onUpdateItem(index, { unitCost: Math.max(0, Number(e.target.value) || 0) });
+  }, [index, onUpdateItem]);
+
+  const handleRemove = useCallback(() => {
+    onRemoveItem(index);
+  }, [index, onRemoveItem]);
+
+  const selectOptions = useMemo(() => {
+    const options = [<option key="placeholder" value="">{chooseVariantLabel}</option>];
+
+    if (optionsExpanded) {
+      options.push(...variantOptions.map((opt) => (
+        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      )));
+      return options;
+    }
+
+    if (item.variantId !== '' && selectedVariantLabel) {
+      options.push(<option key={item.variantId} value={item.variantId}>{selectedVariantLabel}</option>);
+    }
+
+    return options;
+  }, [chooseVariantLabel, item.variantId, optionsExpanded, selectedVariantLabel, variantOptions]);
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-white">Dòng sản phẩm {index + 1}</p>
+        <button onClick={handleRemove} disabled={!canRemove} className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-medium text-red-300 disabled:opacity-40"><X size={14} />{removeItemLabel}</button>
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-start">
+        <div className="space-y-1.5 md:col-span-7">
+          <label className={modalFieldLabelClass}>{variantLabelText}</label>
+          <select
+            value={item.variantId}
+            onChange={handleVariantChange}
+            onFocus={expandOptions}
+            onPointerDown={expandOptions}
+            className={modalFieldClass}
+          >
+            {selectOptions}
+          </select>
+        </div>
+        <div className="space-y-1.5 md:col-span-2">
+          <label className={modalFieldLabelClass}>{qtyLabelText}</label>
+          <input type="number" min={1} value={item.orderedQty} onChange={handleOrderedQtyChange} className={modalFieldClass} />
+        </div>
+        <div className="space-y-1.5 md:col-span-3">
+          <label className={modalFieldLabelClass}>{costLabelText}</label>
+          <input type="number" min={0} step="0.01" value={item.unitCost} onChange={handleUnitCostChange} className={modalFieldClass} />
+        </div>
+      </div>
+    </div>
+  );
+});
+
+PurchaseOrderDraftRow.displayName = 'PurchaseOrderDraftRow';
 
 export const Restock: React.FC = () => {
   const { t } = useTranslation();
@@ -272,8 +379,12 @@ export const Restock: React.FC = () => {
 
   const variantSource = allVariants.length ? allVariants : variants;
   const variantOptions = useMemo(
-    () => variantSource.map((v) => ({ value: v.variantId, label: `${v.product.name} ${v.variantLabel ? `(${v.variantLabel})` : ''} - ${v.sku}` })),
+    (): VariantOption[] => variantSource.map((v) => ({ value: v.variantId, label: `${v.product.name} ${v.variantLabel ? `(${v.variantLabel})` : ''} - ${v.sku}` })),
     [variantSource],
+  );
+  const variantLabelById = useMemo(
+    () => new Map(variantOptions.map((option) => [option.value, option.label])),
+    [variantOptions],
   );
 
   const inventoryStatusMeta = useMemo(
@@ -290,9 +401,17 @@ export const Restock: React.FC = () => {
   const poCanPrev = poPage > 1;
   const poCanNext = poPage < Math.max(1, poMeta.totalPages);
 
-  const addItem = () => setDraftItems((prev) => [...prev, { variantId: '', orderedQty: 1, unitCost: 0 }]);
-  const removeItem = (idx: number) => setDraftItems((prev) => prev.filter((_, i) => i !== idx));
-  const updateItem = (idx: number, patch: Partial<DraftItem>) => setDraftItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  const addItem = useCallback(() => {
+    setDraftItems((prev) => [...prev, { variantId: '', orderedQty: 1, unitCost: 0 }]);
+  }, []);
+
+  const removeItem = useCallback((idx: number) => {
+    setDraftItems((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
+
+  const updateItem = useCallback((idx: number, patch: Partial<DraftItem>) => {
+    setDraftItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  }, []);
 
   const resetCreate = () => {
     setSupplier('');
@@ -326,6 +445,7 @@ export const Restock: React.FC = () => {
       setShowCreate(false);
       resetCreate();
       await Promise.all([loadOrders(), loadInventory(), loadInventorySummary()]);
+      await queryClient.invalidateQueries({ queryKey: ['inventory-alerts'] });
     } catch (e) {
       const err = e as Error;
       setError(err.message || tt('restock:po.errors.createFailed'));
@@ -432,6 +552,17 @@ export const Restock: React.FC = () => {
 
   const modalFieldClass = `${adminUiTokens.fieldControl} rounded-lg bg-black/20`;
   const modalTextareaClass = `${adminUiTokens.fieldControl} rounded-lg bg-black/20 min-h-[80px]`;
+  const modalFieldLabelClass = 'text-[11px] font-semibold uppercase tracking-[0.18em] text-white/52';
+  const createModalLabels = useMemo(
+    () => ({
+      chooseVariant: tt('restock:po.create.chooseVariant'),
+      variant: tt('restock:po.create.variantLabel'),
+      qty: tt('restock:po.create.qtyLabel'),
+      cost: tt('restock:po.create.costLabel'),
+      removeItem: tt('restock:po.create.removeItem'),
+    }),
+    [tt],
+  );
 
   return (
     <AdminPageShell className="max-w-[1400px] h-auto min-h-full pb-6">
@@ -696,40 +827,136 @@ export const Restock: React.FC = () => {
       {showCreate && (
         <AdminModalShell
           title={tt('restock:po.create.title')}
-          onClose={() => setShowCreate(false)}
+          onClose={() => {
+            setShowCreate(false);
+            resetCreate();
+          }}
           align="start"
-          maxWidthClassName="max-w-4xl"
-          bodyClassName="space-y-5 p-6"
+          maxWidthClassName="max-w-6xl"
+          bodyClassName="space-y-6 p-6"
           footer={(
             <div className="flex justify-end gap-3">
-              <AdminSecondaryButton type="button" onClick={() => { setShowCreate(false); resetCreate(); }} className="rounded-lg px-4 py-2">{tt('restock:po.actions.close')}</AdminSecondaryButton>
-              <AdminPrimaryButton type="button" onClick={handleCreate} disabled={creating} className="rounded-lg px-4 py-2">{creating ? tt('restock:po.states.creating') : tt('restock:po.actions.create')}</AdminPrimaryButton>
+              <AdminSecondaryButton
+                type="button"
+                onClick={() => {
+                  setShowCreate(false);
+                  resetCreate();
+                }}
+                className="rounded-lg px-4 py-2"
+              >
+                {tt('restock:po.actions.close')}
+              </AdminSecondaryButton>
+              <AdminPrimaryButton onClick={handleCreate} disabled={creating} className="min-w-[136px]">
+                {creating ? tt('restock:po.states.creating') : tt('restock:po.actions.create')}
+              </AdminPrimaryButton>
             </div>
           )}
         >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder={tt('restock:po.create.supplier')} className={modalFieldClass} />
-              <input type="datetime-local" value={expectedReceivedAt} onChange={(e) => setExpectedReceivedAt(e.target.value)} className={modalFieldClass} />
-              <input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder={tt('restock:po.create.invoice')} className={modalFieldClass} />
-              <input value={supplierContactName} onChange={(e) => setSupplierContactName(e.target.value)} placeholder={tt('restock:po.create.contactName')} className={modalFieldClass} />
-              <input value={supplierPhone} onChange={(e) => setSupplierPhone(e.target.value)} placeholder={tt('restock:po.create.phone')} className={modalFieldClass} />
-              <input value={supplierEmail} onChange={(e) => setSupplierEmail(e.target.value)} placeholder={tt('restock:po.create.email')} className={modalFieldClass} />
-            </div>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={tt('restock:po.create.notes')} className={modalTextareaClass} />
-            <div className="space-y-3">
-              <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-white">{tt('restock:po.create.items')}</h3><AdminSecondaryButton type="button" onClick={addItem} className="rounded-lg px-3 py-1.5 text-xs">{tt('restock:po.create.addItem')}</AdminSecondaryButton></div>
-              {draftItems.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
-                  <select value={item.variantId} onChange={(e) => updateItem(idx, { variantId: e.target.value === '' ? '' : Number(e.target.value) })} className={`md:col-span-7 ${modalFieldClass}`}>
-                    <option value="">{tt('restock:po.create.chooseVariant')}</option>
-                    {variantOptions.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-                  </select>
-                  <input type="number" min={1} value={item.orderedQty} onChange={(e) => updateItem(idx, { orderedQty: Math.max(1, Number(e.target.value) || 1) })} className={`md:col-span-2 ${modalFieldClass}`} />
-                  <input type="number" min={0} step="0.01" value={item.unitCost} onChange={(e) => updateItem(idx, { unitCost: Math.max(0, Number(e.target.value) || 0) })} className={`md:col-span-2 ${modalFieldClass}`} />
-                  <button onClick={() => removeItem(idx)} disabled={draftItems.length === 1} className="md:col-span-1 px-2 py-2 rounded-lg border border-red-500/30 text-red-300 disabled:opacity-40"><X size={14} /></button>
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-2xl font-semibold text-white">{tt('restock:po.create.sectionInfo')}</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className={modalFieldLabelClass}>{tt('restock:po.create.supplier')}</label>
+                  <input
+                    type="text"
+                    value={supplier}
+                    onChange={(e) => setSupplier(e.target.value)}
+                    placeholder="Ví dụ: Shoppe, Xưởng may Minh Anh..."
+                    className={modalFieldClass}
+                  />
                 </div>
-              ))}
+                <div className="space-y-1.5">
+                  <label className={modalFieldLabelClass}>{tt('restock:po.create.expected')}</label>
+                  <input
+                    type="datetime-local"
+                    value={expectedReceivedAt}
+                    onChange={(e) => setExpectedReceivedAt(e.target.value)}
+                    className={modalFieldClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={modalFieldLabelClass}>{tt('restock:po.create.invoice')}</label>
+                  <input
+                    type="text"
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    placeholder="Ví dụ: HD-2026-0318"
+                    className={modalFieldClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={modalFieldLabelClass}>{tt('restock:po.create.contactName')}</label>
+                  <input
+                    type="text"
+                    value={supplierContactName}
+                    onChange={(e) => setSupplierContactName(e.target.value)}
+                    placeholder="Ví dụ: Nguyễn Minh Anh"
+                    className={modalFieldClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={modalFieldLabelClass}>{tt('restock:po.create.phone')}</label>
+                  <input
+                    type="tel"
+                    value={supplierPhone}
+                    onChange={(e) => setSupplierPhone(e.target.value)}
+                    placeholder="Ví dụ: 0901234567"
+                    className={modalFieldClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={modalFieldLabelClass}>{tt('restock:po.create.email')}</label>
+                  <input
+                    type="email"
+                    value={supplierEmail}
+                    onChange={(e) => setSupplierEmail(e.target.value)}
+                    placeholder="Ví dụ: supplier@example.com"
+                    className={modalFieldClass}
+                  />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className={modalFieldLabelClass}>{tt('restock:po.create.notes')}</label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Ví dụ: Giao trước 17h, ưu tiên đủ size S và M."
+                    className={modalTextareaClass}
+                  />
+                </div>
+              </div>
             </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-2xl font-semibold text-white">{tt('restock:po.create.sectionItems')}</h3>
+                <AdminSecondaryButton type="button" onClick={addItem} className="rounded-lg px-4 py-2">
+                  {tt('restock:po.create.addItem')}
+                </AdminSecondaryButton>
+              </div>
+              <div className="space-y-3">
+                {draftItems.map((item, index) => (
+                  <PurchaseOrderDraftRow
+                    key={`draft-item-${index}`}
+                    index={index}
+                    item={item}
+                    canRemove={draftItems.length > 1}
+                    variantOptions={variantOptions}
+                    selectedVariantLabel={item.variantId === '' ? undefined : variantLabelById.get(Number(item.variantId))}
+                    modalFieldClass={modalFieldClass}
+                    modalFieldLabelClass={modalFieldLabelClass}
+                    chooseVariantLabel={createModalLabels.chooseVariant}
+                    variantLabelText={createModalLabels.variant}
+                    qtyLabelText={createModalLabels.qty}
+                    costLabelText={createModalLabels.cost}
+                    removeItemLabel={createModalLabels.removeItem}
+                    onUpdateItem={updateItem}
+                    onRemoveItem={removeItem}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
         </AdminModalShell>
       )}
 

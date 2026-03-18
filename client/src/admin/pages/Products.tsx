@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { useProductsPageAPI, useUpdateProductMutation, useDeleteProductMutation } from '@/common/hooks/useProducts';
-import { deleteProductById, fetchCategories, type CategoryOption } from '@/common/services/product.service';
+import { useProductsPageAPI, useUpdateProductStatusMutation } from '@/common/hooks/useProducts';
+import { fetchCategories, type CategoryOption } from '@/common/services/product.service';
 import { useToast } from '@/common/contexts/ToastContext';
-import { Trash2, Edit2, AlertCircle, Loader2, UploadCloud, ChevronLeft, ChevronRight, Search, Package, Download, Filter } from 'lucide-react';
+import { EyeOff, Edit2, AlertCircle, Loader2, UploadCloud, ChevronLeft, ChevronRight, Search, Package, Download, Filter } from 'lucide-react';
 import {
   AdminActionButton,
   AdminIconButton,
@@ -43,12 +43,14 @@ export const Products: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [priceSort, setPriceSort] = useState<string>('default');
-  const [productViewTab, setProductViewTab] = useState<'all' | 'published' | 'drafts'>('all');
+  const [productViewTab, setProductViewTab] = useState<'all' | 'inactive' | 'drafts'>('all');
 
   const serverStatusFilter =
     productViewTab === 'drafts'
       ? 'Draft'
-      : statusFilter === 'In Stock' || productViewTab === 'published'
+      : productViewTab === 'inactive'
+        ? 'InactiveGroup'
+        : statusFilter === 'In Stock'
         ? 'Active'
         : statusFilter === 'Out of Stock'
           ? 'Inactive'
@@ -68,8 +70,7 @@ export const Products: React.FC = () => {
   const pagination = qProducts?.meta;
   const error = qError ? (qError as Error).message : null;
 
-  const updateProductMutation = useUpdateProductMutation();
-  const deleteProductMutation = useDeleteProductMutation();
+  const updateProductStatusMutation = useUpdateProductStatusMutation();
 
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -103,7 +104,8 @@ export const Products: React.FC = () => {
 
   // Helper: convert DB status → display status
   const toDisplayStatus = (dbStatus: string, stockQuantity: number) => {
-    if (dbStatus === 'Inactive' || dbStatus === 'Archived' || stockQuantity <= 0) return 'Out of Stock';
+    if (dbStatus === 'Archived') return 'Hidden';
+    if (dbStatus === 'Inactive' || stockQuantity <= 0) return 'Out of Stock';
     if (dbStatus === 'Active' && stockQuantity < 10) return 'Low Stock';
     if (dbStatus === 'Active') return 'In Stock';
     return dbStatus; // already a display value (e.g. 'Low Stock')
@@ -127,7 +129,17 @@ export const Products: React.FC = () => {
     };
   });
 
-  const filteredProducts = mappedProducts;
+  const filteredProducts = [...mappedProducts].sort((left, right) => {
+    if (priceSort === 'price_asc') {
+      return Number(left.price ?? 0) - Number(right.price ?? 0);
+    }
+
+    if (priceSort === 'price_desc') {
+      return Number(right.price ?? 0) - Number(left.price ?? 0);
+    }
+
+    return 0;
+  });
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
@@ -178,32 +190,39 @@ export const Products: React.FC = () => {
     if (!deleteModal) return;
     setDeleting(true);
     try {
-      const result = await deleteProductById(Number(deleteModal.id));
+      await updateProductStatusMutation.mutateAsync({
+        id: Number(deleteModal.id),
+        status: 'Archived',
+      });
       setDeleteModal(null);
       await refreshProducts();
-      showToast(result.message, result.mode === 'archived' ? 'archive' : 'success');
+      showToast(t('products:feedback.hideSuccess'));
     } catch (error) {
       const err = error as Error | { message?: string; error?: string; data?: unknown };
       setDeleteModal(null);
-      showToast(err.message || t('products:feedback.deleteSuccess'), 'error');
+      showToast(err.message || t('products:feedback.hideSuccess'), 'error');
     } finally {
       setDeleting(false);
     }
   };
 
-  const deleteSelected = async () => {
+  const hideSelected = async () => {
     if (window.confirm(t('products:feedback.deleteSelectedConfirm', { count: selectedIds.length }))) {
-      await Promise.all(selectedIds.map(id => deleteProductMutation.mutateAsync(Number(id))));
+      await Promise.all(selectedIds.map(id => updateProductStatusMutation.mutateAsync({
+        id: Number(id),
+        status: 'Archived',
+      })));
       setSelectedIds([]);
       showToast(t('products:feedback.deleteSelectedSuccess', { count: selectedIds.length }));
+      await refreshProducts();
     }
   };
 
   const markAsInStock = async () => {
     await Promise.all(selectedIds.map(async id => {
-      await updateProductMutation.mutateAsync({
+      await updateProductStatusMutation.mutateAsync({
         id: Number(id),
-        data: { status: 'Active' } as any
+        status: 'Active',
       });
     }));
     setSelectedIds([]);
@@ -214,10 +233,10 @@ export const Products: React.FC = () => {
     const mapped = mappedProducts.find(p => p.id === id);
     if (!mapped) return;
     // Send DB-compatible status values back to the server
-    const newDbStatus = mapped.status === 'Out of Stock' ? 'Active' : 'Inactive';
-    await updateProductMutation.mutateAsync({
+    const newDbStatus = mapped.status === 'Out of Stock' || mapped.status === 'Hidden' ? 'Active' : 'Inactive';
+    await updateProductStatusMutation.mutateAsync({
       id: Number(id),
-      data: { status: newDbStatus } as any
+      status: newDbStatus,
     });
     showToast(t('products:feedback.statusUpdated'));
   };
@@ -227,6 +246,7 @@ export const Products: React.FC = () => {
     if (status === 'In Stock') return t('products:status.inStock');
     if (status === 'Low Stock') return t('products:status.lowStock');
     if (status === 'Out of Stock') return t('products:status.outOfStock');
+    if (status === 'Hidden') return t('products:status.hidden');
     return status;
   };
 
@@ -235,7 +255,7 @@ export const Products: React.FC = () => {
   const totalProducts = pagination?.total ?? mappedProducts.length;
   const productTabs = [
     { key: 'all', label: t('products:tabs.all') },
-    { key: 'published', label: t('products:tabs.published') },
+    { key: 'inactive', label: t('products:tabs.inactive') },
     { key: 'drafts', label: t('products:tabs.drafts') },
   ];
 
@@ -253,9 +273,9 @@ export const Products: React.FC = () => {
       {/* ── Xác nhận xóa ──── */}
       {deleteModal?.open && (
         <AdminModalShell
-          icon={Trash2}
-          iconWrapperClassName="border-red-500/20 bg-red-500/10 text-red-400 rounded-full"
-          iconClassName="text-red-400"
+          icon={EyeOff}
+          iconWrapperClassName="border-amber-500/20 bg-amber-500/10 text-amber-400 rounded-full"
+          iconClassName="text-amber-400"
           title={t('products:modal.deleteTitle')}
           subtitle={deleteModal.name}
           onClose={() => !deleting && setDeleteModal(null)}
@@ -275,9 +295,9 @@ export const Products: React.FC = () => {
                 type="button"
                 onClick={confirmDelete}
                 disabled={deleting}
-                className="bg-red-600 px-5 py-2.5 shadow-lg shadow-red-900/30 hover:bg-red-700"
+                className="bg-amber-600 px-5 py-2.5 shadow-lg shadow-amber-900/20 hover:bg-amber-500"
               >
-                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                {deleting ? <Loader2 size={14} className="animate-spin" /> : <EyeOff size={14} />}
                 {deleting ? t('products:modal.deleting') : t('products:modal.delete')}
               </AdminPrimaryButton>
             </div>
@@ -391,12 +411,12 @@ export const Products: React.FC = () => {
                     {t('products:toolbar.markInStock')}
                   </AdminActionButton>
                   <AdminActionButton
-                    onClick={deleteSelected}
-                    tone="danger"
+                    onClick={hideSelected}
+                    tone="warning"
                     size="md"
                     className="text-xs uppercase tracking-wider font-bold"
                   >
-                    <Trash2 size={16} />
+                    <EyeOff size={16} />
                     {t('products:toolbar.deleteSelected')}
                   </AdminActionButton>
                 </div>
@@ -425,7 +445,7 @@ export const Products: React.FC = () => {
                   items={productTabs}
                   activeKey={productViewTab}
                   onChange={(key) => {
-                    setProductViewTab(key as 'all' | 'published' | 'drafts');
+                    setProductViewTab(key as 'all' | 'inactive' | 'drafts');
                     setPage(1);
                   }}
                 />
@@ -562,21 +582,27 @@ export const Products: React.FC = () => {
 
                       {/* STATUS TOGGLE */}
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => toggleStatus(p.id)}
+                        <button
+                          type="button"
+                          onClick={() => toggleStatus(p.id)}
+                          disabled={updateProductStatusMutation.isPending}
+                          aria-pressed={p.status !== 'Out of Stock'}
+                          className="inline-flex items-center gap-3 rounded-full border border-transparent px-1 py-1 text-left transition-colors hover:border-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                          title={p.status === 'Out of Stock' ? t('products:status.inStock') : t('products:status.outOfStock')}
+                        >
+                          <span
                             className={`w-10 h-5 rounded-full p-1 transition-colors relative flex items-center ${p.status === 'Out of Stock' ? 'bg-gray-700' : 'bg-emerald-500/80'}`}
-                            title={p.status === 'Out of Stock' ? t('products:status.inStock') : t('products:status.outOfStock')}
                           >
-                            <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${p.status === 'Out of Stock' ? 'translate-x-0' : 'translate-x-4'}`}></div>
-                          </button>
+                            <span className={`w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${p.status === 'Out of Stock' ? 'translate-x-0' : 'translate-x-4'}`}></span>
+                          </span>
                           <span className={`text-[10px] font-bold uppercase tracking-wide ${p.status === 'In Stock' ? 'text-emerald-400' :
                             p.status === 'Out of Stock' ? 'text-red-400' :
+                              p.status === 'Hidden' ? 'text-amber-400' :
                               'text-yellow-400'
                             }`}>
                             {getStatusLabel(p.status)}
                           </span>
-                        </div>
+                        </button>
                       </td>
 
                       <td className="px-6 py-4 text-right">
@@ -590,10 +616,10 @@ export const Products: React.FC = () => {
                           </AdminRowIconButton>
                           <AdminRowIconButton
                             onClick={() => handleDeleteRow(p.id, p.name)}
-                            tone="danger"
+                            tone="default"
                             title={t('products:modal.delete')}
                           >
-                            <Trash2 size={18} />
+                            <EyeOff size={18} />
                           </AdminRowIconButton>
                         </div>
                       </td>

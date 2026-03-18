@@ -29,6 +29,12 @@ const VN_FONT: React.CSSProperties = { fontFamily: "'Be Vietnam Pro', sans-serif
 const MAX_GROUPS = 2;
 const ACCORDION_THRESHOLD = 5; // auto-collapse individual groups above this count
 const PRESET_NAMES = ['Màu sắc', 'Kích thước', 'Chất liệu', 'Kiểu dáng'];
+const normalizeNumericInput = (value: string) => value.replace(/\D/g, '');
+const formatPriceInput = (value: string) => {
+    const digits = normalizeNumericInput(value);
+    if (!digits) return '';
+    return Number(digits).toLocaleString('vi-VN');
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GroupRow — tag input for one attribute group (own useState, no hooks violation)
@@ -150,10 +156,11 @@ interface GroupCardProps {
     isFirst: boolean;
     defaultOpen: boolean;
     updateVariant: (rowId: string, field: 'sku' | 'price' | 'stock', value: string) => void;
+    allowStockEditing: boolean;
 }
 
 const GroupCard: React.FC<GroupCardProps> = ({
-    group, secondaryAttrName, isFirst, defaultOpen, updateVariant,
+    group, secondaryAttrName, isFirst, defaultOpen, updateVariant, allowStockEditing,
 }) => {
     const [open, setOpen] = useState(defaultOpen);
     const [bulkPrice, setBulkPrice] = useState('');
@@ -234,27 +241,32 @@ const GroupCard: React.FC<GroupCardProps> = ({
                             Áp dụng tất cả {group.primaryValue}:
                         </span>
                         <div className="flex items-center gap-1.5">
-                            <input type="number" value={bulkPrice}
-                                onChange={e => setBulkPrice(e.target.value)}
-                                placeholder="Giá (₫)"
-                                className="w-24 bg-black/30 border border-white/10 rounded-md px-2 py-1 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-primary/40"
-                            />
+                            <div className="relative">
+                                <input type="text" inputMode="numeric" value={formatPriceInput(bulkPrice)}
+                                    onChange={e => setBulkPrice(normalizeNumericInput(e.target.value))}
+                                    placeholder="Giá"
+                                    className="w-28 bg-black/30 border border-white/10 rounded-md px-2 py-1 pr-7 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-primary/40"
+                                />
+                                <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[10px] text-white/35">đ</span>
+                            </div>
                             <button type="button" onClick={applyBulkPrice} disabled={!bulkPrice}
                                 className="px-2 py-1 text-[10px] font-semibold bg-primary/20 border border-primary/30 text-primary rounded-md hover:bg-primary/30 transition-colors disabled:opacity-40">
                                 Áp dụng giá
                             </button>
                         </div>
-                        <div className="flex items-center gap-1.5 ml-1">
-                            <input type="number" value={bulkStock}
-                                onChange={e => setBulkStock(e.target.value)}
-                                placeholder="Kho"
-                                className="w-20 bg-black/30 border border-white/10 rounded-md px-2 py-1 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-primary/40"
-                            />
-                            <button type="button" onClick={applyBulkStock} disabled={!bulkStock}
-                                className="px-2 py-1 text-[10px] font-semibold bg-primary/20 border border-primary/30 text-primary rounded-md hover:bg-primary/30 transition-colors disabled:opacity-40">
-                                Áp dụng kho
-                            </button>
-                        </div>
+                        {allowStockEditing && (
+                            <div className="flex items-center gap-1.5 ml-1">
+                                <input type="number" value={bulkStock}
+                                    onChange={e => setBulkStock(e.target.value)}
+                                    placeholder="Kho"
+                                    className="w-20 bg-black/30 border border-white/10 rounded-md px-2 py-1 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-primary/40"
+                                />
+                                <button type="button" onClick={applyBulkStock} disabled={!bulkStock}
+                                    className="px-2 py-1 text-[10px] font-semibold bg-primary/20 border border-primary/30 text-primary rounded-md hover:bg-primary/30 transition-colors disabled:opacity-40">
+                                    Áp dụng kho
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Sub-table: only secondary attribute column shown (primary is in header) */}
@@ -264,7 +276,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
                             }`}>
                             <span>{secondaryAttrName || 'Phân loại'}</span>
                             <span>Mã SKU</span>
-                            <span>Giá bán (₫)</span>
+                            <span>Giá bán (đ)</span>
                             <span>Kho hàng</span>
                         </div>
 
@@ -304,15 +316,17 @@ const GroupCard: React.FC<GroupCardProps> = ({
                                         {/* Price */}
                                         <div className="relative">
                                             <input
-                                                type="number"
-                                                value={row.price}
-                                                onChange={e => updateVariant(row.id, 'price', e.target.value)}
+                                                type="text"
+                                                inputMode="numeric"
+                                                value={formatPriceInput(row.price)}
+                                                onChange={e => updateVariant(row.id, 'price', normalizeNumericInput(e.target.value))}
                                                 placeholder="0"
-                                                className={`w-full bg-black/30 border rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none transition-colors ${!row.price || Number(row.price) <= 0
+                                                className={`w-full bg-black/30 border rounded-lg px-2.5 py-1.5 pr-7 text-xs text-white focus:outline-none transition-colors ${!row.price || Number(row.price) <= 0
                                                     ? 'border-yellow-500/30 focus:border-yellow-400/50'
                                                     : 'border-white/[0.08] focus:border-primary/40'
                                                     }`}
                                             />
+                                            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[10px] text-white/35">đ</span>
                                         </div>
 
                                         {/* Stock */}
@@ -321,6 +335,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
                                                 type="number"
                                                 value={row.stock}
                                                 onChange={e => updateVariant(row.id, 'stock', e.target.value)}
+                                                readOnly={!allowStockEditing}
+                                                disabled={!allowStockEditing}
                                                 placeholder="0"
                                                 className={`w-full bg-black/30 border rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none transition-colors ${!row.stock || Number(row.stock) === 0
                                                     ? 'border-orange-500/20 focus:border-orange-400/40'
@@ -347,32 +363,40 @@ interface GlobalBulkBarProps {
     onApplyPrice: (price: string) => void;
     onApplyStock: (stock: string) => void;
     onRegenSkus: () => void;
+    allowStockEditing: boolean;
 }
 
-const GlobalBulkBar: React.FC<GlobalBulkBarProps> = ({ onApplyPrice, onApplyStock, onRegenSkus }) => {
+const GlobalBulkBar: React.FC<GlobalBulkBarProps> = ({ onApplyPrice, onApplyStock, onRegenSkus, allowStockEditing }) => {
     const [price, setPrice] = useState('');
     const [stock, setStock] = useState('');
     return (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.025] border border-white/[0.07] rounded-xl">
             <Zap size={12} className="text-primary/60 shrink-0" />
             <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider whitespace-nowrap">Toàn bộ:</span>
-            <input type="number" value={price} onChange={e => setPrice(e.target.value)}
-                placeholder="Giá tất cả (₫)"
-                className="w-28 bg-black/30 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-primary/40" />
+            <div className="relative">
+                <input type="text" inputMode="numeric" value={formatPriceInput(price)} onChange={e => setPrice(normalizeNumericInput(e.target.value))}
+                    placeholder="Giá tất cả"
+                    className="w-32 bg-black/30 border border-white/10 rounded-lg px-2.5 py-1.5 pr-7 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-primary/40" />
+                <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[10px] text-white/35">đ</span>
+            </div>
             <button type="button" onClick={() => { if (price) { onApplyPrice(price); setPrice(''); } }}
                 disabled={!price}
                 className="px-2.5 py-1.5 text-[10px] font-semibold bg-primary/20 border border-primary/30 text-primary rounded-lg hover:bg-primary/30 transition-colors disabled:opacity-40">
                 Áp dụng giá
             </button>
-            <div className="w-px h-4 bg-white/10" />
-            <input type="number" value={stock} onChange={e => setStock(e.target.value)}
-                placeholder="Kho tất cả"
-                className="w-24 bg-black/30 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-primary/40" />
-            <button type="button" onClick={() => { if (stock) { onApplyStock(stock); setStock(''); } }}
-                disabled={!stock}
-                className="px-2.5 py-1.5 text-[10px] font-semibold bg-primary/20 border border-primary/30 text-primary rounded-lg hover:bg-primary/30 transition-colors disabled:opacity-40">
-                Áp dụng kho
-            </button>
+            {allowStockEditing && (
+                <>
+                    <div className="w-px h-4 bg-white/10" />
+                    <input type="number" value={stock} onChange={e => setStock(e.target.value)}
+                        placeholder="Kho tất cả"
+                        className="w-24 bg-black/30 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-primary/40" />
+                    <button type="button" onClick={() => { if (stock) { onApplyStock(stock); setStock(''); } }}
+                        disabled={!stock}
+                        className="px-2.5 py-1.5 text-[10px] font-semibold bg-primary/20 border border-primary/30 text-primary rounded-lg hover:bg-primary/30 transition-colors disabled:opacity-40">
+                        Áp dụng kho
+                    </button>
+                </>
+            )}
             <div className="ml-auto">
                 <button type="button" onClick={onRegenSkus}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-semibold text-white/40 hover:text-white border border-white/10 hover:border-white/20 rounded-lg transition-colors">
@@ -394,10 +418,11 @@ export interface VariantManagerProps {
     initialGroups?: AttributeGroup[];
     initialVariants?: VariantRow[];
     onChange: (variants: VariantRow[]) => void;
+    allowStockEditing?: boolean;
 }
 
 export const VariantManager: React.FC<VariantManagerProps> = ({
-    baseSku, basePrice, initialGroups, initialVariants, onChange,
+    baseSku, basePrice, initialGroups, initialVariants, onChange, allowStockEditing = true,
 }) => {
     const [groups, setGroups] = useState<AttributeGroup[]>(
         initialGroups ?? [{ id: Date.now(), name: '', values: [] }]
@@ -492,7 +517,12 @@ export const VariantManager: React.FC<VariantManagerProps> = ({
             {variants.length > 0 && (
                 <div className="space-y-2">
                     {/* Global bulk bar */}
-                    <GlobalBulkBar onApplyPrice={applyPriceAll} onApplyStock={applyStockAll} onRegenSkus={regenSkus} />
+                    <GlobalBulkBar
+                        onApplyPrice={applyPriceAll}
+                        onApplyStock={applyStockAll}
+                        onRegenSkus={regenSkus}
+                        allowStockEditing={allowStockEditing}
+                    />
 
                     {/* Accordion hint */}
                     {useAccordion && (
@@ -511,6 +541,7 @@ export const VariantManager: React.FC<VariantManagerProps> = ({
                                 isFirst={i === 0}
                                 defaultOpen={!useAccordion || i < 2}
                                 updateVariant={updateVariant}
+                                allowStockEditing={allowStockEditing}
                             />
                         ))}
                     </div>

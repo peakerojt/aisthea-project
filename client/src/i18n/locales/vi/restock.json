@@ -125,7 +125,10 @@
     },
     "create": {
       "title": "Tạo phiếu nhập",
+      "sectionInfo": "Thông tin phiếu nhập",
+      "sectionItems": "Danh sách sản phẩm cần nhập",
       "supplier": "Tên nhà cung cấp *",
+      "expected": "Ngày dự kiến nhận",
       "invoice": "Số hóa đơn",
       "contactName": "Người liên hệ",
       "phone": "Số điện thoại NCC",
@@ -133,7 +136,11 @@
       "notes": "Ghi chú",
       "items": "Danh sách sản phẩm nhập",
       "addItem": "Thêm dòng",
-      "chooseVariant": "Chọn biến thể sản phẩm"
+      "chooseVariant": "Chọn biến thể sản phẩm",
+      "variantLabel": "Biến thể sản phẩm",
+      "qtyLabel": "Số lượng đặt",
+      "costLabel": "Đơn giá nhập",
+      "removeItem": "Xóa dòng"
     },
     "receive": {
       "title": "Nhận hàng cho",

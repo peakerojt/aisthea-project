@@ -21,6 +21,8 @@ import {
     AdminSecondaryButton,
     AdminSectionCard,
 } from '@/admin/components/AdminUI';
+import VariantManager from '@/admin/components/VariantManager';
+import type { VariantRow as VMRow } from '@/admin/components/VariantManager';
 import ProductImageManager from '@/admin/components/ProductImageManager';
 import type { ProductImageState } from '@/admin/components/ProductImageManager';
 import {
@@ -44,22 +46,6 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-// ─── Local Types ──────────────────────────────────────────────────────────────
-interface AttributeGroup {
-    id: number;
-    name: string;
-    values: string[];
-}
-
-interface VariantRow {
-    id: string;
-    label: string;
-    combination: { attr: string; value: string }[];
-    sku: string;
-    price: string;
-    stock: string;
-}
-
 interface LocalImage {
     id: string;
     file?: File;
@@ -82,15 +68,6 @@ const toSlug = (s: string) =>
         .replace(/[^a-z0-9\s-]/g, '')
         .trim()
         .replace(/\s+/g, '-');
-
-function cartesian(groups: AttributeGroup[]): { attr: string; value: string }[][] {
-    const valid = groups.filter(g => g.name.trim() && g.values.length > 0);
-    if (!valid.length) return [];
-    return valid.reduce<{ attr: string; value: string }[][]>(
-        (acc, g) => acc.flatMap(combo => g.values.map(v => [...combo, { attr: g.name, value: v }])),
-        [[]]
-    );
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const CreateProduct: React.FC = () => {
@@ -116,11 +93,12 @@ export const CreateProduct: React.FC = () => {
     const productName = watch('name', '');
     const slugPreview = toSlug(productName);
 
-    // Attributes & Variants
-    const [groups, setGroups] = useState<AttributeGroup[]>([
-        { id: Date.now(), name: '', values: [] },
-    ]);
-    const [variants, setVariants] = useState<VariantRow[]>([]);
+    // Variants
+    const [variants, setVariants] = useState<VMRow[]>([]);
+
+    const handleVariantChange = useCallback((rows: VMRow[]) => {
+        setVariants(rows);
+    }, []);
 
     // Images — managed by ProductImageManager
     const [managedImages, setManagedImages] = useState<ProductImageState[]>([]);
@@ -139,85 +117,12 @@ export const CreateProduct: React.FC = () => {
         fetchBrands().then(setBrands).catch(console.error);
     }, []);
 
-    // ─── Regenerate variant matrix when groups change ─────────────────────────
-    useEffect(() => {
-        const combos = cartesian(groups);
-        const baseSku = getValues('baseSku') || 'SKU';
-        const basePrice = getValues('basePrice') || '';
-        setVariants(prev =>
-            combos.map(combo => {
-                const label = combo.map(c => c.value).join(' / ');
-                const existing = prev.find(v => v.label === label);
-                if (existing) return existing;
-                const suffix = combo.map(c => c.value.slice(0, 3).toUpperCase()).join('-');
-                return {
-                    id: Math.random().toString(36).slice(2),
-                    label, combination: combo,
-                    sku: `${baseSku}-${suffix}`,
-                    price: basePrice,
-                    stock: '0',
-                };
-            })
-        );
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [groups]);
-
     // ─── Toast ────────────────────────────────────────────────────────────────
     const showToast = useCallback((type: 'success' | 'error', text: string) => {
         const id = Math.random().toString(36).slice(2);
         setToasts(p => [...p, { id, type, text }]);
         setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
     }, []);
-
-    // ─── Attribute group helpers ──────────────────────────────────────────────
-    const addGroup = () =>
-        setGroups(g => [...g, { id: Date.now(), name: '', values: [] }]);
-
-    const removeGroup = (id: number) =>
-        setGroups(g => g.filter(x => x.id !== id));
-
-    const updateGroupName = (id: number, name: string) =>
-        setGroups(g => g.map(x => x.id === id ? { ...x, name } : x));
-
-    const addValue = (id: number, val: string) => {
-        const trimmed = val.trim();
-        if (!trimmed) return;
-        setGroups(g =>
-            g.map(x =>
-                x.id === id && !x.values.includes(trimmed)
-                    ? { ...x, values: [...x.values, trimmed] }
-                    : x
-            )
-        );
-    };
-
-    const removeValue = (id: number, val: string) =>
-        setGroups(g => g.map(x => x.id === id
-            ? { ...x, values: x.values.filter(v => v !== val) }
-            : x
-        ));
-
-    // ─── Variant helpers ──────────────────────────────────────────────────────
-    const updateVariant = (id: string, field: 'sku' | 'price' | 'stock', value: string) =>
-        setVariants(v => v.map(x => x.id === id ? { ...x, [field]: value } : x));
-
-    const syncPriceAll = () => {
-        const p = getValues('basePrice');
-        if (!p) return;
-        setVariants(v => v.map(x => ({ ...x, price: p })));
-        showToast('success', t('editor.feedback.syncPriceSuccess', { price: Number(p).toLocaleString('vi-VN') }));
-    };
-
-    const regenSkus = () => {
-        const base = getValues('baseSku') || 'SKU';
-        setVariants(v =>
-            v.map(x => ({
-                ...x,
-                sku: `${base}-${x.combination.map(c => c.value.slice(0, 3).toUpperCase()).join('-')}`,
-            }))
-        );
-    };
-
 
     // Upload single image to backend after product creation (with associatedAttributeValue support)
     const uploadImage = async (productId: number, img: ProductImageState): Promise<void> => {
@@ -300,8 +205,6 @@ export const CreateProduct: React.FC = () => {
             : 'border-white/10 focus:border-primary focus:ring-primary'
         }`;
     const labelCls = 'block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5';
-    const PRESET_ATTRS = ['Màu sắc', 'Kích thước', 'Chất liệu', 'Kiểu dáng'];
-
     // ─── Render ───────────────────────────────────────────────────────────────
     return (
         <AdminPageShell className="h-full bg-bg-dark" >
@@ -390,167 +293,18 @@ export const CreateProduct: React.FC = () => {
                         </AdminSectionCard>
 
                         {/* Section 2: Phân loại hàng */}
-                        <AdminSectionCard bodyClassName="space-y-5 p-6">
-                            <div className="flex items-center gap-2">
-                                <Layers size={15} className="text-primary" />
-                                <h2 className="text-sm font-bold text-white uppercase tracking-wider">{t('editor.sections.variants')}</h2>
-                            </div>
-                            <p className="text-xs text-gray-500 -mt-3">
-                                Thêm thuộc tính như Màu sắc, Kích thước. Hệ thống tự tạo bảng phân loại.
-                            </p>
-
-                            {/* Attribute Groups */}
-                            <div className="space-y-4">
-                                {groups.map(g => (
-                                    <div key={g.id} className="p-4 bg-black/20 rounded-lg border border-white/5">
-                                        <div className="flex gap-3 items-start">
-                                            {/* Name */}
-                                            <div className="w-44 shrink-0">
-                                                <label className="text-[10px] text-gray-500 font-bold uppercase block mb-1">{t('editor.fields.attrName')}</label>
-                                                <input
-                                                    value={g.name}
-                                                    onChange={e => updateGroupName(g.id, e.target.value)}
-                                                    placeholder={t('editor.fields.attrNamePlaceholder')}
-                                                    className="w-full bg-surface-dark border border-white/10 rounded px-2.5 py-2 text-sm text-white focus:outline-none focus:border-primary"
-                                                />
-                                                <div className="flex flex-wrap gap-1 mt-2">
-                                                    {PRESET_ATTRS.map(p => (
-                                                        <button key={p} type="button"
-                                                            onClick={() => updateGroupName(g.id, p)}
-                                                            className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border transition-colors ${g.name === p
-                                                                ? 'bg-primary text-white border-primary'
-                                                                : 'text-gray-500 border-white/10 hover:text-white hover:border-white/30'
-                                                                }`}>
-                                                            {p}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            {/* Values */}
-                                            <div className="flex-1">
-                                                <label className="text-[10px] text-gray-500 font-bold uppercase block mb-1">{t('editor.fields.attrValues')}</label>
-                                                <div className="min-h-[40px] bg-surface-dark border border-white/10 rounded px-2.5 py-1.5 flex flex-wrap gap-1.5 items-center focus-within:border-primary transition-colors">
-                                                    {g.values.map(val => (
-                                                        <span key={val} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/10 rounded text-xs text-white border border-white/10">
-                                                            {val}
-                                                            <button type="button" onClick={() => removeValue(g.id, val)} className="hover:text-red-400 ml-0.5">
-                                                                <X size={10} />
-                                                            </button>
-                                                        </span>
-                                                    ))}
-                                                    <input
-                                                        placeholder={g.values.length === 0 ? `VD: ${g.name === 'Màu sắc' ? 'Đỏ, Xanh' : 'S, M, L'}` : ''}
-                                                        className="bg-transparent border-none p-0 text-sm text-white focus:outline-none min-w-[100px] flex-1"
-                                                        onKeyDown={e => {
-                                                            if (e.key === 'Enter') {
-                                                                e.preventDefault();
-                                                                addValue(g.id, e.currentTarget.value);
-                                                                e.currentTarget.value = '';
-                                                            }
-                                                        }}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Remove */}
-                                            {groups.length > 1 && (
-                                                <button type="button" onClick={() => removeGroup(g.id)}
-                                                    className="mt-6 p-1.5 text-gray-600 hover:text-red-400 transition-colors shrink-0">
-                                                    <Trash2 size={15} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-
-                                <button type="button" onClick={addGroup}
-                                    className="flex items-center gap-2 text-xs font-bold text-primary hover:text-white uppercase tracking-wider transition-colors">
-                                    <Plus size={14} /> {t('editor.fields.createAttr')}
-                                </button>
-                            </div>
-
-                            {/* Variant Matrix */}
-                            {variants.length > 0 && (
-                                <div className="pt-4 border-t border-white/5">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                            {t('editor.fields.variantTable', { count: variants.length })}
-                                        </h3>
-                                        <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider">
-                                            <button type="button" onClick={syncPriceAll}
-                                                className="text-primary hover:text-white transition-colors flex items-center gap-1">
-                                                <RefreshCw size={10} /> {t('editor.fields.syncPrice')}
-                                            </button>
-                                            <span className="text-white/10">|</span>
-                                            <button type="button" onClick={regenSkus}
-                                                className="text-primary hover:text-white transition-colors flex items-center gap-1">
-                                                <RefreshCw size={10} /> {t('editor.fields.regenSku')}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="overflow-x-auto border border-white/10 rounded-lg">
-                                        <table className="w-full text-left text-sm min-w-[560px]">
-                                            <thead className="bg-white/5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                                                <tr>
-                                                    <th className="px-4 py-3 border-b border-white/10">{t('editor.fields.variantName')}</th>
-                                                    <th className="px-4 py-3 border-b border-white/10 w-36">{t('editor.fields.sku')}</th>
-                                                    <th className="px-4 py-3 border-b border-white/10 w-32">{t('editor.fields.price')}</th>
-                                                    <th className="px-4 py-3 border-b border-white/10 w-28">{t('editor.fields.stock')}</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-white/5">
-                                                {variants.map((v, i) => (
-                                                    <tr key={v.id} className="hover:bg-white/[0.03] transition-colors">
-                                                        <td className="px-4 py-2.5">
-                                                            <span className="text-white font-semibold text-sm">{v.label}</span>
-                                                            {i === 0 && (
-                                                                <span className="ml-2 text-[9px] bg-primary/20 text-primary border border-primary/30 px-1.5 py-0.5 rounded uppercase font-bold">
-                                                                    {t('editor.fields.default')}
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-4 py-2.5">
-                                                            <input
-                                                                value={v.sku}
-                                                                onChange={e => updateVariant(v.id, 'sku', e.target.value)}
-                                                                className="w-full bg-transparent border-b border-white/10 text-xs text-gray-400 font-mono py-0.5 focus:outline-none focus:border-primary transition-colors"
-                                                            />
-                                                        </td>
-                                                        <td className="px-4 py-2.5">
-                                                            <input
-                                                                type="number"
-                                                                value={v.price}
-                                                                onChange={e => updateVariant(v.id, 'price', e.target.value)}
-                                                                placeholder="0"
-                                                                className={`w-full bg-black/20 border rounded px-2 py-1.5 text-xs text-white text-center focus:outline-none focus:border-primary transition-colors ${!v.price ? 'border-red-500/50' : 'border-white/10'
-                                                                    }`}
-                                                            />
-                                                        </td>
-                                                        <td className="px-4 py-2.5">
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                value={v.stock}
-                                                                onChange={e => updateVariant(v.id, 'stock', e.target.value)}
-                                                                className="w-full bg-black/20 border border-white/10 rounded px-2 py-1.5 text-xs text-white text-center focus:outline-none focus:border-primary transition-colors"
-                                                            />
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            )}
+                        <AdminSectionCard bodyClassName="p-6">
+                            <VariantManager
+                                baseSku={watch('baseSku') ?? ''}
+                                basePrice={watch('basePrice') ?? ''}
+                                onChange={handleVariantChange}
+                            />
                         </AdminSectionCard>
 
                         {/* Section 3: Hình ảnh — ProductImageManager */}
                         <AdminSectionCard bodyClassName="p-6">
                             <ProductImageManager
                                 variants={variants}
-                                attributeGroups={groups}
                                 initialImages={managedImages}
                                 onChange={handleImagesChange}
                             />
@@ -616,13 +370,7 @@ export const CreateProduct: React.FC = () => {
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₫</span>
                                     <input
                                         type="number"
-                                        {...register('basePrice', {
-                                            onChange: e => {
-                                                if (variants.length > 0) {
-                                                    setVariants(v => v.map(x => x.price ? x : { ...x, price: e.target.value }));
-                                                }
-                                            },
-                                        })}
+                                        {...register('basePrice')}
                                         placeholder={t('editor.fields.basePricePlaceholder')}
                                         className={inputCls(!!errors.basePrice) + ' pl-7'}
                                     />
@@ -635,7 +383,7 @@ export const CreateProduct: React.FC = () => {
                             <div>
                                 <label className={labelCls}>{t('editor.fields.baseSku')}</label>
                                 <input
-                                    {...register('baseSku', { onChange: () => regenSkus() })}
+                                    {...register('baseSku')}
                                     placeholder={t('editor.fields.baseSkuPlaceholder')}
                                     className={inputCls(false) + ' font-mono text-xs'}
                                 />

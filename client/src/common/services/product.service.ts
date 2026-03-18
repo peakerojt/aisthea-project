@@ -366,6 +366,11 @@ export interface UpdateProductPayload {
     keptVariantIds: number[];
 }
 
+export interface ProductStatusUpdateResponse {
+    productId: number;
+    status: string;
+}
+
 export const updateProduct = async (
     id: number,
     payload: UpdateProductPayload
@@ -375,6 +380,19 @@ export const updateProduct = async (
         return result.data;
     } catch (error) {
         console.error(`Failed to update product ${id}:`, error);
+        throw error;
+    }
+};
+
+export const updateProductStatus = async (
+    id: number,
+    status: 'Active' | 'Inactive' | 'Draft' | 'Archived'
+): Promise<ProductStatusUpdateResponse> => {
+    try {
+        const result = await productApi.updateStatus(id, status);
+        return result.data;
+    } catch (error) {
+        console.error(`Failed to update product status ${id}:`, error);
         throw error;
     }
 };

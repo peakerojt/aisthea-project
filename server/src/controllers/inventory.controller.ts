@@ -4,7 +4,7 @@ import { logger } from '../lib/logger';
 import { applyManualStockAdjustment } from '../services/inventory.service';
 
 const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', 'FREESIZE', 'FREE SIZE', 'ONE SIZE'];
-const LOW_STOCK_THRESHOLD = 10;
+const LOW_STOCK_THRESHOLD = 20;
 
 function getSizeIndex(value: string): number {
   const idx = SIZE_ORDER.indexOf(value.toUpperCase().trim());

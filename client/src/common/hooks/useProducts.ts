@@ -5,6 +5,7 @@ import {
     fetchProductById,
     createProduct,
     updateProduct,
+    updateProductStatus,
     deleteProductById,
     ProductFilters,
 } from '@/common/services/product.service';
@@ -64,6 +65,18 @@ export const useUpdateProductMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ id, data }: { id: number; data: Parameters<typeof updateProduct>[1] }) => updateProduct(id, data),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: productKeys.detail(variables.id) });
+            queryClient.invalidateQueries({ queryKey: productKeys.lists() });
+        },
+    });
+};
+
+export const useUpdateProductStatusMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, status }: { id: number; status: Parameters<typeof updateProductStatus>[1] }) =>
+            updateProductStatus(id, status),
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: productKeys.detail(variables.id) });
             queryClient.invalidateQueries({ queryKey: productKeys.lists() });

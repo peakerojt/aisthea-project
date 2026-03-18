@@ -24,6 +24,8 @@ interface ApiProduct {
   status?: string;
 }
 
+const isStorefrontVisible = (status?: string) => status === 'Active';
+
 const HERO_IMAGES = {
   Outerwear: 'https://images.unsplash.com/photo-1544642899-f0d6e5f6ed6f?q=80&w=2574&auto=format&fit=crop',
   Tops: 'https://images.unsplash.com/photo-1617137968427-85924c800a22?q=80&w=2574&auto=format&fit=crop',
@@ -167,11 +169,13 @@ export const Collection: React.FC = () => {
         setLoading(true);
         setError(null);
         const responseData = await api.get<any>('/api/products', {
-          params: { search: searchTerm, limit: '100' }
+          params: { search: searchTerm, limit: '100', status: 'Active' }
         });
 
         // Transform API response to match component interface
-        const items = responseData.data || responseData;
+        const items = (responseData.data || responseData).filter((product: ApiProduct) =>
+          isStorefrontVisible(product.status),
+        );
         const transformedProducts: Product[] = items.map((product: ApiProduct) => ({
           id: product.productId.toString(),
           name: product.name,

@@ -425,7 +425,7 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
         setFormDirty(isDirty);
     }, [isDirty]);
 
-    const hasUnsavedChanges = formDirty || newImages.length > 0;
+    const hasUnsavedChanges = formDirty;
 
     useBeforeUnload(
         useCallback((event: BeforeUnloadEvent) => {
@@ -534,16 +534,10 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
 
         setSaving(true);
         try {
-            const deletedImageIds = existingImages
-                .filter(img => img.markedForDelete)
-                .map(img => img.imageId);
-
             const keptVariantIds = variants
                 .filter(v => v.variantId !== undefined)
                 .map(v => v.variantId!);
-
-            const primaryExisting = existingImages.find(img => img.isPrimary && !img.markedForDelete);
-            const primaryImageId = primaryExisting?.imageId;
+            const primaryImageId = managedImages.find(img => img.isPrimary && img.dbImageId)?.dbImageId;
 
             const variantPayloads: UpdateVariantPayload[] = variants.map((v, i) => ({
                 variantId: v.variantId,
@@ -554,14 +548,6 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                 attributeValues: v.combination.map(c => ({ attributeName: c.attr, value: c.value })),
             }));
 
-            const updatedImages = managedImages
-                .filter(img => !img.file && img.id)
-                .map(img => ({
-                    imageId: Number(img.id),
-                    associatedAttributeValue: img.associatedAttributeValue,
-                    isPrimary: img.isPrimary
-                }));
-
             await updateProduct(resolvedProductId, {
                 name: data.name,
                 slug: slugPreview || currentSlug,
@@ -570,18 +556,12 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                 categoryId: Number(data.categoryId),
                 brandId: data.brandId ? Number(data.brandId) : undefined,
                 status: data.status || 'Active',
-                deletedImageIds,
-                newImages: [],   // will upload below
-                updatedImages,
+                deletedImageIds: [],
+                newImages: [],
                 primaryImageId,
                 variants: variantPayloads,
                 keptVariantIds,
             });
-
-            // Upload new images sequentially (best-effort)
-            for (const img of newImages) {
-                await uploadNewImage(resolvedProductId, img);
-            }
 
             showToast('success', t('editor.feedback.updateSuccess', { name: data.name }));
             queryClient.invalidateQueries({ queryKey: productKeys.all });
@@ -617,9 +597,6 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
             </button>
         </div>
     );
-
-    const activeExisting = existingImages.filter(i => !i.markedForDelete);
-    const hasPrimary = activeExisting.some(i => i.isPrimary) || newImages.some(i => i.isPrimary);
 
     return (
         <AdminPageShell className="h-full bg-bg-dark">
@@ -762,6 +739,7 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                                     initialGroups={vmInitialGroups}
                                     initialVariants={vmInitialVariants}
                                     onChange={handleVariantChange}
+                                    allowStockEditing={false}
                                 />
                             ) : (
                                 <div className="flex items-center gap-2 py-4 text-white/30 text-sm">
@@ -850,28 +828,26 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                         </AdminSectionCard>
 
                         {/* Summary card */}
-                        < div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2" >
+                        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2">
                             <p className="text-[10px] uppercase tracking-widest text-primary font-bold mb-3">{t('editor.sections.summary')}</p>
                             <div className="flex justify-between text-xs">
-                                <span className="text-white/50">{t('editor.fields.summaryExistingVariants')}</span>
-                                <span className="text-white">{variants.filter(v => v.variantId).length}</span>
+                                <span className="text-white/50">{t('editor.fields.summaryVariants')}</span>
+                                <span className="text-white">{variants.length}</span>
                             </div>
                             <div className="flex justify-between text-xs">
-                                <span className="text-white/50">{t('editor.fields.summaryNewVariants')}</span>
-                                <span className="text-emerald-400">{variants.filter(v => !v.variantId).length}</span>
+                                <span className="text-white/50">{t('editor.fields.summaryTotalStock')}</span>
+                                <span className="text-white">
+                                    {variants.reduce((sum, variant) => sum + Number(variant.stock || 0), 0).toLocaleString('vi-VN')}
+                                </span>
                             </div>
                             <div className="flex justify-between text-xs">
-                                <span className="text-white/50">{t('editor.fields.summaryImagesToDelete')}</span>
-                                <span className="text-red-400">{existingImages.filter(i => i.markedForDelete).length}</span>
+                                <span className="text-white/50">{t('editor.fields.summaryImages')}</span>
+                                <span className="text-white">{managedImages.length}</span>
                             </div>
-                            <div className="flex justify-between text-xs">
-                                <span className="text-white/50">{t('editor.fields.summaryImagesToAdd')}</span>
-                                <span className="text-emerald-400">{newImages.length}</span>
-                            </div>
-                        </div >
-                    </div >
-                </div >
-            </form >
+                        </div>
+                    </div>
+                </div>
+            </form>
         </AdminPageShell>
     );
 };

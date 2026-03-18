@@ -109,6 +109,8 @@ const toPrimaryAttributeInput = (variant: ProductVariant): PrimaryAttributeInput
   return [...fromFlat, ...fromNested].filter(isPrimaryAttributeInput);
 };
 
+const isStorefrontVisible = (status?: string) => status === 'Active';
+
 export const ProductDetail: React.FC = () => {
   const { t } = useTranslation('products');
   const navigate = useNavigate();
@@ -130,7 +132,9 @@ export const ProductDetail: React.FC = () => {
 
   const { data: rawAPIProducts = [] } = useProductsAPI();
   const products = useMemo<ProductCardItem[]>(() => {
-    return rawAPIProducts.map((product) => ({
+    return rawAPIProducts
+      .filter((product) => isStorefrontVisible(product.status))
+      .map((product) => ({
       id: product.productId.toString(),
       name: product.name,
       price: Number(product.variants?.[0]?.price ?? product.basePrice),
@@ -196,6 +200,10 @@ export const ProductDetail: React.FC = () => {
       try {
         setIsLoading(true);
         const details = await fetchProductById(productId);
+        if (!isStorefrontVisible(details.status)) {
+          navigate('/collection', { replace: true });
+          return;
+        }
         setProductDetails(details);
         if (details.category?.slug) {
           const related = await fetchProducts({ category: details.category.slug });
@@ -211,7 +219,7 @@ export const ProductDetail: React.FC = () => {
     };
     loadData();
     window.scrollTo(0, 0);
-  }, [productId]);
+  }, [navigate, productId]);
 
   useEffect(() => {
     const stored = localStorage.getItem(RECENTLY_VIEWED_KEY);
@@ -220,7 +228,14 @@ export const ProductDetail: React.FC = () => {
     try {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed)) {
-        setRecentProducts(parsed.filter(item => item && typeof item.productId === 'number'));
+        setRecentProducts(
+          parsed.filter(
+            (item) =>
+              item &&
+              typeof item.productId === 'number' &&
+              isStorefrontVisible(item.status),
+          ),
+        );
       }
     } catch (error) {
       console.error('Failed to parse recently viewed products:', error);
@@ -245,11 +260,18 @@ export const ProductDetail: React.FC = () => {
     }
 
     const deduped = parsed.filter(
-      item => item && item.productId !== productDetails.productId,
+      item =>
+        item &&
+        item.productId !== productDetails.productId &&
+        isStorefrontVisible(item.status),
     );
     const next = [productDetails, ...deduped].slice(0, MAX_RECENTLY_VIEWED);
     localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(next));
-    setRecentProducts(next.filter(item => item.productId !== productDetails.productId));
+    setRecentProducts(
+      next.filter(
+        (item) => item.productId !== productDetails.productId && isStorefrontVisible(item.status),
+      ),
+    );
   }, [productDetails]);
 
   // Preload all product images so color-switch is instant

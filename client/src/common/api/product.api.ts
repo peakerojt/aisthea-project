@@ -28,6 +28,9 @@ export const productApi = {
 
     update: (id: number, payload: UpdateProductPayload) => api.put<{ success: boolean; data: { productId: number; variantCount: number } }>(`/api/products/${id}`, payload),
 
+    updateStatus: (id: number, status: 'Active' | 'Inactive' | 'Draft' | 'Archived') =>
+        api.patch<{ success: boolean; data: { productId: number; status: string } }>(`/api/products/${id}/status`, { status }),
+
     delete: (id: number) => api.delete<SmartDeleteResponse>(`/api/products/${id}`),
 
     downloadTemplate: async () => {

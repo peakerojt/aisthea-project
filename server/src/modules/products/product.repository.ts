@@ -35,6 +35,7 @@ const resolveDisplayPrice = (product: {
 const buildWhere = (filters: ProductFilter): Prisma.ProductWhereInput => {
   const { categorySlug, brandId, search, minPrice, maxPrice, status } = filters;
   const isLowStock = status === 'LowStock';
+  const isInactiveGroup = status === 'InactiveGroup';
   const resolvedStatus = isLowStock ? 'Active' : status;
   const variantFilter: Prisma.ProductVariantWhereInput | undefined =
     isLowStock || minPrice !== undefined || maxPrice !== undefined
@@ -48,7 +49,11 @@ const buildWhere = (filters: ProductFilter): Prisma.ProductWhereInput => {
 
   return {
     isDeleted: false,
-    ...(resolvedStatus ? { status: resolvedStatus } : {}),
+    ...(isInactiveGroup
+      ? { status: { in: ['Inactive', 'Archived'] } }
+      : resolvedStatus
+        ? { status: resolvedStatus }
+        : {}),
     ...(categorySlug ? { category: { slug: categorySlug } } : {}),
     ...(brandId ? { brandId } : {}),
     ...(search

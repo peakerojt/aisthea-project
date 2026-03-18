@@ -70,6 +70,15 @@ router.put(
     productController.update,
 );
 
+/** PATCH /api/products/:id/status */
+router.patch(
+    '/:id/status',
+    authenticateToken,
+    requirePermission('MANAGE_PRODUCTS'),
+    invalidateProductCache,
+    productController.updateStatus,
+);
+
 /** DELETE /api/products/:id */
 router.delete(
     '/:id',

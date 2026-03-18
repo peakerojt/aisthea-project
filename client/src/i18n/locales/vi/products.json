@@ -25,6 +25,7 @@
         "inStock": "Còn hàng",
         "lowStock": "Sắp hết hàng",
         "outOfStock": "Hết hàng",
+        "hidden": "Đã ẩn",
         "allStatuses": "Tất cả trạng thái",
         "allCategories": "Tất cả danh mục",
         "defaultSort": "Mặc định",
@@ -43,7 +44,7 @@
     },
     "tabs": {
         "all": "Tất cả sản phẩm",
-        "published": "Đang bán",
+        "inactive": "Ngưng bán",
         "drafts": "Nháp"
     },
     "toolbar": {
@@ -52,17 +53,17 @@
         "selected": "{{count}} đã chọn",
         "cancel": "Hủy chọn",
         "markInStock": "Đánh dấu còn hàng",
-        "deleteSelected": "Xóa đã chọn",
+        "deleteSelected": "Ẩn đã chọn",
         "resetFilters": "Đặt lại bộ lọc",
         "searchPlaceholder": "Tìm theo tên, SKU…",
         "importExport": "Nhập / Xuất"
     },
     "modal": {
-        "deleteTitle": "Xác nhận xóa sản phẩm?",
-        "deleteBody": "Hành động này <b>không thể hoàn tác</b>. Nếu sản phẩm đã có đơn hàng, hệ thống sẽ chỉ <b>ẩn sản phẩm</b> để bảo toàn lịch sử đơn hàng.",
-        "deleteWarning": "Hành động này <span class=\"text-white font-semibold\">không thể hoàn tác</span>. Nếu sản phẩm đã có đơn hàng, hệ thống sẽ chỉ <span class=\"text-yellow-400 font-semibold\">ẩn sản phẩm</span> để bảo toàn lịch sử đơn hàng.",
-        "deleting": "Đang xóa...",
-        "delete": "Xóa"
+        "deleteTitle": "Xác nhận ẩn sản phẩm?",
+        "deleteBody": "Sản phẩm sẽ được <b>ẩn khỏi hiển thị</b> thay vì xóa cứng, giúp tránh ảnh hưởng dây chuyền đến dữ liệu liên quan.",
+        "deleteWarning": "Sản phẩm sẽ được <span class=\"text-yellow-400 font-semibold\">ẩn khỏi hiển thị</span> thay vì xóa cứng để tránh lỗi dây chuyền và giữ an toàn cho dữ liệu liên quan.",
+        "deleting": "Đang ẩn...",
+        "delete": "Ẩn"
     },
     "categories": {
         "coats": "Áo khoác",
@@ -82,10 +83,11 @@
     "feedback": {
         "createSuccess": "Tạo sản phẩm thành công",
         "updateSuccess": "Cập nhật sản phẩm thành công",
-        "deleteSuccess": "Xóa sản phẩm thành công",
-        "deleteConfirm": "Bạn có chắc muốn xóa sản phẩm «{{name}}» không?",
-        "deleteSelectedConfirm": "Bạn có chắc muốn xóa {{count}} mục đã chọn không?",
-        "deleteSelectedSuccess": "Đã xóa {{count}} sản phẩm thành công",
+        "deleteSuccess": "Ẩn sản phẩm thành công",
+        "hideSuccess": "Ẩn sản phẩm thành công",
+        "deleteConfirm": "Bạn có chắc muốn ẩn sản phẩm «{{name}}» không?",
+        "deleteSelectedConfirm": "Bạn có chắc muốn ẩn {{count}} mục đã chọn không?",
+        "deleteSelectedSuccess": "Đã ẩn {{count}} sản phẩm thành công",
         "markInStockSuccess": "Đã đánh dấu còn hàng thành công",
         "priceUpdated": "Cập nhật giá thành công",
         "stockUpdated": "Cập nhật tồn kho thành công",
