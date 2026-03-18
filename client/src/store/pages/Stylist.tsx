@@ -384,9 +384,9 @@ export const Stylist: React.FC = () => {
     const occasionKeywords = collectKeywords(profile.occasion || '', PROFILE_STYLE_RULES);
     const outfitKeywords = outfit
       ? collectKeywords(
-          [outfit.summary, outfit.items.top, outfit.items.bottom, outfit.items.shoes, ...outfit.items.accessories].join(' '),
-          OUTFIT_KEYWORD_RULES,
-        )
+        [outfit.summary, outfit.items.top, outfit.items.bottom, outfit.items.shoes, ...outfit.items.accessories].join(' '),
+        OUTFIT_KEYWORD_RULES,
+      )
       : [];
 
     return {
@@ -627,9 +627,8 @@ export const Stylist: React.FC = () => {
                   <button
                     key={item.value}
                     onClick={() => setActiveMood(item.value)}
-                    className={`px-4 py-2 rounded-sm border text-xs font-bold uppercase tracking-widest transition-all ${
-                      activeMood === item.value ? 'border-primary text-primary bg-primary/10' : 'border-white/10 text-white/70 hover:text-white hover:border-white'
-                    }`}
+                    className={`px-4 py-2 rounded-sm border text-xs font-bold uppercase tracking-widest transition-all ${activeMood === item.value ? 'border-primary text-primary bg-primary/10' : 'border-white/10 text-white/70 hover:text-white hover:border-white'
+                      }`}
                   >
                     {item.label}
                   </button>

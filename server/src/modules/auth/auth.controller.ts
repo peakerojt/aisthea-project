@@ -174,7 +174,15 @@ export const authController = {
                 messageKey: 'auth:success.passwordResetSent',
                 message: 'If an account exists with this email, a password reset link has been sent.',
             });
-        } catch (err) {
+        } catch (err: any) {
+            if (err.message === 'Account not registered') {
+                return res.status(404).json({
+                    success: false,
+                    errorCode: 'USER_NOT_FOUND',
+                    messageKey: 'auth:errors.accountNotRegistered',
+                    message: 'Tài khoản chưa được đăng ký, vui lòng đăng ký để sử dụng',
+                });
+            }
             next(err);
         }
     },
@@ -204,18 +212,17 @@ export const authController = {
 
     resetPassword: async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const token = req.cookies.resetToken || req.body.token;
+            const token = req.body.token;
             if (!token) {
                 return res.status(400).json({
                     success: false,
                     errorCode: 'MISSING_TOKEN',
                     messageKey: 'auth:errors.missingToken',
-                    message: 'Reset token is required.',
+                    message: 'Reset token/code is required.',
                 });
             }
             const { resetPassword: resetPasswordService } = await import('../../services/password.service');
             await resetPasswordService(token, req.body.newPassword);
-            res.clearCookie('resetToken', { path: '/' });
             res.json({
                 success: true,
                 messageKey: 'auth:success.passwordReset',
@@ -223,7 +230,6 @@ export const authController = {
             });
         } catch (err: any) {
             if (err.message?.includes('expired') || err.message?.includes('Invalid')) {
-                res.clearCookie('resetToken', { path: '/' });
                 return res.status(400).json({
                     success: false,
                     errorCode: 'INVALID_TOKEN',

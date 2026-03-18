@@ -1,23 +1,22 @@
 import nodemailer from 'nodemailer';
 import { logger } from '../lib/logger';
+import { env } from '../lib/env'; // Ensure env is loaded before proceeding
 
-const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
 const SMTP_FROM = process.env.SMTP_FROM || 'AISTHEA <noreply@aisthea.com>';
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 
-// Create transporter
-const transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
-    auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS,
-    },
-});
+// Helper function to create the transporter dynamically at runtime 
+// so it guarantees process.env has fully loaded.
+const createTransporter = () => {
+    return nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: parseInt(process.env.SMTP_PORT || '587') === 465,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        },
+    });
+};
 
 /**
  * Send verification email to user with 6-digit code
@@ -106,11 +105,11 @@ export const sendVerificationEmail = async (email: string, code: string, fullNam
     };
 
     try {
-        const info = await transporter.sendMail(mailOptions);
+        const info = await createTransporter().sendMail(mailOptions);
 
         return true;
     } catch (error) {
-        logger.error('[emailService] Failed to send verification email', { error });
+        logger.error('[emailService] Failed to send verification email', { error, smtpUser: process.env.SMTP_USER });
         throw new Error('Failed to send verification email');
     }
 }
@@ -120,10 +119,6 @@ export const sendVerificationEmail = async (email: string, code: string, fullNam
  * Send password reset email
  */
 export const sendPasswordResetEmail = async (email: string, token: string, fullName: string) => {
-    // Link to server endpoint that will validate token and set cookie
-    const SERVER_URL = process.env.SERVER_URL || 'http://localhost:5000';
-    const resetLink = `${SERVER_URL}/api/auth/reset-password-init?token=${token}`;
-
     const mailOptions = {
         from: SMTP_FROM,
         to: email,
@@ -155,24 +150,23 @@ export const sendPasswordResetEmail = async (email: string, token: string, fullN
                                             We received a request to reset your password. If you didn't make this request, you can safely ignore this email.
                                         </p>
                                         
-                                        <!-- Button -->
+                                        <!-- Verification Code -->
                                         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                                             <tr>
-                                                <td align="center" style="padding: 10px 0 30px;">
-                                                    <a href="${resetLink}" style="background-color: #dc2626; color: #ffffff; padding: 16px 32px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">Reset Password</a>
+                                                <td align="center" style="padding: 20px 0 30px;">
+                                                    <div style="background-color: #1a1a1a; border: 2px solid #dc2626; border-radius: 8px; padding: 24px 40px; display: inline-block;">
+                                                        <span style="font-size: 36px; font-weight: 900; color: #ffffff; letter-spacing: 8px; font-family: monospace;">${token}</span>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         </table>
                                         
                                         <p style="margin: 0 0 10px; font-size: 12px; color: #666666; text-align: center;">
-                                            Or copy and paste this link into your browser:
-                                        </p>
-                                        <p style="margin: 0 0 30px; font-size: 11px; color: #444444; text-align: center; word-break: break-all;">
-                                            ${resetLink}
+                                            Enter this code in the forgot password screen to reset your password.
                                         </p>
                                         
                                         <p style="margin: 0; font-size: 12px; color: #666666; text-align: center;">
-                                            This link will expire in 1 hour.
+                                            This code will expire in 1 hour.
                                         </p>
                                     </td>
                                 </tr>
@@ -197,20 +191,23 @@ export const sendPasswordResetEmail = async (email: string, token: string, fullN
             
             We received a request to reset your password.
             
-            Please click the following link to reset your password:
-            ${resetLink}
+            Your password reset code is:
+            
+            ${token}
+            
+            Enter this code in the forgot password screen to reset your password.
             
             If you didn't request this, please ignore this email.
             
-            This link will expire in 1 hour.
+            This code will expire in 1 hour.
         `,
     };
 
     try {
-        await transporter.sendMail(mailOptions);
+        await createTransporter().sendMail(mailOptions);
         return true;
     } catch (error) {
-        logger.error('[emailService] Failed to send password reset email', { error });
+        logger.error('[emailService] Failed to send password reset email', { error, smtpUser: process.env.SMTP_USER });
         throw new Error('Failed to send password reset email');
     }
 };
@@ -220,7 +217,7 @@ export const sendPasswordResetEmail = async (email: string, token: string, fullN
  */
 export const verifyEmailConnection = async () => {
     try {
-        await transporter.verify();
+        await createTransporter().verify();
         logger.info('[emailService] SMTP connection verified');
         return true;
     } catch (error) {

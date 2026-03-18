@@ -12,24 +12,25 @@ const TOKEN_EXPIRY_HOURS = 1;
 export const createPasswordResetToken = async (email: string) => {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-        // Return true to avoid enumerating emails
-        return true;
-    }
-
-    // Check if google user (no password)
-    if (!user.passwordHash && user.googleId) {
-        // Optionally send an email saying "You sign in with Google"
-        // For now, we'll throw an error or just return true.
-        // Let's throw specific error if it's safe, or handle UI side.
-        // Ideally we should send an email saying "You use Google login".
-        throw new Error('This account uses Google Login. Please sign in with Google.');
+        throw new Error('Account not registered');
     }
 
     // Delete existing tokens
     await prisma.passwordResetToken.deleteMany({ where: { userId: user.userId } });
 
-    // Generate secure token
-    const token = crypto.randomBytes(32).toString('hex');
+    // Generate 6-digit secure token
+    let token = '';
+    let isUnique = false;
+    while (!isUnique) {
+        token = crypto.randomInt(100000, 999999).toString();
+        const existingToken = await prisma.passwordResetToken.findFirst({
+            where: { token, expiresAt: { gt: new Date() } }
+        });
+        if (!existingToken) {
+            isUnique = true;
+        }
+    }
+
     const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
 
     await prisma.passwordResetToken.create({
@@ -41,9 +42,17 @@ export const createPasswordResetToken = async (email: string) => {
     });
 
     // Send email
-    await sendPasswordResetEmail(email, token, user.fullName);
+    try {
+        await sendPasswordResetEmail(email, token, user.fullName);
+    } catch (error) {
+        if (process.env.NODE_ENV !== 'production') {
+            console.warn(`[DEV MODE] Failed to send email, but continuing. The OTP for ${email} is ${token}`);
+        } else {
+            throw error;
+        }
+    }
 
-    return true;
+    return token;
 };
 
 /**

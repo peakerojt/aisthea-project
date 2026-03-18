@@ -9,31 +9,28 @@ datasource db {
 }
 
 model User {
-  userId       Int         @id(map: "PK__Users__1788CC4C48050709") @default(autoincrement()) @map("UserId")
-  email        String      @unique(map: "UQ__Users__A9D10534540118E1") @map("Email") @db.NVarChar(100)
-  passwordHash String?     @map("PasswordHash") @db.NVarChar(255)
-  fullName     String      @map("FullName") @db.NVarChar(100)
-  phone        String?     @map("Phone") @db.NVarChar(20)
-  avatarUrl    String?     @map("AvatarUrl") @db.NVarChar(1000)
-  googleId     String?     @unique(map: "UQ_Users_GoogleId") @map("GoogleId") @db.NVarChar(255)
-  status       String      @default("Pending", map: "DF__Users__Status__4F7CD00D") @map("Status") @db.NVarChar(20)
-  createdAt    DateTime?   @default(now(), map: "DF__Users__CreatedAt__5070F446") @map("CreatedAt")
-  updatedAt    DateTime?   @default(now(), map: "DF__Users__UpdatedAt__5165187F") @updatedAt @map("UpdatedAt")
-  addresses    Address[]
-  orders       Order[]
-  reviews      Review[]
-  userLogins   UserLogin[]
-  userRoles    UserRole[]
-  verificationTokens EmailVerificationToken[]
-  passwordResetTokens PasswordResetToken[]
-  inventoryLogs InventoryLog[]
-  orderReturns  OrderReturn[]
-  cart          Cart?        // 1-to-1: mỗi user có tối đa một giỏ hàng
-  stockMovements StockMovement[]
+  userId         Int             @id(map: "PK__Users__1788CC4C48050709") @default(autoincrement()) @map("UserId")
+  email          String          @unique(map: "UQ__Users__A9D10534866FE113") @map("Email") @db.NVarChar(100)
+  passwordHash   String?         @map("PasswordHash") @db.NVarChar(255)
+  fullName       String          @map("FullName") @db.NVarChar(100)
+  phone          String?         @map("Phone") @db.NVarChar(20)
+  avatarUrl      String?         @map("AvatarUrl")
+  googleId       String?         @map("GoogleId") @db.NVarChar(255)
+  status         String          @default("Pending", map: "DF__Users__Status__4F7CD00D") @map("Status") @db.NVarChar(20)
+  createdAt      DateTime?       @default(now(), map: "DF__Users__CreatedAt__4E88ABD4") @map("CreatedAt")
+  updatedAt      DateTime?       @default(now(), map: "DF__Users__UpdatedAt__4F7CD00D") @updatedAt @map("UpdatedAt")
+  addresses      Address[]
+  cart           Cart?
   goodsReceipts  GoodsReceipt[]
+  inventoryLogs  InventoryLog[]
+  orderReturns   OrderReturn[]
+  orders         Order[]
+  reviews        Review[]
+  stockMovements StockMovement[]
+  userLogins     UserLogin[]
+  userRoles      UserRole[]
 
   @@index([email, status], map: "IX_Users_Email_Status")
-  @@index([phone], map: "IX_Users_Phone")
   @@index([status], map: "IX_Users_Status")
   @@map("Users")
 }
@@ -41,10 +38,9 @@ model User {
 model EmailVerificationToken {
   tokenId   Int      @id @default(autoincrement()) @map("TokenId")
   userId    Int      @map("UserId")
-  token     String   @unique @map("Token") @db.NVarChar(255)
+  token     String   @unique(map: "UQ__EmailVer__1EB4F8172BFA0AAB") @map("Token") @db.NVarChar(255)
   expiresAt DateTime @map("ExpiresAt")
-  createdAt DateTime @default(now()) @map("CreatedAt")
-  user      User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  createdAt DateTime @default(now(), map: "DF__EmailVeri__Creat__656C112C") @map("CreatedAt")
 
   @@index([userId], map: "IX_EmailVerificationTokens_UserId")
   @@map("EmailVerificationTokens")
@@ -53,10 +49,9 @@ model EmailVerificationToken {
 model PasswordResetToken {
   tokenId   Int      @id @default(autoincrement()) @map("TokenId")
   userId    Int      @map("UserId")
-  token     String   @unique @map("Token") @db.NVarChar(255)
+  token     String   @unique(map: "UQ__Password__1EB4F817A45E4683") @map("Token") @db.NVarChar(255)
   expiresAt DateTime @map("ExpiresAt")
-  createdAt DateTime @default(now()) @map("CreatedAt")
-  user      User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  createdAt DateTime @default(now(), map: "DF__PasswordR__Creat__6A30C649") @map("CreatedAt")
 
   @@index([userId], map: "IX_PasswordResetTokens_UserId")
   @@map("PasswordResetTokens")
@@ -64,9 +59,9 @@ model PasswordResetToken {
 
 model Role {
   roleId          Int              @id(map: "PK__Roles__8AFACE1ABB9CD182") @default(autoincrement()) @map("RoleId")
-  roleName        String           @unique(map: "UQ__Roles__8A2B6160E320F027") @map("RoleName") @db.NVarChar(50)
-  userRoles       UserRole[]
+  roleName        String           @unique(map: "UQ__Roles__8A2B6160F5366C54") @map("RoleName") @db.NVarChar(50)
   rolePermissions RolePermission[]
+  userRoles       UserRole[]
 
   @@map("Roles")
 }
@@ -81,12 +76,10 @@ model UserRole {
   @@map("UserRoles")
 }
 
-// ─── RBAC: Permissions & Role-Permission join ────────────────────────────────
-
 model Permission {
   permissionId    Int              @id @default(autoincrement()) @map("PermissionId")
-  code            String           @unique @map("Code") @db.NVarChar(100)        // e.g. 'CREATE_PRODUCT'
-  module          String           @map("Module") @db.NVarChar(50)               // e.g. 'PRODUCT'
+  code            String           @unique(map: "UQ__Permissi__A25C5AA7E07CC21D") @map("Code") @db.NVarChar(100)
+  module          String           @map("Module") @db.NVarChar(50)
   description     String           @map("Description") @db.NVarChar(255)
   rolePermissions RolePermission[]
 
@@ -97,8 +90,8 @@ model Permission {
 model RolePermission {
   roleId       Int        @map("RoleId")
   permissionId Int        @map("PermissionId")
-  role         Role       @relation(fields: [roleId], references: [roleId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RolePermissions_Roles")
   permission   Permission @relation(fields: [permissionId], references: [permissionId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RolePermissions_Permissions")
+  role         Role       @relation(fields: [roleId], references: [roleId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RolePermissions_Roles")
 
   @@id([roleId, permissionId], map: "PK_RolePermissions")
   @@map("RolePermissions")
@@ -112,8 +105,8 @@ model UserLogin {
   accessToken         String?   @map("AccessToken") @db.NVarChar(Max)
   refreshToken        String?   @map("RefreshToken") @db.NVarChar(Max)
   tokenExpiry         DateTime? @map("TokenExpiry")
-  createdAt           DateTime? @default(now(), map: "DF__UserLogin__Creat__619B8048") @map("CreatedAt")
-  updatedAt           DateTime? @default(now(), map: "DF__UserLogin__Updat__628FA481") @updatedAt @map("UpdatedAt")
+  createdAt           DateTime? @default(now(), map: "DF__UserLogin__Creat__75A278F5") @map("CreatedAt")
+  updatedAt           DateTime? @default(now(), map: "DF__UserLogin__Updat__76969D2E") @updatedAt @map("UpdatedAt")
   user                User      @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_UserLogins_Users")
 
   @@id([loginProvider, providerKey], map: "PK__UserLogi__2B2C5B5228BA51B5")
@@ -140,20 +133,19 @@ model Category {
   categoryId  Int        @id(map: "PK__Categori__19093A0B5B3A62FD") @default(autoincrement()) @map("CategoryId")
   parentId    Int?       @map("ParentId")
   name        String     @map("Name") @db.NVarChar(100)
-  slug        String     @unique(map: "UQ__Categori__BC7B5FB636C79C65") @map("Slug") @db.NVarChar(100)
+  slug        String     @unique(map: "UQ__Categori__BC7B5FB613DD205D") @map("Slug") @db.NVarChar(100)
   description String?    @map("Description") @db.NVarChar(255)
-  imageUrl    String?    @map("ImageUrl") @db.NVarChar(1000)
+  imageUrl    String?    @map("ImageUrl")
   parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [categoryId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Categories_Parent")
   children    Category[] @relation("CategoryHierarchy")
   products    Product[]
 
-  @@index([parentId], map: "IX_Categories_ParentId")
   @@map("Categories")
 }
 
 model Brand {
   brandId     Int       @id(map: "PK__Brands__DAD4F05E970C8F52") @default(autoincrement()) @map("BrandId")
-  name        String    @unique(map: "UQ__Brands__737584F6CEC21B5F") @map("Name") @db.NVarChar(100)
+  name        String    @unique(map: "UQ__Brands__737584F6F9326690") @map("Name") @db.NVarChar(100)
   description String?   @map("Description") @db.NVarChar(255)
   products    Product[]
 
@@ -165,13 +157,13 @@ model Product {
   categoryId  Int              @map("CategoryId")
   brandId     Int?             @map("BrandId")
   name        String           @map("Name") @db.NVarChar(200)
-  slug        String           @unique(map: "UQ__Products__BC7B5FB63F5A8249") @map("Slug") @db.NVarChar(200)
+  slug        String           @unique(map: "UQ__Products__BC7B5FB6A3E9EF51") @map("Slug") @db.NVarChar(200)
   description String?          @map("Description") @db.NVarChar(Max)
   basePrice   Decimal          @map("BasePrice") @db.Decimal(18, 2)
   status      String?          @default("Active", map: "DF__Products__Status__797309D9") @map("Status") @db.NVarChar(20)
   isDeleted   Boolean?         @default(false, map: "DF__Products__IsDele__7A672E12") @map("IsDeleted")
   deletedAt   DateTime?        @map("DeletedAt")
-  createdAt   DateTime?        @default(now(), map: "DF__Products__Create__7B5B524B") @map("CreatedAt")
+  createdAt   DateTime?        @default(now(), map: "DF__Products__Create__1332DBDC") @map("CreatedAt")
   images      ProductImage[]
   brand       Brand?           @relation(fields: [brandId], references: [brandId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Products_Brands")
   category    Category         @relation(fields: [categoryId], references: [categoryId], onUpdate: NoAction, map: "FK_Products_Categories")
@@ -179,41 +171,38 @@ model Product {
   reviews     Review[]
 
   @@index([basePrice], map: "IX_Products_BasePrice")
-  @@index([brandId], map: "IX_Products_BrandId")
-  @@index([categoryId], map: "IX_Products_CategoryId")
   @@index([name], map: "IX_Products_Name")
   @@index([status], map: "IX_Products_Status")
   @@map("Products")
 }
 
 model ProductVariant {
-  variantId         Int                @id(map: "PK__ProductV__0EA233842CBC34EA") @default(autoincrement()) @map("VariantId")
-  productId         Int                @map("ProductId")
-  sku               String             @unique(map: "UQ__ProductV__CA1ECF0D48746AB3") @map("SKU") @db.NVarChar(50)
-  price             Decimal            @map("Price") @db.Decimal(18, 2)
-  stockQuantity     Int                @default(0, map: "DF__ProductVa__Stock__05D8E0BE") @map("StockQuantity")
-  isDefault         Boolean?           @default(false, map: "DF__ProductVa__IsDef__06CD04F7") @map("IsDefault")
-  isDeleted         Boolean?           @default(false, map: "DF__ProductVa__IsDel__07C12930") @map("IsDeleted")
-  deletedAt         DateTime?          @map("DeletedAt")
-  cartItems         CartItem[]
-  orderItems        OrderItem[]
-  images            ProductImage[]
-  product           Product            @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ProductVariants_Products")
-  variantAttributes VariantAttribute[]
-  inventoryLogs      InventoryLog[]
-  purchaseOrderItems PurchaseOrderItem[]
-  inventorySnapshot  Inventory?
-  stockMovements     StockMovement[]
+  variantId          Int                 @id(map: "PK__ProductV__0EA233842CBC34EA") @default(autoincrement()) @map("VariantId")
+  productId          Int                 @map("ProductId")
+  sku                String              @unique(map: "UQ__ProductV__CA1ECF0D07DA25B6") @map("SKU") @db.NVarChar(50)
+  price              Decimal             @map("Price") @db.Decimal(18, 2)
+  stockQuantity      Int                 @default(0, map: "DF__ProductVa__Stock__05D8E0BE") @map("StockQuantity")
+  isDefault          Boolean?            @default(false, map: "DF__ProductVa__IsDef__06CD04F7") @map("IsDefault")
+  isDeleted          Boolean?            @default(false, map: "DF__ProductVa__IsDel__07C12930") @map("IsDeleted")
+  deletedAt          DateTime?           @map("DeletedAt")
+  cartItems          CartItem[]
   goodsReceiptItems  GoodsReceiptItem[]
+  inventorySnapshot  Inventory?
+  inventoryLogs      InventoryLog[]
+  orderItems         OrderItem[]
+  images             ProductImage[]
+  product            Product             @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ProductVariants_Products")
+  purchaseOrderItems PurchaseOrderItem[]
+  stockMovements     StockMovement[]
+  variantAttributes  VariantAttribute[]
 
-  @@index([productId], map: "IX_ProductVariants_ProductId")
   @@index([stockQuantity], map: "IX_ProductVariants_StockQuantity")
   @@map("ProductVariants")
 }
 
 model Attribute {
   attributeId Int              @id(map: "PK__Attribut__C18929EAFAE9FCA1") @default(autoincrement()) @map("AttributeId")
-  name        String           @unique(map: "UQ__Attribut__737584F6C9E6DEE8") @map("Name") @db.NVarChar(50)
+  name        String           @unique(map: "UQ__Attribut__737584F67726C26D") @map("Name") @db.NVarChar(50)
   values      AttributeValue[]
 
   @@map("Attributes")
@@ -244,8 +233,8 @@ model ProductImage {
   imageId      Int             @id(map: "PK__ProductI__7516F70CF209EF66") @default(autoincrement()) @map("ImageId")
   productId    Int             @map("ProductId")
   variantId    Int?            @map("VariantId")
-  imageUrl     String          @map("ImageUrl") @db.NVarChar(1000)
-  thumbnailUrl String?         @map("ThumbnailUrl") @db.NVarChar(1000)
+  imageUrl     String          @map("ImageUrl")
+  thumbnailUrl String?         @map("ThumbnailUrl")
   isPrimary    Boolean?        @default(false, map: "DF__ProductIm__IsPri__151B244E") @map("IsPrimary")
   product      Product         @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ProductImages_Products")
   variant      ProductVariant? @relation(fields: [variantId], references: [variantId], onDelete: NoAction, onUpdate: NoAction, map: "FK_ProductImages_Variants")
@@ -255,12 +244,12 @@ model ProductImage {
 
 model Cart {
   cartId    Int        @id(map: "PK__Carts__51BCD7B73EF6F31C") @default(autoincrement()) @map("CartId")
-  userId    Int?       @unique(map: "UQ_Carts_UserId") @map("UserId")   // 1-to-1 với User
+  userId    Int?       @unique(map: "UQ__Carts__1788CC4DCDD1BDE2") @map("UserId")
   sessionId String?    @map("SessionId") @db.NVarChar(100)
-  createdAt DateTime?  @default(now(), map: "DF__Carts__CreatedAt__5AEE82B9") @map("CreatedAt")
-  updatedAt DateTime?  @default(now()) @updatedAt @map("UpdatedAt")
-  user      User?      @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Carts_Users")
+  createdAt DateTime?  @default(now(), map: "DF__Carts__CreatedAt__245D67DE") @map("CreatedAt")
+  updatedAt DateTime?  @default(now(), map: "DF__Carts__UpdatedAt__25518C17") @updatedAt @map("UpdatedAt")
   items     CartItem[]
+  user      User?      @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Carts_Users")
 
   @@map("Carts")
 }
@@ -270,53 +259,47 @@ model CartItem {
   cartId     Int            @map("CartId")
   variantId  Int            @map("VariantId")
   quantity   Int            @map("Quantity")
-  addedAt    DateTime?      @default(now()) @map("AddedAt")
+  addedAt    DateTime?      @default(now(), map: "DF__CartItems__Added__503BEA1C") @map("AddedAt")
   cart       Cart           @relation(fields: [cartId], references: [cartId], onDelete: Cascade, onUpdate: NoAction, map: "FK_CartItems_Carts")
   variant    ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_CartItems_Variants")
 
-  @@unique([cartId, variantId], map: "UQ_CartItems_Cart_Variant") // ngăn trùng lặp sản phẩm trong giỏ
+  @@unique([cartId, variantId], map: "UQ_CartItems_Cart_Variant")
   @@map("CartItems")
 }
 
-// ─── Order Status FSM strings ─────────────────────────────────────────────────
-// Valid status values: Pending | Processing | Shipping | Delivered | Cancelled
-//                     Return_Requested | Returned
-
 model Order {
-  orderId               Int         @id(map: "PK__Orders__C3905BCF105BDC52") @default(autoincrement()) @map("OrderId")
-  userId                Int?        @map("UserId")
-  orderNumber           String      @unique(map: "UQ__Orders__CAC5E7434BE02B58") @map("OrderNumber") @db.NVarChar(50)
-  customerName          String      @map("CustomerName") @db.NVarChar(100)
-  customerEmail         String?     @map("CustomerEmail") @db.NVarChar(100)
-  customerPhone         String      @map("CustomerPhone") @db.NVarChar(20)
-  shippingCity          String      @map("ShippingCity") @db.NVarChar(50)
-  shippingDistrict      String      @map("ShippingDistrict") @db.NVarChar(50)
-  shippingWard          String?     @map("ShippingWard") @db.NVarChar(50)
-  shippingAddressDetail String      @map("ShippingAddressDetail") @db.NVarChar(200)
-  shippingFee           Decimal     @default(0) @map("ShippingFee") @db.Decimal(18, 2)
-  shippingMethod        String      @default("STANDARD") @map("ShippingMethod") @db.NVarChar(20)
-  shippingCityCode      String?     @map("ShippingCityCode") @db.NVarChar(10)
-  totalAmount           Decimal     @map("TotalAmount") @db.Decimal(18, 2)
-  discountAmount        Decimal?    @default(0) @map("DiscountAmount") @db.Decimal(18, 2)
-  couponId              Int?        @map("CouponId")
-  status                String?     @default("Pending", map: "DF__Orders__Status__71D1E811") @map("Status") @db.NVarChar(20)
-  paymentMethod         String?     @default("COD", map: "DF__Orders__PaymentM__72C60C4A") @map("PaymentMethod") @db.NVarChar(50)
-  createdAt             DateTime?   @default(now(), map: "DF__Orders__CreatedA__74AE54BC") @map("CreatedAt")
-  updatedAt             DateTime?   @default(now()) @updatedAt @map("UpdatedAt")
-  items                 OrderItem[]
-  user                  User?       @relation(fields: [userId], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Orders_Users")
-  coupon                Coupon?     @relation(fields: [couponId], references: [couponId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Orders_Coupons")
-  payments              Payment[]
-  statusHistory         OrderStatusHistory[]
-  shipment              Shipment?
-  note                  String?     @map("Note") @db.NVarChar(500)
+  orderId               Int                  @id(map: "PK__Orders__C3905BCF105BDC52") @default(autoincrement()) @map("OrderId")
+  userId                Int?                 @map("UserId")
+  orderNumber           String               @unique(map: "UQ__Orders__CAC5E7435600FAE0") @map("OrderNumber") @db.NVarChar(50)
+  customerName          String               @map("CustomerName") @db.NVarChar(100)
+  customerEmail         String?              @map("CustomerEmail") @db.NVarChar(100)
+  customerPhone         String               @map("CustomerPhone") @db.NVarChar(20)
+  shippingCity          String               @map("ShippingCity") @db.NVarChar(50)
+  shippingDistrict      String               @map("ShippingDistrict") @db.NVarChar(50)
+  shippingWard          String?              @map("ShippingWard") @db.NVarChar(50)
+  shippingAddressDetail String               @map("ShippingAddressDetail") @db.NVarChar(200)
+  shippingFee           Decimal              @default(0) @map("ShippingFee") @db.Decimal(18, 2)
+  shippingMethod        String               @default("STANDARD") @map("ShippingMethod") @db.NVarChar(20)
+  shippingCityCode      String?              @map("ShippingCityCode") @db.NVarChar(10)
+  totalAmount           Decimal              @map("TotalAmount") @db.Decimal(18, 2)
+  discountAmount        Decimal?             @default(0) @map("DiscountAmount") @db.Decimal(18, 2)
+  couponId              Int?                 @map("CouponId")
+  status                String?              @default("Pending", map: "DF__Orders__Status__71D1E811") @map("Status") @db.NVarChar(20)
+  paymentMethod         String?              @default("COD", map: "DF__Orders__PaymentM__72C60C4A") @map("PaymentMethod") @db.NVarChar(50)
+  note                  String?              @map("Note") @db.NVarChar(500)
+  createdAt             DateTime?            @default(now(), map: "DF__Orders__CreatedA__0A9D95DB") @map("CreatedAt")
+  updatedAt             DateTime?            @default(now(), map: "DF__Orders__UpdatedA__0B91BA14") @updatedAt @map("UpdatedAt")
   inventoryLogs         InventoryLog[]
+  items                 OrderItem[]
   orderReturn           OrderReturn?
+  coupon                Coupon?              @relation(fields: [couponId], references: [couponId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Orders_Coupons")
+  user                  User?                @relation(fields: [userId], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Orders_Users")
+  statusHistory         OrderStatusHistory[]
+  payments              Payment[]
   refunds               Refund[]
 
   @@index([createdAt], map: "IX_Orders_CreatedAt")
   @@index([status], map: "IX_Orders_Status")
-  @@index([userId], map: "IX_Orders_UserId")
   @@map("Orders")
 }
 
@@ -327,7 +310,7 @@ model OrderStatusHistory {
   status               String   @map("Status") @db.NVarChar(20)
   changedBy            Int?     @map("ChangedBy")
   note                 String?  @map("Note") @db.NVarChar(500)
-  changedAt            DateTime @default(now()) @map("ChangedAt")
+  changedAt            DateTime @default(now(), map: "DF__OrderStat__Chang__2CF2ADDF") @map("ChangedAt")
   order                Order    @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderStatusHistory_Orders")
 
   @@index([orderId], map: "IX_OrderStatusHistory_OrderId")
@@ -336,24 +319,15 @@ model OrderStatusHistory {
 }
 
 model Shipment {
-  shipmentId          Int       @id @default(autoincrement()) @map("ShipmentId")
-  orderId             Int       @unique @map("OrderId")
-  shippingMode        String    @default("manual") @map("ShippingMode") @db.NVarChar(20)
-  provider            String?   @map("Provider") @db.NVarChar(50)
-  providerOrderCode   String?   @map("ProviderOrderCode") @db.NVarChar(100)
-  providerStatus      String?   @map("ProviderStatus") @db.NVarChar(50)
-  carrier             String?   @map("Carrier") @db.NVarChar(100)
-  trackingNumber      String?   @map("TrackingNumber") @db.NVarChar(100)
-  eta                 DateTime? @map("Eta")
-  lastKnownLocation   String?   @map("LastKnownLocation") @db.NVarChar(255)
-  deliveryProofImages String    @default("[]") @map("DeliveryProofImages") @db.NVarChar(Max)
-  deliveryProofReviewed Boolean @default(false) @map("DeliveryProofReviewed")
-  createdAt           DateTime  @default(now()) @map("CreatedAt")
-  updatedAt           DateTime  @default(now()) @updatedAt @map("UpdatedAt")
-  order               Order     @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
+  shipmentId        Int       @id @default(autoincrement()) @map("ShipmentId")
+  orderId           Int       @unique(map: "UQ__Shipment__C3905BCE9AD5941A") @map("OrderId")
+  carrier           String?   @map("Carrier") @db.NVarChar(100)
+  trackingNumber    String?   @map("TrackingNumber") @db.NVarChar(100)
+  eta               DateTime? @map("Eta")
+  lastKnownLocation String?   @map("LastKnownLocation") @db.NVarChar(255)
+  createdAt         DateTime  @default(now(), map: "DF__Shipments__Creat__31B762FC") @map("CreatedAt")
+  updatedAt         DateTime  @default(now(), map: "DF__Shipments__Updat__32AB8735") @updatedAt @map("UpdatedAt")
 
-  @@index([trackingNumber], map: "IX_Shipments_TrackingNumber")
-  @@index([providerOrderCode], map: "IX_Shipments_ProviderOrderCode")
   @@map("Shipments")
 }
 
@@ -368,10 +342,9 @@ model OrderItem {
   quantity    Int             @map("Quantity")
   order       Order           @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderItems_Orders")
   variant     ProductVariant? @relation(fields: [variantId], references: [variantId], onUpdate: NoAction, map: "FK_OrderItems_Variants")
-  review      Review?         // One-to-one: each purchased item can have at most one review
+  review      Review?
 
   @@index([orderId], map: "IX_OrderItems_OrderId")
-  @@index([variantId], map: "IX_OrderItems_VariantId")
   @@map("OrderItems")
 }
 
@@ -382,7 +355,7 @@ model Payment {
   amount          Decimal   @map("Amount") @db.Decimal(18, 2)
   transactionCode String?   @map("TransactionCode") @db.NVarChar(100)
   status          String    @default("Pending", map: "DF__Payments__Status__00200768") @map("Status") @db.NVarChar(20)
-  paymentDate     DateTime? @default(now(), map: "DF__Payments__Paymen__01142BA1") @map("PaymentDate")
+  paymentDate     DateTime? @default(now(), map: "DF__Payments__Paymen__18EBB532") @map("PaymentDate")
   note            String?   @map("Note") @db.NVarChar(500)
   order           Order     @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Payments_Orders")
   refunds         Refund[]
@@ -395,75 +368,62 @@ model Review {
   reviewId    Int        @id(map: "PK__Reviews__74BC79CEFD1A50DD") @default(autoincrement()) @map("ReviewId")
   productId   Int        @map("ProductId")
   userId      Int        @map("UserId")
-  orderItemId Int?       @unique(map: "UQ_Reviews_OrderItemId") @map("OrderItemId") // CRITICAL: one review per purchased item
+  orderItemId Int?       @unique(map: "UQ__Reviews__57ED0680EF6D9F40") @map("OrderItemId")
   rating      Int?       @map("Rating")
-  comment     String?    @map("Comment") @db.NVarChar(1000)
-  images      String?    @default("[]") @map("Images") @db.NVarChar(Max) // JSON array of Cloudinary URLs
-  createdAt   DateTime?  @default(now(), map: "DF__Reviews__Created__0C85DE4D") @map("CreatedAt")
+  comment     String?    @map("Comment")
+  images      String?    @default("[]") @map("Images") @db.NVarChar(Max)
+  createdAt   DateTime?  @default(now(), map: "DF__Reviews__Created__57DD0BE4") @map("CreatedAt")
+  orderItem   OrderItem? @relation(fields: [orderItemId], references: [orderItemId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Reviews_OrderItems")
   product     Product    @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Reviews_Products")
   user        User       @relation(fields: [userId], references: [userId], onUpdate: NoAction, map: "FK_Reviews_Users")
-  orderItem   OrderItem? @relation(fields: [orderItemId], references: [orderItemId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Reviews_OrderItems")
 
   @@index([productId], map: "IX_Reviews_ProductId")
   @@index([userId], map: "IX_Reviews_UserId")
   @@map("Reviews")
 }
 
-// ─── Inventory Audit Log ──────────────────────────────────────────────────────
-// Reason values: CHECKOUT | PURCHASE_RECEIPT | RETURN_RESTORE | MANUAL_ADJUST
-
 model InventoryLog {
-  logId          Int      @id @default(autoincrement()) @map("LogId")
-  variantId      Int      @map("VariantId")
-  orderId        Int?     @map("OrderId")
-  userId         Int?     @map("UserId")
-  changeQuantity Int      @map("ChangeQuantity") // negative for deductions, positive for restocks
-  previousStock  Int      @map("PreviousStock")
-  newStock       Int      @map("NewStock")
-  reason         String   @map("Reason") @db.NVarChar(30)
-  note           String?  @map("Note") @db.NVarChar(500)
-  createdAt      DateTime @default(now()) @map("CreatedAt")
-
-  variant ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_InventoryLogs_Variants")
-  order   Order?         @relation(fields: [orderId], references: [orderId], onDelete: SetNull, onUpdate: NoAction, map: "FK_InventoryLogs_Orders")
-  user    User?          @relation(fields: [userId], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_InventoryLogs_Users")
+  logId          Int            @id @default(autoincrement()) @map("LogId")
+  variantId      Int            @map("VariantId")
+  orderId        Int?           @map("OrderId")
+  userId         Int?           @map("UserId")
+  changeQuantity Int            @map("ChangeQuantity")
+  previousStock  Int            @map("PreviousStock")
+  newStock       Int            @map("NewStock")
+  reason         String         @map("Reason") @db.NVarChar(30)
+  note           String?        @map("Note") @db.NVarChar(500)
+  createdAt      DateTime       @default(now(), map: "DF__Inventory__Creat__5D95E53A") @map("CreatedAt")
+  order          Order?         @relation(fields: [orderId], references: [orderId], onUpdate: NoAction, map: "FK_InventoryLogs_Orders")
+  user           User?          @relation(fields: [userId], references: [userId], onUpdate: NoAction, map: "FK_InventoryLogs_Users")
+  variant        ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_InventoryLogs_Variants")
 
   @@index([variantId], map: "IX_InventoryLogs_VariantId")
-  @@index([orderId],   map: "IX_InventoryLogs_OrderId")
   @@map("InventoryLogs")
 }
 
-// ─── Return & Refund ──────────────────────────────────────────────────────────
-// OrderReturn.status values: PENDING_APPROVAL | APPROVED | REJECTED | COMPLETED
-
 model OrderReturn {
   returnId    Int      @id @default(autoincrement()) @map("ReturnId")
-  orderId     Int      @unique @map("OrderId")                           // One return per order
-  userId      Int?     @map("UserId")                                    // Customer who requested
+  orderId     Int      @unique(map: "UQ__OrderRet__C3905BCE8F2FA571") @map("OrderId")
+  userId      Int?     @map("UserId")
   reason      String   @map("Reason") @db.NVarChar(500)
-  proofImages String   @default("[]") @map("ProofImages") @db.NVarChar(Max) // JSON array of Cloudinary URLs
+  proofImages String   @default("[]") @map("ProofImages") @db.NVarChar(Max)
   status      String   @default("PENDING_APPROVAL") @map("Status") @db.NVarChar(30)
   adminNote   String?  @map("AdminNote") @db.NVarChar(500)
-  createdAt   DateTime @default(now()) @map("CreatedAt")
-  updatedAt   DateTime @default(now()) @updatedAt @map("UpdatedAt")
+  createdAt   DateTime @default(now(), map: "DF__OrderRetu__Creat__395884C4") @map("CreatedAt")
+  updatedAt   DateTime @default(now(), map: "DF__OrderRetu__Updat__3A4CA8FD") @updatedAt @map("UpdatedAt")
+  order       Order    @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderReturns_Orders")
+  user        User?    @relation(fields: [userId], references: [userId], onUpdate: NoAction, map: "FK_OrderReturns_Users")
 
-  order Order @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderReturns_Orders")
-  user  User? @relation(fields: [userId], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_OrderReturns_Users")
-
-  @@index([status],  map: "IX_OrderReturns_Status")
-  @@index([userId],  map: "IX_OrderReturns_UserId")
+  @@index([status], map: "IX_OrderReturns_Status")
   @@map("OrderReturns")
 }
 
-// ─── Coupon & Discount System ─────────────────────────────────────────────────
-// type values enforced at application layer: "FIXED_AMOUNT" | "PERCENTAGE"
-
 model Coupon {
   couponId          Int      @id @default(autoincrement()) @map("CouponId")
-  code              String   @unique @map("Code") @db.NVarChar(50)
-  type              String   @map("Type") @db.NVarChar(20) // "FIXED_AMOUNT" | "PERCENTAGE"
+  code              String   @unique(map: "UQ__Coupons__A25C5AA78F9B22A8") @map("Code") @db.NVarChar(50)
+  type              String   @map("Type") @db.NVarChar(20)
   value             Decimal  @map("Value") @db.Decimal(18, 2)
-  maxDiscountAmount Decimal? @map("MaxDiscountAmount") @db.Decimal(18, 2) // Cap for PERCENTAGE type
+  maxDiscountAmount Decimal? @map("MaxDiscountAmount") @db.Decimal(18, 2)
   minOrderValue     Decimal  @default(0) @map("MinOrderValue") @db.Decimal(18, 2)
   startDate         DateTime @map("StartDate")
   endDate           DateTime @map("EndDate")
@@ -471,18 +431,13 @@ model Coupon {
   usedCount         Int      @default(0) @map("UsedCount")
   usagePerUser      Int      @default(1) @map("UsagePerUser")
   isActive          Boolean  @default(true) @map("IsActive")
-  createdAt         DateTime @default(now()) @map("CreatedAt")
-  updatedAt         DateTime @default(now()) @updatedAt @map("UpdatedAt")
+  createdAt         DateTime @default(now(), map: "DF__Coupons__Created__60A75C0F") @map("CreatedAt")
+  updatedAt         DateTime @default(now(), map: "DF__Coupons__Updated__619B8048") @updatedAt @map("UpdatedAt")
   orders            Order[]
 
   @@index([isActive], map: "IX_Coupons_IsActive")
   @@map("Coupons")
 }
-
-// ─── Financial Refund Ledger ──────────────────────────────────────────────────
-// type:   FULL | PARTIAL
-// method: ORIGINAL_GATEWAY | BANK_TRANSFER | STORE_WALLET
-// status: PENDING | PROCESSING | SUCCESS | FAILED
 
 model Refund {
   refundId             Int      @id @default(autoincrement()) @map("RefundId")
@@ -496,22 +451,19 @@ model Refund {
   reason               String   @map("Reason") @db.NVarChar(500)
   gatewayError         String?  @map("GatewayError") @db.NVarChar(500)
   createdBy            Int?     @map("CreatedBy")
-  createdAt            DateTime @default(now()) @map("CreatedAt")
-  updatedAt            DateTime @default(now()) @updatedAt @map("UpdatedAt")
+  createdAt            DateTime @default(now(), map: "DF__Refunds__Created__40058253") @map("CreatedAt")
+  updatedAt            DateTime @default(now(), map: "DF__Refunds__Updated__40F9A68C") @updatedAt @map("UpdatedAt")
+  order                Order    @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Refunds_Orders")
+  payment              Payment? @relation(fields: [paymentId], references: [paymentId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Refunds_Payments")
 
-  order   Order    @relation(fields: [orderId],   references: [orderId],   onDelete: Cascade, onUpdate: NoAction, map: "FK_Refunds_Orders")
-  payment Payment? @relation(fields: [paymentId], references: [paymentId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Refunds_Payments")
-
-  @@index([orderId],  map: "IX_Refunds_OrderId")
-  @@index([status],   map: "IX_Refunds_Status")
+  @@index([orderId], map: "IX_Refunds_OrderId")
+  @@index([status], map: "IX_Refunds_Status")
   @@map("Refunds")
 }
 
-// ─── Warehouse & Multi-location Inventory ────────────────────────────────────
-
 model PurchaseOrder {
   purchaseOrderId     Int                 @id @default(autoincrement()) @map("PurchaseOrderId")
-  purchaseOrderNumber String              @unique(map: "UQ_PurchaseOrders_Number") @map("PurchaseOrderNumber") @db.NVarChar(50)
+  purchaseOrderNumber String              @unique(map: "UQ__Purchase__96241948471983C2") @map("PurchaseOrderNumber") @db.NVarChar(50)
   supplier            String              @map("Supplier") @db.NVarChar(100)
   expectedReceivedAt  DateTime?           @map("ExpectedReceivedAt")
   invoiceNumber       String?             @map("InvoiceNumber") @db.NVarChar(100)
@@ -519,13 +471,13 @@ model PurchaseOrder {
   supplierPhone       String?             @map("SupplierPhone") @db.NVarChar(20)
   supplierEmail       String?             @map("SupplierEmail") @db.NVarChar(100)
   status              String              @default("PENDING") @map("Status") @db.NVarChar(20)
-  notes               String?             @map("Notes") @db.NVarChar(1000)
-  orderedAt           DateTime            @default(now()) @map("OrderedAt")
+  notes               String?             @map("Notes")
+  orderedAt           DateTime            @default(now(), map: "DF__PurchaseO__Order__65370702") @map("OrderedAt")
   receivedAt          DateTime?           @map("ReceivedAt")
   createdBy           Int?                @map("CreatedBy")
-  updatedAt           DateTime            @default(now()) @updatedAt @map("UpdatedAt")
-  items               PurchaseOrderItem[]
+  updatedAt           DateTime            @default(now(), map: "DF__PurchaseO__Updat__662B2B3B") @updatedAt @map("UpdatedAt")
   goodsReceipts       GoodsReceipt[]
+  items               PurchaseOrderItem[]
 
   @@index([orderedAt], map: "IX_PurchaseOrders_OrderedAt")
   @@index([status], map: "IX_PurchaseOrders_Status")
@@ -533,15 +485,15 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderItem {
-  purchaseOrderItemId Int            @id @default(autoincrement()) @map("PurchaseOrderItemId")
-  purchaseOrderId     Int            @map("PurchaseOrderId")
-  variantId           Int            @map("VariantId")
-  orderedQty          Int            @map("OrderedQty")
-  receivedQty         Int            @default(0) @map("ReceivedQty")
-  unitCost            Decimal        @map("UnitCost") @db.Decimal(18, 2)
-  purchaseOrder       PurchaseOrder  @relation(fields: [purchaseOrderId], references: [purchaseOrderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_PurchaseOrderItems_PurchaseOrders")
-  variant             ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: NoAction, onUpdate: NoAction, map: "FK_PurchaseOrderItems_ProductVariants")
+  purchaseOrderItemId Int                @id @default(autoincrement()) @map("PurchaseOrderItemId")
+  purchaseOrderId     Int                @map("PurchaseOrderId")
+  variantId           Int                @map("VariantId")
+  orderedQty          Int                @map("OrderedQty")
+  receivedQty         Int                @default(0) @map("ReceivedQty")
+  unitCost            Decimal            @map("UnitCost") @db.Decimal(18, 2)
   goodsReceiptItems   GoodsReceiptItem[]
+  variant             ProductVariant     @relation(fields: [variantId], references: [variantId], onUpdate: NoAction, map: "FK_PurchaseOrderItems_ProductVariants")
+  purchaseOrder       PurchaseOrder      @relation(fields: [purchaseOrderId], references: [purchaseOrderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_PurchaseOrderItems_PurchaseOrders")
 
   @@unique([purchaseOrderId, variantId], map: "UQ_PurchaseOrderItems_Order_Variant")
   @@index([variantId], map: "IX_PurchaseOrderItems_VariantId")
@@ -549,12 +501,12 @@ model PurchaseOrderItem {
 }
 
 model Inventory {
-  variantId          Int            @id @map("VariantId")
-  availableQuantity  Int            @default(0) @map("AvailableQuantity")
-  reservedQuantity   Int            @default(0) @map("ReservedQuantity")
-  incomingQuantity   Int            @default(0) @map("IncomingQuantity")
-  updatedAt          DateTime       @default(now()) @updatedAt @map("UpdatedAt")
-  variant            ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Inventory_ProductVariants")
+  variantId         Int            @id @map("VariantId")
+  availableQuantity Int            @default(0) @map("AvailableQuantity")
+  reservedQuantity  Int            @default(0) @map("ReservedQuantity")
+  incomingQuantity  Int            @default(0) @map("IncomingQuantity")
+  updatedAt         DateTime       @default(now(), map: "DF__Inventory__Updat__70A8B9AE") @updatedAt @map("UpdatedAt")
+  variant           ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Inventory_ProductVariants")
 
   @@index([availableQuantity], map: "IX_Inventory_AvailableQuantity")
   @@map("Inventory")
@@ -569,9 +521,9 @@ model StockMovement {
   referenceId     Int?           @map("ReferenceId")
   note            String?        @map("Note") @db.NVarChar(500)
   createdBy       Int?           @map("CreatedBy")
-  createdAt       DateTime       @default(now()) @map("CreatedAt")
+  createdAt       DateTime       @default(now(), map: "DF__StockMove__Creat__74794A92") @map("CreatedAt")
   variant         ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_StockMovements_ProductVariants")
-  user            User?          @relation(fields: [createdBy], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_StockMovements_Users")
+  user            User?          @relation(fields: [createdBy], references: [userId], onUpdate: NoAction, map: "FK_StockMovements_Users")
 
   @@index([variantId, createdAt], map: "IX_StockMovements_Variant_CreatedAt")
   @@index([referenceType, referenceId], map: "IX_StockMovements_Reference")
@@ -581,30 +533,50 @@ model StockMovement {
 model GoodsReceipt {
   goodsReceiptId  Int                @id @default(autoincrement()) @map("GoodsReceiptId")
   purchaseOrderId Int                @map("PurchaseOrderId")
-  receiptNumber   String             @unique(map: "UQ_GoodsReceipts_ReceiptNumber") @map("ReceiptNumber") @db.NVarChar(60)
-  notes           String?            @map("Notes") @db.NVarChar(1000)
+  receiptNumber   String             @unique(map: "UQ__GoodsRec__C08AFDABA14B107C") @map("ReceiptNumber") @db.NVarChar(60)
+  notes           String?            @map("Notes")
   createdBy       Int?               @map("CreatedBy")
-  createdAt       DateTime           @default(now()) @map("CreatedAt")
-  purchaseOrder   PurchaseOrder      @relation(fields: [purchaseOrderId], references: [purchaseOrderId], onDelete: NoAction, onUpdate: NoAction, map: "FK_GoodsReceipts_PurchaseOrders")
-  user            User?              @relation(fields: [createdBy], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_GoodsReceipts_Users")
+  createdAt       DateTime           @default(now(), map: "DF__GoodsRece__Creat__7A3223E8") @map("CreatedAt")
   items           GoodsReceiptItem[]
+  purchaseOrder   PurchaseOrder      @relation(fields: [purchaseOrderId], references: [purchaseOrderId], onUpdate: NoAction, map: "FK_GoodsReceipts_PurchaseOrders")
+  user            User?              @relation(fields: [createdBy], references: [userId], onUpdate: NoAction, map: "FK_GoodsReceipts_Users")
 
   @@index([purchaseOrderId, createdAt], map: "IX_GoodsReceipts_PurchaseOrder_CreatedAt")
   @@map("GoodsReceipts")
 }
 
 model GoodsReceiptItem {
-  goodsReceiptItemId  Int               @id @default(autoincrement()) @map("GoodsReceiptItemId")
-  goodsReceiptId      Int               @map("GoodsReceiptId")
-  purchaseOrderItemId Int?              @map("PurchaseOrderItemId")
-  variantId           Int               @map("VariantId")
-  quantityReceived    Int               @map("QuantityReceived")
-  unitCost            Decimal           @map("UnitCost") @db.Decimal(18, 2)
-  goodsReceipt        GoodsReceipt      @relation(fields: [goodsReceiptId], references: [goodsReceiptId], onDelete: Cascade, onUpdate: NoAction, map: "FK_GoodsReceiptItems_GoodsReceipts")
-  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [purchaseOrderItemId], onDelete: SetNull, onUpdate: NoAction, map: "FK_GoodsReceiptItems_PurchaseOrderItems")
-  variant             ProductVariant    @relation(fields: [variantId], references: [variantId], onDelete: NoAction, onUpdate: NoAction, map: "FK_GoodsReceiptItems_ProductVariants")
+  goodsReceiptItemId  Int                @id @default(autoincrement()) @map("GoodsReceiptItemId")
+  goodsReceiptId      Int                @map("GoodsReceiptId")
+  purchaseOrderItemId Int?               @map("PurchaseOrderItemId")
+  variantId           Int                @map("VariantId")
+  quantityReceived    Int                @map("QuantityReceived")
+  unitCost            Decimal            @map("UnitCost") @db.Decimal(18, 2)
+  goodsReceipt        GoodsReceipt       @relation(fields: [goodsReceiptId], references: [goodsReceiptId], onDelete: Cascade, onUpdate: NoAction, map: "FK_GoodsReceiptItems_GoodsReceipts")
+  variant             ProductVariant     @relation(fields: [variantId], references: [variantId], onUpdate: NoAction, map: "FK_GoodsReceiptItems_ProductVariants")
+  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [purchaseOrderItemId], onUpdate: NoAction, map: "FK_GoodsReceiptItems_PurchaseOrderItems")
 
   @@index([goodsReceiptId], map: "IX_GoodsReceiptItems_GoodsReceiptId")
   @@index([variantId], map: "IX_GoodsReceiptItems_VariantId")
   @@map("GoodsReceiptItems")
+}
+
+model ChatTelemetryEvents {
+  ChatTelemetryEventId Int      @id(map: "PK__ChatTele__94BB47187F656982") @default(autoincrement())
+  Event                String   @db.NVarChar(40)
+  Page                 String   @db.NVarChar(20)
+  SessionId            String   @db.NVarChar(64)
+  ProductId            Int?
+  MessageLength        Int?
+  ConversationLength   Int?
+  Target               String?  @db.NVarChar(200)
+  Label                String?  @db.NVarChar(80)
+  Placement            String?  @db.NVarChar(30)
+  HasContextSummary    Boolean  @default(false, map: "DF_ChatTelemetryEvents_HasContextSummary")
+  IpAddress            String?  @db.NVarChar(64)
+  UserAgent            String?  @db.NVarChar(200)
+  CreatedAt            DateTime @default(dbgenerated("sysutcdatetime()"), map: "DF_ChatTelemetryEvents_CreatedAt")
+
+  @@index([CreatedAt], map: "IX_ChatTelemetryEvents_CreatedAt")
+  @@index([Event, Page], map: "IX_ChatTelemetryEvents_EventPage")
 }
