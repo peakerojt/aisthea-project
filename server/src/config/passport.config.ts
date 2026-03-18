@@ -16,6 +16,9 @@ export const configureGoogleStrategy = () => {
         return;
     }
 
+    const isGoogleHostedAvatar = (url?: string | null) =>
+        typeof url === 'string' && /(^|\.)googleusercontent\.com/i.test(url);
+
     passport.use(
         new GoogleStrategy(
             {
@@ -49,13 +52,15 @@ export const configureGoogleStrategy = () => {
 
                     // User exists - link Google account if not already linked
                     if (user) {
-                        // Update user with Google ID and avatar if not set
-                        if (!user.googleId || !user.avatarUrl) {
+                        const shouldRefreshAvatar = Boolean(avatarUrl) && (!user.avatarUrl || isGoogleHostedAvatar(user.avatarUrl));
+
+                        // Refresh Google-managed avatar URLs on login, but preserve custom uploads.
+                        if (!user.googleId || user.googleId !== googleId || shouldRefreshAvatar) {
                             user = await prisma.user.update({
                                 where: { userId: user.userId },
                                 data: {
-                                    googleId: user.googleId || googleId,
-                                    avatarUrl: user.avatarUrl || avatarUrl,
+                                    googleId,
+                                    ...(shouldRefreshAvatar ? { avatarUrl } : {}),
                                 },
                                 include: { userRoles: { include: { role: true } } }
                             });

@@ -24,6 +24,14 @@ const buildOrderBy = (sort: string): Prisma.ProductOrderByWithRelationInput => {
   return { createdAt: 'desc' };
 };
 
+const resolveDisplayPrice = (product: {
+  basePrice: Prisma.Decimal | number;
+  variants: Array<{ price: Prisma.Decimal | number; isDefault: boolean | null }>;
+}) => {
+  const defaultVariant = product.variants.find((variant) => Boolean(variant.isDefault)) ?? product.variants[0];
+  return Number(defaultVariant?.price ?? product.basePrice ?? 0);
+};
+
 const buildWhere = (filters: ProductFilter): Prisma.ProductWhereInput => {
   const { categorySlug, brandId, search, minPrice, maxPrice, status } = filters;
   const isLowStock = status === 'LowStock';
@@ -76,6 +84,51 @@ export const productRepository = {
     const skip = (page - 1) * limit;
     const where = buildWhere(filters);
     const orderBy = buildOrderBy(filters.sort ?? 'createdAt_desc');
+    const isPriceSort = filters.sort === 'price_asc' || filters.sort === 'price_desc';
+
+    const include = {
+      category: { select: { categoryId: true, name: true, slug: true } },
+      brand: { select: { brandId: true, name: true } },
+      images: {
+        where: { isPrimary: true },
+        take: 1,
+      },
+      variants: {
+        where: { isDeleted: false },
+        select: { sku: true, price: true, stockQuantity: true, isDefault: true },
+        orderBy: [{ isDefault: 'desc' as const }, { variantId: 'asc' as const }],
+      },
+    };
+
+    if (isPriceSort) {
+      const products = await prisma.product.findMany({
+        where,
+        include,
+      });
+
+      const sortedProducts = products.sort((left, right) => {
+        const leftPrice = resolveDisplayPrice(left);
+        const rightPrice = resolveDisplayPrice(right);
+
+        if (leftPrice === rightPrice) {
+          return right.productId - left.productId;
+        }
+
+        return filters.sort === 'price_asc' ? leftPrice - rightPrice : rightPrice - leftPrice;
+      });
+
+      const pagedProducts = sortedProducts.slice(skip, skip + limit);
+
+      return {
+        data: pagedProducts,
+        meta: {
+          total: sortedProducts.length,
+          page,
+          limit,
+          totalPages: Math.ceil(sortedProducts.length / limit),
+        },
+      };
+    }
 
     const [products, total] = await Promise.all([
       prisma.product.findMany({
@@ -83,18 +136,7 @@ export const productRepository = {
         skip,
         take: limit,
         orderBy,
-        include: {
-          category: { select: { categoryId: true, name: true, slug: true } },
-          brand: { select: { brandId: true, name: true } },
-          images: {
-            where: { isPrimary: true },
-            take: 1,
-          },
-          variants: {
-            where: { isDeleted: false },
-            select: { sku: true, price: true, stockQuantity: true, isDefault: true },
-          },
-        },
+        include,
       }),
       prisma.product.count({ where }),
     ]);

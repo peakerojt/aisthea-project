@@ -48,6 +48,8 @@ function endOfDay(d: Date): Date {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 }
 
+const FULFILLED_ORDER_STATUSES = ['Delivered', 'COMPLETED', 'Completed'] as const;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/analytics/summary?startDate=&endDate=
 // ─────────────────────────────────────────────────────────────────────────────
@@ -64,7 +66,7 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
         const end = endOfDay(parseDate(req.query.endDate, defaultEnd));
 
         // ── Cache check ────────────────────────────────────────────────────────
-        const cacheKey = `${req.query.startDate ?? 'default'}_${req.query.endDate ?? 'default'}`;
+        const cacheKey = `analytics_v2_${req.query.startDate ?? 'default'}_${req.query.endDate ?? 'default'}`;
         const cached = getCached(cacheKey);
         if (cached) {
             return res.json({ ...cached, _cached: true });
@@ -77,18 +79,18 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
             orders: number | string;
         }> = await prisma.$queryRaw`
       SELECT
-        c.Name AS category,
+        COALESCE(c.Name, N'Chưa phân loại') AS category,
         SUM(CAST(oi.UnitPrice AS FLOAT) * oi.Quantity) AS revenue,
         COUNT(DISTINCT o.OrderId) AS orders
       FROM OrderItems oi
       INNER JOIN Orders o        ON oi.OrderId    = o.OrderId
-      INNER JOIN ProductVariants pv ON oi.VariantId = pv.VariantId
-      INNER JOIN Products p      ON pv.ProductId  = p.ProductId
-      INNER JOIN Categories c    ON p.CategoryId  = c.CategoryId
+      LEFT JOIN ProductVariants pv ON oi.VariantId = pv.VariantId
+      LEFT JOIN Products p      ON pv.ProductId  = p.ProductId
+      LEFT JOIN Categories c    ON p.CategoryId  = c.CategoryId
       WHERE o.CreatedAt >= ${start}
         AND o.CreatedAt <= ${end}
-        AND o.Status = 'COMPLETED'
-      GROUP BY c.Name
+        AND UPPER(o.Status) IN ('DELIVERED', 'COMPLETED')
+      GROUP BY COALESCE(c.Name, N'Chưa phân loại')
       ORDER BY revenue DESC
     `;
 
@@ -125,7 +127,7 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
         }> = await prisma.$queryRaw`
       SELECT
         FORMAT(o.CreatedAt, 'yyyy-MM') AS label,
-        SUM(CAST(o.TotalAmount AS FLOAT)) AS revenue,
+        SUM(CASE WHEN UPPER(o.Status) IN ('DELIVERED', 'COMPLETED') THEN CAST(o.TotalAmount AS FLOAT) ELSE 0 END) AS revenue,
         COUNT(o.OrderId) AS orders
       FROM Orders o
       WHERE o.CreatedAt >= ${start}
@@ -152,7 +154,7 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
       INNER JOIN Users u ON o.UserId = u.UserId
       WHERE o.CreatedAt >= ${start}
         AND o.CreatedAt <= ${end}
-        AND o.Status = 'COMPLETED'
+        AND UPPER(o.Status) IN ('DELIVERED', 'COMPLETED')
         AND o.UserId IS NOT NULL
       GROUP BY u.UserId, u.FullName, u.Email
       ORDER BY totalSpent DESC
@@ -166,19 +168,19 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
             lostRevenue: number | string;
         }> = await prisma.$queryRaw`
       SELECT TOP 5
-        p.ProductId   AS productId,
-        p.Name        AS productName,
+        MIN(COALESCE(p.ProductId, -oi.OrderItemId)) AS productId,
+        COALESCE(MAX(p.Name), MAX(oi.ProductName)) AS productName,
         COUNT(oi.OrderItemId) AS cancelCount,
         SUM(CAST(oi.UnitPrice AS FLOAT) * oi.Quantity) AS lostRevenue
       FROM OrderItems oi
       INNER JOIN Orders o           ON oi.OrderId   = o.OrderId
-      INNER JOIN ProductVariants pv ON oi.VariantId = pv.VariantId
-      INNER JOIN Products p         ON pv.ProductId = p.ProductId
+      LEFT JOIN ProductVariants pv  ON oi.VariantId = pv.VariantId
+      LEFT JOIN Products p          ON pv.ProductId = p.ProductId
       WHERE o.CreatedAt >= ${start}
         AND o.CreatedAt <= ${end}
-        AND o.Status = 'CANCELLED'
-      GROUP BY p.ProductId, p.Name
-      ORDER BY cancelCount DESC
+        AND UPPER(o.Status) IN ('CANCELLED', 'CANCELED')
+      GROUP BY COALESCE(CAST(p.ProductId AS NVARCHAR(50)), CONCAT(N'SNAPSHOT:', oi.ProductName))
+      ORDER BY cancelCount DESC, productName ASC
     `;
 
         // ── 6. MoM Revenue Growth ─────────────────────────────────────────────
@@ -188,11 +190,11 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
 
         const [currRev, prevRev] = await Promise.all([
             prisma.order.aggregate({
-                where: { status: 'COMPLETED', createdAt: { gte: start, lte: end } },
+                where: { status: { in: [...FULFILLED_ORDER_STATUSES] }, createdAt: { gte: start, lte: end } },
                 _sum: { totalAmount: true },
             }),
             prisma.order.aggregate({
-                where: { status: 'COMPLETED', createdAt: { gte: prevStart, lte: prevEnd } },
+                where: { status: { in: [...FULFILLED_ORDER_STATUSES] }, createdAt: { gte: prevStart, lte: prevEnd } },
                 _sum: { totalAmount: true },
             }),
         ]);
@@ -205,7 +207,9 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
 
         // Total orders & avg order value
         const totalOrders = statusFunnel.reduce((s, g) => s + g.value, 0);
-        const completedOrders = statusFunnel.find(g => g.status === 'COMPLETED')?.value ?? 0;
+        const completedOrders = statusFunnel
+            .filter(g => g.status === 'DELIVERED' || g.status === 'COMPLETED')
+            .reduce((sum, group) => sum + group.value, 0);
         const avgOrderValue = completedOrders > 0 ? currentRevenue / completedOrders : 0;
 
         // ── 7. Customer Retention: New vs Returning ───────────────────────────
@@ -223,13 +227,13 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
         FROM Orders o
         WHERE o.CreatedAt >= ${start}
           AND o.CreatedAt <= ${end}
-          AND o.Status = 'COMPLETED'
+          AND UPPER(o.Status) IN ('DELIVERED', 'COMPLETED')
           AND o.UserId IS NOT NULL
       ) AS current_customers
       LEFT JOIN (
         SELECT DISTINCT UserId
         FROM Orders
-        WHERE Status = 'COMPLETED'
+        WHERE UPPER(Status) IN ('DELIVERED', 'COMPLETED')
           AND CreatedAt < ${start}
           AND UserId IS NOT NULL
       ) AS prior

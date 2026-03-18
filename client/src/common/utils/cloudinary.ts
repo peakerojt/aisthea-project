@@ -16,6 +16,8 @@ export interface CloudinaryOptions {
     sharpen?: boolean;
 }
 
+const GOOGLE_HOSTED_IMAGE_PATTERN = /(^|\.)googleusercontent\.com$/i;
+
 /**
  * Strips existing Cloudinary transformation segments from the asset path.
  *
@@ -76,6 +78,26 @@ export function optimizeCloudinaryUrl(
     return `${baseUrl}${t.join(',')}/${cleanAssetPath}`;
 }
 
+function normalizeGoogleHostedImageUrl(imageUrl: string): string {
+    try {
+        const parsed = new URL(imageUrl);
+        if (!GOOGLE_HOSTED_IMAGE_PATTERN.test(parsed.hostname)) {
+            return imageUrl;
+        }
+
+        const normalizedPath = parsed.pathname.replace(/=s\d+(?:-[a-z0-9-]+)?$/i, '=s256-c');
+        if (normalizedPath !== parsed.pathname) {
+            parsed.pathname = normalizedPath;
+            return parsed.toString();
+        }
+
+        parsed.searchParams.set('sz', '256');
+        return parsed.toString();
+    } catch {
+        return imageUrl;
+    }
+}
+
 /**
  * Product card thumbnail — 800×800 square @ 2× retina.
  * Uses c_fill + g_north to keep the top (collar area) of garments.
@@ -121,4 +143,14 @@ export function getCloudinaryFullSize(cloudinaryUrl: string): string {
 /**
  * Generic image url alias
  */
-export const getImageUrl = optimizeCloudinaryUrl;
+export function getImageUrl(imageUrl: string): string {
+    if (!imageUrl) return imageUrl;
+    try {
+        if (GOOGLE_HOSTED_IMAGE_PATTERN.test(new URL(imageUrl).hostname)) {
+            return normalizeGoogleHostedImageUrl(imageUrl);
+        }
+    } catch {
+        return imageUrl;
+    }
+    return optimizeCloudinaryUrl(imageUrl);
+}

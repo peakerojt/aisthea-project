@@ -11,6 +11,7 @@
         "name": "Tên sản phẩm",
         "sku": "Mã SKU",
         "price": "Giá bán",
+        "priceSort": "Sắp xếp theo giá",
         "stock": "Tồn kho",
         "category": "Danh mục",
         "description": "Mô tả",
@@ -25,7 +26,10 @@
         "lowStock": "Sắp hết hàng",
         "outOfStock": "Hết hàng",
         "allStatuses": "Tất cả trạng thái",
-        "allCategories": "Tất cả danh mục"
+        "allCategories": "Tất cả danh mục",
+        "defaultSort": "Mặc định",
+        "priceLowToHigh": "Giá thấp đến cao",
+        "priceHighToLow": "Giá cao đến thấp"
     },
     "table": {
         "product": "Thông tin sản phẩm",

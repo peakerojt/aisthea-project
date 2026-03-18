@@ -24,6 +24,14 @@ export const NotificationBell: React.FC = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    const openInventoryItem = (variantId: number, search: string) => {
+        const params = new URLSearchParams();
+        if (search.trim()) params.set('search', search.trim());
+        params.set('variantId', String(variantId));
+        setOpen(false);
+        navigate(`/admin/restock?${params.toString()}`);
+    };
+
     return (
         <div ref={wrapperRef} className="relative" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
             {/* Bell Button */}
@@ -76,38 +84,44 @@ export const NotificationBell: React.FC = () => {
                     ) : (
                         <ul className="divide-y divide-white/[0.04]">
                             {topItems.map((item) => (
-                                <li key={item.variantId} className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors">
-                                    {/* Thumbnail */}
-                                    <div className="w-8 h-10 rounded overflow-hidden bg-white/5 border border-white/5 shrink-0">
-                                        {item.product.primaryImageUrl ? (
-                                            <img
-                                                src={item.product.primaryImageUrl}
-                                                alt={item.product.name}
-                                                className="w-full h-full object-cover"
-                                            />
+                                <li key={item.variantId}>
+                                    <button
+                                        type="button"
+                                        onClick={() => openInventoryItem(item.variantId, item.sku || item.product.name)}
+                                        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03] transition-colors"
+                                    >
+                                        {/* Thumbnail */}
+                                        <div className="w-8 h-10 rounded overflow-hidden bg-white/5 border border-white/5 shrink-0">
+                                            {item.product.primaryImageUrl ? (
+                                                <img
+                                                    src={item.product.primaryImageUrl}
+                                                    alt={item.product.name}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <Package size={12} className="text-white/20" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        {/* Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-semibold text-white truncate">{item.product.name}</p>
+                                            <p className="text-[10px] text-white/40 truncate">
+                                                {item.variantLabel || 'Mặc định'}
+                                            </p>
+                                        </div>
+                                        {/* Badge */}
+                                        {item.stockQuantity === 0 ? (
+                                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20 shrink-0">
+                                                Đã hết hàng
+                                            </span>
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center">
-                                                <Package size={12} className="text-white/20" />
-                                            </div>
+                                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20 shrink-0 whitespace-nowrap">
+                                                Còn {item.stockQuantity}
+                                            </span>
                                         )}
-                                    </div>
-                                    {/* Info */}
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-semibold text-white truncate">{item.product.name}</p>
-                                        <p className="text-[10px] text-white/40 truncate">
-                                            {item.variantLabel || 'Mặc định'}
-                                        </p>
-                                    </div>
-                                    {/* Badge */}
-                                    {item.stockQuantity === 0 ? (
-                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20 shrink-0">
-                                            Đã hết hàng
-                                        </span>
-                                    ) : (
-                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20 shrink-0 whitespace-nowrap">
-                                            Còn {item.stockQuantity}
-                                        </span>
-                                    )}
+                                    </button>
                                 </li>
                             ))}
                         </ul>

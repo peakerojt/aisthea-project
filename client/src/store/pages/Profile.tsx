@@ -42,6 +42,7 @@ export const Profile: React.FC = () => {
   // Avatar upload state
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
   // Load profile data
   const loadProfileData = useCallback(async () => {
@@ -71,6 +72,10 @@ export const Profile: React.FC = () => {
   useEffect(() => {
     loadProfileData();
   }, [loadProfileData]);
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [avatarPreview, profile?.avatarUrl]);
 
   const handleLogout = async () => {
     await logout();
@@ -261,10 +266,12 @@ export const Profile: React.FC = () => {
             {/* Avatar */}
             <div className="flex-shrink-0">
               <div className="relative group">
-                {profile.avatarUrl || avatarPreview ? (
+                {(profile.avatarUrl || avatarPreview) && !avatarLoadFailed ? (
                   <img
                     src={avatarPreview || getImageUrl(profile.avatarUrl)}
                     alt={t('avatar.alt')}
+                    referrerPolicy="no-referrer"
+                    onError={() => setAvatarLoadFailed(true)}
                     className="w-32 h-32 rounded-full object-cover border-4 border-white/10"
                   />
                 ) : (

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Ban, ChevronLeft, ChevronRight, Eye, Plus, RefreshCw, Truck, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import {
   AdminActionButton,
   AdminBadge,
@@ -72,6 +74,7 @@ const getStatusBadgeTone = (status: PurchaseOrderStatus) => {
 
 const INVENTORY_PAGE_SIZE = 40;
 const PO_PAGE_SIZE = 20;
+const LOW_STOCK_THRESHOLD = 10;
 const INVENTORY_GRID_TEMPLATE = 'minmax(320px,2.4fr) minmax(140px,1fr) minmax(130px,0.9fr) minmax(160px,1fr) minmax(220px,1.2fr)';
 const makeDefaultMeta = (pageSize: number): PaginationMeta => ({
   total: 0,
@@ -83,6 +86,11 @@ const makeDefaultMeta = (pageSize: number): PaginationMeta => ({
 export const Restock: React.FC = () => {
   const { t } = useTranslation();
   const tt = t as (key: string, opts?: Record<string, unknown>) => string;
+  const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+
+  const initialInventorySearch = searchParams.get('search')?.trim() ?? '';
+  const initialFocusedVariantId = Number.parseInt(searchParams.get('variantId') ?? '', 10);
 
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [variants, setVariants] = useState<InventoryVariant[]>([]);
@@ -95,7 +103,7 @@ export const Restock: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [poSearch, setPoSearch] = useState('');
-  const [inventorySearch, setInventorySearch] = useState('');
+  const [inventorySearch, setInventorySearch] = useState(initialInventorySearch);
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [showOutOfStockOnly, setShowOutOfStockOnly] = useState(false);
   const [poPage, setPoPage] = useState(1);
@@ -127,6 +135,25 @@ export const Restock: React.FC = () => {
   const summaryRequestIdRef = useRef(0);
   const inventoryScrollRef = useRef<HTMLDivElement | null>(null);
   const variantOptionsLoadingRef = useRef(false);
+  const [focusedVariantId, setFocusedVariantId] = useState<number | null>(
+    Number.isInteger(initialFocusedVariantId) && initialFocusedVariantId > 0 ? initialFocusedVariantId : null,
+  );
+
+  const isLowStockQuantity = useCallback(
+    (qty: number) => qty > 0 && qty <= LOW_STOCK_THRESHOLD,
+    [],
+  );
+
+  useEffect(() => {
+    const nextSearch = searchParams.get('search')?.trim() ?? '';
+    const nextFocusedVariantId = Number.parseInt(searchParams.get('variantId') ?? '', 10);
+
+    setInventorySearch((current) => (current === nextSearch ? current : nextSearch));
+    setFocusedVariantId(
+      Number.isInteger(nextFocusedVariantId) && nextFocusedVariantId > 0 ? nextFocusedVariantId : null,
+    );
+    setInventoryPage(1);
+  }, [searchParams]);
 
   const loadOrders = useCallback(async () => {
     const requestId = ++poRequestIdRef.current;
@@ -173,7 +200,7 @@ export const Restock: React.FC = () => {
       if (showOutOfStockOnly && !showLowStockOnly) {
         rows = rows.filter((v) => v.stockQuantity <= 0);
       } else if (showLowStockOnly && !showOutOfStockOnly) {
-        rows = rows.filter((v) => v.stockQuantity > 0 && v.stockQuantity < 10);
+        rows = rows.filter((v) => isLowStockQuantity(v.stockQuantity));
       }
 
       setVariants(rows);
@@ -188,7 +215,7 @@ export const Restock: React.FC = () => {
         setFetchingInventory(false);
       }
     }
-  }, [debouncedInventorySearch, inventoryPage, showLowStockOnly, showOutOfStockOnly, tt, variants.length]);
+  }, [debouncedInventorySearch, inventoryPage, isLowStockQuantity, showLowStockOnly, showOutOfStockOnly, tt, variants.length]);
 
   const loadInventorySummary = useCallback(async () => {
     const requestId = ++summaryRequestIdRef.current;
@@ -315,7 +342,7 @@ export const Restock: React.FC = () => {
     setReceivingOrder(order);
   };
 
-  const handleReceive = async () => {
+  const handleReceive = useCallback(async () => {
     if (!receivingOrder) return;
     const items = receivingOrder.items
       .map((i) => ({ purchaseOrderItemId: i.purchaseOrderItemId, quantity: Number(receivingMap[i.purchaseOrderItemId] || 0) }))
@@ -330,13 +357,14 @@ export const Restock: React.FC = () => {
       setReceivingMap({});
       setReceivingNote('');
       await Promise.all([loadOrders(), loadInventory(), loadInventorySummary()]);
+      await queryClient.invalidateQueries({ queryKey: ['inventory-alerts'] });
     } catch (e) {
       const err = e as Error;
       setError(err.message || tt('restock:po.errors.receiveFailed'));
     } finally {
       setReceiving(false);
     }
-  };
+  }, [loadInventory, loadInventorySummary, loadOrders, queryClient, receivingMap, receivingNote, receivingOrder, tt]);
 
   const handleCancel = async (order: PurchaseOrder) => {
     if (!window.confirm(tt('restock:po.actions.cancelConfirm', { po: order.purchaseOrderNumber }))) return;
@@ -352,15 +380,20 @@ export const Restock: React.FC = () => {
   const renderInventoryStatus = useCallback(
     (qty: number) => {
       if (qty <= 0) return inventoryStatusMeta.out;
-      if (qty < 10) return inventoryStatusMeta.low;
+      if (qty <= LOW_STOCK_THRESHOLD) return inventoryStatusMeta.low;
       return inventoryStatusMeta.ok;
     },
     [inventoryStatusMeta],
   );
 
   const handleRefresh = useCallback(() => {
-    void Promise.all([loadOrders(), loadInventory(), loadInventorySummary()]);
-  }, [loadOrders, loadInventory, loadInventorySummary]);
+    void Promise.all([
+      loadOrders(),
+      loadInventory(),
+      loadInventorySummary(),
+      queryClient.invalidateQueries({ queryKey: ['inventory-alerts'] }),
+    ]);
+  }, [loadOrders, loadInventory, loadInventorySummary, queryClient]);
 
   const changeInventoryPage = useCallback((nextPage: number) => {
     if (nextPage === inventoryPage) return;
@@ -401,7 +434,7 @@ export const Restock: React.FC = () => {
   const modalTextareaClass = `${adminUiTokens.fieldControl} rounded-lg bg-black/20 min-h-[80px]`;
 
   return (
-    <AdminPageShell className="max-w-[1400px]">
+    <AdminPageShell className="max-w-[1400px] h-auto min-h-full pb-6">
       <AdminPageHeader
         title={tt('restock:po.title')}
         subtitle={tt('restock:po.subtitle')}
@@ -508,7 +541,8 @@ export const Restock: React.FC = () => {
         </div>
         <div
           ref={inventoryScrollRef}
-          className={`overflow-auto max-h-[420px] relative isolate transition-opacity ${fetchingInventory ? 'opacity-95' : 'opacity-100'}`}
+          className={`relative isolate overflow-auto transition-opacity ${fetchingInventory ? 'opacity-95' : 'opacity-100'}`}
+          style={{ maxHeight: 'min(420px, 40vh)' }}
         >
           {loadingInventory && variants.length === 0 ? (
             <div className="px-4 py-8 text-center text-white/40">{tt('restock:po.inventory.states.loading')}</div>
@@ -520,14 +554,15 @@ export const Restock: React.FC = () => {
             <div className="w-full">
               {variants.map((v) => {
                 const s = renderInventoryStatus(v.stockQuantity);
+                const isFocused = focusedVariantId === v.variantId;
 
                 return (
                   <div
                     key={v.variantId}
-                    className="w-full border-b border-white/5 hover:bg-white/[0.03]"
+                    className={`w-full border-b border-white/5 hover:bg-white/[0.03] ${isFocused ? 'bg-amber-500/[0.08]' : ''}`}
                   >
                     <div
-                      className="grid min-h-[76px] items-center px-4 py-3 text-sm"
+                      className={`grid min-h-[76px] items-center px-4 py-3 text-sm ${isFocused ? 'ring-1 ring-inset ring-amber-400/40' : ''}`}
                       style={{ gridTemplateColumns: INVENTORY_GRID_TEMPLATE }}
                     >
                       <div className="flex items-center gap-3">
@@ -600,7 +635,10 @@ export const Restock: React.FC = () => {
             </div>
           </AdminToolbar>
         </div>
-        <div className="overflow-x-auto">
+        <div
+          className="overflow-auto"
+          style={{ maxHeight: 'min(420px, 34vh)' }}
+        >
           <table className="w-full text-sm">
             <thead className={adminUiTokens.tableHeaderSurface}>
               <tr>

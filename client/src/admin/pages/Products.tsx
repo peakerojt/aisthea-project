@@ -21,6 +21,13 @@ import {
 } from '@/admin/components/AdminUI';
 import { BulkImportExportModal } from '@/admin/components/BulkImportExportModal';
 
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(value);
+
 export const Products: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -35,22 +42,26 @@ export const Products: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+  const [priceSort, setPriceSort] = useState<string>('default');
   const [productViewTab, setProductViewTab] = useState<'all' | 'published' | 'drafts'>('all');
 
   const serverStatusFilter =
-    statusFilter === 'In Stock'
-      ? 'Active'
-      : statusFilter === 'Out of Stock'
-        ? 'Inactive'
-        : statusFilter === 'Low Stock'
-          ? 'LowStock'
-          : undefined;
+    productViewTab === 'drafts'
+      ? 'Draft'
+      : statusFilter === 'In Stock' || productViewTab === 'published'
+        ? 'Active'
+        : statusFilter === 'Out of Stock'
+          ? 'Inactive'
+          : statusFilter === 'Low Stock'
+            ? 'LowStock'
+            : undefined;
 
   const { data: qProducts, isLoading: loading, isFetching, error: qError, refetch: refreshProducts } = useProductsPageAPI({
     page,
     limit: PAGE_SIZE,
     search: search || undefined,
     category: categoryFilter !== 'All' ? categoryFilter : undefined,
+    sort: priceSort !== 'default' ? priceSort : undefined,
     status: serverStatusFilter,
   });
   const products: any[] = qProducts?.data || [];
@@ -60,9 +71,6 @@ export const Products: React.FC = () => {
   const updateProductMutation = useUpdateProductMutation();
   const deleteProductMutation = useDeleteProductMutation();
 
-  const [editingCell, setEditingCell] = useState<{ id: string, field: 'price' | 'stock' } | null>(null);
-  const [editValue, setEditValue] = useState<string | number>('');
-
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showImportExport, setShowImportExport] = useState(false);
@@ -70,7 +78,7 @@ export const Products: React.FC = () => {
 
   useEffect(() => {
     setSelectedIds([]);
-  }, [page, statusFilter, categoryFilter, search]);
+  }, [page, statusFilter, categoryFilter, priceSort, search]);
 
   useEffect(() => {
     if (pagination && pagination.totalPages > 0 && page > pagination.totalPages) {
@@ -136,6 +144,7 @@ export const Products: React.FC = () => {
     setSearch('');
     setStatusFilter('All');
     setCategoryFilter('All');
+    setPriceSort('default');
     setPage(1);
   };
 
@@ -199,33 +208,6 @@ export const Products: React.FC = () => {
     }));
     setSelectedIds([]);
     showToast(t('products:feedback.markInStockSuccess'));
-  };
-
-  const startEditing = (id: string, field: 'price' | 'stock', value: number) => {
-    setEditingCell({ id, field });
-    setEditValue(value);
-  };
-
-  const saveEdit = async () => {
-    if (!editingCell) return;
-    const { id, field } = editingCell;
-    const numValue = Number(editValue);
-    if (!isNaN(numValue) && numValue >= 0) {
-      // Bypassing full payload map for inline edits
-      await updateProductMutation.mutateAsync({
-        id: Number(id),
-        data: {
-          [field]: numValue
-        } as any
-      });
-      showToast(field === 'price' ? t('products:feedback.priceUpdated') : t('products:feedback.stockUpdated'));
-    }
-    setEditingCell(null);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') saveEdit();
-    if (e.key === 'Escape') setEditingCell(null);
   };
 
   const toggleStatus = async (id: string) => {
@@ -442,7 +424,10 @@ export const Products: React.FC = () => {
                 <AdminTabs
                   items={productTabs}
                   activeKey={productViewTab}
-                  onChange={(key) => setProductViewTab(key as 'all' | 'published' | 'drafts')}
+                  onChange={(key) => {
+                    setProductViewTab(key as 'all' | 'published' | 'drafts');
+                    setPage(1);
+                  }}
                 />
               </AdminToolbar>
             )}
@@ -453,52 +438,69 @@ export const Products: React.FC = () => {
             <div className="animate-fade-in border-b border-white/5 bg-white/[0.02] p-6">
               <div className="flex flex-wrap items-end gap-5">
                 <div className="min-w-[180px] flex-1 max-w-[240px]">
-                <label className={adminUiTokens.fieldLabel}>
-                  {t('products:table.status')}
-                </label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
-                    setPage(1);
-                  }}
-                  className={adminUiTokens.fieldControl}
-                >
-                  <option value="All">{t('products:status.allStatuses')}</option>
-                  <option value="In Stock">{t('products:status.inStock')}</option>
-                  <option value="Low Stock">{t('products:status.lowStock')}</option>
-                  <option value="Out of Stock">{t('products:status.outOfStock')}</option>
-                </select>
-              </div>
-              <div className="min-w-[180px] flex-1 max-w-[240px]">
-                <label className={adminUiTokens.fieldLabel}>
-                  {t('products:fields.category')}
-                </label>
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => {
-                    setCategoryFilter(e.target.value);
-                    setPage(1);
-                  }}
-                  className={adminUiTokens.fieldControl}
-                >
-                  <option value="All">{t('products:status.allCategories')}</option>
-                  {categories.map((category) => (
-                    <option key={category.categoryId} value={category.slug}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-end">
-                <AdminSecondaryButton
-                  type="button"
-                  onClick={handleResetFilters}
-                  className="mb-[1px] px-4"
-                >
-                  {t('products:toolbar.resetFilters')}
-                </AdminSecondaryButton>
-              </div>
+                  <label className={adminUiTokens.fieldLabel}>
+                    {t('products:table.status')}
+                  </label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className={adminUiTokens.fieldControl}
+                  >
+                    <option value="All">{t('products:status.allStatuses')}</option>
+                    <option value="In Stock">{t('products:status.inStock')}</option>
+                    <option value="Low Stock">{t('products:status.lowStock')}</option>
+                    <option value="Out of Stock">{t('products:status.outOfStock')}</option>
+                  </select>
+                </div>
+                <div className="min-w-[180px] flex-1 max-w-[240px]">
+                  <label className={adminUiTokens.fieldLabel}>
+                    {t('products:fields.category')}
+                  </label>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => {
+                      setCategoryFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className={adminUiTokens.fieldControl}
+                  >
+                    <option value="All">{t('products:status.allCategories')}</option>
+                    {categories.map((category) => (
+                      <option key={category.categoryId} value={category.slug}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="min-w-[180px] flex-1 max-w-[240px]">
+                  <label className={adminUiTokens.fieldLabel}>
+                    {t('products:fields.priceSort')}
+                  </label>
+                  <select
+                    value={priceSort}
+                    onChange={(e) => {
+                      setPriceSort(e.target.value);
+                      setPage(1);
+                    }}
+                    className={adminUiTokens.fieldControl}
+                  >
+                    <option value="default">{t('products:status.defaultSort')}</option>
+                    <option value="price_asc">{t('products:status.priceLowToHigh')}</option>
+                    <option value="price_desc">{t('products:status.priceHighToLow')}</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <AdminSecondaryButton
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="mb-[1px] px-4"
+                  >
+                    {t('products:toolbar.resetFilters')}
+                  </AdminSecondaryButton>
+                </div>
               </div>
             </div>
           )}
@@ -526,8 +528,6 @@ export const Products: React.FC = () => {
               <tbody className="text-sm divide-y divide-white/5">
                 {filteredProducts.map((p) => {
                   const isSelected = selectedIds.includes(p.id);
-                  const isEditingPrice = editingCell?.id === p.id && editingCell.field === 'price';
-                  const isEditingStock = editingCell?.id === p.id && editingCell.field === 'stock';
 
                   return (
                     <tr key={p.id} className={`group transition-colors ${isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-white/[0.02]'}`}>
@@ -552,55 +552,12 @@ export const Products: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-white/70">{p.category}</td>
 
-                      {/* EDITABLE PRICE */}
                       <td className="px-6 py-4">
-                        {isEditingPrice ? (
-                          <div className="flex items-center gap-1 w-24">
-                            <span className="text-gray-500">₫</span>
-                            <input
-                              autoFocus
-                              type="number"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onBlur={saveEdit}
-                              onKeyDown={handleKeyDown}
-                              className="w-full bg-surface-dark border border-white/20 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none shadow-xl"
-                            />
-                          </div>
-                        ) : (
-                          <div
-                            onClick={() => startEditing(p.id, 'price', p.price)}
-                            className="text-white/90 cursor-pointer hover:text-white hover:bg-white/5 px-2 py-1 -ml-2 rounded flex items-center gap-1 group/edit w-fit"
-                          >
-                            <span>{p.price.toLocaleString('vi-VN')}₫</span>
-                            <span className="opacity-0 group-hover/edit:opacity-50 ml-1"><Edit2 size={12} /></span>
-                          </div>
-                        )}
+                        <span className="text-white/90">{formatCurrency(Number(p.price ?? 0))}</span>
                       </td>
 
-                      {/* EDITABLE STOCK */}
                       <td className="px-6 py-4">
-                        {isEditingStock ? (
-                          <input
-                            autoFocus
-                            type="number"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            onBlur={saveEdit}
-                            onKeyDown={handleKeyDown}
-                            className="w-20 bg-surface-dark border border-white/20 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none shadow-xl"
-                          />
-                        ) : (
-                          <div
-                            onClick={() => startEditing(p.id, 'stock', p.stock)}
-                            className="flex flex-col cursor-pointer hover:bg-white/5 px-2 py-1 -ml-2 rounded group/edit w-fit"
-                          >
-                            <span className="text-white/90 flex items-center gap-1">
-                              {t('products:table.inStockUnit', { count: p.stock })}
-                              <span className="opacity-0 group-hover/edit:opacity-50 ml-1"><Edit2 size={12} /></span>
-                            </span>
-                          </div>
-                        )}
+                        <span className="text-white/90">{t('products:table.inStockUnit', { count: p.stock })}</span>
                       </td>
 
                       {/* STATUS TOGGLE */}

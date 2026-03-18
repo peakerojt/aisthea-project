@@ -4,6 +4,7 @@ import { logger } from '../lib/logger';
 import { applyManualStockAdjustment } from '../services/inventory.service';
 
 const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', 'FREESIZE', 'FREE SIZE', 'ONE SIZE'];
+const LOW_STOCK_THRESHOLD = 10;
 
 function getSizeIndex(value: string): number {
   const idx = SIZE_ORDER.indexOf(value.toUpperCase().trim());
@@ -34,7 +35,7 @@ export const getInventory = async (req: Request, res: Response) => {
     };
 
     if (lowStock === 'true') {
-      where.stockQuantity = { lt: 10 };
+      where.stockQuantity = { lte: LOW_STOCK_THRESHOLD };
     }
 
     if (search && search.trim() !== '') {
@@ -127,7 +128,7 @@ export const getInventory = async (req: Request, res: Response) => {
     });
 
     const result = shaped
-      .filter((row: any) => (lowStock === 'true' ? row.stockQuantity < 10 : true))
+      .filter((row: any) => (lowStock === 'true' ? row.stockQuantity <= LOW_STOCK_THRESHOLD : true))
       .map(({ _color, _sizeIdx, ...rest }: any) => rest);
 
     res.json({
@@ -267,7 +268,7 @@ export const getLowStockAlerts = async (_req: Request, res: Response) => {
     });
 
     const allLowStock = mapped
-      .filter((item: any) => item.stockQuantity <= 10)
+      .filter((item: any) => item.stockQuantity <= LOW_STOCK_THRESHOLD)
       .sort((a: any, b: any) => a.stockQuantity - b.stockQuantity);
     const lowStockItems = allLowStock.slice(0, 20);
 
@@ -306,7 +307,7 @@ export const getInventorySummary = async (_req: Request, res: Response) => {
           acc.totalVariants += 1;
           acc.incomingStock += incoming;
           if (available <= 0) acc.outOfStock += 1;
-          else if (available < 10) acc.lowStock += 1;
+          else if (available <= LOW_STOCK_THRESHOLD) acc.lowStock += 1;
           return acc;
         },
         { totalVariants: 0, outOfStock: 0, lowStock: 0, incomingStock: 0 },
@@ -328,7 +329,7 @@ export const getInventorySummary = async (_req: Request, res: Response) => {
         const available = Number(row.stockQuantity ?? 0);
         acc.totalVariants += 1;
         if (available <= 0) acc.outOfStock += 1;
-        else if (available < 10) acc.lowStock += 1;
+        else if (available <= LOW_STOCK_THRESHOLD) acc.lowStock += 1;
         return acc;
       },
       { totalVariants: 0, outOfStock: 0, lowStock: 0, incomingStock: 0 },

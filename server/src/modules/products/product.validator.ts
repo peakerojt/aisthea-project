@@ -80,6 +80,7 @@ export const productQuerySchema = z.object({
     minPrice: z.coerce.number().positive().optional(),
     maxPrice: z.coerce.number().positive().optional(),
     status: z.enum(['Active', 'Inactive', 'Draft', 'Archived', 'LowStock']).optional(),
+    sort: z.enum(['createdAt_desc', 'createdAt_asc', 'name_asc', 'name_desc', 'price_asc', 'price_desc']).optional(),
     page: z.coerce.number().int().positive().optional().default(1),
     limit: z.coerce.number().int().positive().max(100).optional().default(20),
 });

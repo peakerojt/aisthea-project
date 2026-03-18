@@ -268,6 +268,23 @@ const RetentionChart: React.FC<RetentionChartProps> = ({ newCustomers, returning
     );
 };
 
+const StatusFunnelTooltip = ({ active, payload }: any) => {
+    const { t } = useTranslation('analytics');
+    if (!active || !payload?.length) return null;
+
+    const item = payload[0]?.payload;
+    if (!item) return null;
+
+    return (
+        <div className="rounded-lg border border-white/10 bg-[#1a1a2e] px-3 py-2 text-xs shadow-xl">
+            <p className="mb-1 font-semibold text-white/80">
+                {t(`orderStatuses.${item.status}`, { defaultValue: item.status })}
+            </p>
+            <p className="font-bold text-white">{Number(item.value ?? 0).toLocaleString('vi-VN')}</p>
+        </div>
+    );
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Main page
 // ─────────────────────────────────────────────────────────────────────────────
@@ -321,6 +338,7 @@ export const Analytics: React.FC = () => {
 
     const mom = data?.summary.momGrowth ?? 0;
     const momPositive = mom >= 0;
+    const topSpender = data?.topCustomers[0] ?? null;
 
     return (
         <AdminPageShell>
@@ -405,8 +423,8 @@ export const Analytics: React.FC = () => {
                 />
                 <KPICard
                     label={t('kpi.topCustomers')}
-                    value={(data?.topCustomers.length ?? 0).toLocaleString('vi-VN')}
-                    sub={t('kpi.topCustomersSub')}
+                    value={formatVNDShort(topSpender?.totalSpent ?? 0)}
+                    sub={topSpender?.fullName || t('kpi.topCustomersSub')}
                     positive={null}
                     icon={Users}
                     accentColor="text-teal-400"
@@ -638,10 +656,7 @@ export const Analytics: React.FC = () => {
                                                 <Cell key={i} fill={entry.color} stroke="none" />
                                             ))}
                                         </Pie>
-                                        <Tooltip
-                                            contentStyle={{ backgroundColor: '#1a1a2e', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '11px' }}
-                                            itemStyle={{ color: '#fff' }}
-                                        />
+                                        <Tooltip content={<StatusFunnelTooltip />} />
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>

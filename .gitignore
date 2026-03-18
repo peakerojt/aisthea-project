@@ -33,6 +33,14 @@ Thumbs.db
 # Agent Skills
 .agent/
 docs/
+.claude/
+AGENTS.md
+CLAUDE.md
+.codex/
+.gitnexus/
+.gitnexus-tools/
+.gitnexus-temp/
+.npm-cache-gitnexus/
 
 # Postman Collection (local only)
 *.postman_collection.json

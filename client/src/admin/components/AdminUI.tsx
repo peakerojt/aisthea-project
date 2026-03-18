@@ -126,7 +126,7 @@ const STAT_GRID_CLASS_MAP: Record<number, string> = {
 };
 
 export const adminUiTokens = {
-  shell: 'mx-auto flex h-full w-full max-w-[1680px] flex-col gap-5 px-5 py-6 lg:px-7',
+  shell: 'mx-auto flex h-auto min-h-full w-full max-w-[1680px] flex-col gap-5 px-5 py-6 lg:px-7',
   surface: SURFACE_BASE,
   interactiveSurface: 'border border-white/10 bg-white/[0.04]',
   brandIconSurface: 'border border-[#7a2a2f] bg-[#221012] text-[#ff4b42] shadow-[0_10px_24px_rgba(122,42,47,0.18)]',
