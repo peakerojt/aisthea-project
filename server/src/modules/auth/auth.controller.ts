@@ -172,9 +172,17 @@ export const authController = {
             res.json({
                 success: true,
                 messageKey: 'auth:success.passwordResetSent',
-                message: 'If an account exists with this email, a password reset link has been sent.',
+                message: 'If an account exists with this email, password reset instructions have been sent.',
             });
-        } catch (err) {
+        } catch (err: any) {
+            if (err.message === 'This account uses Google Login. Please sign in with Google.') {
+                return res.status(400).json({
+                    success: false,
+                    errorCode: 'GOOGLE_LOGIN_ONLY',
+                    messageKey: 'auth:errors.googleLoginOnly',
+                    message: err.message,
+                });
+            }
             next(err);
         }
     },
@@ -204,13 +212,13 @@ export const authController = {
 
     resetPassword: async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const token = req.cookies.resetToken || req.body.token;
+            const token = req.body.token || req.cookies.resetToken;
             if (!token) {
                 return res.status(400).json({
                     success: false,
                     errorCode: 'MISSING_TOKEN',
                     messageKey: 'auth:errors.missingToken',
-                    message: 'Reset token is required.',
+                    message: 'A reset code or valid reset link is required.',
                 });
             }
             const { resetPassword: resetPasswordService } = await import('../../services/password.service');

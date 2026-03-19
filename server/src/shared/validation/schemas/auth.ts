@@ -7,6 +7,14 @@ import {
 } from '../fields';
 
 const verificationCodeField = z.string().trim().min(1, 'Verification code is required').max(32, 'Verification code is too long');
+const resetCodeField = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') return value;
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : undefined;
+  },
+  z.string().regex(/^\d{6}$/, 'Reset code must be exactly 6 digits').optional(),
+);
 
 export const registerSchema = z.object({
   email: emailField,
@@ -24,6 +32,7 @@ export const forgotPasswordSchema = z.object({
 }).strict();
 
 export const resetPasswordSchema = z.object({
+  token: resetCodeField,
   newPassword: passwordField,
 }).strict();
 

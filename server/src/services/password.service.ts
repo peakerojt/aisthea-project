@@ -4,6 +4,27 @@ import { prisma } from '../utils/prisma';
 import { sendPasswordResetEmail } from './email.service';
 
 const TOKEN_EXPIRY_HOURS = 1;
+const RESET_CODE_MIN = 100000;
+const RESET_CODE_MAX = 999999;
+const RESET_CODE_ATTEMPTS = 10;
+
+const generateResetCode = async () => {
+    for (let attempt = 0; attempt < RESET_CODE_ATTEMPTS; attempt += 1) {
+        const token = crypto.randomInt(RESET_CODE_MIN, RESET_CODE_MAX + 1).toString();
+        const existingToken = await prisma.passwordResetToken.findFirst({
+            where: {
+                token,
+                expiresAt: { gt: new Date() },
+            },
+        });
+
+        if (!existingToken) {
+            return token;
+        }
+    }
+
+    throw new Error('Unable to generate a unique password reset code');
+};
 
 /**
  * Initiate password reset flow
@@ -28,8 +49,8 @@ export const createPasswordResetToken = async (email: string) => {
     // Delete existing tokens
     await prisma.passwordResetToken.deleteMany({ where: { userId: user.userId } });
 
-    // Generate secure token
-    const token = crypto.randomBytes(32).toString('hex');
+    // Generate a short-lived OTP that fits the current client flow.
+    const token = await generateResetCode();
     const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
 
     await prisma.passwordResetToken.create({
@@ -41,7 +62,16 @@ export const createPasswordResetToken = async (email: string) => {
     });
 
     // Send email
-    await sendPasswordResetEmail(email, token, user.fullName);
+    try {
+        await sendPasswordResetEmail(email, token, user.fullName);
+    } catch (error) {
+        if (process.env.NODE_ENV !== 'production') {
+            console.warn(`[DEV MODE] Failed to send password reset email to ${email}. Reset code: ${token}`);
+            return true;
+        }
+
+        throw error;
+    }
 
     return true;
 };

@@ -6,10 +6,9 @@ const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 const SMTP_FROM = process.env.SMTP_FROM || 'AISTHEA <noreply@aisthea.com>';
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+const SERVER_URL = process.env.SERVER_URL || 'http://localhost:5000';
 
-// Create transporter
-const transporter = nodemailer.createTransport({
+const createTransporter = () => nodemailer.createTransport({
     host: SMTP_HOST,
     port: SMTP_PORT,
     secure: SMTP_PORT === 465,
@@ -106,11 +105,11 @@ export const sendVerificationEmail = async (email: string, code: string, fullNam
     };
 
     try {
-        const info = await transporter.sendMail(mailOptions);
+        await createTransporter().sendMail(mailOptions);
 
         return true;
     } catch (error) {
-        logger.error('[emailService] Failed to send verification email', { error });
+        logger.error('[emailService] Failed to send verification email', { error, smtpUser: SMTP_USER });
         throw new Error('Failed to send verification email');
     }
 }
@@ -120,8 +119,6 @@ export const sendVerificationEmail = async (email: string, code: string, fullNam
  * Send password reset email
  */
 export const sendPasswordResetEmail = async (email: string, token: string, fullName: string) => {
-    // Link to server endpoint that will validate token and set cookie
-    const SERVER_URL = process.env.SERVER_URL || 'http://localhost:5000';
     const resetLink = `${SERVER_URL}/api/auth/reset-password-init?token=${token}`;
 
     const mailOptions = {
@@ -155,24 +152,26 @@ export const sendPasswordResetEmail = async (email: string, token: string, fullN
                                             We received a request to reset your password. If you didn't make this request, you can safely ignore this email.
                                         </p>
                                         
-                                        <!-- Button -->
+                                        <!-- Reset Code -->
                                         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                                             <tr>
-                                                <td align="center" style="padding: 10px 0 30px;">
-                                                    <a href="${resetLink}" style="background-color: #dc2626; color: #ffffff; padding: 16px 32px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">Reset Password</a>
+                                                <td align="center" style="padding: 20px 0 24px;">
+                                                    <div style="background-color: #1a1a1a; border: 2px solid #dc2626; border-radius: 8px; padding: 24px 40px; display: inline-block;">
+                                                        <span style="font-size: 36px; font-weight: 900; color: #ffffff; letter-spacing: 8px; font-family: monospace;">${token}</span>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         </table>
                                         
                                         <p style="margin: 0 0 10px; font-size: 12px; color: #666666; text-align: center;">
-                                            Or copy and paste this link into your browser:
+                                            Enter this 6-digit code on the reset password screen, or use the fallback link below if you already opened the reset page from email.
                                         </p>
-                                        <p style="margin: 0 0 30px; font-size: 11px; color: #444444; text-align: center; word-break: break-all;">
+                                        <p style="margin: 0 0 10px; font-size: 11px; color: #444444; text-align: center; word-break: break-all;">
                                             ${resetLink}
                                         </p>
                                         
                                         <p style="margin: 0; font-size: 12px; color: #666666; text-align: center;">
-                                            This link will expire in 1 hour.
+                                            This code and link will expire in 1 hour.
                                         </p>
                                     </td>
                                 </tr>
@@ -194,23 +193,27 @@ export const sendPasswordResetEmail = async (email: string, token: string, fullN
         `,
         text: `
             Hello ${fullName},
-            
+
             We received a request to reset your password.
-            
-            Please click the following link to reset your password:
+
+            Your 6-digit password reset code is:
+
+            ${token}
+
+            You can also open the following fallback reset link:
             ${resetLink}
-            
+
             If you didn't request this, please ignore this email.
-            
-            This link will expire in 1 hour.
+
+            This code and link will expire in 1 hour.
         `,
     };
 
     try {
-        await transporter.sendMail(mailOptions);
+        await createTransporter().sendMail(mailOptions);
         return true;
     } catch (error) {
-        logger.error('[emailService] Failed to send password reset email', { error });
+        logger.error('[emailService] Failed to send password reset email', { error, smtpUser: SMTP_USER });
         throw new Error('Failed to send password reset email');
     }
 };
@@ -220,7 +223,7 @@ export const sendPasswordResetEmail = async (email: string, token: string, fullN
  */
 export const verifyEmailConnection = async () => {
     try {
-        await transporter.verify();
+        await createTransporter().verify();
         logger.info('[emailService] SMTP connection verified');
         return true;
     } catch (error) {

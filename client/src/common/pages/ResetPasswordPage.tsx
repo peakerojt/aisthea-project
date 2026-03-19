@@ -7,10 +7,12 @@ import { resetPasswordClientSchema } from '@/common/validation/schemas';
 export const ResetPasswordPage: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'resetPassword' });
   const navigate = useNavigate();
+  const [token, setToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  const [tokenError, setTokenError] = useState('');
   const [newPasswordError, setNewPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
 
@@ -37,11 +39,14 @@ export const ResetPasswordPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const passwordParsed = resetPasswordClientSchema.safeParse({ newPassword });
+    const passwordParsed = resetPasswordClientSchema.safeParse({ token, newPassword });
     if (!passwordParsed.success) {
       setStatus('error');
       setMessage('');
-      setNewPasswordError(t('messages.passwordInvalid'));
+      const tokenIssue = passwordParsed.error.issues.find((issue) => issue.path[0] === 'token');
+      const passwordIssue = passwordParsed.error.issues.find((issue) => issue.path[0] === 'newPassword');
+      setTokenError(tokenIssue?.message ?? '');
+      setNewPasswordError(passwordIssue ? t('messages.passwordInvalid') : '');
       setConfirmPasswordError('');
       return;
     }
@@ -56,11 +61,16 @@ export const ResetPasswordPage: React.FC = () => {
 
     setStatus('loading');
     setMessage('');
+    setTokenError('');
     setNewPasswordError('');
     setConfirmPasswordError('');
 
     try {
-      const response = await api.post<{ success: boolean; message?: string }>('/api/auth/reset-password', passwordParsed.data, {
+      const payload = passwordParsed.data.token
+        ? passwordParsed.data
+        : { newPassword: passwordParsed.data.newPassword };
+
+      const response = await api.post<{ success: boolean; message?: string }>('/api/auth/reset-password', payload, {
         skipAuthRedirect: true,
       });
 
@@ -102,6 +112,28 @@ export const ResetPasswordPage: React.FC = () => {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             {status === 'error' && message ? <div className="text-red-500 text-center bg-red-500/10 p-4 rounded mb-4">{message}</div> : null}
+
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">{t('form.code')}</label>
+              <input
+                type="text"
+                value={token}
+                onChange={(e) => {
+                  setToken(e.target.value.replace(/\D/g, '').slice(0, 6));
+                  setTokenError('');
+                  if (status === 'error') {
+                    setMessage('');
+                    setStatus('idle');
+                  }
+                }}
+                inputMode="numeric"
+                maxLength={6}
+                className={`w-full px-4 py-3 bg-bg-dark border rounded-md text-white focus:outline-none focus:ring-1 transition-colors ${tokenError ? 'border-red-500 focus:border-red-400 focus:ring-red-500/20' : 'border-border-light focus:border-primary focus:ring-primary'}`}
+                placeholder="123456"
+              />
+              <p className="mt-2 text-xs text-text-secondary">{t('messages.codeHint')}</p>
+              {tokenError && <p className="mt-2 text-sm text-red-400">{tokenError}</p>}
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-2">{t('form.newPassword')}</label>

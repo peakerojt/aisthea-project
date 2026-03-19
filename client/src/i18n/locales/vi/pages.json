@@ -333,18 +333,22 @@
     },
     "actions": {
       "sending": "Đang gửi...",
-      "sendLink": "Gửi liên kết đặt lại",
+      "sendLink": "Gửi hướng dẫn đặt lại",
+      "sendCode": "Gửi mã đặt lại",
+      "enterCode": "Nhập mã để đặt lại mật khẩu",
       "backToLogin": "Quay lại đăng nhập"
     },
     "messages": {
       "emailRequired": "Vui lòng nhập email.",
       "emailInvalid": "Email không hợp lệ.",
-      "sendFailed": "Không thể gửi liên kết đặt lại"
+      "sendFailed": "Không thể gửi mã đặt lại.",
+      "sentHint": "Nếu email tồn tại trong hệ thống, mã đặt lại đã được gửi. Tiếp tục để nhập mã và đổi mật khẩu."
     }
   },
   "resetPassword": {
     "title": "Đặt lại mật khẩu",
     "form": {
+      "code": "Mã đặt lại",
       "newPassword": "Mật khẩu mới",
       "confirmPassword": "Xác nhận mật khẩu mới"
     },
@@ -357,6 +361,7 @@
       "invalidLink": "Liên kết đặt lại mật khẩu không hợp lệ.",
       "expiredToken": "Liên kết đặt lại mật khẩu đã hết hạn. Vui lòng yêu cầu liên kết mới.",
       "serverError": "Máy chủ gặp lỗi. Vui lòng thử lại sau.",
+      "codeHint": "Nhập mã 6 chữ số trong email. Nếu bạn mở từ liên kết email cũ, bạn có thể để trống ô này.",
       "passwordMismatch": "Mật khẩu xác nhận không khớp",
       "passwordInvalid": "Mật khẩu phải có ít nhất 8 ký tự và bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.",
       "resetFailed": "Không thể đặt lại mật khẩu"

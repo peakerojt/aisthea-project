@@ -112,6 +112,7 @@ describe('client shared validation schemas', () => {
   it('keeps auth recovery helpers aligned with backend schemas', () => {
     expect(forgotPasswordClientSchema.parse({ email: ' USER@Example.com ' }).email).toBe('user@example.com');
     expect(resetPasswordClientSchema.parse({ newPassword: 'StrongPass1!' }).newPassword).toBe('StrongPass1!');
+    expect(resetPasswordClientSchema.parse({ token: ' 123456 ', newPassword: 'StrongPass1!' }).token).toBe('123456');
     expect(verifyEmailClientSchema.parse({ email: ' USER@Example.com ', code: '123456' })).toMatchObject({
       email: 'user@example.com',
       code: '123456',

@@ -33,7 +33,7 @@ export const ForgotPasswordPage: React.FC = () => {
       });
 
       setStatus('success');
-      setMessage(response.message || t('actions.sendLink'));
+      setMessage(response.message || t('messages.sentHint'));
     } catch (error) {
       const err = error as Error & {
         details?: Array<{ field?: string; message?: string }>;
@@ -58,6 +58,12 @@ export const ForgotPasswordPage: React.FC = () => {
         {status === 'success' ? (
           <div className="text-center">
             <div className="bg-green-500/10 border border-green-500/50 text-green-500 p-4 rounded mb-6">{message}</div>
+            <button
+              onClick={() => navigate('/reset-password')}
+              className="w-full py-3 bg-white text-black font-bold rounded-md hover:bg-gray-200 transition-colors mb-3"
+            >
+              {t('actions.enterCode')}
+            </button>
             <button
               onClick={() => navigate('/login')}
               className="w-full py-3 bg-none border border-border-light text-text-secondary hover:text-white hover:border-white transition-colors rounded-md font-medium"
@@ -94,7 +100,7 @@ export const ForgotPasswordPage: React.FC = () => {
               disabled={status === 'loading'}
               className="w-full py-3 bg-white text-black font-bold rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {status === 'loading' ? t('actions.sending') : t('actions.sendLink')}
+              {status === 'loading' ? t('actions.sending') : t('actions.sendCode')}
             </button>
 
             <div className="text-center mt-4">
