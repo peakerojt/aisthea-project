@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
 import { api } from '@/common/utils/api';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
+import { matchesSearchQuery } from '@/common/utils/search';
 import { useTranslation } from 'react-i18next';
 
 interface Product {
@@ -12,15 +13,18 @@ interface Product {
   image: string;
   tag?: string;
   type: string;
+  searchIndex: string[];
 }
 
 interface ApiProduct {
   productId: number;
   name: string;
+  description?: string;
   basePrice: number | string;
   category?: { name: string; slug: string };
+  brand?: { name?: string };
   images?: { imageUrl: string; thumbnailUrl?: string; isPrimary?: boolean }[];
-  variants?: { price: number | string; stockQuantity: number }[];
+  variants?: { sku?: string; price: number | string; stockQuantity: number }[];
   status?: string;
 }
 
@@ -169,7 +173,7 @@ export const Collection: React.FC = () => {
         setLoading(true);
         setError(null);
         const responseData = await api.get<any>('/api/products', {
-          params: { search: searchTerm, limit: '100', status: 'Active' }
+          params: { limit: '100', status: 'Active' }
         });
 
         // Transform API response to match component interface
@@ -182,6 +186,13 @@ export const Collection: React.FC = () => {
           price: (typeof product.basePrice === 'string' ? parseFloat(product.basePrice) : product.basePrice) || 0,
           image: product.images?.[0]?.thumbnailUrl || product.images?.[0]?.imageUrl || '',
           type: product.category?.name || 'Chưa phân loại',
+          searchIndex: [
+            product.name,
+            product.description,
+            product.category?.name,
+            product.brand?.name,
+            ...(product.variants ?? []).map((variant) => variant.sku ?? ''),
+          ].filter((value): value is string => Boolean(value)),
           tag: product.status === 'Active' ? undefined : product.status
         }));
 
@@ -213,16 +224,16 @@ export const Collection: React.FC = () => {
     };
 
     fetchProducts();
-  }, [searchTerm, category, collection]);
+  }, [category, collection, t]);
 
   // 1. Filter products based on Route (Category + Collection)
   const categoryProducts = React.useMemo(() => {
     if (loading || products.length === 0) return [];
 
-    // If we have a active search term, bypass category/collection filtering 
-    // to show all global matches.
     if (searchTerm && searchTerm.trim() !== '') {
-      return products;
+      return products.filter((product) =>
+        matchesSearchQuery(searchTerm, [product.name, product.type, ...product.searchIndex]),
+      );
     }
 
     if (!category || !collection) {
