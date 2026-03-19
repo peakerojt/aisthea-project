@@ -29,6 +29,7 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isZoomed, setIsZoomed] = useState(false);
+    const [isLightboxVisible, setIsLightboxVisible] = useState(false);
     // Track which URLs have already been loaded so we skip the skeleton on revisit
     const [loadedUrls, setLoadedUrls] = useState<Set<string>>(new Set());
 
@@ -93,6 +94,16 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isZoomed]);
 
+    useEffect(() => {
+        if (!isZoomed) {
+            setIsLightboxVisible(false);
+            return undefined;
+        }
+
+        const frameId = window.requestAnimationFrame(() => setIsLightboxVisible(true));
+        return () => window.cancelAnimationFrame(frameId);
+    }, [isZoomed]);
+
     const handleNext = () => {
         if (validImages.length > 0) {
             setCurrentIndex((prev) => (prev + 1) % validImages.length);
@@ -147,7 +158,7 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 
                 {/* View Label */}
                 {viewLabels && viewLabels[currentIndex] && (
-                    <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded uppercase tracking-wider z-20">
+                    <div className="absolute top-4 right-4 z-20 rounded border border-white/10 bg-black/70 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white">
                         {viewLabels[currentIndex]}
                     </div>
                 )}
@@ -157,13 +168,13 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                     <>
                         <button
                             onClick={handlePrevious}
-                            className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 cursor-pointer z-20"
+                            className="absolute left-4 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 transform-gpu items-center justify-center rounded-full border border-white/10 bg-black/70 text-white opacity-0 transition-all duration-200 ease-out group-hover:opacity-100 hover:bg-black/80 cursor-pointer"
                         >
                             <span className="material-symbols-outlined text-xl">arrow_back</span>
                         </button>
                         <button
                             onClick={handleNext}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 cursor-pointer z-20"
+                            className="absolute right-4 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 transform-gpu items-center justify-center rounded-full border border-white/10 bg-black/70 text-white opacity-0 transition-all duration-200 ease-out group-hover:opacity-100 hover:bg-black/80 cursor-pointer"
                         >
                             <span className="material-symbols-outlined text-xl">arrow_forward</span>
                         </button>
@@ -180,9 +191,9 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                                     e.stopPropagation();
                                     setCurrentIndex(index);
                                 }}
-                                className={`w-12 h-12 sm:w-16 sm:h-16 rounded-md overflow-hidden border-2 transition-all duration-300 backdrop-blur-sm cursor-pointer ${index === currentIndex
+                                className={`h-12 w-12 cursor-pointer overflow-hidden rounded-md border-2 transition-all duration-200 ease-out sm:h-16 sm:w-16 ${index === currentIndex
                                     ? 'border-primary scale-110 shadow-lg shadow-black/50'
-                                    : 'border-white/20 hover:border-white/50 hover:opacity-100 opacity-70 bg-black/20'
+                                    : 'border-white/20 bg-black/70 opacity-70 hover:border-white/50 hover:opacity-100'
                                     }`}
                             >
                                 <img
@@ -201,32 +212,43 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
             {/* Lightbox */}
             {isZoomed && (
                 <div
-                    className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`${productName} image viewer`}
+                    className={`fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 transition-all duration-200 ease-out ${
+                        isLightboxVisible ? 'opacity-100' : 'opacity-0'
+                    }`}
                     onClick={() => setIsZoomed(false)}
                 >
                     <button
                         onClick={() => setIsZoomed(false)}
-                        className="absolute top-6 right-6 w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer z-20"
+                        className="absolute right-6 top-6 z-20 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-black/70 text-white transition-colors duration-200 hover:bg-black/80 cursor-pointer"
                     >
                         <span className="material-symbols-outlined">close</span>
                     </button>
-                    <img
-                        src={currentImage.imageUrl}
-                        alt={`${productName} - Zoomed`}
-                        className="max-w-full max-h-full object-contain animate-zoom-in"
+                    <div
+                        className={`flex max-w-[96vw] flex-col gap-3 rounded-2xl border border-gray-200/10 bg-[#0B0B0C] p-4 shadow-2xl shadow-black/40 transform-gpu transition-all duration-200 ease-out will-change-transform ${
+                            isLightboxVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'
+                        }`}
                         onClick={(e) => e.stopPropagation()}
-                    />
+                    >
+                        <img
+                            src={currentImage.imageUrl}
+                            alt={`${productName} - Zoomed`}
+                            className="max-h-[78vh] max-w-full object-contain"
+                        />
+                    </div>
                     {validImages.length > 1 && (
                         <>
                             <button
                                 onClick={(e) => { e.stopPropagation(); handlePrevious(); }}
-                                className="absolute left-6 w-14 h-14 flex items-center justify-center bg-white/5 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
+                                className="absolute left-6 flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-black/70 text-white transition-colors duration-200 hover:bg-black/80 cursor-pointer"
                             >
                                 <span className="material-symbols-outlined text-3xl">arrow_back</span>
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                                className="absolute right-6 w-14 h-14 flex items-center justify-center bg-white/5 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
+                                className="absolute right-6 flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-black/70 text-white transition-colors duration-200 hover:bg-black/80 cursor-pointer"
                             >
                                 <span className="material-symbols-outlined text-3xl">arrow_forward</span>
                             </button>

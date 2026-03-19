@@ -25,6 +25,7 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [inputCode, setInputCode] = useState('');
+    const [isVisible, setIsVisible] = useState(false);
     const { t } = useTranslation('errors');
 
     useEffect(() => {
@@ -36,6 +37,16 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                 document.body.style.overflow = 'unset';
             };
         }
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setIsVisible(false);
+            return undefined;
+        }
+
+        const frameId = window.requestAnimationFrame(() => setIsVisible(true));
+        return () => window.cancelAnimationFrame(frameId);
     }, [isOpen]);
 
     const fetchCoupons = async () => {
@@ -62,15 +73,27 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 lg:p-0 bg-black/70 backdrop-blur-[2px] animate-fade-in-up transition-opacity duration-300">
+        <div
+            className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-all duration-200 ease-out lg:p-0 ${
+                isVisible ? 'opacity-100' : 'opacity-0'
+            }`}
+            role="presentation"
+        >
             {/* Click outside to close (Optional but good UX) */}
             <div className="absolute inset-0" onClick={onClose}></div>
 
-            <div className="relative bg-surface-dark w-full max-w-md rounded-md shadow-2xl overflow-hidden flex flex-col max-h-[85vh] border border-white/15 animate-slide-up">
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="coupon-modal-title"
+                className={`relative flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-gray-200/10 bg-[#0B0B0C] shadow-2xl shadow-black/40 transform-gpu transition-all duration-200 ease-out will-change-transform ${
+                    isVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'
+                }`}
+            >
 
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-white/15 bg-white/5">
-                    <h2 className="text-lg font-bold uppercase tracking-wide text-white">Kho Voucher</h2>
+                <div className="flex items-center justify-between border-b border-gray-200/10 bg-white/[0.03] p-4">
+                    <h2 id="coupon-modal-title" className="text-lg font-bold uppercase tracking-wide text-white">Kho Voucher</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-1">
                         <span className="material-symbols-outlined">close</span>
                     </button>

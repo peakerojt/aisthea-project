@@ -67,6 +67,17 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
     const [processing, setProcessing] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
     const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+    const [isLightboxVisible, setIsLightboxVisible] = useState(false);
+
+    useEffect(() => {
+        if (!lightboxImg) {
+            setIsLightboxVisible(false);
+            return undefined;
+        }
+
+        const frameId = window.requestAnimationFrame(() => setIsLightboxVisible(true));
+        return () => window.cancelAnimationFrame(frameId);
+    }, [lightboxImg]);
 
     const handleAction = async (action: 'APPROVE' | 'REJECT' | 'COMPLETE_REFUND') => {
         if (action === 'REJECT' && !rejectNote.trim()) {
@@ -91,7 +102,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
                 subtitle={t('modal.orderInfo', { orderNumber: item.order?.orderNumber, customer: item.user?.fullName ?? t('table.guest') })}
                 onClose={onClose}
                 maxWidthClassName="max-w-2xl"
-                panelClassName="max-h-[90vh] rounded-sm bg-[#0f0f0f]"
+                panelClassName="max-h-[90vh] rounded-2xl"
                 bodyClassName="max-h-[68vh] overflow-y-auto p-6 space-y-6"
                 footer={!isTerminal ? (
                     !showRejectForm ? (
@@ -238,12 +249,23 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
             {/* Lightbox */}
             {lightboxImg && (
                 <div
-                    className="fixed inset-0 z-[300] flex items-center justify-center bg-black/95 cursor-pointer"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Xem ảnh minh chứng"
+                    className={`fixed inset-0 z-[300] flex cursor-pointer items-center justify-center bg-slate-900/60 p-4 transition-all duration-200 ease-out ${
+                        isLightboxVisible ? 'opacity-100' : 'opacity-0'
+                    }`}
                     onClick={() => setLightboxImg(null)}
                 >
-                    <img src={lightboxImg} alt="Minh chứng" className="max-w-[90vw] max-h-[90vh] object-contain rounded shadow-2xl" />
+                    <div
+                        className={`rounded-2xl border border-gray-200/10 bg-[#0B0B0C] p-4 shadow-2xl shadow-black/40 transform-gpu transition-all duration-200 ease-out will-change-transform ${
+                            isLightboxVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'
+                        }`}
+                    >
+                        <img src={lightboxImg} alt="Minh chứng" className="max-h-[84vh] max-w-[88vw] rounded-xl object-contain" />
+                    </div>
                     <button
-                        className="absolute top-6 right-6 text-white/60 hover:text-white transition-colors"
+                        className="absolute right-6 top-6 rounded-full border border-white/10 bg-black/70 p-2 text-white/60 transition-colors duration-200 hover:text-white"
                         onClick={() => setLightboxImg(null)}
                     >
                         <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">

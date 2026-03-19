@@ -22,6 +22,12 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@validation": [
+        "../server/src/shared/validation/index.ts"
+      ],
+      "@validation/*": [
+        "../server/src/shared/validation/*"
       ]
     },
     "allowImportingTsExtensions": true,

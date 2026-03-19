@@ -201,8 +201,8 @@
   },
   "login": {
     "label": "Tài khoản",
-    "title": "Chào mừng quay lại",
-    "subtitle": "Vui lòng nhập thông tin để truy cập tài khoản của bạn.",
+    "title": "Chào mừng bạn quay lại",
+    "subtitle": "Vui lòng nhập thông tin đăng nhập để truy cập tài khoản của bạn.",
     "form": {
       "email": "Địa chỉ email",
       "password": "Mật khẩu"
@@ -225,6 +225,10 @@
     "banned": {
       "title": "Tài khoản bị khóa",
       "description": "Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên để biết thêm chi tiết."
+    },
+    "errors": {
+      "invalidCredentials": "Email hoặc mật khẩu không đúng.",
+      "signInFailed": "Không thể đăng nhập. Vui lòng thử lại."
     },
     "validation": {
       "emailInvalid": "Email không hợp lệ",
@@ -283,8 +287,8 @@
   },
   "signup": {
     "label": "Thành viên",
-    "title": "Tham gia AISTHEA",
-    "subtitle": "Tạo tài khoản để mở khóa bộ sưu tập độc quyền và gợi ý cá nhân hóa.",
+    "title": "Tạo tài khoản Aisthea",
+    "subtitle": "Tạo tài khoản để khám phá bộ sưu tập độc quyền và nhận gợi ý dành riêng cho bạn.",
     "form": {
       "fullName": "Họ và tên",
       "email": "Địa chỉ email",
@@ -333,6 +337,8 @@
       "backToLogin": "Quay lại đăng nhập"
     },
     "messages": {
+      "emailRequired": "Vui lòng nhập email.",
+      "emailInvalid": "Email không hợp lệ.",
       "sendFailed": "Không thể gửi liên kết đặt lại"
     }
   },
@@ -371,6 +377,8 @@
   "emailVerification": {
     "messages": {
       "emailRequired": "Vui lòng nhập email",
+      "emailInvalid": "Email không hợp lệ.",
+      "codeInvalid": "Vui lòng nhập đủ 6 chữ số xác thực.",
       "verifySuccess": "Xác thực email thành công!",
       "verifyFailed": "Xác thực thất bại. Vui lòng thử lại.",
       "resendSuccess": "Mã xác thực mới đã được gửi. Vui lòng kiểm tra hộp thư.",
@@ -694,6 +702,8 @@
     "errors": {
       "enterOrderCode": "Vui lòng nhập mã đơn hàng.",
       "enterPhone": "Vui lòng nhập số điện thoại.",
+      "orderCodeInvalid": "Mã đơn hàng phải có ít nhất 4 ký tự.",
+      "phoneInvalid": "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0.",
       "notFound": "Không tìm thấy thông tin đơn hàng với dữ liệu đã nhập.",
       "lookupFailed": "Không thể tra cứu đơn hàng. Vui lòng thử lại."
     }
@@ -788,7 +798,8 @@
         "phone": "Số điện thoại",
         "addressLine": "Địa chỉ chi tiết",
         "city": "Tỉnh/Thành phố",
-        "district": "Quận/Huyện"
+        "district": "Quận/Huyện",
+        "ward": "Phường/Xã"
       },
       "actions": {
         "add": "Thêm địa chỉ",

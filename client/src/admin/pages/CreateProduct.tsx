@@ -2,7 +2,6 @@
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod/v4';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
     createProduct,
@@ -25,6 +24,7 @@ import VariantManager from '@/admin/components/VariantManager';
 import type { VariantRow as VMRow } from '@/admin/components/VariantManager';
 import ProductImageManager from '@/admin/components/ProductImageManager';
 import type { ProductImageState } from '@/admin/components/ProductImageManager';
+import { AdminProductFormInput, adminProductFormSchema } from '@/common/validation/schemas';
 import {
     Upload, X, Star, StarOff, CheckCircle2, AlertCircle,
     ChevronRight, Plus, Trash2, RefreshCw, Tag, Package,
@@ -33,18 +33,6 @@ import {
 
 // ─── Font ─────────────────────────────────────────────────────────────────────
 const VN_FONT: React.CSSProperties = { fontFamily: "'Be Vietnam Pro', sans-serif" };
-
-// ─── Zod Schema ───────────────────────────────────────────────────────────────
-const schema = z.object({
-    name: z.string().min(1, 'Vui lòng nhập tên sản phẩm'),
-    description: z.string().optional(),
-    categoryId: z.string().min(1, 'Vui lòng chọn danh mục'),
-    brandId: z.string().optional(),
-    basePrice: z.string().min(1, 'Vui lòng nhập giá sản phẩm'),
-    baseSku: z.string().optional(),
-    status: z.string().optional(),
-});
-type FormValues = z.infer<typeof schema>;
 
 interface LocalImage {
     id: string;
@@ -80,8 +68,8 @@ export const CreateProduct: React.FC = () => {
         watch,
         getValues,
         formState: { errors },
-    } = useForm<FormValues>({
-        resolver: zodResolver(schema),
+    } = useForm<AdminProductFormInput>({
+        resolver: zodResolver(adminProductFormSchema),
         defaultValues: { status: 'Active' },
     });
 
@@ -145,7 +133,7 @@ export const CreateProduct: React.FC = () => {
     };
 
     // ─── Submit ───────────────────────────────────────────────────────────────
-    const onSubmit = async (data: FormValues) => {
+    const onSubmit = async (data: AdminProductFormInput) => {
         if (variants.length === 0) {
             showToast('error', t('editor.feedback.noVariants'));
             return;
@@ -171,9 +159,9 @@ export const CreateProduct: React.FC = () => {
                 name: data.name,
                 slug: slugPreview || toSlug(data.name),
                 description: data.description,
-                basePrice: Number(data.basePrice),
-                categoryId: Number(data.categoryId),
-                brandId: data.brandId ? Number(data.brandId) : undefined,
+                basePrice: data.basePrice,
+                categoryId: data.categoryId,
+                brandId: data.brandId,
                 status: data.status || 'Active',
                 variants: variantPayloads,
                 images: [],
@@ -296,7 +284,7 @@ export const CreateProduct: React.FC = () => {
                         <AdminSectionCard bodyClassName="p-6">
                             <VariantManager
                                 baseSku={watch('baseSku') ?? ''}
-                                basePrice={watch('basePrice') ?? ''}
+                                basePrice={String(watch('basePrice') ?? '')}
                                 onChange={handleVariantChange}
                             />
                         </AdminSectionCard>
@@ -368,7 +356,7 @@ export const CreateProduct: React.FC = () => {
                                 </label>
                                 <div className="relative">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₫</span>
-                                    <input
+                                <input
                                         type="number"
                                         {...register('basePrice')}
                                         placeholder={t('editor.fields.basePricePlaceholder')}

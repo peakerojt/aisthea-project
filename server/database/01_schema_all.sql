@@ -230,12 +230,26 @@ BEGIN
         AddressLine   NVARCHAR(255) NOT NULL,
         City          NVARCHAR(50)  NOT NULL,
         District      NVARCHAR(50)  NULL,
+        Ward          NVARCHAR(50)  NULL,
         IsDefault     BIT           NULL DEFAULT 0,
         CONSTRAINT FK_Addresses_Users
             FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
     );
     CREATE NONCLUSTERED INDEX IX_Addresses_UserId_IsDefault ON Addresses(UserId, IsDefault);
     PRINT 'âœ“ Addresses';
+END
+GO
+
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Addresses')
+   AND NOT EXISTS (
+        SELECT 1
+        FROM sys.columns
+        WHERE object_id = OBJECT_ID('Addresses')
+          AND name = 'Ward'
+   )
+BEGIN
+    ALTER TABLE Addresses ADD Ward NVARCHAR(50) NULL;
+    PRINT '✓ Addresses.Ward added';
 END
 GO
 

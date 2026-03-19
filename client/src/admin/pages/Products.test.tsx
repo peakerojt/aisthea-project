@@ -19,6 +19,9 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('@/common/hooks/useProducts', () => ({
   useProductsPageAPI: (...args: any[]) => useProductsPageAPI(...args),
+  useUpdateProductStatusMutation: () => ({
+    mutateAsync: vi.fn(),
+  }),
   useUpdateProductMutation: () => ({
     mutateAsync: vi.fn(),
   }),

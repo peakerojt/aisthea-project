@@ -3,7 +3,7 @@ import { userController } from './user.controller';
 import { authenticateToken, checkRole } from '../../middlewares/auth.middleware';
 import { upload } from '../../middlewares/upload.middleware';
 import { validate } from '../../middlewares/validate.middleware';
-import { updateProfileSchema, addressSchema } from '../../utils/schemas/user.validator';
+import { updateProfileSchema, addressSchema, addressIdParamSchema } from '../../utils/schemas/user.validator';
 
 const router = Router();
 
@@ -21,9 +21,9 @@ router.delete('/avatar', userController.deleteAvatar);
 // ── Addresses ─────────────────────────────────────────────────────────────────
 router.get('/addresses', userController.getAddresses);
 router.post('/addresses', validate(addressSchema), userController.createAddress);
-router.put('/addresses/:id', validate(addressSchema), userController.updateAddress);
-router.delete('/addresses/:id', userController.deleteAddress);
-router.put('/addresses/:id/default', userController.setDefaultAddress);
+router.put('/addresses/:id', validate(addressIdParamSchema, 'params'), validate(addressSchema), userController.updateAddress);
+router.delete('/addresses/:id', validate(addressIdParamSchema, 'params'), userController.deleteAddress);
+router.put('/addresses/:id/default', validate(addressIdParamSchema, 'params'), userController.setDefaultAddress);
 
 // ── Recent orders for profile ─────────────────────────────────────────────────
 router.get('/recent-orders', userController.getRecentOrders);

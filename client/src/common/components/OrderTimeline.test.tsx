@@ -18,6 +18,6 @@ describe('OrderTimeline', () => {
 
   it('empty timeline state', () => {
     render(<OrderTimeline history={[]} />);
-    expect(screen.getByText(/No timeline yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/Chưa có lịch sử trạng thái/i)).toBeInTheDocument();
   });
 });

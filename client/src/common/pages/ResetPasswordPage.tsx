@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { api } from '@/common/utils/api';
+import { resetPasswordClientSchema } from '@/common/validation/schemas';
 
 export const ResetPasswordPage: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'resetPassword' });
@@ -9,6 +11,8 @@ export const ResetPasswordPage: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  const [newPasswordError, setNewPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -33,40 +37,47 @@ export const ResetPasswordPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (newPassword !== confirmPassword) {
+    const passwordParsed = resetPasswordClientSchema.safeParse({ newPassword });
+    if (!passwordParsed.success) {
       setStatus('error');
-      setMessage(t('messages.passwordMismatch'));
+      setMessage('');
+      setNewPasswordError(t('messages.passwordInvalid'));
+      setConfirmPasswordError('');
       return;
     }
 
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(newPassword)) {
+    if (newPassword !== confirmPassword) {
       setStatus('error');
-      setMessage(t('messages.passwordInvalid'));
+      setMessage('');
+      setNewPasswordError('');
+      setConfirmPasswordError(t('messages.passwordMismatch'));
       return;
     }
 
     setStatus('loading');
     setMessage('');
+    setNewPasswordError('');
+    setConfirmPasswordError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ newPassword }),
+      const response = await api.post<{ success: boolean; message?: string }>('/api/auth/reset-password', passwordParsed.data, {
+        skipAuthRedirect: true,
       });
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || t('messages.resetFailed'));
-      }
-
       setStatus('success');
-      setMessage(data.message);
+      setMessage(response.message || t('actions.loginNow'));
     } catch (err: unknown) {
-      const error = err as { message?: string };
+      const error = err as Error & {
+        details?: Array<{ field?: string; message?: string }>;
+      };
+      const passwordIssue = error.details?.find((issue) => issue.field === 'newPassword' && issue.message);
+
       setStatus('error');
+      if (passwordIssue?.message) {
+        setNewPasswordError(passwordIssue.message);
+        setMessage('');
+        return;
+      }
       setMessage(error.message || t('messages.resetFailed'));
     }
   };
@@ -90,19 +101,27 @@ export const ResetPasswordPage: React.FC = () => {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
-            {status === 'error' ? <div className="text-red-500 text-center bg-red-500/10 p-4 rounded mb-4">{message}</div> : null}
+            {status === 'error' && message ? <div className="text-red-500 text-center bg-red-500/10 p-4 rounded mb-4">{message}</div> : null}
 
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-2">{t('form.newPassword')}</label>
               <input
                 type="password"
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  setNewPasswordError('');
+                  if (status === 'error') {
+                    setMessage('');
+                    setStatus('idle');
+                  }
+                }}
                 required
-                minLength={6}
-                className="w-full px-4 py-3 bg-bg-dark border border-border-light rounded-md text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+                minLength={8}
+                className={`w-full px-4 py-3 bg-bg-dark border rounded-md text-white focus:outline-none focus:ring-1 transition-colors ${newPasswordError ? 'border-red-500 focus:border-red-400 focus:ring-red-500/20' : 'border-border-light focus:border-primary focus:ring-primary'}`}
                 placeholder="••••••••"
               />
+              {newPasswordError && <p className="mt-2 text-sm text-red-400">{newPasswordError}</p>}
             </div>
 
             <div>
@@ -110,12 +129,20 @@ export const ResetPasswordPage: React.FC = () => {
               <input
                 type="password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  setConfirmPasswordError('');
+                  if (status === 'error') {
+                    setMessage('');
+                    setStatus('idle');
+                  }
+                }}
                 required
-                minLength={6}
-                className="w-full px-4 py-3 bg-bg-dark border border-border-light rounded-md text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+                minLength={8}
+                className={`w-full px-4 py-3 bg-bg-dark border rounded-md text-white focus:outline-none focus:ring-1 transition-colors ${confirmPasswordError ? 'border-red-500 focus:border-red-400 focus:ring-red-500/20' : 'border-border-light focus:border-primary focus:ring-primary'}`}
                 placeholder="••••••••"
               />
+              {confirmPasswordError && <p className="mt-2 text-sm text-red-400">{confirmPasswordError}</p>}
             </div>
 
             <button

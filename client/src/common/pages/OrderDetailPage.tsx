@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { OrderDetail, OrderItem, OrderTimelineItem, orderService } from '@/common/services/order.service';;
@@ -66,6 +66,7 @@ export const OrderDetailPage: React.FC = () => {
 
   // Confirm receipt dialog state
   const [confirmReceiptDialog, setConfirmReceiptDialog] = useState(false);
+  const [isConfirmReceiptVisible, setIsConfirmReceiptVisible] = useState(false);
 
   const {
     data: order,
@@ -120,6 +121,16 @@ export const OrderDetailPage: React.FC = () => {
       setConfirmReceiptDialog(false);
     },
   });
+
+  useEffect(() => {
+    if (!confirmReceiptDialog) {
+      setIsConfirmReceiptVisible(false);
+      return undefined;
+    }
+
+    const frameId = window.requestAnimationFrame(() => setIsConfirmReceiptVisible(true));
+    return () => window.cancelAnimationFrame(frameId);
+  }, [confirmReceiptDialog]);
   // ── Buy Again mutation ──
   // Adds all items from a past order back into cart via CartContext
   // so that CartContext.dbItems stays in sync before navigating to Checkout.
@@ -225,22 +236,25 @@ export const OrderDetailPage: React.FC = () => {
       {/* Confirm Receipt AlertDialog */}
       {confirmReceiptDialog && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          role="presentation"
+          className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-all duration-200 ease-out ${
+            isConfirmReceiptVisible ? 'opacity-100' : 'opacity-0'
+          }`}
         >
           <div
-            className="w-full max-w-sm rounded-2xl border border-white/10 p-6 space-y-5"
-            style={{
-              background: 'linear-gradient(135deg, rgba(15,15,25,0.98) 0%, rgba(20,20,35,0.98) 100%)',
-              boxShadow: '0 25px 60px rgba(0,0,0,0.7)',
-            }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-receipt-title"
+            className={`w-full max-w-sm space-y-5 rounded-2xl border border-gray-200/10 bg-[#0B0B0C] p-6 shadow-2xl shadow-black/40 transform-gpu transition-all duration-200 ease-out will-change-transform ${
+              isConfirmReceiptVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'
+            }`}
           >
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 shrink-0">
                 <PackageCheck size={20} className="text-emerald-400" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white mb-1">{t('confirmReceipt.title')}</h3>
+                <h3 id="confirm-receipt-title" className="text-sm font-bold text-white mb-1">{t('confirmReceipt.title')}</h3>
                 <p className="text-xs text-white/60 leading-relaxed">
                   {t('confirmReceipt.description')}
                 </p>

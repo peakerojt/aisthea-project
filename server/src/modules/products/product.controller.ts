@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../../middlewares/error.middleware';
 import { productService } from './product.service';
 import type { ProductFilter } from './product.repository';
-import type { ProductQueryDto } from './product.validator';
+import type { ProductQueryDto, UpdateProductStatusInput } from './product.validator';
 
 const parseProductId = (rawId: string): number => {
   const id = Number(rawId);
@@ -95,14 +95,8 @@ export const productController = {
   updateStatus: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = parseProductId(req.params.id as string);
-      const { status } = req.body as { status?: string };
-      const allowedStatuses = ['Active', 'Inactive', 'Draft', 'Archived'] as const;
-
-      if (!status || !allowedStatuses.includes(status as (typeof allowedStatuses)[number])) {
-        throw new AppError(400, 'INVALID_STATUS', 'common:errors.validation');
-      }
-
-      const result = await productService.updateProductStatus(id, status as (typeof allowedStatuses)[number]);
+      const { status } = req.body as UpdateProductStatusInput;
+      const result = await productService.updateProductStatus(id, status);
       res.json({ success: true, data: result, message: 'Product status updated successfully.' });
     } catch (error) {
       next(error);

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { cartService } from './cart.service';
 import { AuthRequest } from '../../middlewares/auth.middleware';
 import { logger } from '../../lib/logger';
+import type { AddToCartInput, MergeCartInput, UpdateCartItemInput } from './cart.validator';
 
 export const cartController = {
     // GET /api/cart
@@ -18,10 +19,7 @@ export const cartController = {
     // POST /api/cart/add
     async addToCart(req: AuthRequest, res: Response) {
         try {
-            const { variantId, quantity } = req.body;
-            if (!variantId || !quantity || quantity <= 0) {
-                return res.status(400).json({ success: false, code: 'INVALID_BODY', message: 'Thiếu variantId hoặc số lượng không hợp lệ.' });
-            }
+            const { variantId, quantity } = req.body as AddToCartInput;
             const cart = await cartService.upsertCartItem(req.user.userId, Number(variantId), Number(quantity));
             res.json({ success: true, code: 'CART_ITEM_ADDED', data: cart });
         } catch (error: unknown) {
@@ -36,10 +34,7 @@ export const cartController = {
     // PUT /api/cart/update
     async updateCartItem(req: AuthRequest, res: Response) {
         try {
-            const { cartItemId, quantity } = req.body;
-            if (!cartItemId || quantity === undefined || quantity === null) {
-                return res.status(400).json({ success: false, code: 'INVALID_BODY', message: 'Thiếu cartItemId hoặc số lượng.' });
-            }
+            const { cartItemId, quantity } = req.body as UpdateCartItemInput;
             const cart = await cartService.updateCartItemQuantity(req.user.userId, Number(cartItemId), Number(quantity));
             res.json({ success: true, data: cart });
         } catch (error: unknown) {
@@ -55,7 +50,6 @@ export const cartController = {
     async removeCartItem(req: AuthRequest, res: Response) {
         try {
             const cartItemId = Number(req.params.cartItemId);
-            if (!cartItemId) return res.status(400).json({ success: false, code: 'INVALID_BODY', message: 'Thiếu cartItemId.' });
             const cart = await cartService.removeCartItem(req.user.userId, cartItemId);
             res.json({ success: true, data: cart });
         } catch (error: unknown) {
@@ -80,10 +74,7 @@ export const cartController = {
     // POST /api/cart/merge
     async mergeCart(req: AuthRequest, res: Response) {
         try {
-            const { items } = req.body;
-            if (!Array.isArray(items)) {
-                return res.status(400).json({ success: false, code: 'INVALID_BODY', message: 'items phải là mảng.' });
-            }
+            const { items } = req.body as MergeCartInput;
             const cart = await cartService.mergeCart(req.user.userId, items);
             res.json({ success: true, code: 'CART_SYNCED', data: cart });
         } catch (error) {

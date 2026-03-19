@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthLayout } from '@/common/layouts/AuthLayout';
 import { useAuth } from '@/common/contexts/AuthContext';
@@ -7,29 +7,16 @@ import { getGuestCart } from '@/common/services/cart.service';
 import { Eye, EyeOff } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
-
-interface LoginFormInputs {
-  email: string;
-  password: string;
-}
+import { LoginFormInput, loginFormSchema } from '@/common/validation/schemas';
 
 export const Login: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'login' });
   const [showPassword, setShowPassword] = useState(false);
+  const [authError, setAuthError] = useState('');
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
   const { syncWithMerge } = useCart();
-
-  const loginSchema = useMemo(
-    () =>
-      z.object({
-        email: z.string().email(t('validation.emailInvalid')),
-        password: z.string().min(1, t('validation.passwordRequired')),
-      }),
-    [t],
-  );
 
   const queryParams = new URLSearchParams(window.location.search);
   const isBanned = queryParams.get('reason') === 'banned';
@@ -38,8 +25,8 @@ export const Login: React.FC = () => {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormInputs>({
-    resolver: zodResolver(loginSchema),
+  } = useForm<LoginFormInput>({
+    resolver: zodResolver(loginFormSchema),
     mode: 'onChange',
     defaultValues: {
       email: '',
@@ -47,31 +34,50 @@ export const Login: React.FC = () => {
     },
   });
 
-  const onSubmit = async (data: LoginFormInputs) => {
-    const user = await login(data.email, data.password);
+  const emailRegister = register('email', {
+    onChange: () => setAuthError(''),
+  });
 
-    if (user) {
-      const localItems = getGuestCart();
+  const passwordRegister = register('password', {
+    onChange: () => setAuthError(''),
+  });
 
-      try {
-        await syncWithMerge(localItems);
-      } catch {
-        // Keep login flow resilient even if cart merge fails.
+  const onSubmit = async (data: LoginFormInput) => {
+    try {
+      setAuthError('');
+      const user = await login(data.email, data.password);
+
+      if (user) {
+        const localItems = getGuestCart();
+
+        try {
+          await syncWithMerge(localItems);
+        } catch {
+          // Keep login flow resilient even if cart merge fails.
+        }
+
+        if (user.roles.includes('Admin')) {
+          navigate('/admin');
+        } else {
+          navigate('/');
+        }
       }
-
-      if (user.roles.includes('Admin')) {
-        navigate('/admin');
-      } else {
-        navigate('/');
-      }
+    } catch (error) {
+      const err = error as Error & { status?: number; code?: string };
+      const message = err.status === 401 || err.message === 'Invalid email or password'
+        ? t('errors.invalidCredentials')
+        : err.message || t('errors.signInFailed');
+      setAuthError(message);
     }
   };
 
   return (
     <AuthLayout backgroundImage="https://images.unsplash.com/photo-1496747611176-843222e1e57c?q=80&w=2000">
       <div className="mb-12">
-        <p className="text-primary text-xs font-bold uppercase tracking-[0.2em] mb-4">{t('label')}</p>
-        <h1 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mb-2">{t('title')}</h1>
+        <p className="mb-4 text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">{t('label')}</p>
+        <h1 className="mb-4 text-[clamp(2.2rem,5vw,3.3rem)] font-extrabold leading-[1.02] tracking-[-0.035em] text-white">
+          {t('title')}
+        </h1>
 
         {isBanned ? (
           <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-md">
@@ -79,7 +85,9 @@ export const Login: React.FC = () => {
             <p className="text-xs text-red-400 mt-1">{t('banned.description')}</p>
           </div>
         ) : (
-          <p className="text-gray-400">{t('subtitle')}</p>
+          <p className="max-w-xl text-[16px] font-normal leading-[1.6] text-gray-300 md:text-[17px]">
+            {t('subtitle')}
+          </p>
         )}
       </div>
 
@@ -88,7 +96,7 @@ export const Login: React.FC = () => {
           <input
             type="email"
             autoComplete="off"
-            {...register('email')}
+            {...emailRegister}
             className={`block py-4 px-0 w-full text-base text-white bg-transparent border-0 border-b appearance-none focus:outline-none focus:ring-0 peer transition-colors ${
               errors.email ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-white'
             }`}
@@ -96,7 +104,7 @@ export const Login: React.FC = () => {
             disabled={isLoading}
           />
           <label
-            className={`absolute text-sm duration-300 transform -translate-y-6 scale-75 top-3 z-0 origin-[0] peer-focus:left-0 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase pointer-events-none ${
+            className={`absolute top-3 z-0 origin-[0] text-[13px] font-medium tracking-[0.01em] duration-300 pointer-events-none transform -translate-y-6 scale-75 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:scale-75 peer-focus:-translate-y-6 ${
               errors.email ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-white'
             }`}
           >
@@ -109,7 +117,7 @@ export const Login: React.FC = () => {
           <input
             type={showPassword ? 'text' : 'password'}
             autoComplete="off"
-            {...register('password')}
+            {...passwordRegister}
             className={`block py-4 px-0 w-full text-base text-white bg-transparent border-0 border-b appearance-none focus:outline-none focus:ring-0 peer transition-colors pr-10 ${
               errors.password ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-white'
             }`}
@@ -117,7 +125,7 @@ export const Login: React.FC = () => {
             disabled={isLoading}
           />
           <label
-            className={`absolute text-sm duration-300 transform -translate-y-6 scale-75 top-3 z-0 origin-[0] peer-focus:left-0 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase pointer-events-none ${
+            className={`absolute top-3 z-0 origin-[0] text-[13px] font-medium tracking-[0.01em] duration-300 pointer-events-none transform -translate-y-6 scale-75 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:scale-75 peer-focus:-translate-y-6 ${
               errors.password ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-white'
             }`}
           >
@@ -133,11 +141,17 @@ export const Login: React.FC = () => {
           {errors.password && <span className="text-xs text-red-500 mt-1">{errors.password.message}</span>}
         </div>
 
+        {authError && (
+          <div className="rounded-sm border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {authError}
+          </div>
+        )}
+
         <div className="flex justify-end">
           <button
             type="button"
             onClick={() => navigate('/forgot-password')}
-            className="text-xs text-gray-400 hover:text-white transition-colors font-medium"
+            className="text-[13px] font-medium text-gray-400 transition-colors hover:text-white"
           >
             {t('actions.forgotPassword')}
           </button>
@@ -147,7 +161,7 @@ export const Login: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-primary hover:bg-red-700 text-white font-bold text-sm uppercase tracking-[0.15em] py-4 rounded-sm transition-all shadow-lg shadow-primary/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="flex w-full items-center justify-center gap-2 rounded-sm bg-primary py-4 text-base font-semibold tracking-[0.06em] text-white transition-all shadow-lg shadow-primary/20 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isLoading ? (
               <>
@@ -163,15 +177,15 @@ export const Login: React.FC = () => {
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-white/10"></div>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#0a0a0a] px-4 text-gray-500 font-bold tracking-wider">{t('divider.or')}</span>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-[#0a0a0a] px-4 text-[12px] font-semibold tracking-[0.08em] text-gray-500">{t('divider.or')}</span>
             </div>
           </div>
 
           <button
             type="button"
             onClick={() => (window.location.href = `${import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'}/api/auth/google`)}
-            className="w-full bg-white hover:bg-gray-100 text-gray-900 font-bold text-sm uppercase tracking-[0.15em] py-4 rounded-sm transition-all flex items-center justify-center gap-3 group cursor-pointer border border-gray-200"
+            className="group flex w-full cursor-pointer items-center justify-center gap-3 rounded-sm border border-gray-200 bg-white py-4 text-base font-semibold tracking-[0.05em] text-gray-900 transition-all hover:bg-gray-100"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />

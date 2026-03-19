@@ -14,7 +14,8 @@ interface AddressData {
     phone: string;
     addressLine: string;
     city: string;
-    district?: string;
+    district: string;
+    ward: string;
     isDefault?: boolean;
 }
 
@@ -204,8 +205,8 @@ export class UserService {
      */
     async createAddress(userId: number, data: AddressData) {
         // Validate required fields
-        if (!data.recipientName || !data.phone || !data.addressLine || !data.city) {
-            throw new Error('Missing required fields: recipientName, phone, addressLine, city');
+        if (!data.recipientName || !data.phone || !data.addressLine || !data.city || !data.district || !data.ward) {
+            throw new Error('Missing required fields: recipientName, phone, addressLine, city, district, ward');
         }
 
         // If setting as default, unset other defaults first
@@ -223,7 +224,8 @@ export class UserService {
                 phone: data.phone,
                 addressLine: data.addressLine,
                 city: data.city,
-                district: data.district || null,
+                district: data.district,
+                ward: data.ward,
                 isDefault: data.isDefault || false,
             },
         });

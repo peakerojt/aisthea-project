@@ -121,7 +121,12 @@
       "loading": "Đang tải phiếu nhập...",
       "empty": "Chưa có phiếu nhập",
       "creating": "Đang tạo...",
-      "receiving": "Đang ghi nhận..."
+      "receiving": "Đang ghi nhận...",
+      "cancelling": "Đang hủy..."
+    },
+    "cancel": {
+      "title": "Xác nhận hủy phiếu nhập",
+      "description": "Thao tác này sẽ chuyển phiếu nhập về trạng thái đã hủy. Chỉ nên thực hiện khi bạn chắc chắn không tiếp tục nhận hàng cho phiếu này."
     },
     "create": {
       "title": "Tạo phiếu nhập",
@@ -189,8 +194,11 @@
     "errors": {
       "loadOrders": "Không thể tải danh sách phiếu nhập.",
       "supplierRequired": "Vui lòng nhập nhà cung cấp.",
+      "expectedDatePast": "Ngày dự kiến nhận không được ở quá khứ.",
       "itemsRequired": "Cần ít nhất một dòng sản phẩm hợp lệ.",
       "duplicateVariant": "Không được trùng biến thể trong cùng một phiếu nhập.",
+      "invalidOrderedQty": "Số lượng đặt phải lớn hơn 0.",
+      "invalidUnitCost": "Đơn giá nhập phải lớn hơn 0.",
       "createFailed": "Tạo phiếu nhập thất bại.",
       "receiptItemsRequired": "Vui lòng nhập số lượng nhận cho ít nhất một dòng.",
       "receiveFailed": "Nhận hàng thất bại.",

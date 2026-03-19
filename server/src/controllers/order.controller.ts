@@ -22,6 +22,7 @@ import {
 } from '../shared/order-contract';
 import { fileToBase64 } from '../middlewares/upload.middleware';
 import { cloudinaryService } from '../services/cloudinary.service';
+import type { CreateOrderInput, QuoteOrderInput } from '../modules/order/order.validator';
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
@@ -471,16 +472,7 @@ export const quoteOrder = async (req: AuthRequest, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    const { items, couponCode, shippingCityCode, shippingMethod } = req.body as {
-      items?: Array<{ variantId: number; quantity: number }>;
-      couponCode?: string;
-      shippingCityCode?: string;
-      shippingMethod?: ShippingMethod;
-    };
-
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ errorCode: ERROR_CODES.CART_EMPTY });
-    }
+    const { items, couponCode, shippingCityCode, shippingMethod } = req.body as QuoteOrderInput;
 
     const pricing = await quoteOrderPricing({
       userId,
@@ -519,34 +511,23 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     const {
       paymentMethod, customerName, customerEmail, customerPhone, shippingCity, shippingDistrict,
       shippingWard, shippingAddressDetail, note, items, couponCode, shippingCityCode, shippingMethod,
-    } = req.body;
-
-    if (!paymentMethod) return res.status(400).json({ error: 'Payment method is required' });
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ errorCode: ERROR_CODES.CART_EMPTY });
-    }
-    if (!shippingCityCode || typeof shippingCityCode !== 'string') {
-      return res.status(400).json({ errorCode: 'INVALID_SHIPPING_CITY_CODE', message: 'Shipping city code is required.' });
-    }
-    if (shippingMethod !== 'STANDARD' && shippingMethod !== 'EXPRESS') {
-      return res.status(400).json({ errorCode: 'INVALID_SHIPPING_METHOD', message: 'Shipping method is invalid.' });
-    }
+    } = req.body as CreateOrderInput;
 
     const currentUser = { userId: req.user.userId, roles: (req.user as any).roles || [] };
     const orderDetail = await createOrderService(currentUser, {
       items,
       paymentMethod,
-      customerName: customerName || 'Khách hàng',
-      customerEmail: customerEmail || req.user.email || null,
-      customerPhone: customerPhone || '0000000000',
-      shippingCity: shippingCity || 'Hà Nội',
-      shippingDistrict: shippingDistrict || 'Không xác định',
-      shippingWard: shippingWard || null,
-      shippingAddressDetail: shippingAddressDetail || 'Không xác định',
+      customerName,
+      customerEmail,
+      customerPhone,
+      shippingCity,
+      shippingDistrict,
+      shippingWard,
+      shippingAddressDetail,
       shippingCityCode,
-      shippingMethod,
-      couponCode: typeof couponCode === 'string' ? couponCode : null,
-      note: note || null,
+      shippingMethod: shippingMethod as ShippingMethod,
+      couponCode: couponCode ?? null,
+      note: note ?? null,
     });
     const orderId = Number(orderDetail.id);
 

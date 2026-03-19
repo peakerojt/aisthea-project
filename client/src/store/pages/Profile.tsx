@@ -7,6 +7,9 @@ import { getImageUrl } from '@/common/utils/cloudinary';
 import { formatCurrencyVND } from '@/common/utils/currency';
 import { getStatusMeta, normalizeStatus } from '@/config/orderStatus.config';
 import { useTranslation } from 'react-i18next';
+import { type FieldErrorMap, firstFieldError, mapZodFieldErrors } from '@/common/validation/errors';
+import { profileAddressClientSchema, profileUpdateClientSchema } from '@/common/validation/schemas';
+import { ZodError } from 'zod';
 
 export const Profile: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'profile' });
@@ -26,6 +29,8 @@ export const Profile: React.FC = () => {
   // Edit mode states
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ fullName: '', phone: '' });
+  const [profileErrors, setProfileErrors] = useState<FieldErrorMap>({});
+  const [profileErrorMessage, setProfileErrorMessage] = useState('');
 
   // Address form state
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -36,13 +41,18 @@ export const Profile: React.FC = () => {
     addressLine: '',
     city: '',
     district: '',
+    ward: '',
     isDefault: false,
   });
+  const [addressErrors, setAddressErrors] = useState<FieldErrorMap>({});
+  const [addressErrorMessage, setAddressErrorMessage] = useState('');
 
   // Avatar upload state
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const [avatarFeedback, setAvatarFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
+  const [addressActionFeedback, setAddressActionFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
   // Load profile data
   const loadProfileData = useCallback(async () => {
@@ -86,15 +96,66 @@ export const Profile: React.FC = () => {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
+  const inputClassName = 'w-full bg-black/40 border px-4 py-3 text-white rounded focus:outline-none transition-colors';
+  const defaultInputBorderClassName = 'border-white/20 focus:border-primary';
+  const errorInputBorderClassName = 'border-red-500 focus:border-red-400';
+  const fieldErrorClassName = 'mt-2 text-xs text-red-400';
+  const formErrorClassName = 'mb-4 rounded border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300';
+
+  const clearFieldError = (setErrors: React.Dispatch<React.SetStateAction<FieldErrorMap>>, field: string) => {
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const mapApiFieldErrors = (details?: Array<{ field?: string; message?: string }>): FieldErrorMap => {
+    if (!Array.isArray(details)) return {};
+
+    return details.reduce<FieldErrorMap>((acc, issue) => {
+      if (!issue.field || !issue.message || acc[issue.field]) return acc;
+      acc[issue.field] = issue.message;
+      return acc;
+    }, {});
+  };
+
   // Profile edit handlers
   const handleSaveProfile = async () => {
+    const parsed = profileUpdateClientSchema.safeParse(profileForm);
+
+    if (!parsed.success) {
+      const mappedErrors = mapZodFieldErrors(parsed.error);
+      setProfileErrors(mappedErrors);
+      setProfileErrorMessage(firstFieldError(mappedErrors) || t('errors.updateProfile'));
+      return;
+    }
+
     try {
-      const updatedProfile = await userService.updateProfile(profileForm);
+      setProfileErrors({});
+      setProfileErrorMessage('');
+      const updatedProfile = await userService.updateProfile(parsed.data);
       setProfile(updatedProfile);
       setIsEditingProfile(false);
     } catch (error) {
-      const err = error as Error | { message?: string; error?: string; data?: unknown };
-      alert(err.message || t('errors.updateProfile'));
+      if (error instanceof ZodError) {
+        const mappedErrors = mapZodFieldErrors(error);
+        setProfileErrors(mappedErrors);
+        setProfileErrorMessage(firstFieldError(mappedErrors) || t('errors.updateProfile'));
+        return;
+      }
+
+      const err = error as Error & {
+        details?: Array<{ field?: string; message?: string }>;
+      };
+      const mappedErrors = mapApiFieldErrors(err.details);
+
+      if (Object.keys(mappedErrors).length > 0) {
+        setProfileErrors(mappedErrors);
+      }
+
+      setProfileErrorMessage(err.message || firstFieldError(mappedErrors) || t('errors.updateProfile'));
     }
   };
 
@@ -105,6 +166,8 @@ export const Profile: React.FC = () => {
         phone: profile.phone || '',
       });
     }
+    setProfileErrors({});
+    setProfileErrorMessage('');
     setIsEditingProfile(false);
   };
 
@@ -115,15 +178,17 @@ export const Profile: React.FC = () => {
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert(t('avatar.errors.invalidType'));
+      setAvatarFeedback({ type: 'error', message: t('avatar.errors.invalidType') });
       return;
     }
 
     // Validate file size (5MB limit for Cloudinary)
     if (file.size > 5 * 1024 * 1024) {
-      alert(t('avatar.errors.maxSize'));
+      setAvatarFeedback({ type: 'error', message: t('avatar.errors.maxSize') });
       return;
     }
+
+    setAvatarFeedback(null);
 
     // Convert to base64 for upload
     const reader = new FileReader();
@@ -138,13 +203,14 @@ export const Profile: React.FC = () => {
 
     try {
       setUploadingAvatar(true);
+      setAvatarFeedback(null);
       const response = await userService.uploadAvatar(avatarPreview);
       await loadProfileData();
       setAvatarPreview(null);
-      alert((response as any).message || t('avatar.messages.uploadSuccess'));
+      setAvatarFeedback({ type: 'success', message: (response as any).message || t('avatar.messages.uploadSuccess') });
     } catch (error) {
       const err = error as Error | { message?: string; error?: string; data?: unknown };
-      alert(err.message || t('avatar.errors.uploadFailed'));
+      setAvatarFeedback({ type: 'error', message: err.message || t('avatar.errors.uploadFailed') });
     } finally {
       setUploadingAvatar(false);
     }
@@ -156,8 +222,10 @@ export const Profile: React.FC = () => {
     try {
       await userService.deleteAvatar();
       await loadProfileData();
+      setAvatarPreview(null);
+      setAvatarFeedback(null);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : t('avatar.errors.deleteFailed'));
+      setAvatarFeedback({ type: 'error', message: err instanceof Error ? err.message : t('avatar.errors.deleteFailed') });
     }
   };
 
@@ -169,8 +237,11 @@ export const Profile: React.FC = () => {
       addressLine: '',
       city: '',
       district: '',
+      ward: '',
       isDefault: addresses.length === 0,
     });
+    setAddressErrors({});
+    setAddressErrorMessage('');
     setEditingAddressId(null);
     setShowAddressForm(true);
   };
@@ -182,23 +253,60 @@ export const Profile: React.FC = () => {
       addressLine: address.addressLine,
       city: address.city,
       district: address.district || '',
+      ward: address.ward || '',
       isDefault: address.isDefault,
     });
+    setAddressErrors({});
+    setAddressErrorMessage('');
     setEditingAddressId(address.addressId);
     setShowAddressForm(true);
   };
 
+  const handleCancelAddressForm = () => {
+    setAddressErrors({});
+    setAddressErrorMessage('');
+    setShowAddressForm(false);
+    setEditingAddressId(null);
+  };
+
   const handleSaveAddress = async () => {
+    const parsed = profileAddressClientSchema.safeParse(addressForm);
+
+    if (!parsed.success) {
+      const mappedErrors = mapZodFieldErrors(parsed.error);
+      setAddressErrors(mappedErrors);
+      setAddressErrorMessage(firstFieldError(mappedErrors) || t('addresses.errors.saveFailed'));
+      return;
+    }
+
     try {
+      setAddressErrors({});
+      setAddressErrorMessage('');
       if (editingAddressId) {
-        await userService.updateAddress(editingAddressId, addressForm);
+        await userService.updateAddress(editingAddressId, parsed.data);
       } else {
-        await userService.createAddress(addressForm);
+        await userService.createAddress(parsed.data);
       }
       await loadProfileData();
-      setShowAddressForm(false);
+      handleCancelAddressForm();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : t('addresses.errors.saveFailed'));
+      if (err instanceof ZodError) {
+        const mappedErrors = mapZodFieldErrors(err);
+        setAddressErrors(mappedErrors);
+        setAddressErrorMessage(firstFieldError(mappedErrors) || t('addresses.errors.saveFailed'));
+        return;
+      }
+
+      const apiError = err as Error & {
+        details?: Array<{ field?: string; message?: string }>;
+      };
+      const mappedErrors = mapApiFieldErrors(apiError.details);
+
+      if (Object.keys(mappedErrors).length > 0) {
+        setAddressErrors(mappedErrors);
+      }
+
+      setAddressErrorMessage(apiError.message || firstFieldError(mappedErrors) || t('addresses.errors.saveFailed'));
     }
   };
 
@@ -208,8 +316,9 @@ export const Profile: React.FC = () => {
     try {
       await userService.deleteAddress(addressId);
       await loadProfileData();
+      setAddressActionFeedback(null);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : t('addresses.errors.deleteFailed'));
+      setAddressActionFeedback({ type: 'error', message: err instanceof Error ? err.message : t('addresses.errors.deleteFailed') });
     }
   };
 
@@ -217,8 +326,9 @@ export const Profile: React.FC = () => {
     try {
       await userService.setDefaultAddress(addressId);
       await loadProfileData();
+      setAddressActionFeedback(null);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : t('addresses.errors.defaultFailed'));
+      setAddressActionFeedback({ type: 'error', message: err instanceof Error ? err.message : t('addresses.errors.defaultFailed') });
     }
   };
 
@@ -314,11 +424,19 @@ export const Profile: React.FC = () => {
                     {uploadingAvatar ? t('avatar.actions.uploading') : t('common.save')}
                   </button>
                   <button
-                    onClick={() => setAvatarPreview(null)}
+                    onClick={() => {
+                      setAvatarPreview(null);
+                      setAvatarFeedback(null);
+                    }}
                     className="px-4 py-2 border border-white/20 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors"
                   >
                     {t('common.cancel')}
                   </button>
+                </div>
+              )}
+              {avatarFeedback && (
+                <div className={`mt-4 rounded border px-4 py-3 text-sm ${avatarFeedback.type === 'error' ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-green-500/30 bg-green-500/10 text-green-300'}`}>
+                  {avatarFeedback.message}
                 </div>
               )}
             </div>
@@ -405,19 +523,30 @@ export const Profile: React.FC = () => {
                     <input
                       type="text"
                       value={profileForm.fullName}
-                      onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })}
-                      className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors"
+                      onChange={(e) => {
+                        setProfileForm({ ...profileForm, fullName: e.target.value });
+                        clearFieldError(setProfileErrors, 'fullName');
+                        setProfileErrorMessage('');
+                      }}
+                      className={`${inputClassName} ${profileErrors.fullName ? errorInputBorderClassName : defaultInputBorderClassName}`}
                     />
+                    {profileErrors.fullName && <p className={fieldErrorClassName}>{profileErrors.fullName}</p>}
                   </div>
                   <div>
                     <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">{t('fields.phone')}</label>
                     <input
                       type="tel"
                       value={profileForm.phone}
-                      onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                      className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors"
+                      onChange={(e) => {
+                        setProfileForm({ ...profileForm, phone: e.target.value });
+                        clearFieldError(setProfileErrors, 'phone');
+                        setProfileErrorMessage('');
+                      }}
+                      className={`${inputClassName} ${profileErrors.phone ? errorInputBorderClassName : defaultInputBorderClassName}`}
                     />
+                    {profileErrors.phone && <p className={fieldErrorClassName}>{profileErrors.phone}</p>}
                   </div>
+                  {profileErrorMessage && <div className={formErrorClassName}>{profileErrorMessage}</div>}
                   <div className="flex gap-3">
                     <button
                       onClick={handleSaveProfile}
@@ -455,34 +584,74 @@ export const Profile: React.FC = () => {
 
           {expandedSection === 'addresses' && (
             <div className="px-8 py-6 border-t border-white/10 animate-fade-in">
+              {addressActionFeedback && (
+                <div className={`mb-4 rounded border px-4 py-3 text-sm ${addressActionFeedback.type === 'error' ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-green-500/30 bg-green-500/10 text-green-300'}`}>
+                  {addressActionFeedback.message}
+                </div>
+              )}
               {showAddressForm ? (
                 <div className="bg-black/20 p-6 rounded mb-6 border border-white/5">
                   <h4 className="text-sm font-bold uppercase tracking-widest mb-4">{editingAddressId ? t('addresses.actions.edit') : t('addresses.actions.addNew')}</h4>
+                  {addressErrorMessage && <div className={formErrorClassName}>{addressErrorMessage}</div>}
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                     <div className="md:col-span-6">
                       <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">{t('addresses.fields.recipientName')}</label>
-                      <input type="text" value={addressForm.recipientName} onChange={(e) => setAddressForm({ ...addressForm, recipientName: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
+                      <input type="text" value={addressForm.recipientName} onChange={(e) => {
+                        setAddressForm({ ...addressForm, recipientName: e.target.value });
+                        clearFieldError(setAddressErrors, 'recipientName');
+                        setAddressErrorMessage('');
+                      }} className={`${inputClassName} ${addressErrors.recipientName ? errorInputBorderClassName : defaultInputBorderClassName}`} />
+                      {addressErrors.recipientName && <p className={fieldErrorClassName}>{addressErrors.recipientName}</p>}
                     </div>
                     <div className="md:col-span-6">
                       <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">{t('addresses.fields.phone')}</label>
-                      <input type="tel" value={addressForm.phone} onChange={(e) => setAddressForm({ ...addressForm, phone: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
+                      <input type="tel" value={addressForm.phone} onChange={(e) => {
+                        setAddressForm({ ...addressForm, phone: e.target.value });
+                        clearFieldError(setAddressErrors, 'phone');
+                        setAddressErrorMessage('');
+                      }} className={`${inputClassName} ${addressErrors.phone ? errorInputBorderClassName : defaultInputBorderClassName}`} />
+                      {addressErrors.phone && <p className={fieldErrorClassName}>{addressErrors.phone}</p>}
                     </div>
                     <div className="md:col-span-8">
                       <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">{t('addresses.fields.addressLine')}</label>
-                      <input type="text" value={addressForm.addressLine} onChange={(e) => setAddressForm({ ...addressForm, addressLine: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
+                      <input type="text" value={addressForm.addressLine} onChange={(e) => {
+                        setAddressForm({ ...addressForm, addressLine: e.target.value });
+                        clearFieldError(setAddressErrors, 'addressLine');
+                        setAddressErrorMessage('');
+                      }} className={`${inputClassName} ${addressErrors.addressLine ? errorInputBorderClassName : defaultInputBorderClassName}`} />
+                      {addressErrors.addressLine && <p className={fieldErrorClassName}>{addressErrors.addressLine}</p>}
                     </div>
                     <div className="md:col-span-4">
                       <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">{t('addresses.fields.city')}</label>
-                      <input type="text" value={addressForm.city} onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
+                      <input type="text" value={addressForm.city} onChange={(e) => {
+                        setAddressForm({ ...addressForm, city: e.target.value });
+                        clearFieldError(setAddressErrors, 'city');
+                        setAddressErrorMessage('');
+                      }} className={`${inputClassName} ${addressErrors.city ? errorInputBorderClassName : defaultInputBorderClassName}`} />
+                      {addressErrors.city && <p className={fieldErrorClassName}>{addressErrors.city}</p>}
                     </div>
-                    <div className="md:col-span-12">
+                    <div className="md:col-span-6">
                       <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">{t('addresses.fields.district')}</label>
-                      <input type="text" value={addressForm.district} onChange={(e) => setAddressForm({ ...addressForm, district: e.target.value })} className="w-full bg-black/40 border border-white/20 px-4 py-3 text-white rounded focus:outline-none focus:border-primary transition-colors" />
+                      <input type="text" value={addressForm.district} onChange={(e) => {
+                        setAddressForm({ ...addressForm, district: e.target.value });
+                        clearFieldError(setAddressErrors, 'district');
+                        setAddressErrorMessage('');
+                      }} className={`${inputClassName} ${addressErrors.district ? errorInputBorderClassName : defaultInputBorderClassName}`} />
+                      {addressErrors.district && <p className={fieldErrorClassName}>{addressErrors.district}</p>}
+                    </div>
+                    <div className="md:col-span-6">
+                      <label className="block text-xs uppercase tracking-widest font-bold text-gray-400 mb-2">{t('addresses.fields.ward')}</label>
+                      <input type="text" value={addressForm.ward} onChange={(e) => {
+                        setAddressForm({ ...addressForm, ward: e.target.value });
+                        clearFieldError(setAddressErrors, 'ward');
+                        setAddressErrorMessage('');
+                      }} className={`${inputClassName} ${addressErrors.ward ? errorInputBorderClassName : defaultInputBorderClassName}`} />
+                      {addressErrors.ward && <p className={fieldErrorClassName}>{addressErrors.ward}</p>}
                     </div>
                   </div>
                   <div className="flex gap-3 mt-6">
                     <button onClick={handleSaveAddress} className="px-6 py-3 bg-primary hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest transition-colors">{t('addresses.actions.save')}</button>
-                    <button onClick={() => setShowAddressForm(false)} className="px-6 py-3 border border-white/20 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors">{t('common.cancel')}</button>
+                    <button onClick={handleCancelAddressForm} className="px-6 py-3 border border-white/20 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors">{t('common.cancel')}</button>
                   </div>
                 </div>
               ) : null}
@@ -507,7 +676,11 @@ export const Profile: React.FC = () => {
                         {address.isDefault && <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded text-xs font-bold uppercase tracking-widest">{t('addresses.labels.default')}</span>}
                       </div>
                       <p className="text-sm text-gray-300 mb-1">{address.addressLine}</p>
-                      <p className="text-sm text-gray-400">{address.district && `${address.district}, `}{address.city}</p>
+                      <p className="text-sm text-gray-400">
+                        {address.ward ? `${address.ward}, ` : ''}
+                        {address.district ? `${address.district}, ` : ''}
+                        {address.city}
+                      </p>
                       <div className="flex gap-3 mt-4">
                         <button onClick={() => handleEditAddress(address)} className="text-xs font-bold uppercase tracking-widest text-primary hover:text-white transition-colors">{t('actions.edit')}</button>
                         {!address.isDefault && <button onClick={() => handleSetDefaultAddress(address.addressId)} className="text-xs font-bold uppercase tracking-widest text-blue-400 hover:text-white transition-colors">{t('addresses.actions.setDefault')}</button>}

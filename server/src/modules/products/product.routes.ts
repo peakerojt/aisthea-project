@@ -6,6 +6,7 @@ import { cacheMiddleware, invalidateCache, CACHE_TTL } from '../../middlewares/c
 import {
     createProductSchema,
     updateProductSchema,
+    updateProductStatusSchema,
     productQuerySchema,
 } from './product.validator';
 import { productMediaController } from './product-media.controller';
@@ -76,6 +77,7 @@ router.patch(
     authenticateToken,
     requirePermission('MANAGE_PRODUCTS'),
     invalidateProductCache,
+    validate(updateProductStatusSchema),
     productController.updateStatus,
 );
 

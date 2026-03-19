@@ -51,6 +51,7 @@ export function errorHandler(error: Error, req: Request, res: Response, _next: N
     const message = t(locale, error.messageKey, error.messageParams);
 
     logger.error('[AppError]', {
+      traceId: req.traceId,
       errorCode: error.errorCode,
       messageKey: error.messageKey,
       statusCode: error.statusCode,
@@ -70,7 +71,8 @@ export function errorHandler(error: Error, req: Request, res: Response, _next: N
   }
 
   // Log full stack internally
-  logger.error('[UnhandledError]', {
+    logger.error('[UnhandledError]', {
+    traceId: req.traceId,
     message: error.message,
     stack: error.stack,
     url: req.originalUrl,

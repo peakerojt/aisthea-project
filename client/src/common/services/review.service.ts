@@ -1,4 +1,5 @@
 import { reviewApi } from '@/common/api/review.api';
+import { createReviewClientSchema } from '@/common/validation/schemas';
 
 export interface CreateReviewPayload {
     orderItemId: number;
@@ -28,6 +29,6 @@ export const getReviewsByProduct = async (productId: number) => {
 
 // POST /api/reviews — requires auth cookie
 export const createReview = async (payload: CreateReviewPayload): Promise<ReviewResponse> => {
-    const res = await reviewApi.create(payload);
+    const res = await reviewApi.create(createReviewClientSchema.parse(payload));
     return (res as any).data || (res as any).review || res as unknown as ReviewResponse;
 };

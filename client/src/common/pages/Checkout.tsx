@@ -14,6 +14,14 @@ import { formatCurrencyVND } from '@/common/utils/currency';
 import { setLatestOrderData } from '@/common/utils/orderSnapshot';
 import { orderApi } from '@/common/api/order.api';
 import { OrderQuote } from '@/common/services/order.service';
+import {
+    checkoutFormSchema,
+    createOrderClientSchema,
+    quoteOrderClientSchema,
+    validateCouponClientSchema,
+} from '@/common/validation/schemas';
+import { FieldErrorMap, firstFieldError, mapZodFieldErrors } from '@/common/validation/errors';
+import { ZodError } from 'zod';
 
 interface CheckoutProps {
     cart?: CartItem[];
@@ -44,6 +52,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [formErrors, setFormErrors] = useState<FieldErrorMap>({});
     const { user } = useAuth();
     const navigate = useNavigate();
     const { items, fetchCart } = useCart();
@@ -67,6 +76,51 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
     const [selectedWardCode, setSelectedWardCode] = useState<string>(() => sessionStorage.getItem('checkoutWardCode') || '');
 
     const selectedShippingMethod: 'STANDARD' = 'STANDARD';
+    const fieldErrorClassName = 'mt-1 text-xs text-red-400';
+
+    const apiFieldToFormField = (field?: string): string | null => {
+        if (!field) return null;
+
+        const directMap: Record<string, string> = {
+            customerEmail: 'email',
+            customerName: 'fullName',
+            customerPhone: 'phone',
+            shippingAddressDetail: 'address',
+            shippingCity: 'city',
+            shippingDistrict: 'district',
+            shippingWard: 'ward',
+            note: 'note',
+        };
+
+        if (directMap[field]) {
+            return directMap[field];
+        }
+
+        if (field.startsWith('items')) {
+            return 'items';
+        }
+
+        return field;
+    };
+
+    const setFieldValidationErrors = (errors: FieldErrorMap) => {
+        setFormErrors(errors);
+        const firstMessage = firstFieldError(errors);
+        if (firstMessage) {
+            setError(firstMessage);
+        }
+    };
+
+    const clearFieldError = (field: string) => {
+        setFormErrors(prev => {
+            if (!prev[field]) return prev;
+            const next = { ...prev };
+            delete next[field];
+            return next;
+        });
+    };
+
+    const getFieldError = (field: string) => formErrors[field];
 
     const mappedCart = useMemo<CartItem[]>(() => {
         const source = items as any[];
@@ -135,6 +189,10 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
 
     const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const code = e.target.value;
+        clearFieldError('city');
+        clearFieldError('district');
+        clearFieldError('ward');
+        setError('');
         setSelectedCityCode(code);
         setSelectedDistrictCode('');
         setSelectedWardCode('');
@@ -155,6 +213,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
 
     const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const code = e.target.value;
+        clearFieldError('district');
+        clearFieldError('ward');
+        setError('');
         setSelectedDistrictCode(code);
         setSelectedWardCode('');
 
@@ -173,6 +234,8 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
 
     const handleWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const code = e.target.value;
+        clearFieldError('ward');
+        setError('');
         setSelectedWardCode(code);
 
         const ward = wards.find(w => w.code == code);
@@ -235,7 +298,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
             return null;
         }
 
-        return orderApi.quoteOrder({
+        const payload = quoteOrderClientSchema.parse({
             items: cart.map(item => ({
                 variantId: Number(item.variantId),
                 quantity: item.quantity,
@@ -244,6 +307,8 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
             shippingCityCode: selectedCityCode || undefined,
             shippingMethod: selectedShippingMethod,
         });
+
+        return orderApi.quoteOrder(payload);
     }, [appliedCouponCode, cart, selectedCityCode, selectedShippingMethod, user]);
 
     useEffect(() => {
@@ -349,7 +414,11 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
         setCouponSuccessMsg('');
 
         try {
-            const quote = await fetchQuote(codeToUse.trim());
+            const normalizedCoupon = validateCouponClientSchema.parse({
+                code: codeToUse,
+                cartSubtotal: subtotal,
+            });
+            const quote = await fetchQuote(normalizedCoupon.code);
             if (!quote?.coupon) {
                 throw new Error(t('coupon.invalidCode'));
             }
@@ -374,6 +443,8 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
+        clearFieldError(name);
+        setError('');
 
         setFormData(prev => {
             const newData = { ...prev, [name]: value };
@@ -388,20 +459,25 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
     };
 
     const validateForm = () => {
-        if (!formData.email) return t('validation.emailRequired');
-        if (!formData.email.includes('@')) return t('validation.emailFormat');
-        if (/\s/.test(formData.email)) return t('validation.emailNoSpaces');
-        if (!formData.fullName) return t('validation.fullNameRequired');
-        if (formData.fullName.length < 2) return t('validation.fullNameMin');
-        if (/[@#$]/.test(formData.fullName)) return t('validation.fullNameNoSpecial');
-        if (!formData.phone) return t('validation.phoneRequired');
-        if (!/^[0]\d{9}$/.test(formData.phone)) return t('validation.phoneFormat');
-        if (!formData.address) return t('validation.addressRequired');
-        if (formData.address.length <= 5) return t('validation.addressLength');
-        if (!formData.city) return t('validation.cityRequired');
-        if (!formData.district) return t('validation.districtRequired');
-        if (!formData.ward) return t('validation.wardRequired');
-        if (formData.note && formData.note.length > 500) return t('validation.noteMax');
+        const parsed = checkoutFormSchema.safeParse({
+            email: formData.email,
+            fullName: formData.fullName,
+            phone: formData.phone,
+            address: formData.address,
+            city: formData.city,
+            district: formData.district,
+            ward: formData.ward,
+            note: formData.note,
+            paymentMethod: formData.paymentMethod,
+        });
+
+        if (parsed.success) {
+            setFormErrors({});
+            return parsed.data;
+        }
+
+        const errors = mapZodFieldErrors(parsed.error);
+        setFieldValidationErrors(errors);
         return null;
     };
 
@@ -415,9 +491,8 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
             return;
         }
 
-        const validationError = validateForm();
-        if (validationError) {
-            setError(validationError);
+        const validatedForm = validateForm();
+        if (!validatedForm) {
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
@@ -436,6 +511,25 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                 throw new Error(t('errors.placeOrderFailed'));
             }
 
+            const payload = createOrderClientSchema.parse({
+                paymentMethod: validatedForm.paymentMethod,
+                customerName: validatedForm.fullName,
+                customerEmail: validatedForm.email,
+                customerPhone: validatedForm.phone,
+                shippingCity: validatedForm.city,
+                shippingDistrict: validatedForm.district,
+                shippingWard: validatedForm.ward,
+                shippingAddressDetail: validatedForm.address,
+                note: validatedForm.note,
+                items: cart.map(item => ({
+                    variantId: Number(item.variantId),
+                    quantity: item.quantity
+                })),
+                couponCode: appliedCouponCode ?? undefined,
+                shippingCityCode: selectedCityCode,
+                shippingMethod: selectedShippingMethod,
+            });
+
             const data = await orderApi.createOrder<{
                 orderId: number;
                 pricing: {
@@ -446,24 +540,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                     tax: number;
                 };
                 paymentMethod: string;
-            }>({
-                paymentMethod: formData.paymentMethod,
-                customerName: formData.fullName,
-                customerEmail: formData.email,
-                customerPhone: formData.phone,
-                shippingCity: formData.city,
-                shippingDistrict: formData.district,
-                shippingWard: formData.ward,
-                shippingAddressDetail: formData.address,
-                note: formData.note,
-                items: cart.map(item => ({
-                    variantId: item.variantId,
-                    quantity: item.quantity
-                })),
-                couponCode: appliedCouponCode ?? undefined,
-                shippingCityCode: selectedCityCode,
-                shippingMethod: selectedShippingMethod,
-            });
+            }>(payload);
 
             const authoritativePricing = data.pricing ?? {
                 itemsTotal: currentQuote.itemsSubtotal,
@@ -519,7 +596,28 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
 
         } catch (err: unknown) {
             console.error("Order creation error:", err);
-            const error = err as { message?: string; data?: { error?: string } };
+            const error = err as { message?: string; data?: { error?: string }; details?: Array<{ field?: string; message?: string }> };
+
+            if (err instanceof ZodError) {
+                const errors = mapZodFieldErrors(err);
+                setFieldValidationErrors(errors);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+
+            if (Array.isArray(error.details)) {
+                const mappedErrors = error.details.reduce<FieldErrorMap>((acc, issue) => {
+                    const field = apiFieldToFormField(issue.field);
+                    if (!field || acc[field] || !issue.message) return acc;
+                    acc[field] = issue.message;
+                    return acc;
+                }, {});
+
+                if (Object.keys(mappedErrors).length > 0) {
+                    setFieldValidationErrors(mappedErrors);
+                }
+            }
+
             const errorMessage = error.message || error.data?.error || t('errors.placeOrderFailed');
             setError(errorMessage);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -581,8 +679,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                         placeholder={t('placeholders.emailRequired')}
                                         value={formData.email}
                                         onChange={handleInputChange}
-                                        className={inputClassName}
+                                        className={`${inputClassName} ${getFieldError('email') ? 'border-red-500 focus:border-red-400' : ''}`}
                                     />
+                                    {getFieldError('email') && <p className={fieldErrorClassName}>{getFieldError('email')}</p>}
                                 </div>
 
                                 <div>
@@ -596,8 +695,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                         placeholder={t('placeholders.fullNameRequired')}
                                         value={formData.fullName}
                                         onChange={handleInputChange}
-                                        className={inputClassName}
+                                        className={`${inputClassName} ${getFieldError('fullName') ? 'border-red-500 focus:border-red-400' : ''}`}
                                     />
+                                    {getFieldError('fullName') && <p className={fieldErrorClassName}>{getFieldError('fullName')}</p>}
                                 </div>
 
                                 <div>
@@ -612,8 +712,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                         placeholder={t('placeholders.phoneRequired')}
                                         value={formData.phone}
                                         onChange={handleInputChange}
-                                        className={inputClassName}
+                                        className={`${inputClassName} ${getFieldError('phone') ? 'border-red-500 focus:border-red-400' : ''}`}
                                     />
+                                    {getFieldError('phone') && <p className={fieldErrorClassName}>{getFieldError('phone')}</p>}
                                 </div>
                             </div>
                         </CheckoutSectionCard>
@@ -636,8 +737,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                         placeholder={t('placeholders.addressRequired')}
                                         value={formData.address}
                                         onChange={handleInputChange}
-                                        className={inputClassName}
+                                        className={`${inputClassName} ${getFieldError('address') ? 'border-red-500 focus:border-red-400' : ''}`}
                                     />
+                                    {getFieldError('address') && <p className={fieldErrorClassName}>{getFieldError('address')}</p>}
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -649,7 +751,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                             required
                                             value={selectedCityCode}
                                             onChange={handleProvinceChange}
-                                            className={`${selectClassName} cursor-pointer text-white`}
+                                            className={`${selectClassName} cursor-pointer text-white ${getFieldError('city') ? 'border-red-500 focus:border-red-400' : ''}`}
                                             style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
                                         >
                                             <option value="" disabled>{t('placeholders.selectProvince')}</option>
@@ -657,6 +759,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                                 <option key={city.code} value={city.code}>{city.name}</option>
                                             ))}
                                         </select>
+                                        {getFieldError('city') && <p className={fieldErrorClassName}>{getFieldError('city')}</p>}
                                     </div>
 
                                     <div>
@@ -668,7 +771,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                             value={selectedDistrictCode}
                                             onChange={handleDistrictChange}
                                             disabled={!selectedCityCode}
-                                            className={`${selectClassName} ${!selectedCityCode ? 'cursor-not-allowed text-gray-500 opacity-50' : 'cursor-pointer text-white'}`}
+                                            className={`${selectClassName} ${!selectedCityCode ? 'cursor-not-allowed text-gray-500 opacity-50' : 'cursor-pointer text-white'} ${getFieldError('district') ? 'border-red-500 focus:border-red-400' : ''}`}
                                             style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
                                         >
                                             <option value="" disabled>{t('placeholders.selectDistrict')}</option>
@@ -676,6 +779,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                                 <option key={dist.code} value={dist.code}>{dist.name}</option>
                                             ))}
                                         </select>
+                                        {getFieldError('district') && <p className={fieldErrorClassName}>{getFieldError('district')}</p>}
                                     </div>
 
                                     <div>
@@ -687,7 +791,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                             value={selectedWardCode}
                                             onChange={handleWardChange}
                                             disabled={!selectedDistrictCode}
-                                            className={`${selectClassName} ${!selectedDistrictCode ? 'cursor-not-allowed text-gray-500 opacity-50' : 'cursor-pointer text-white'}`}
+                                            className={`${selectClassName} ${!selectedDistrictCode ? 'cursor-not-allowed text-gray-500 opacity-50' : 'cursor-pointer text-white'} ${getFieldError('ward') ? 'border-red-500 focus:border-red-400' : ''}`}
                                             style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
                                         >
                                             <option value="" disabled>{t('placeholders.selectWard')}</option>
@@ -695,6 +799,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                                 <option key={w.code} value={w.code}>{w.name}</option>
                                             ))}
                                         </select>
+                                        {getFieldError('ward') && <p className={fieldErrorClassName}>{getFieldError('ward')}</p>}
                                     </div>
                                 </div>
 
@@ -709,8 +814,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                         value={formData.note}
                                         onChange={handleInputChange}
                                         aria-describedby="checkout-note-count"
-                                        className={`${inputClassName} resize-none`}
+                                        className={`${inputClassName} resize-none ${getFieldError('note') ? 'border-red-500 focus:border-red-400' : ''}`}
                                     />
+                                    {getFieldError('note') && <p className={fieldErrorClassName}>{getFieldError('note')}</p>}
                                     <div id="checkout-note-count" className="mt-1 text-right text-[10px] uppercase tracking-widest text-gray-500">{formData.note.length}/500</div>
                                 </div>
 

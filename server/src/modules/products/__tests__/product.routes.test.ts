@@ -9,6 +9,7 @@ const productController = {
   getOne: jest.fn((_req, res) => res.json({ route: 'detail' })),
   create: jest.fn((_req, res) => res.status(201).json({ route: 'create' })),
   update: jest.fn((_req, res) => res.json({ route: 'update' })),
+  updateStatus: jest.fn((_req, res) => res.json({ route: 'update-status' })),
   delete: jest.fn((_req, res) => res.json({ route: 'delete' })),
 };
 

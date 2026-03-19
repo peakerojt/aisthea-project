@@ -52,6 +52,7 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
     const [exportLoading, setExportLoading] = useState(false);
     const [templateLoading, setTemplateLoading] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    const [importError, setImportError] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // ── Export handlers ────────────────────────────────────────────────────────
@@ -82,9 +83,10 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
 
     const handleFileSelected = (file: File) => {
         if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
-            alert('Vui lòng chọn file Excel (.xlsx) hoặc CSV (.csv)');
+            setImportError('Vui lòng chọn file Excel (.xlsx) hoặc CSV (.csv)');
             return;
         }
+        setImportError('');
         setImportState({ phase: 'file_selected', file });
     };
 
@@ -172,7 +174,10 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
         }
     };
 
-    const resetImport = () => setImportState({ phase: 'idle' });
+    const resetImport = () => {
+        setImportError('');
+        setImportState({ phase: 'idle' });
+    };
 
     const handleClose = () => {
         const didImport = importState.phase === 'done' && importState.report.success > 0;
@@ -367,6 +372,11 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                                             </>
                                         )}
                                     </div>
+                                    {importError && (
+                                        <div className="rounded-sm border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                                            {importError}
+                                        </div>
+                                    )}
 
                                     {/* Action buttons */}
                                     {importState.phase === 'file_selected' && (

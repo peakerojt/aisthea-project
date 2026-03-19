@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useId, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Inbox, LucideIcon, X } from 'lucide-react';
 
 export type AdminStatCardItem = {
@@ -135,7 +136,7 @@ export const adminUiTokens = {
   mutedText: 'text-white/45',
   labelText: 'text-[11px] font-bold uppercase tracking-[0.16em] text-white/40',
   fieldLabel: 'mb-1.5 block text-[11px] font-bold uppercase tracking-[0.16em] text-white/40',
-  fieldControl: 'w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white/78 transition-colors duration-150 focus:border-primary/40 focus:outline-none',
+  fieldControl: 'w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white/78 transition-colors duration-150 focus:border-primary/40 focus:outline-none [color-scheme:dark] [&>option]:bg-[#14161b] [&>option]:text-white',
   searchFieldControl: 'w-full rounded-xl border border-white/10 bg-white/[0.04] py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-white/28 transition-colors duration-150 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20',
   tableHeaderSurface: 'bg-white/[0.02] border-b border-white/[0.06]',
   tableHeader: 'text-[10px] font-bold uppercase tracking-[0.18em] text-white/34',
@@ -285,15 +286,15 @@ export const AdminStatCards: React.FC<{
         return (
           <div
             key={item.key}
-            className={`relative overflow-hidden rounded-2xl border border-white/[0.06] bg-[#14161b] px-5 py-4 ${
-              variant === 'highlight' ? 'min-h-[148px]' : 'min-h-[118px]'
+            className={`relative overflow-hidden rounded-2xl border border-white/[0.06] bg-[#14161b] px-5 py-3.5 ${
+              variant === 'highlight' ? 'min-h-[128px]' : 'min-h-[96px]'
             }`}
           >
             <div className={`pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r ${tone.ring}`} />
             <div className="relative z-10 flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/42">{item.label}</p>
-                <div className={`mt-3 font-black tracking-tight text-white ${variant === 'highlight' ? 'text-4xl' : 'text-2xl'}`}>
+                <div className={`mt-2 font-black tracking-tight text-white ${variant === 'highlight' ? 'text-4xl' : 'text-2xl'}`}>
                   {item.value}
                 </div>
                 {item.hint && (
@@ -464,9 +465,19 @@ export const AdminModalShell: React.FC<AdminModalShellProps> = ({
   bodyClassName = '',
   stickyHeader = false,
   closeOnOverlayClick = true,
-  backdropClassName = 'bg-black/86',
+  backdropClassName = 'bg-slate-900/60',
   lockBodyScroll = true,
 }) => {
+  const titleId = useId();
+  const subtitleId = useId();
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const frameId = window.requestAnimationFrame(() => setIsVisible(true));
+    return () => window.cancelAnimationFrame(frameId);
+  }, []);
+
   useEffect(() => {
     if (!lockBodyScroll || typeof document === 'undefined') return undefined;
 
@@ -483,21 +494,43 @@ export const AdminModalShell: React.FC<AdminModalShellProps> = ({
     };
   }, [lockBodyScroll]);
 
-  return (
+  useEffect(() => {
+    if (!onClose || typeof window === 'undefined') return undefined;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <>
       <div
-        className={`fixed inset-0 z-40 ${backdropClassName}`}
+        aria-hidden="true"
+        className={`fixed inset-0 z-40 transition-all duration-200 ease-out ${backdropClassName} ${
+          isVisible ? 'opacity-100' : 'opacity-0'
+        }`}
         onClick={closeOnOverlayClick && onClose ? onClose : undefined}
       />
-      <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain p-3 md:p-4">
-        <div className={`flex min-h-full justify-center ${align === 'center' ? 'items-center' : 'items-start py-6'}`}>
+      <div className="fixed inset-0 z-50 overflow-hidden p-3 md:p-4">
+        <div className={`flex h-full justify-center ${align === 'center' ? 'items-center' : 'items-start py-6'}`}>
           <div
-            className={`flex max-h-[calc(100vh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl border border-white/[0.10] bg-[#0f0f0f] shadow-2xl md:max-h-[calc(100vh-2rem)] ${maxWidthClassName} ${panelClassName}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
+            aria-describedby={subtitle ? subtitleId : undefined}
+            className={`flex max-h-[calc(100vh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl border border-gray-200/10 dark:border-gray-700 bg-[#0B0B0C] shadow-2xl shadow-black/40 transform-gpu transition-all duration-200 ease-out will-change-transform md:max-h-[calc(100vh-2rem)] ${
+              isVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'
+            } ${maxWidthClassName} ${panelClassName}`}
           >
             {(title || subtitle || Icon || onClose || headerActions) && (
               <div
-                className={`shrink-0 flex items-center justify-between gap-4 border-b border-white/[0.06] px-6 py-5 ${
-                  stickyHeader ? 'sticky top-0 z-10 bg-[#0f0f0f]' : ''
+                className={`shrink-0 flex items-center justify-between gap-4 border-b border-gray-200/10 dark:border-gray-700 px-6 py-5 ${
+                  stickyHeader ? 'sticky top-0 z-10 bg-[#0B0B0C]/95' : ''
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -508,8 +541,8 @@ export const AdminModalShell: React.FC<AdminModalShellProps> = ({
                   )}
                   {(title || subtitle) && (
                     <div>
-                      {title && <h2 className="text-sm font-bold text-white">{title}</h2>}
-                      {subtitle && <p className="text-[11px] text-white/40">{subtitle}</p>}
+                      {title && <h2 id={titleId} className="text-sm font-bold text-white">{title}</h2>}
+                      {subtitle && <p id={subtitleId} className="text-[11px] text-white/40">{subtitle}</p>}
                     </div>
                   )}
                 </div>
@@ -524,11 +557,12 @@ export const AdminModalShell: React.FC<AdminModalShellProps> = ({
               </div>
             )}
             <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${bodyClassName}`}>{children}</div>
-            {footer && <div className="shrink-0 border-t border-white/[0.06] bg-black/20 px-6 py-4">{footer}</div>}
+            {footer && <div className="shrink-0 border-t border-gray-200/10 dark:border-gray-700 bg-[#0B0B0C]/95 px-6 py-4">{footer}</div>}
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 };
 

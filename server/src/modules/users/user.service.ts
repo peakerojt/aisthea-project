@@ -170,8 +170,8 @@ export const userModuleService = {
   },
 
   async createAddress(userId: number, data: AddressInput) {
-    if (!data.recipientName || !data.phone || !data.addressLine || !data.city) {
-      throw new Error('Missing required fields: recipientName, phone, addressLine, city');
+    if (!data.recipientName || !data.phone || !data.addressLine || !data.city || !data.district || !data.ward) {
+      throw new Error('Missing required fields: recipientName, phone, addressLine, city, district, ward');
     }
 
     if (data.isDefault) {
@@ -188,7 +188,8 @@ export const userModuleService = {
         phone: data.phone,
         addressLine: data.addressLine,
         city: data.city,
-        district: data.district || null,
+        district: data.district,
+        ward: data.ward,
         isDefault: data.isDefault || false,
       },
     });

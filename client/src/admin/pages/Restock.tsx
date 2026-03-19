@@ -66,6 +66,17 @@ const formatDate = (value: string | null) => {
   return dt.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
+const getCurrentDateTimeLocal = () => {
+  const now = new Date();
+  now.setSeconds(0, 0);
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
 const getStatusBadgeTone = (status: PurchaseOrderStatus) => {
   if (status === 'RECEIVED') return 'success' as const;
   if (status === 'PARTIALLY_RECEIVED') return 'warning' as const;
@@ -132,7 +143,7 @@ const PurchaseOrderDraftRow = React.memo(({
   }, [index, onUpdateItem]);
 
   const handleUnitCostChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    onUpdateItem(index, { unitCost: Math.max(0, Number(e.target.value) || 0) });
+    onUpdateItem(index, { unitCost: Math.max(1, Number(e.target.value) || 1) });
   }, [index, onUpdateItem]);
 
   const handleRemove = useCallback(() => {
@@ -177,11 +188,11 @@ const PurchaseOrderDraftRow = React.memo(({
         </div>
         <div className="space-y-1.5 md:col-span-2">
           <label className={modalFieldLabelClass}>{qtyLabelText}</label>
-          <input type="number" min={1} value={item.orderedQty} onChange={handleOrderedQtyChange} className={modalFieldClass} />
+          <input type="number" min={1} step={1} value={item.orderedQty} onChange={handleOrderedQtyChange} className={modalFieldClass} />
         </div>
         <div className="space-y-1.5 md:col-span-3">
           <label className={modalFieldLabelClass}>{costLabelText}</label>
-          <input type="number" min={0} step="0.01" value={item.unitCost} onChange={handleUnitCostChange} className={modalFieldClass} />
+          <input type="number" min={1} step="0.01" value={item.unitCost} onChange={handleUnitCostChange} className={modalFieldClass} />
         </div>
       </div>
     </div>
@@ -222,7 +233,7 @@ export const Restock: React.FC = () => {
 
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [draftItems, setDraftItems] = useState<DraftItem[]>([{ variantId: '', orderedQty: 1, unitCost: 0 }]);
+  const [draftItems, setDraftItems] = useState<DraftItem[]>([{ variantId: '', orderedQty: 1, unitCost: 1 }]);
   const [supplier, setSupplier] = useState('');
   const [expectedReceivedAt, setExpectedReceivedAt] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -235,6 +246,8 @@ export const Restock: React.FC = () => {
   const [receivingMap, setReceivingMap] = useState<ReceiveMap>({});
   const [receivingNote, setReceivingNote] = useState('');
   const [receiving, setReceiving] = useState(false);
+  const [cancellingOrder, setCancellingOrder] = useState<PurchaseOrder | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const [viewingOrder, setViewingOrder] = useState<PurchaseOrder | null>(null);
   const poRequestIdRef = useRef(0);
@@ -245,6 +258,7 @@ export const Restock: React.FC = () => {
   const [focusedVariantId, setFocusedVariantId] = useState<number | null>(
     Number.isInteger(initialFocusedVariantId) && initialFocusedVariantId > 0 ? initialFocusedVariantId : null,
   );
+  const minExpectedReceivedAt = useMemo(() => getCurrentDateTimeLocal(), [showCreate]);
 
   const isLowStockQuantity = useCallback(
     (qty: number) => qty > 0 && qty <= LOW_STOCK_THRESHOLD,
@@ -402,7 +416,7 @@ export const Restock: React.FC = () => {
   const poCanNext = poPage < Math.max(1, poMeta.totalPages);
 
   const addItem = useCallback(() => {
-    setDraftItems((prev) => [...prev, { variantId: '', orderedQty: 1, unitCost: 0 }]);
+    setDraftItems((prev) => [...prev, { variantId: '', orderedQty: 1, unitCost: 1 }]);
   }, []);
 
   const removeItem = useCallback((idx: number) => {
@@ -421,12 +435,33 @@ export const Restock: React.FC = () => {
     setSupplierPhone('');
     setSupplierEmail('');
     setNotes('');
-    setDraftItems([{ variantId: '', orderedQty: 1, unitCost: 0 }]);
+    setDraftItems([{ variantId: '', orderedQty: 1, unitCost: 1 }]);
   };
 
   const handleCreate = async () => {
     if (!supplier.trim()) return setError(tt('restock:po.errors.supplierRequired'));
-    const items = draftItems.filter((i) => i.variantId !== '' && i.orderedQty > 0).map((i) => ({ variantId: Number(i.variantId), orderedQty: i.orderedQty, unitCost: i.unitCost }));
+
+    if (expectedReceivedAt) {
+      const selectedExpected = new Date(expectedReceivedAt);
+      const minimumExpected = new Date(minExpectedReceivedAt);
+      if (Number.isNaN(selectedExpected.getTime()) || selectedExpected < minimumExpected) {
+        return setError(tt('restock:po.errors.expectedDatePast'));
+      }
+    }
+
+    const hasInvalidOrderedQty = draftItems.some(
+      (item) => item.variantId !== '' && (!Number.isInteger(item.orderedQty) || item.orderedQty <= 0),
+    );
+    if (hasInvalidOrderedQty) return setError(tt('restock:po.errors.invalidOrderedQty'));
+
+    const hasInvalidUnitCost = draftItems.some(
+      (item) => item.variantId !== '' && (!Number.isFinite(item.unitCost) || item.unitCost <= 0),
+    );
+    if (hasInvalidUnitCost) return setError(tt('restock:po.errors.invalidUnitCost'));
+
+    const items = draftItems
+      .filter((i) => i.variantId !== '' && i.orderedQty > 0 && i.unitCost > 0)
+      .map((i) => ({ variantId: Number(i.variantId), orderedQty: i.orderedQty, unitCost: i.unitCost }));
     if (!items.length) return setError(tt('restock:po.errors.itemsRequired'));
 
     setCreating(true);
@@ -486,14 +521,18 @@ export const Restock: React.FC = () => {
     }
   }, [loadInventory, loadInventorySummary, loadOrders, queryClient, receivingMap, receivingNote, receivingOrder, tt]);
 
-  const handleCancel = async (order: PurchaseOrder) => {
-    if (!window.confirm(tt('restock:po.actions.cancelConfirm', { po: order.purchaseOrderNumber }))) return;
+  const handleCancel = async () => {
+    if (!cancellingOrder) return;
+    setCancelling(true);
     try {
-      await cancelPurchaseOrder(order.purchaseOrderId);
+      await cancelPurchaseOrder(cancellingOrder.purchaseOrderId);
+      setCancellingOrder(null);
       await loadOrders();
     } catch (e) {
       const err = e as Error;
       setError(err.message || tt('restock:po.errors.cancelFailed'));
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -811,7 +850,7 @@ export const Restock: React.FC = () => {
                           </AdminActionButton>
                         )}
                         {(o.status === 'PENDING' || o.status === 'PARTIALLY_RECEIVED') && (
-                          <AdminActionButton onClick={() => handleCancel(o)} tone="danger">
+                          <AdminActionButton onClick={() => setCancellingOrder(o)} tone="danger">
                             <Ban size={12} />{tt('restock:po.actions.cancelPo')}
                           </AdminActionButton>
                         )}
@@ -831,7 +870,7 @@ export const Restock: React.FC = () => {
             setShowCreate(false);
             resetCreate();
           }}
-          align="start"
+          align="center"
           maxWidthClassName="max-w-6xl"
           bodyClassName="space-y-6 p-6"
           footer={(
@@ -872,6 +911,7 @@ export const Restock: React.FC = () => {
                     type="datetime-local"
                     value={expectedReceivedAt}
                     onChange={(e) => setExpectedReceivedAt(e.target.value)}
+                    min={minExpectedReceivedAt}
                     className={modalFieldClass}
                   />
                 </div>
@@ -956,6 +996,45 @@ export const Restock: React.FC = () => {
                 ))}
               </div>
             </div>
+          </div>
+        </AdminModalShell>
+      )}
+
+      {cancellingOrder && (
+        <AdminModalShell
+          title={tt('restock:po.cancel.title')}
+          subtitle={cancellingOrder.purchaseOrderNumber}
+          onClose={() => {
+            if (cancelling) return;
+            setCancellingOrder(null);
+          }}
+          maxWidthClassName="max-w-md"
+          bodyClassName="space-y-4 p-6"
+          footer={(
+            <div className="flex justify-end gap-3">
+              <AdminSecondaryButton
+                type="button"
+                onClick={() => setCancellingOrder(null)}
+                disabled={cancelling}
+                className="rounded-lg px-4 py-2"
+              >
+                {tt('restock:po.actions.close')}
+              </AdminSecondaryButton>
+              <AdminActionButton
+                onClick={handleCancel}
+                disabled={cancelling}
+                tone="danger"
+                size="md"
+                className="min-w-[136px]"
+              >
+                {cancelling ? tt('restock:po.states.cancelling') : tt('restock:po.actions.cancelPo')}
+              </AdminActionButton>
+            </div>
+          )}
+        >
+          <div className="rounded-xl border border-red-500/20 bg-red-500/8 p-4 text-sm text-white/80">
+            <p>{tt('restock:po.actions.cancelConfirm', { po: cancellingOrder.purchaseOrderNumber })}</p>
+            <p className="mt-2 text-xs text-white/50">{tt('restock:po.cancel.description')}</p>
           </div>
         </AdminModalShell>
       )}

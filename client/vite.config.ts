@@ -8,6 +8,9 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: '0.0.0.0',
+      fs: {
+        allow: [path.resolve(__dirname, '..')],
+      },
     },
     plugins: [react()],
     define: {
@@ -15,8 +18,10 @@ export default defineConfig(({ mode }) => {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
     },
     resolve: {
+      dedupe: ['react', 'react-dom', 'zod'],
       alias: {
         '@': path.resolve(__dirname, './src'),
+        '@validation': path.resolve(__dirname, '../server/src/shared/validation'),
       }
     }
   };

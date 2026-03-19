@@ -9,6 +9,7 @@ import { applyCsrfProtection, applyHelmet, applyPermissionsPolicy, globalRateLim
 import { localeMiddleware } from './middlewares/locale.middleware';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 import { responseNormalizer } from './middlewares/response.middleware';
+import { requestIdMiddleware } from './middlewares/request-id.middleware';
 
 // ─── Module-owned routes ───────────────────────────────────────────────────────
 import authModuleRoutes from './modules/auth/auth.routes';
@@ -74,6 +75,7 @@ export function createApp() {
   app.use(applyCsrfProtection(env.clientUrl, env.nodeEnv));
 
   // ── Locale ────────────────────────────────────────────────────────────────────
+  app.use(requestIdMiddleware);
   app.use(localeMiddleware);
   app.use('/api', responseNormalizer);
   app.use(queryCountMiddleware);

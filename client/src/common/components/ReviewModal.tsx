@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Star, X, Loader2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createReview } from '@/common/services/review.service';
@@ -17,6 +17,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
     const [hovered, setHovered] = useState(0);
     const [comment, setComment] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
+    const [isVisible, setIsVisible] = useState(false);
 
     const mutation = useMutation({
         mutationFn: () =>
@@ -40,6 +41,16 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
         },
     });
 
+    useEffect(() => {
+        if (!open) {
+            setIsVisible(false);
+            return undefined;
+        }
+
+        const frameId = window.requestAnimationFrame(() => setIsVisible(true));
+        return () => window.cancelAnimationFrame(frameId);
+    }, [open]);
+
     if (!open || !item) return null;
 
     const displayRating = hovered || rating;
@@ -48,20 +59,23 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+            role="presentation"
+            className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-all duration-200 ease-out ${
+                isVisible ? 'opacity-100' : 'opacity-0'
+            }`}
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div
-                className="relative w-full max-w-md rounded-2xl border border-white/10 overflow-hidden"
-                style={{
-                    background: 'linear-gradient(135deg, rgba(15,15,25,0.98) 0%, rgba(20,20,35,0.98) 100%)',
-                    boxShadow: '0 25px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05)',
-                }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="review-modal-title"
+                className={`relative w-full max-w-md overflow-hidden rounded-2xl border border-gray-200/10 bg-[#0B0B0C] shadow-2xl shadow-black/40 transform-gpu transition-all duration-200 ease-out will-change-transform ${
+                    isVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'
+                }`}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/[0.06]">
-                    <h2 className="text-sm font-bold uppercase tracking-widest text-white/80">
+                <div className="flex items-center justify-between border-b border-gray-200/10 px-6 pb-4 pt-5">
+                    <h2 id="review-modal-title" className="text-sm font-bold uppercase tracking-widest text-white/80">
                         Đánh giá sản phẩm
                     </h2>
                     <button

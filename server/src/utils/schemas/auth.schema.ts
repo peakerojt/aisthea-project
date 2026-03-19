@@ -1,24 +1,19 @@
-
 import { z } from 'zod';
 
-export const registerBodySchema = z.object({
-    email: z.string().email('Invalid email address'),
-    password: z.string().min(6, 'Password must be at least 6 characters long'),
-    fullName: z.string().min(2, 'Full name must be at least 2 characters long'),
-});
+export {
+    loginSchema as loginBodySchema,
+    registerSchema as registerBodySchema,
+} from '../../shared/validation/schemas/auth';
 
-export const registerSchema = z.object({
-    body: registerBodySchema,
-});
+import {
+    loginSchema as loginBodySchema,
+    registerSchema as registerBodySchema,
+} from '../../shared/validation/schemas/auth';
 
-export const loginBodySchema = z.object({
-    email: z.string().email('Invalid email address'),
-    password: z.string().min(1, 'Password is required'),
-});
+export const registerSchema = z.object({ body: registerBodySchema });
+export const loginSchema = z.object({ body: loginBodySchema });
 
-export const loginSchema = z.object({
-    body: loginBodySchema,
-});
-
-export type RegisterInput = z.infer<typeof registerSchema>['body'];
-export type LoginInput = z.infer<typeof loginSchema>['body'];
+export type {
+    LoginInput,
+    RegisterInput,
+} from '../../shared/validation/schemas/auth';

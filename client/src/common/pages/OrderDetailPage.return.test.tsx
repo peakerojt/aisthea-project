@@ -61,7 +61,7 @@ describe('OrderDetailPage return CTA', () => {
       </QueryClientProvider>,
     );
 
-    const btn = await screen.findByRole('button', { name: 'Yêu cầu trả hàng' });
+    const btn = await screen.findByRole('button', { name: 'actions.requestReturn' });
     await userEvent.click(btn);
 
     expect(pushSpy).toHaveBeenCalled();

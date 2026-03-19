@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, useBeforeUnload } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod/v4';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
     fetchProductForEdit,
@@ -30,6 +29,7 @@ import VariantManager from '@/admin/components/VariantManager';
 import type { AttributeGroup as VMGroup, VariantRow as VMRow } from '@/admin/components/VariantManager';
 import ProductImageManager from '@/admin/components/ProductImageManager';
 import type { ProductImageState } from '@/admin/components/ProductImageManager';
+import { AdminProductFormInput, adminProductFormSchema } from '@/common/validation/schemas';
 import {
     Upload, X, Star, CheckCircle2, AlertCircle,
     ChevronRight, Trash2, Tag,
@@ -38,18 +38,6 @@ import {
 
 // ─── Font ─────────────────────────────────────────────────────────────────────
 const VN_FONT: React.CSSProperties = { fontFamily: "'Be Vietnam Pro', sans-serif" };
-
-// ─── Zod Schema ───────────────────────────────────────────────────────────────
-const schema = z.object({
-    name: z.string().min(1, 'Vui lòng nhập tên sản phẩm'),
-    description: z.string().optional(),
-    categoryId: z.string().min(1, 'Vui lòng chọn danh mục'),
-    brandId: z.string().optional(),
-    basePrice: z.string().min(1, 'Vui lòng nhập giá sản phẩm'),
-    baseSku: z.string().optional(),
-    status: z.string().optional(),
-});
-type FormValues = z.infer<typeof schema>;
 
 // ─── Local Types ──────────────────────────────────────────────────────────────
 interface AttributeGroup {
@@ -265,8 +253,8 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
         watch,
         getValues,
         formState: { errors, isDirty },
-    } = useForm<FormValues>({
-        resolver: zodResolver(schema),
+    } = useForm<AdminProductFormInput>({
+        resolver: zodResolver(adminProductFormSchema),
         defaultValues: { status: 'Active' },
     });
 
@@ -335,9 +323,9 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
             reset({
                 name: product.name,
                 description: product.description || '',
-                categoryId: String(product.categoryId),
-                brandId: product.brandId ? String(product.brandId) : '',
-                basePrice: String(Number(product.basePrice)),
+                categoryId: product.categoryId,
+                brandId: product.brandId ?? undefined,
+                basePrice: Number(product.basePrice),
                 baseSku: '',
                 status: product.status || 'Active',
             });
@@ -520,7 +508,7 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
     };
 
     // ─── Submit ───────────────────────────────────────────────────────────
-    const onSubmit = async (data: FormValues) => {
+    const onSubmit = async (data: AdminProductFormInput) => {
         if (variants.length === 0) {
             showToast('error', t('editor.feedback.noVariants'));
             return;
@@ -552,9 +540,9 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                 name: data.name,
                 slug: slugPreview || currentSlug,
                 description: data.description,
-                basePrice: Number(data.basePrice),
-                categoryId: Number(data.categoryId),
-                brandId: data.brandId ? Number(data.brandId) : undefined,
+                basePrice: data.basePrice,
+                categoryId: data.categoryId,
+                brandId: data.brandId,
                 status: data.status || 'Active',
                 deletedImageIds: [],
                 newImages: [],
@@ -735,7 +723,7 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                             {vmInitialGroups !== undefined ? (
                                 <VariantManager
                                     baseSku={watch('baseSku') ?? ''}
-                                    basePrice={watch('basePrice') ?? ''}
+                                    basePrice={String(watch('basePrice') ?? '')}
                                     initialGroups={vmInitialGroups}
                                     initialVariants={vmInitialVariants}
                                     onChange={handleVariantChange}

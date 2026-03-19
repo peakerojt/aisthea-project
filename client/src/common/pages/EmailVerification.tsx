@@ -8,6 +8,7 @@ import CheckCircle from 'lucide-react/dist/esm/icons/check-circle';
 import XCircle from 'lucide-react/dist/esm/icons/x-circle';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { useTranslation } from 'react-i18next';
+import { resendVerificationClientSchema, verifyEmailClientSchema } from '@/common/validation/schemas';
 
 interface EmailVerificationProps {
   email?: string;
@@ -25,6 +26,8 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
   const [resendCooldown, setResendCooldown] = useState(0);
   const stateEmail = (location.state as { email?: string } | null)?.email;
   const [userEmail, setUserEmail] = useState(email || stateEmail || sessionStorage.getItem('pendingVerificationEmail') || '');
+  const [emailError, setEmailError] = useState('');
+  const [codeError, setCodeError] = useState('');
 
   const [code, setCode] = useState<string[]>(['', '', '', '', '', '']);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -37,15 +40,35 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
   }, [resendCooldown]);
 
   const verifyCode = async (verificationCode: string) => {
-    if (!userEmail) {
-      setStatus('error');
-      setMessage(t('messages.emailRequired'));
+    const normalizedCode = verificationCode.replace(/\D/g, '');
+    const emailParsed = resendVerificationClientSchema.safeParse({ email: userEmail });
+
+    if (!emailParsed.success) {
+      setEmailError(userEmail.trim() ? t('messages.emailInvalid') : t('messages.emailRequired'));
+      setCodeError('');
+      setMessage('');
+      if (status !== 'error') {
+        setStatus('pending');
+      }
       return;
     }
 
+    if (normalizedCode.length !== 6) {
+      setCodeError(t('messages.codeInvalid'));
+      setEmailError('');
+      setMessage('');
+      if (status !== 'error') {
+        setStatus('pending');
+      }
+      return;
+    }
+
+    setEmailError('');
+    setCodeError('');
     setStatus('verifying');
     try {
-      const response = await authService.verifyEmail(userEmail, verificationCode);
+      const payload = verifyEmailClientSchema.parse({ email: emailParsed.data.email, code: normalizedCode });
+      const response = await authService.verifyEmail(payload.email, payload.code);
       setStatus('success');
       setMessage((response as any).message || t('messages.verifySuccess'));
       sessionStorage.removeItem('pendingVerificationEmail');
@@ -53,7 +76,18 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
       setTimeout(() => navigate('/'), 1500);
     } catch (error: unknown) {
       setStatus('error');
-      const errorMessage = error instanceof Error ? error.message : t('messages.verifyFailed');
+      const requestError = error as Error & {
+        details?: Array<{ field?: string; message?: string }>;
+      };
+      const emailIssue = requestError.details?.find((issue) => issue.field === 'email' && issue.message);
+      const codeIssue = requestError.details?.find((issue) => issue.field === 'code' && issue.message);
+      if (emailIssue?.message) {
+        setEmailError(emailIssue.message);
+      }
+      if (codeIssue?.message) {
+        setCodeError(codeIssue.message);
+      }
+      const errorMessage = requestError.message || t('messages.verifyFailed');
       setMessage(errorMessage);
       setCode(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
@@ -65,6 +99,10 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
     const newCode = [...code];
     newCode[index] = digit;
     setCode(newCode);
+    setCodeError('');
+    if (status === 'error') {
+      setMessage('');
+    }
 
     if (digit && index < 5) {
       inputRefs.current[index + 1]?.focus();
@@ -98,6 +136,11 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
     const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
     if (!pastedData.length) return;
 
+    setCodeError('');
+    if (status === 'error') {
+      setMessage('');
+    }
+
     const newCode = [...code];
     for (let i = 0; i < pastedData.length && i < 6; i += 1) {
       newCode[i] = pastedData[i];
@@ -114,16 +157,31 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
   const handleResendEmail = async () => {
     if (!userEmail || isResending || resendCooldown > 0) return;
 
+    const parsed = resendVerificationClientSchema.safeParse({ email: userEmail });
+    if (!parsed.success) {
+      setEmailError(userEmail.trim() ? t('messages.emailInvalid') : t('messages.emailRequired'));
+      setMessage('');
+      return;
+    }
+
     setIsResending(true);
+    setEmailError('');
     try {
-      await authService.resendVerification(userEmail);
+      await authService.resendVerification(parsed.data.email);
       setResendCooldown(60);
       setMessage(t('messages.resendSuccess'));
       setStatus('pending');
       setCode(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : t('messages.resendFailed');
+      const requestError = error as Error & {
+        details?: Array<{ field?: string; message?: string }>;
+      };
+      const emailIssue = requestError.details?.find((issue) => issue.field === 'email' && issue.message);
+      if (emailIssue?.message) {
+        setEmailError(emailIssue.message);
+      }
+      const errorMessage = requestError.message || t('messages.resendFailed');
       setMessage(errorMessage);
     } finally {
       setIsResending(false);
@@ -165,7 +223,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
             <XCircle className="w-12 h-12 text-red-500" />
           </div>
           <h1 className="text-3xl font-black text-white uppercase tracking-tight mb-4">{t('states.errorTitle')}</h1>
-          <p className="text-gray-400 text-center mb-8">{message}</p>
+          {message && <p className="text-gray-400 text-center mb-8">{message}</p>}
 
           <div className="w-full max-w-sm space-y-6">
             <div className="flex gap-2 justify-center">
@@ -182,10 +240,12 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
                   onChange={(e) => handleCodeChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
                   onPaste={handlePaste}
-                  className="w-12 h-14 text-center text-2xl font-bold text-white bg-gray-900 border-2 border-gray-700 rounded-lg focus:outline-none focus:border-primary transition-colors"
+                  className={`w-12 h-14 text-center text-2xl font-bold text-white bg-gray-900 border-2 rounded-lg focus:outline-none transition-colors ${codeError ? 'border-red-500 focus:border-red-400' : 'border-gray-700 focus:border-primary'}`}
                 />
               ))}
             </div>
+            {codeError && <p className="text-sm text-red-400 text-center">{codeError}</p>}
+            {emailError && <p className="text-sm text-red-400 text-center">{emailError}</p>}
 
             <button
               onClick={handleResendEmail}
@@ -248,11 +308,12 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
                 onChange={(e) => handleCodeChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
                 onPaste={handlePaste}
-                className="w-12 h-14 text-center text-2xl font-bold text-white bg-gray-900 border-2 border-gray-700 rounded-lg focus:outline-none focus:border-primary transition-colors"
+                className={`w-12 h-14 text-center text-2xl font-bold text-white bg-gray-900 border-2 rounded-lg focus:outline-none transition-colors ${codeError ? 'border-red-500 focus:border-red-400' : 'border-gray-700 focus:border-primary'}`}
                 autoFocus={index === 0}
               />
             ))}
           </div>
+          {codeError && <p className="text-sm text-red-400 text-center">{codeError}</p>}
 
           <p className="text-gray-500 text-xs text-center">{t('states.codeExpires')}</p>
 
@@ -265,14 +326,25 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
             </ul>
 
             {!userEmail && (
-              <input
-                type="email"
-                value={userEmail}
-                onChange={(e) => setUserEmail(e.target.value)}
-                placeholder={t('form.emailPlaceholder')}
-                className="w-full py-3 px-4 text-sm text-white bg-gray-900 border border-gray-700 rounded-sm focus:outline-none focus:border-primary mb-3"
-              />
+              <div>
+                <input
+                  type="email"
+                  value={userEmail}
+                  onChange={(e) => {
+                    setUserEmail(e.target.value);
+                    setEmailError('');
+                    if (status === 'error') {
+                      setMessage('');
+                    }
+                  }}
+                  placeholder={t('form.emailPlaceholder')}
+                  className={`w-full py-3 px-4 text-sm text-white bg-gray-900 border rounded-sm focus:outline-none mb-3 ${emailError ? 'border-red-500 focus:border-red-400' : 'border-gray-700 focus:border-primary'}`}
+                />
+                {emailError && <p className="mb-3 text-sm text-red-400">{emailError}</p>}
+              </div>
             )}
+
+            {userEmail && emailError && <p className="mb-3 text-sm text-red-400">{emailError}</p>}
 
             <button
               onClick={handleResendEmail}

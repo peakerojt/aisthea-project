@@ -44,14 +44,19 @@ export interface CreateCouponPayload {
     value: number;
     maxDiscountAmount?: number | null;
     minOrderValue?: number;
-    startDate: string;
-    endDate: string;
+    startDate: string | Date;
+    endDate: string | Date;
     usageLimit: number;
     usagePerUser?: number;
     isActive?: boolean;
 }
 
 import { couponApi } from '@/common/api/coupon.api';
+import {
+    createCouponClientSchema,
+    updateCouponClientSchema,
+    validateCouponClientSchema,
+} from '@/common/validation/schemas';
 
 // ─── API Calls ────────────────────────────────────────────────────────────────
 
@@ -70,11 +75,11 @@ export const fetchCoupons = async (params?: {
 };
 
 export const createCoupon = async (payload: CreateCouponPayload): Promise<Coupon> => {
-    return couponApi.create(payload);
+    return couponApi.create(createCouponClientSchema.parse(payload));
 };
 
 export const updateCoupon = async (couponId: number, payload: Partial<CreateCouponPayload>): Promise<Coupon> => {
-    return couponApi.update(couponId, payload);
+    return couponApi.update(couponId, updateCouponClientSchema.parse(payload));
 };
 
 export const deleteCoupon = async (couponId: number): Promise<{ success: boolean; message: string }> => {
@@ -82,5 +87,6 @@ export const deleteCoupon = async (couponId: number): Promise<{ success: boolean
 };
 
 export const validateCoupon = async (code: string, cartSubtotal: number): Promise<ValidateCouponResult> => {
-    return couponApi.validate({ code, cartSubtotal });
+    const payload = validateCouponClientSchema.parse({ code, cartSubtotal });
+    return couponApi.validate(payload);
 };

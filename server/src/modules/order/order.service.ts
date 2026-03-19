@@ -169,13 +169,12 @@ const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto =
   };
 };
 
-export async function getOrderDetailForUser(orderIdRaw: string, currentUser: CurrentUser): Promise<OrderDetailDto> {
-  const parsedId = Number(orderIdRaw);
-  if (!Number.isFinite(parsedId) || parsedId <= 0) {
+export async function getOrderDetailForUser(orderId: number, currentUser: CurrentUser): Promise<OrderDetailDto> {
+  if (!Number.isFinite(orderId) || orderId <= 0) {
     throw new AppError(400, 'BAD_REQUEST', 'orders:errors.invalidOrderId');
   }
 
-  const order = await findOrderByIdWithRelations(parsedId);
+  const order = await findOrderByIdWithRelations(orderId);
   if (!order) {
     throw new AppError(404, 'NOT_FOUND', 'orders:errors.notFound');
   }
@@ -187,13 +186,12 @@ export async function getOrderDetailForUser(orderIdRaw: string, currentUser: Cur
   return mapOrderToDto(order);
 }
 
-export async function cancelOrderForUser(orderIdRaw: string, currentUser: CurrentUser): Promise<OrderDetailDto> {
-  const parsedId = Number(orderIdRaw);
-  if (!Number.isFinite(parsedId) || parsedId <= 0) {
+export async function cancelOrderForUser(orderId: number, currentUser: CurrentUser): Promise<OrderDetailDto> {
+  if (!Number.isFinite(orderId) || orderId <= 0) {
     throw new AppError(400, 'BAD_REQUEST', 'orders:errors.invalidOrderId');
   }
 
-  const existing = await findOrderByIdWithRelations(parsedId);
+  const existing = await findOrderByIdWithRelations(orderId);
   if (!existing) {
     throw new AppError(404, 'NOT_FOUND', 'orders:errors.notFound');
   }
@@ -213,7 +211,7 @@ export async function cancelOrderForUser(orderIdRaw: string, currentUser: Curren
   const updated = await prisma.$transaction(async (tx) => {
     // 1. Update order status
     const updatedOrder = await (tx.order.update as any)({
-      where: { orderId: parsedId },
+      where: { orderId },
       data: { status: 'Cancelled' },
       include: {
         user: true,
@@ -232,7 +230,7 @@ export async function cancelOrderForUser(orderIdRaw: string, currentUser: Curren
     // 2. Append status history
     await (tx.orderStatusHistory.create as any)({
       data: {
-        orderId: parsedId,
+        orderId,
         oldStatus: existing.status,
         status: 'Cancelled',
         changedBy: currentUser.userId,
@@ -242,7 +240,7 @@ export async function cancelOrderForUser(orderIdRaw: string, currentUser: Curren
 
     // 3. Restore stock and write InventoryLog for each item
     await atomicCancelRestore(
-      parsedId,
+      orderId,
       currentUser.userId,
       existing.items.map((item) => ({
         variantId: item.variantId,

@@ -2,14 +2,18 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { logger } from '../../lib/logger';
 import type { AuthRequest } from '../../middlewares/auth.middleware';
-import type { AddressInput, UpdateProfileInput } from '../../utils/schemas/user.validator';
+import type { AddressIdParams, AddressInput, UpdateProfileInput } from '../../utils/schemas/user.validator';
 import { userModuleService, UserModuleError } from './user.service';
 
 const UpdateRoleSchema = z.object({
   roleId: z.number().int().positive(),
 });
 
-const parseRouteId = (rawId: string) => Number.parseInt(rawId, 10);
+const parseRouteId = (rawId: unknown) => {
+  if (typeof rawId === 'number') return rawId;
+  if (typeof rawId === 'string') return Number.parseInt(rawId, 10);
+  return Number.NaN;
+};
 
 const extractAvatarPayload = (req: AuthRequest) => {
   if (req.file) {
@@ -130,10 +134,7 @@ export const userController = {
 
   updateAddress: async (req: AuthRequest, res: Response) => {
     try {
-      const addressId = parseRouteId(req.params.id as string);
-      if (Number.isNaN(addressId)) {
-        return res.status(400).json({ success: false, message: 'Invalid address ID' });
-      }
+      const { id: addressId } = req.params as unknown as AddressIdParams;
 
       const updatedAddress = await userModuleService.updateAddress(
         getUserId(req),
@@ -155,10 +156,7 @@ export const userController = {
 
   deleteAddress: async (req: AuthRequest, res: Response) => {
     try {
-      const addressId = parseRouteId(req.params.id as string);
-      if (Number.isNaN(addressId)) {
-        return res.status(400).json({ success: false, message: 'Invalid address ID' });
-      }
+      const { id: addressId } = req.params as unknown as AddressIdParams;
 
       const result = await userModuleService.deleteAddress(getUserId(req), addressId);
       res.status(200).json({ success: true, ...result });
@@ -171,10 +169,7 @@ export const userController = {
 
   setDefaultAddress: async (req: AuthRequest, res: Response) => {
     try {
-      const addressId = parseRouteId(req.params.id as string);
-      if (Number.isNaN(addressId)) {
-        return res.status(400).json({ success: false, message: 'Invalid address ID' });
-      }
+      const { id: addressId } = req.params as unknown as AddressIdParams;
 
       const updatedAddress = await userModuleService.setDefaultAddress(getUserId(req), addressId);
       res.status(200).json({

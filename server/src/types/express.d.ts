@@ -17,6 +17,7 @@ declare global {
     interface Request {
       user?: AuthUserPayload;
       locale: AppLocale;
+      traceId?: string;
     }
   }
 }

@@ -185,7 +185,8 @@ export const createAddress = async (req: AuthRequest, res: Response) => {
             phone: string;
             addressLine: string;
             city: string;
-            district?: string;
+            district: string;
+            ward: string;
             isDefault?: boolean;
         };
 
@@ -215,7 +216,8 @@ export const updateAddress = async (req: AuthRequest, res: Response) => {
             phone: string;
             addressLine: string;
             city: string;
-            district?: string;
+            district: string;
+            ward: string;
             isDefault?: boolean;
         };
 

@@ -315,6 +315,7 @@ export const Stylist: React.FC = () => {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [loadingOutfit, setLoadingOutfit] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cityError, setCityError] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
 
   const moodChoices = useMemo(
@@ -471,6 +472,7 @@ export const Stylist: React.FC = () => {
 
   const handleUseLocation = () => {
     setError(null);
+    setCityError(null);
     setLoadingWeather(true);
 
     const loadWeatherFromCurrentLocation = async () => {
@@ -521,13 +523,14 @@ export const Stylist: React.FC = () => {
   const handleCityPick = async (selectedCity: string) => {
     setCity(selectedCity);
     setError(null);
+    setCityError(null);
     setLoadingWeather(true);
     try {
       const data = await fetchWeatherByCity(selectedCity);
       setWeather(data);
       setOutfit(null);
     } catch (err) {
-      setError((err as Error).message);
+      setCityError((err as Error).message);
     } finally {
       setLoadingWeather(false);
     }
@@ -535,7 +538,7 @@ export const Stylist: React.FC = () => {
 
   const handleSearchCity = async () => {
     if (!city.trim()) {
-      setError(t('weatherOutfit.errors.cityRequired'));
+      setCityError(t('weatherOutfit.errors.cityRequired'));
       return;
     }
 
@@ -593,9 +596,12 @@ export const Stylist: React.FC = () => {
                 <div className="flex flex-1 min-w-[260px] gap-2">
                   <input
                     value={city}
-                    onChange={(event) => setCity(event.target.value)}
+                    onChange={(event) => {
+                      setCity(event.target.value);
+                      setCityError(null);
+                    }}
                     placeholder={t('weatherOutfit.weatherInput.cityPlaceholder')}
-                    className="flex-1 bg-black/30 border border-white/10 rounded-sm px-3 py-2 text-sm text-white"
+                    className={`flex-1 bg-black/30 border rounded-sm px-3 py-2 text-sm text-white ${cityError ? 'border-red-500 focus:border-red-400' : 'border-white/10'}`}
                   />
                   <button
                     onClick={() => void handleSearchCity()}
@@ -616,6 +622,7 @@ export const Stylist: React.FC = () => {
                   </button>
                 ))}
               </div>
+              {cityError && <p className="text-xs text-red-400">{cityError}</p>}
               {loadingWeather && <p className="text-xs text-white/60">{t('stylist.states.loadingWeather')}</p>}
               {error && <p className="text-xs text-red-400">{error}</p>}
             </div>

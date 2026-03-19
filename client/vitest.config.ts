@@ -12,6 +12,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
+      '@validation': path.resolve(__dirname, '../server/src/shared/validation'),
     },
   },
 });

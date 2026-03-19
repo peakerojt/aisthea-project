@@ -54,11 +54,23 @@ import {
     type CouponType,
     type CreateCouponPayload,
 } from '@/common/services/coupon.service';
+import { mapZodFieldErrors } from '@/common/validation/errors';
+import { createCouponClientSchema, updateCouponClientSchema } from '@/common/validation/schemas';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtCurrency(value: number): string {
     return value.toLocaleString('vi-VN') + '₫';
+}
+
+function normalizeCurrencyInput(value: string): string {
+    return value.replace(/[^\d]/g, '');
+}
+
+function fmtCurrencyInput(value: string): string {
+    const normalized = normalizeCurrencyInput(value);
+    if (!normalized) return '';
+    return Number(normalized).toLocaleString('vi-VN');
 }
 
 function fmtDate(iso: string): string {
@@ -132,38 +144,45 @@ const CouponDialog: React.FC<CouponDialogProps> = ({ coupon, onClose, onSaved, s
     const [saving, setSaving] = useState(false);
     const [errors, setErrors] = useState<FormErrors>({});
 
-    const validate = (): boolean => {
-        const e: FormErrors = {};
-        if (!code.trim()) e.code = t('coupons:validation.codeRequired');
-        if (!value || isNaN(Number(value)) || Number(value) <= 0) e.value = t('coupons:validation.valuePositive');
-        if (type === 'PERCENTAGE' && (Number(value) > 100)) e.value = t('coupons:validation.valueMaxPercent');
-        if (!startDate) e.startDate = t('coupons:validation.startRequired');
-        if (!endDate) e.endDate = t('coupons:validation.endRequired');
-        if (startDate && endDate && new Date(endDate) <= new Date(startDate))
-            e.endDate = t('coupons:validation.endAfterStart');
-        if (!usageLimit || isNaN(Number(usageLimit)) || Number(usageLimit) < 1)
-            e.usageLimit = t('coupons:validation.limitMin');
-        setErrors(e);
-        return Object.keys(e).length === 0;
+    const handleCurrencyInput = (
+        setter: React.Dispatch<React.SetStateAction<string>>,
+        fallback = ''
+    ) => (event: React.ChangeEvent<HTMLInputElement>) => {
+        const normalized = normalizeCurrencyInput(event.target.value);
+        setter(normalized || fallback);
+    };
+
+    const buildPayload = (): CreateCouponPayload => ({
+        code: code.toUpperCase().trim(),
+        type,
+        value: Number(value),
+        maxDiscountAmount: type === 'PERCENTAGE' && maxDiscountAmount ? Number(maxDiscountAmount) : null,
+        minOrderValue: Number(minOrderValue) || 0,
+        startDate,
+        endDate,
+        usageLimit: Number(usageLimit),
+        usagePerUser: Number(usagePerUser) || 1,
+        isActive,
+    });
+
+    const validate = (): CreateCouponPayload | null => {
+        const payload = buildPayload();
+        const result = (isEdit ? updateCouponClientSchema : createCouponClientSchema).safeParse(payload);
+
+        if (!result.success) {
+            setErrors(mapZodFieldErrors(result.error));
+            return null;
+        }
+
+        setErrors({});
+        return result.data as CreateCouponPayload;
     };
 
     const handleSubmit = async () => {
-        if (!validate()) return;
+        const payload = validate();
+        if (!payload) return;
         setSaving(true);
         try {
-            const payload: CreateCouponPayload = {
-                code: code.toUpperCase().trim(),
-                type,
-                value: Number(value),
-                maxDiscountAmount: type === 'PERCENTAGE' && maxDiscountAmount ? Number(maxDiscountAmount) : null,
-                minOrderValue: Number(minOrderValue) || 0,
-                startDate: new Date(startDate).toISOString(),
-                endDate: new Date(endDate).toISOString(),
-                usageLimit: Number(usageLimit),
-                usagePerUser: Number(usagePerUser) || 1,
-                isActive,
-            };
-
             if (isEdit) {
                 await updateCoupon(coupon.couponId, payload);
                 setToast({ message: t('coupons:feedback.updateSuccess'), type: 'success' });
@@ -267,14 +286,15 @@ const CouponDialog: React.FC<CouponDialogProps> = ({ coupon, onClose, onSaved, s
                                     {type === 'PERCENTAGE' ? t('coupons:form.labelValuePercent') : t('coupons:form.labelValueFixed')}
                                 </label>
                                 <input
-                                    type="number"
-                                    min={1}
+                                    type={type === 'PERCENTAGE' ? 'number' : 'text'}
+                                    inputMode={type === 'PERCENTAGE' ? undefined : 'numeric'}
+                                    min={type === 'PERCENTAGE' ? 1 : undefined}
                                     max={type === 'PERCENTAGE' ? 100 : undefined}
-                                    step={type === 'PERCENTAGE' ? 1 : 1000}
-                                    value={value}
-                                    onChange={(e) => setValue(e.target.value)}
+                                    step={type === 'PERCENTAGE' ? 1 : undefined}
+                                    value={type === 'PERCENTAGE' ? value : fmtCurrencyInput(value)}
+                                    onChange={type === 'PERCENTAGE' ? (e) => setValue(e.target.value) : handleCurrencyInput(setValue)}
                                     className={inputClass('value')}
-                                    placeholder={type === 'PERCENTAGE' ? 'VD: 20' : 'VD: 50000'}
+                                    placeholder={type === 'PERCENTAGE' ? 'VD: 20' : 'VD: 50.000'}
                                 />
                                 {errors.value && <p className="mt-1 text-[11px] text-red-400">{errors.value}</p>}
                             </div>
@@ -287,13 +307,12 @@ const CouponDialog: React.FC<CouponDialogProps> = ({ coupon, onClose, onSaved, s
                                     {t('coupons:form.labelMaxDiscount')}
                                 </label>
                                 <input
-                                    type="number"
-                                    min={0}
-                                    step={1000}
-                                    value={maxDiscountAmount}
-                                    onChange={(e) => setMaxDiscountAmount(e.target.value)}
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={fmtCurrencyInput(maxDiscountAmount)}
+                                    onChange={handleCurrencyInput(setMaxDiscountAmount)}
                                     className="w-full rounded-lg border border-blue-500/20 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-white/25 transition-colors focus:border-blue-500/40 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
-                                    placeholder="VD: 50000 (để trống = không giới hạn)"
+                                    placeholder="VD: 50.000 (để trống = không giới hạn)"
                                 />
                                 <p className="mt-1.5 text-[10px] text-white/30">
                                     {t('coupons:form.maxDiscountNote')}
@@ -306,11 +325,10 @@ const CouponDialog: React.FC<CouponDialogProps> = ({ coupon, onClose, onSaved, s
                             <div>
                                 <label className={labelClass}>{t('coupons:form.labelMinOrder')}</label>
                                 <input
-                                    type="number"
-                                    min={0}
-                                    step={10000}
-                                    value={minOrderValue}
-                                    onChange={(e) => setMinOrderValue(e.target.value)}
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={fmtCurrencyInput(minOrderValue)}
+                                    onChange={handleCurrencyInput(setMinOrderValue, '0')}
                                     className={inputClass('minOrderValue')}
                                     placeholder="0 = không điều kiện"
                                 />

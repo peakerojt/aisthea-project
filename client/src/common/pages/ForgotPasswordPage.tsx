@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { api } from '@/common/utils/api';
+import { forgotPasswordClientSchema } from '@/common/validation/schemas';
 
 export const ForgotPasswordPage: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'forgotPassword' });
@@ -8,29 +10,40 @@ export const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  const [emailError, setEmailError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const parsed = forgotPasswordClientSchema.safeParse({ email });
+
+    if (!parsed.success) {
+      setStatus('error');
+      setMessage('');
+      setEmailError(email.trim() ? t('messages.emailInvalid') : t('messages.emailRequired'));
+      return;
+    }
+
     setStatus('loading');
     setMessage('');
+    setEmailError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+      const response = await api.post<{ success: boolean; message?: string }>('/api/auth/forgot-password', parsed.data, {
+        skipAuthRedirect: true,
       });
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || t('messages.sendFailed'));
-      }
-
       setStatus('success');
-      setMessage(data.message);
+      setMessage(response.message || t('actions.sendLink'));
     } catch (error) {
-      const err = error as Error | { message?: string };
+      const err = error as Error & {
+        details?: Array<{ field?: string; message?: string }>;
+      };
+      const emailIssue = err.details?.find((issue) => issue.field === 'email' && issue.message);
+
       setStatus('error');
+      if (emailIssue?.message) {
+        setEmailError(emailIssue.message);
+      }
       setMessage(err.message || t('messages.sendFailed'));
     }
   };
@@ -59,14 +72,22 @@ export const ForgotPasswordPage: React.FC = () => {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailError('');
+                  if (status === 'error') {
+                    setMessage('');
+                    setStatus('idle');
+                  }
+                }}
                 required
-                className="w-full px-4 py-3 bg-bg-dark border border-border-light rounded-md text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+                className={`w-full px-4 py-3 bg-bg-dark border rounded-md text-white focus:outline-none focus:ring-1 transition-colors ${emailError ? 'border-red-500 focus:border-red-400 focus:ring-red-500/20' : 'border-border-light focus:border-primary focus:ring-primary'}`}
                 placeholder={t('form.emailPlaceholder')}
               />
+              {emailError && <p className="mt-2 text-sm text-red-400">{emailError}</p>}
             </div>
 
-            {status === 'error' && <div className="text-red-500 text-sm text-center bg-red-500/10 p-2 rounded">{message}</div>}
+            {status === 'error' && message && <div className="text-red-500 text-sm text-center bg-red-500/10 p-2 rounded">{message}</div>}
 
             <button
               type="submit"

@@ -21,6 +21,27 @@ const shouldBypassNormalization = (req: Request, body: JsonObject) => {
 
 const toLocale = (req: Request): AppLocale => req.locale || resolveRequestLocale(req);
 
+const inferErrorType = (statusCode: number, errorCode?: string): 'VALIDATION' | 'BUSINESS' | 'AUTH' | 'PERMISSION' | 'SYSTEM' => {
+  const normalized = normalizeErrorCode(errorCode);
+
+  if (statusCode >= 500) return 'SYSTEM';
+  if (statusCode === 401) return 'AUTH';
+  if (statusCode === 403) {
+    return normalized === 'ACCOUNT_BANNED' ? 'AUTH' : 'PERMISSION';
+  }
+  if (
+    statusCode === 422 ||
+    normalized?.startsWith('VALIDATION_') ||
+    normalized === 'VALIDATION_ERROR' ||
+    normalized === 'BAD_REQUEST' ||
+    normalized === 'INVALID_BODY'
+  ) {
+    return 'VALIDATION';
+  }
+
+  return 'BUSINESS';
+};
+
 const hasErrorShape = (statusCode: number, body: JsonObject) =>
   statusCode >= 400 ||
   body.success === false ||
@@ -45,16 +66,27 @@ const normalizeErrorPayload = (req: Request, statusCode: number, body: JsonObjec
     typeof body.message === 'string' && body.message.trim().length > 0
       ? body.message
       : t(locale, messageKey);
+  const details = Array.isArray(body.details) ? body.details : undefined;
+  const field =
+    typeof body.field === 'string'
+      ? body.field
+      : typeof details?.[0] === 'object' && details[0] && 'field' in details[0]
+        ? String((details[0] as Record<string, unknown>).field ?? '')
+        : undefined;
 
   return {
     ...body,
     success: false,
     statusCode: typeof body.statusCode === 'number' ? body.statusCode : statusCode,
+    type: typeof body.type === 'string' ? body.type : inferErrorType(statusCode, normalizedCode),
     errorCode: normalizedCode,
     // keep legacy clients working while moving to errorCode
     code: typeof body.code === 'string' ? body.code : normalizedCode,
     messageKey,
     message,
+    ...(field ? { field } : {}),
+    ...(details ? { details } : {}),
+    ...(req.traceId ? { traceId: req.traceId } : {}),
   };
 };
 

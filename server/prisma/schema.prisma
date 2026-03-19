@@ -129,6 +129,7 @@ model Address {
   addressLine   String   @map("AddressLine") @db.NVarChar(255)
   city          String   @map("City") @db.NVarChar(50)
   district      String?  @map("District") @db.NVarChar(50)
+  ward          String?  @map("Ward") @db.NVarChar(50)
   isDefault     Boolean? @default(false, map: "DF__Addresses__IsDef__66603565") @map("IsDefault")
   user          User     @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Addresses_Users")
 

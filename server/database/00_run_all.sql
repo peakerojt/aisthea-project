@@ -28,32 +28,37 @@ PRINT '  AISTHEA DATABASE SETUP STARTING...';
 PRINT '==============================================';
 GO
 
-PRINT '> STEP 1/5 - Schema (Tables, Indexes, Functions)';
+PRINT '> STEP 1/7 - Schema (Tables, Indexes, Functions)';
 GO
 :r $(BasePath)\01_schema_all.sql
 GO
 
-PRINT '> STEP 2/5 - Schema Patch (PurchaseOrder extended fields)';
+PRINT '> STEP 2/7 - Schema Patch (PurchaseOrder extended fields)';
 GO
 :r $(BasePath)\04_purchase_order_fields.sql
 GO
 
-PRINT '> STEP 3/5 - Schema Patch (Order pricing fields)';
+PRINT '> STEP 3/7 - Schema Patch (Order pricing fields)';
 GO
 :r $(BasePath)\05_order_pricing_fields.sql
 GO
 
-PRINT '> STEP 4/6 - Schema Patch (Shipping provider metadata)';
+PRINT '> STEP 4/7 - Schema Patch (Shipping provider metadata)';
 GO
 :r $(BasePath)\06_shipping_provider_metadata.sql
 GO
 
-PRINT '> STEP 5/6 - Schema Patch (Delivery proof metadata)';
+PRINT '> STEP 5/7 - Schema Patch (Delivery proof metadata)';
 GO
 :r $(BasePath)\07_delivery_proof_metadata.sql
 GO
 
-PRINT '> STEP 6/6 - Seed Data (SKIPPED to protect existing data)';
+PRINT '> STEP 6/7 - Schema Patch (Addresses ward metadata)';
+GO
+:r $(BasePath)\08_addresses_ward.sql
+GO
+
+PRINT '> STEP 7/7 - Seed Data (SKIPPED to protect existing data)';
 PRINT '  Existing data is preserved. No DELETE/RESEED will run in this script.';
 PRINT '  If you need full reseed/reset, run: 00_run_all_full_reset.sql';
 GO

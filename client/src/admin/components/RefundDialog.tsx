@@ -91,11 +91,6 @@ export const RefundDialog: React.FC<AdminRefundDialogProps> = ({
         setAmountInput(String(capped));
     };
 
-    // ── Close on backdrop click ───────────────────────────────────────────────
-    const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (e.target === e.currentTarget) onClose();
-    };
-
     // ── Validate & submit ─────────────────────────────────────────────────────
     const handleSubmit = useCallback(async () => {
         setErrors({});
@@ -145,40 +140,39 @@ export const RefundDialog: React.FC<AdminRefundDialogProps> = ({
 
     // ─────────────────────────────────────────────────────────────────────────
     return (
-        <div onClick={handleBackdrop}>
-            <AdminModalShell
-                icon={BadgeDollarSign}
-                title={t('refund.title')}
-                subtitle={t('refund.orderRef', { id: orderId })}
-                onClose={onClose}
-                maxWidthClassName="max-w-lg"
-                panelClassName="rounded-sm border-white/[0.08] bg-[#0E0E12]"
-                bodyClassName="max-h-[70vh] overflow-y-auto px-6 py-5 space-y-5"
-                footer={(
-                    <div className="flex gap-3">
-                        <AdminSecondaryButton
-                            onClick={onClose}
-                            disabled={submitting}
-                            className="flex-1 rounded-sm px-4 py-3 text-[12px] font-bold uppercase tracking-wider"
+        <AdminModalShell
+            icon={BadgeDollarSign}
+            title={t('refund.title')}
+            subtitle={t('refund.orderRef', { id: orderId })}
+            onClose={onClose}
+            maxWidthClassName="max-w-lg"
+            panelClassName="rounded-2xl"
+            bodyClassName="max-h-[70vh] overflow-y-auto space-y-5 px-6 py-5"
+            footer={(
+                <div className="flex gap-3">
+                    <AdminSecondaryButton
+                        onClick={onClose}
+                        disabled={submitting}
+                        className="flex-1 rounded-xl px-4 py-3 text-[12px] font-bold uppercase tracking-wider"
+                    >
+                        {t('refund.form.cancel')}
+                    </AdminSecondaryButton>
+                    {maxRefundable > 0 && (
+                        <AdminPrimaryButton
+                            onClick={handleSubmit}
+                            disabled={submitting || confirmAmount <= 0}
+                            className="flex-1 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-[12px] font-bold uppercase tracking-wider text-primary shadow-none hover:bg-primary/20"
                         >
-                            {t('refund.form.cancel')}
-                        </AdminSecondaryButton>
-                        {maxRefundable > 0 && (
-                            <AdminPrimaryButton
-                                onClick={handleSubmit}
-                                disabled={submitting || confirmAmount <= 0}
-                                className="flex-1 rounded-sm border border-primary/30 bg-primary/10 px-4 py-3 text-[12px] font-bold uppercase tracking-wider text-primary shadow-none hover:bg-primary/20"
-                            >
-                                {submitting ? (
-                                    <><Loader2 size={13} className="animate-spin" />{t('refund.form.submitting')}</>
-                                ) : (
-                                    t('refund.form.submit', { amount: formatVND(confirmAmount) })
-                                )}
-                            </AdminPrimaryButton>
-                        )}
-                    </div>
-                )}
-            >
+                            {submitting ? (
+                                <><Loader2 size={13} className="animate-spin" />{t('refund.form.submitting')}</>
+                            ) : (
+                                t('refund.form.submit', { amount: formatVND(confirmAmount) })
+                            )}
+                        </AdminPrimaryButton>
+                    )}
+                </div>
+            )}
+        >
 
                     {/* ── Financial stats ──────────────────────────────────────── */}
                     <div className="grid grid-cols-3 gap-3">
@@ -313,7 +307,6 @@ export const RefundDialog: React.FC<AdminRefundDialogProps> = ({
                             )}
                         </>
                     )}
-            </AdminModalShell>
-        </div>
+        </AdminModalShell>
     );
 };

@@ -2,6 +2,35 @@ import { Request, Response, NextFunction } from 'express';
 import { ZodSchema, ZodError } from 'zod';
 import { logger } from '../lib/logger';
 
+const issueCodeMap: Record<string, string> = {
+    invalid_type: 'VALIDATION_INVALID_TYPE',
+    too_small: 'VALIDATION_TOO_SMALL',
+    too_big: 'VALIDATION_TOO_BIG',
+    invalid_format: 'VALIDATION_INVALID_FORMAT',
+    invalid_string: 'VALIDATION_INVALID_FORMAT',
+    unrecognized_keys: 'VALIDATION_UNKNOWN_FIELD',
+    custom: 'VALIDATION_INVALID',
+};
+
+const normalizeIssue = (issue: any) => ({
+    field: Array.isArray(issue?.path) && issue.path.length > 0 ? issue.path.join('.') : '',
+    code: issueCodeMap[issue?.code] ?? 'VALIDATION_INVALID',
+    message: issue?.message ?? 'Invalid value',
+});
+
+const extractIssues = (error: ZodError) =>
+    error.issues.flatMap((issue: any) => {
+        if (issue?.code === 'unrecognized_keys' && Array.isArray(issue.keys)) {
+            return issue.keys.map((key: string) => ({
+                field: key,
+                code: 'VALIDATION_UNKNOWN_FIELD',
+                message: `Unrecognized field: ${key}`,
+            }));
+        }
+
+        return [normalizeIssue(issue)];
+    });
+
 /**
  * Generic Zod request-validation middleware.
  *
@@ -17,19 +46,25 @@ export const validate =
             const result = schema.safeParse(req[source]);
 
             if (!result.success) {
-                const issues = (result.error as ZodError).issues.map((issue) => ({
-                    field: issue.path.join('.'),
-                    message: issue.message,
-                }));
+                const issues = extractIssues(result.error as ZodError);
 
-                logger.warn(`[Validation Failed] ${req.method} ${req.originalUrl}`, { payload: req[source], issues });
+                logger.warn(`[Validation Failed] ${req.method} ${req.originalUrl}`, {
+                    traceId: req.traceId,
+                    payload: req[source],
+                    issues,
+                });
 
                 return res.status(422).json({
                     success: false,
                     statusCode: 422,
+                    type: 'VALIDATION',
                     errorCode: 'VALIDATION_ERROR',
+                    code: 'VALIDATION_ERROR',
+                    messageKey: 'common:errors.validation',
                     message: 'Request validation failed.',
+                    field: issues[0]?.field || undefined,
                     details: issues,
+                    traceId: req.traceId,
                 });
             }
 

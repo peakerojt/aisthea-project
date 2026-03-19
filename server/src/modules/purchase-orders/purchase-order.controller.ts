@@ -77,6 +77,12 @@ function normalizeOptionalString(value: unknown, maxLength: number): string | nu
   return normalized;
 }
 
+function getCurrentMinuteFloor() {
+  const now = new Date();
+  now.setSeconds(0, 0);
+  return now;
+}
+
 function buildPurchaseOrderNumber() {
   const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
   const suffix = Math.floor(Math.random() * 10000)
@@ -330,6 +336,9 @@ export async function createPurchaseOrder(req: Request, res: Response) {
       if (Number.isNaN(maybeDate.getTime())) {
         return res.status(400).json({ success: false, message: 'Expected received date must be a valid ISO date string.' });
       }
+      if (maybeDate < getCurrentMinuteFloor()) {
+        return res.status(400).json({ success: false, message: 'Expected received date cannot be in the past.' });
+      }
       parsedExpectedReceivedAt = maybeDate;
     }
 
@@ -345,8 +354,8 @@ export async function createPurchaseOrder(req: Request, res: Response) {
       if (!Number.isInteger(item.orderedQty) || item.orderedQty <= 0) {
         return res.status(400).json({ success: false, message: 'Each item must include orderedQty > 0.' });
       }
-      if (typeof item.unitCost !== 'number' || Number.isNaN(item.unitCost) || item.unitCost < 0) {
-        return res.status(400).json({ success: false, message: 'Each item must include unitCost >= 0.' });
+      if (typeof item.unitCost !== 'number' || Number.isNaN(item.unitCost) || item.unitCost <= 0) {
+        return res.status(400).json({ success: false, message: 'Each item must include unitCost > 0.' });
       }
       if (seenVariantIds.has(item.variantId)) {
         return res.status(400).json({ success: false, message: `Duplicate variantId detected: ${item.variantId}.` });

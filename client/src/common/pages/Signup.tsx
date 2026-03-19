@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthLayout } from '@/common/layouts/AuthLayout';
 import Eye from 'lucide-react/dist/esm/icons/eye';
@@ -6,18 +6,10 @@ import EyeOff from 'lucide-react/dist/esm/icons/eye-off';
 import { authService } from '@/common/services/auth.service';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { AnimatePresence, motion } from 'framer-motion';
-import { passwordValidation, passwordRequirements, calculatePasswordStrength } from '@/common/utils/validationUtils';
+import { passwordRequirements, calculatePasswordStrength } from '@/common/utils/validationUtils';
 import { useTranslation } from 'react-i18next';
-
-interface SignupFormInputs {
-  fullName: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-  newsletter: boolean;
-}
+import { SignupFormInput, signupFormSchema } from '@/common/validation/schemas';
 
 const ValidationItem = React.memo(({ met, text }: { met: boolean; text: string }) => (
   <div className={`flex items-center gap-2 text-[10px] transition-colors ${met ? 'text-green-500' : 'text-gray-500'}`}>
@@ -77,30 +69,13 @@ export const Signup: React.FC = () => {
   const [serverError, setServerError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const signupSchema = useMemo(
-    () =>
-      z
-        .object({
-          fullName: z.string().min(2, t('validation.fullNameMin')),
-          email: z.string().email(t('validation.emailInvalid')),
-          password: passwordValidation,
-          confirmPassword: z.string(),
-          newsletter: z.boolean(),
-        })
-        .refine((data) => data.password === data.confirmPassword, {
-          message: t('validation.passwordMismatch'),
-          path: ['confirmPassword'],
-        }),
-    [t],
-  );
-
   const {
     register,
     handleSubmit,
     control,
     formState: { errors, isSubmitting },
-  } = useForm<SignupFormInputs>({
-    resolver: zodResolver(signupSchema),
+  } = useForm<SignupFormInput>({
+    resolver: zodResolver(signupFormSchema),
     defaultValues: {
       email: '',
       password: '',
@@ -111,7 +86,7 @@ export const Signup: React.FC = () => {
     mode: 'onChange',
   });
 
-  const onSubmit = async (data: SignupFormInputs) => {
+  const onSubmit = async (data: SignupFormInput) => {
     setServerError(null);
     try {
       await authService.register({
@@ -130,9 +105,13 @@ export const Signup: React.FC = () => {
   return (
     <AuthLayout backgroundImage="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2000">
       <div className="mb-10">
-        <p className="text-primary text-xs font-bold uppercase tracking-[0.2em] mb-4">{t('label')}</p>
-        <h1 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mb-2">{t('title')}</h1>
-        <p className="text-gray-400">{t('subtitle')}</p>
+        <p className="mb-4 text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">{t('label')}</p>
+        <h1 className="mb-4 text-[clamp(2.2rem,5vw,3.3rem)] font-extrabold leading-[1.02] tracking-[-0.035em] text-white">
+          {t('title')}
+        </h1>
+        <p className="max-w-xl text-[16px] font-normal leading-[1.6] text-gray-300 md:text-[17px]">
+          {t('subtitle')}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
@@ -149,7 +128,7 @@ export const Signup: React.FC = () => {
             placeholder=" "
           />
           <label
-            className={`absolute text-sm duration-300 transform -translate-y-6 scale-75 top-3 z-0 origin-[0] peer-focus:left-0 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase pointer-events-none ${
+            className={`absolute top-3 z-0 origin-[0] text-[13px] font-medium tracking-[0.01em] duration-300 pointer-events-none transform -translate-y-6 scale-75 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:scale-75 peer-focus:-translate-y-6 ${
               errors.fullName ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
             }`}
           >
@@ -173,7 +152,7 @@ export const Signup: React.FC = () => {
             placeholder=" "
           />
           <label
-            className={`absolute text-sm duration-300 transform -translate-y-6 scale-75 top-3 z-0 origin-[0] peer-focus:left-0 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase pointer-events-none ${
+            className={`absolute top-3 z-0 origin-[0] text-[13px] font-medium tracking-[0.01em] duration-300 pointer-events-none transform -translate-y-6 scale-75 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:scale-75 peer-focus:-translate-y-6 ${
               errors.email ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
             }`}
           >
@@ -197,7 +176,7 @@ export const Signup: React.FC = () => {
             placeholder=" "
           />
           <label
-            className={`absolute text-sm duration-300 transform -translate-y-6 scale-75 top-3 z-0 origin-[0] peer-focus:left-0 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase pointer-events-none ${
+            className={`absolute top-3 z-0 origin-[0] text-[13px] font-medium tracking-[0.01em] duration-300 pointer-events-none transform -translate-y-6 scale-75 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:scale-75 peer-focus:-translate-y-6 ${
               errors.password ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
             }`}
           >
@@ -231,7 +210,7 @@ export const Signup: React.FC = () => {
             placeholder=" "
           />
           <label
-            className={`absolute text-sm duration-300 transform -translate-y-6 scale-75 top-3 z-0 origin-[0] peer-focus:left-0 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6 font-medium tracking-wide uppercase pointer-events-none ${
+            className={`absolute top-3 z-0 origin-[0] text-[13px] font-medium tracking-[0.01em] duration-300 pointer-events-none transform -translate-y-6 scale-75 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:scale-75 peer-focus:-translate-y-6 ${
               errors.confirmPassword ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
             }`}
           >
@@ -262,7 +241,7 @@ export const Signup: React.FC = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-primary hover:bg-red-700 text-white font-bold text-sm uppercase tracking-[0.15em] py-4 rounded-sm transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-sm bg-primary py-4 text-base font-semibold tracking-[0.06em] text-white transition-all shadow-lg shadow-primary/20 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? t('actions.creating') : t('actions.create')}
           </button>
@@ -271,8 +250,8 @@ export const Signup: React.FC = () => {
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-white/10"></div>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#0a0a0a] px-4 text-gray-500 font-bold tracking-wider">{t('divider.or')}</span>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-[#0a0a0a] px-4 text-[12px] font-semibold tracking-[0.08em] text-gray-500">{t('divider.or')}</span>
             </div>
           </div>
 
@@ -280,7 +259,7 @@ export const Signup: React.FC = () => {
             type="button"
             onClick={() => (window.location.href = `${import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'}/api/auth/google`)}
             disabled={isSubmitting}
-            className="w-full bg-white hover:bg-gray-100 text-gray-900 font-bold text-sm uppercase tracking-[0.15em] py-4 rounded-sm transition-all flex items-center justify-center gap-3 cursor-pointer border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-sm border border-gray-200 bg-white py-4 text-base font-semibold tracking-[0.05em] text-gray-900 transition-all hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />

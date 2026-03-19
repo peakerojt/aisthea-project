@@ -1,11 +1,14 @@
-import { z } from 'zod';
+export {
+  createOrderSchema,
+  myOrderIdParamSchema,
+  orderIdParamSchema,
+  quoteOrderSchema,
+  updateOrderStatusSchema,
+} from '../../shared/validation/schemas/order';
 
-export const orderIdParamSchema = z.object({
-  id: z
-    .string()
-    .min(1, 'Order id is required')
-    .regex(/^\d+$/, 'Order id must be a positive integer'),
-});
-
-export type OrderIdParams = z.infer<typeof orderIdParamSchema>;
+export type {
+  CreateOrderInput,
+  OrderIdParams,
+  QuoteOrderInput,
+} from '../../shared/validation/schemas/order';
 

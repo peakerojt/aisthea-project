@@ -108,6 +108,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
     const [refunds, setRefunds] = useState<RefundRecord[]>([]);
     const [refundsLoading, setRefundsLoading] = useState(false);
     const [deliveryProofLightboxIndex, setDeliveryProofLightboxIndex] = useState<number | null>(null);
+    const [isDeliveryProofLightboxVisible, setIsDeliveryProofLightboxVisible] = useState(false);
 
     const loadRefunds = useCallback(async (oId: number) => {
         setRefundsLoading(true);
@@ -143,6 +144,25 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
         ? new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
         : t('common.emptyDate');
 
+    const status = order?.status ?? 'PENDING';
+    const c = cfg(status);
+    const statusHistory = (order as any)?.statusHistory ?? [];
+    const paymentMeta = getPaymentStatusMeta(order?.paymentMethod, order?.paymentStatus);
+    const deliveryProofImages = order?.deliveryProof?.images ?? [];
+    const activeDeliveryProofImage = deliveryProofLightboxIndex !== null
+        ? deliveryProofImages[deliveryProofLightboxIndex] ?? null
+        : null;
+
+    useEffect(() => {
+        if (activeDeliveryProofImage) {
+            const frameId = window.requestAnimationFrame(() => setIsDeliveryProofLightboxVisible(true));
+            return () => window.cancelAnimationFrame(frameId);
+        }
+
+        setIsDeliveryProofLightboxVisible(false);
+        return undefined;
+    }, [activeDeliveryProofImage]);
+
     // ── Loading ─────────────────────────────────────────────────────────────
 
     if (loading) return (
@@ -173,15 +193,6 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
             </div>
         </AdminPageShell>
     );
-
-    const status = order.status ?? 'PENDING';
-    const c = cfg(status);
-    const statusHistory = (order as any).statusHistory ?? [];
-    const paymentMeta = getPaymentStatusMeta(order.paymentMethod, order.paymentStatus);
-    const deliveryProofImages = order.deliveryProof?.images ?? [];
-    const activeDeliveryProofImage = deliveryProofLightboxIndex !== null
-        ? deliveryProofImages[deliveryProofLightboxIndex] ?? null
-        : null;
 
     return (
         <>
@@ -500,7 +511,12 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
             {activeDeliveryProofImage && (
                 <div
-                    className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-[2px] flex items-center justify-center px-4 py-8"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Xem ảnh giao hàng"
+                    className={`fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/60 px-4 py-8 transition-all duration-200 ease-out ${
+                        isDeliveryProofLightboxVisible ? 'opacity-100' : 'opacity-0'
+                    }`}
                     onClick={() => setDeliveryProofLightboxIndex(null)}
                 >
                     <button
@@ -528,7 +544,9 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                     )}
 
                     <div
-                        className="max-w-[92vw] max-h-[88vh] flex flex-col gap-3"
+                        className={`flex max-h-[88vh] max-w-[92vw] flex-col gap-3 rounded-2xl border border-gray-200/10 bg-[#0B0B0C] p-4 shadow-2xl shadow-black/40 transform-gpu transition-all duration-200 ease-out will-change-transform ${
+                            isDeliveryProofLightboxVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'
+                        }`}
                         onClick={(event) => event.stopPropagation()}
                     >
                         <img

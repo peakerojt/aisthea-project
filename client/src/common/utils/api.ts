@@ -12,6 +12,7 @@ interface FetchOptions extends RequestInit {
     dedupeKey?: string;
     skipDedupe?: boolean;
     skipCache?: boolean;
+    _retriedAfterRefresh?: boolean;
 }
 
 type ApiErrorPayload = {
@@ -20,6 +21,10 @@ type ApiErrorPayload = {
     error?: string;
     message?: string;
     messageKey?: string;
+    type?: 'VALIDATION' | 'BUSINESS' | 'AUTH' | 'PERMISSION' | 'SYSTEM' | string;
+    field?: string;
+    details?: Array<{ field?: string; code?: string; message?: string }>;
+    traceId?: string;
 };
 
 const getActiveLanguage = () => {
@@ -51,6 +56,7 @@ class ApiClient {
     private baseUrl: string;
     private pendingGetRequests = new Map<string, Promise<unknown>>();
     private responseCache = new Map<string, { expiresAt: number; data: unknown }>();
+    private refreshPromise: Promise<boolean> | null = null;
 
     constructor(baseUrl: string) {
         this.baseUrl = baseUrl;
@@ -84,6 +90,57 @@ class ApiClient {
         return this.getCookie(CSRF_COOKIE_NAME);
     }
 
+    private shouldAttemptRefresh(endpoint: string, options: FetchOptions): boolean {
+        if (options._retriedAfterRefresh) return false;
+
+        const normalizedEndpoint = endpoint.toLowerCase();
+        return ![
+            '/api/auth/login',
+            '/api/auth/register',
+            '/api/auth/logout',
+            '/api/auth/refresh',
+            '/api/auth/verify-email',
+            '/api/auth/resend-verification',
+            '/api/auth/forgot-password',
+            '/api/auth/reset-password',
+        ].includes(normalizedEndpoint);
+    }
+
+    private async refreshAccessToken(): Promise<boolean> {
+        if (this.refreshPromise) {
+            return this.refreshPromise;
+        }
+
+        this.refreshPromise = (async () => {
+            try {
+                const csrfToken = await this.ensureCsrfToken();
+                const response = await fetch(`${this.baseUrl}/api/auth/refresh`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-lang': getActiveLanguage(),
+                        'accept-language': getActiveLanguage(),
+                        ...(csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {}),
+                    },
+                });
+
+                if (!response.ok) {
+                    return false;
+                }
+
+                await response.json().catch(() => null);
+                return true;
+            } catch {
+                return false;
+            } finally {
+                this.refreshPromise = null;
+            }
+        })();
+
+        return this.refreshPromise;
+    }
+
     private async request<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
         const {
             params,
@@ -92,6 +149,7 @@ class ApiClient {
             dedupeKey,
             skipDedupe = false,
             skipCache = false,
+            _retriedAfterRefresh = false,
             ...fetchOptions
         } = options;
 
@@ -140,6 +198,19 @@ class ApiClient {
             const response = await fetch(url, config);
 
             if (!response.ok) {
+                if (response.status === 401 && this.shouldAttemptRefresh(endpoint, { ...options, _retriedAfterRefresh })) {
+                    const refreshed = await this.refreshAccessToken();
+
+                    if (refreshed) {
+                        return this.request<T>(endpoint, {
+                            ...options,
+                            _retriedAfterRefresh: true,
+                            skipDedupe: true,
+                            skipCache: true,
+                        });
+                    }
+                }
+
                 const errorData = await response.json().catch(() => ({
                     error: `HTTP ${response.status}: ${response.statusText}`,
                 })) as ApiErrorPayload;
@@ -188,11 +259,19 @@ class ApiClient {
                     status: number;
                     code?: string;
                     messageKey?: string;
+                    type?: string;
+                    field?: string;
+                    details?: Array<{ field?: string; code?: string; message?: string }>;
+                    traceId?: string;
                     skipAuthRedirect?: boolean;
                 };
                 err.status = response.status;
                 err.code = errorCode;
                 err.messageKey = messageKey;
+                err.type = errorData.type;
+                err.field = typeof errorData.field === 'string' ? errorData.field : undefined;
+                err.details = Array.isArray(errorData.details) ? errorData.details : undefined;
+                err.traceId = typeof errorData.traceId === 'string' ? errorData.traceId : undefined;
                 err.skipAuthRedirect = skipAuthRedirect;
                 throw err;
             }

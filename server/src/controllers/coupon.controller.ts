@@ -3,6 +3,13 @@ import { prisma } from '../utils/prisma';
 import { validateCoupon, CouponError } from '../services/coupon.service';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { logger } from '../lib/logger';
+import type {
+    CouponIdParams,
+    CouponListQueryInput,
+    CreateCouponInput,
+    UpdateCouponInput,
+    ValidateCouponRequestInput,
+} from '../shared/validation/schemas/coupon';
 
 // ─── Helper ────────────────────────────────────────────────────────────────────
 
@@ -52,6 +59,23 @@ function shapeCoupon(c: any) {
     };
 }
 
+function resolveCouponPayloadError(payload: {
+    type: string;
+    value: number;
+    startDate: Date;
+    endDate: Date;
+}) {
+    if (payload.type === 'PERCENTAGE' && (payload.value < 1 || payload.value > 100)) {
+        return 'Giá trị phần trăm phải từ 1 đến 100.';
+    }
+
+    if (payload.endDate <= payload.startDate) {
+        return 'Ngày kết thúc phải sau ngày bắt đầu.';
+    }
+
+    return null;
+}
+
 // ─── POST /api/coupons/validate ───────────────────────────────────────────────
 // Body: { code: string, cartSubtotal: number }
 // Returns discountAmount on success, CouponError on failure.
@@ -63,14 +87,7 @@ export const validateCouponHandler = async (req: AuthRequest, res: Response) => 
             return res.status(401).json({ error: 'Yêu cầu đăng nhập.' });
         }
 
-        const { code, cartSubtotal } = req.body as { code: string; cartSubtotal: number };
-
-        if (!code || typeof code !== 'string') {
-            return res.status(400).json({ error: 'Mã giảm giá không được để trống.' });
-        }
-        if (typeof cartSubtotal !== 'number' || cartSubtotal <= 0) {
-            return res.status(400).json({ error: 'Giá trị giỏ hàng không hợp lệ.' });
-        }
+        const { code, cartSubtotal } = req.body as ValidateCouponRequestInput;
 
         const result = await validateCoupon(code, userId, cartSubtotal);
         return res.json({
@@ -88,11 +105,8 @@ export const validateCouponHandler = async (req: AuthRequest, res: Response) => 
 
 export const listCoupons = async (req: Request, res: Response) => {
     try {
-        const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
-        const pageSize = Math.min(100, Math.max(1, parseInt(String(req.query.pageSize ?? '20'), 10) || 20));
+        const { page, pageSize, search, isActive } = req.query as unknown as CouponListQueryInput;
         const skip = (page - 1) * pageSize;
-        const search = String(req.query.search ?? '').trim();
-        const isActiveParam = req.query.isActive;
 
         const where: any = {};
 
@@ -100,8 +114,9 @@ export const listCoupons = async (req: Request, res: Response) => {
             where.code = { contains: search };
         }
 
-        if (isActiveParam === 'true') where.isActive = true;
-        else if (isActiveParam === 'false') where.isActive = false;
+        if (typeof isActive === 'boolean') {
+            where.isActive = isActive;
+        }
 
         const [total, coupons] = await Promise.all([
             (prisma.coupon as any).count({ where }),
@@ -180,52 +195,34 @@ export const getAvailableCoupons = async (req: AuthRequest, res: Response) => {
 
 export const createCoupon = async (req: Request, res: Response) => {
     try {
-        const {
-            code,
-            type,
-            value,
-            maxDiscountAmount,
-            minOrderValue,
-            startDate,
-            endDate,
-            usageLimit,
-            usagePerUser,
-            isActive,
-        } = req.body;
-
-        // Basic validation
-        if (!code || !type || value === undefined || !startDate || !endDate || !usageLimit) {
-            return res.status(400).json({ error: 'Thiếu thông tin bắt buộc.' });
-        }
-        if (!['FIXED_AMOUNT', 'PERCENTAGE'].includes(type)) {
-            return res.status(400).json({ error: 'Loại mã giảm giá không hợp lệ.' });
-        }
-        if (type === 'PERCENTAGE' && (Number(value) < 1 || Number(value) > 100)) {
-            return res.status(400).json({ error: 'Giá trị phần trăm phải từ 1 đến 100.' });
-        }
-        if (new Date(endDate) <= new Date(startDate)) {
-            return res.status(400).json({ error: 'Ngày kết thúc phải sau ngày bắt đầu.' });
+        const payload = req.body as CreateCouponInput;
+        const payloadError = resolveCouponPayloadError(payload);
+        if (payloadError) {
+            return res.status(400).json({ error: payloadError, code: 'VALIDATION_ERROR' });
         }
 
         const coupon = await (prisma.coupon as any).create({
             data: {
-                code: String(code).toUpperCase().trim(),
-                type,
-                value: Number(value),
-                maxDiscountAmount: maxDiscountAmount != null ? Number(maxDiscountAmount) : null,
-                minOrderValue: Number(minOrderValue ?? 0),
-                startDate: new Date(startDate),
-                endDate: new Date(endDate),
-                usageLimit: Number(usageLimit),
-                usagePerUser: Number(usagePerUser ?? 1),
-                isActive: isActive !== false,
+                code: payload.code,
+                type: payload.type,
+                value: payload.value,
+                maxDiscountAmount: payload.maxDiscountAmount ?? null,
+                minOrderValue: payload.minOrderValue ?? 0,
+                startDate: payload.startDate,
+                endDate: payload.endDate,
+                usageLimit: payload.usageLimit,
+                usagePerUser: payload.usagePerUser ?? 1,
+                isActive: payload.isActive ?? true,
             },
         });
 
         return res.status(201).json(shapeCoupon(coupon));
     } catch (err: any) {
         if (err?.code === 'P2002') {
-            return res.status(409).json({ error: 'Mã giảm giá này đã tồn tại. Vui lòng chọn mã khác.' });
+            return res.status(409).json({
+                error: 'Mã giảm giá này đã tồn tại. Vui lòng chọn mã khác.',
+                code: 'COUPON_CODE_EXISTS',
+            });
         }
         return handleError(res, err);
     }
@@ -236,57 +233,46 @@ export const createCoupon = async (req: Request, res: Response) => {
 
 export const updateCoupon = async (req: Request, res: Response) => {
     try {
-        const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-        const couponId = parseInt(idParam ?? '', 10);
-        if (isNaN(couponId)) {
-            return res.status(400).json({ error: 'couponId không hợp lệ.' });
-        }
+        const { id: couponId } = req.params as unknown as CouponIdParams;
+        const payload = req.body as UpdateCouponInput;
 
         const existing = await (prisma.coupon as any).findUnique({ where: { couponId } });
         if (!existing) {
-            return res.status(404).json({ error: 'Không tìm thấy mã giảm giá.' });
+            return res.status(404).json({ error: 'Không tìm thấy mã giảm giá.', code: 'NOT_FOUND' });
         }
 
-        const {
-            code,
-            type,
-            value,
-            maxDiscountAmount,
-            minOrderValue,
-            startDate,
-            endDate,
-            usageLimit,
-            usagePerUser,
-            isActive,
-        } = req.body;
-
-        // Validate type if provided
-        if (type && !['FIXED_AMOUNT', 'PERCENTAGE'].includes(type)) {
-            return res.status(400).json({ error: 'Loại mã giảm giá không hợp lệ.' });
+        const payloadError = resolveCouponPayloadError({
+            type: payload.type ?? existing.type,
+            value: payload.value ?? Number(existing.value),
+            startDate: payload.startDate ?? new Date(existing.startDate),
+            endDate: payload.endDate ?? new Date(existing.endDate),
+        });
+        if (payloadError) {
+            return res.status(400).json({ error: payloadError, code: 'VALIDATION_ERROR' });
         }
 
         const updated = await (prisma.coupon as any).update({
             where: { couponId },
             data: {
-                ...(code !== undefined && { code: String(code).toUpperCase().trim() }),
-                ...(type !== undefined && { type }),
-                ...(value !== undefined && { value: Number(value) }),
-                ...(maxDiscountAmount !== undefined && {
-                    maxDiscountAmount: maxDiscountAmount != null ? Number(maxDiscountAmount) : null,
+                ...(payload.code !== undefined && { code: payload.code }),
+                ...(payload.type !== undefined && { type: payload.type }),
+                ...(payload.value !== undefined && { value: payload.value }),
+                ...(payload.maxDiscountAmount !== undefined && {
+                    maxDiscountAmount: payload.maxDiscountAmount ?? null,
                 }),
-                ...(minOrderValue !== undefined && { minOrderValue: Number(minOrderValue) }),
-                ...(startDate !== undefined && { startDate: new Date(startDate) }),
-                ...(endDate !== undefined && { endDate: new Date(endDate) }),
-                ...(usageLimit !== undefined && { usageLimit: Number(usageLimit) }),
-                ...(usagePerUser !== undefined && { usagePerUser: Number(usagePerUser) }),
-                ...(isActive !== undefined && { isActive: Boolean(isActive) }),
+                ...(payload.minOrderValue !== undefined && { minOrderValue: payload.minOrderValue }),
+                ...(payload.startDate !== undefined && { startDate: payload.startDate }),
+                ...(payload.endDate !== undefined && { endDate: payload.endDate }),
+                ...(payload.usageLimit !== undefined && { usageLimit: payload.usageLimit }),
+                ...(payload.usagePerUser !== undefined && { usagePerUser: payload.usagePerUser }),
+                ...(payload.isActive !== undefined && { isActive: payload.isActive }),
             },
         });
 
         return res.json(shapeCoupon(updated));
     } catch (err: any) {
         if (err?.code === 'P2002') {
-            return res.status(409).json({ error: 'Mã giảm giá này đã tồn tại.' });
+            return res.status(409).json({ error: 'Mã giảm giá này đã tồn tại.', code: 'COUPON_CODE_EXISTS' });
         }
         return handleError(res, err);
     }
@@ -297,15 +283,11 @@ export const updateCoupon = async (req: Request, res: Response) => {
 
 export const deleteCoupon = async (req: Request, res: Response) => {
     try {
-        const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-        const couponId = parseInt(idParam ?? '', 10);
-        if (isNaN(couponId)) {
-            return res.status(400).json({ error: 'couponId không hợp lệ.' });
-        }
+        const { id: couponId } = req.params as unknown as CouponIdParams;
 
         const existing = await (prisma.coupon as any).findUnique({ where: { couponId } });
         if (!existing) {
-            return res.status(404).json({ error: 'Không tìm thấy mã giảm giá.' });
+            return res.status(404).json({ error: 'Không tìm thấy mã giảm giá.', code: 'NOT_FOUND' });
         }
 
         // Soft-delete: just deactivate the coupon (preserve order history)

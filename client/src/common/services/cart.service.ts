@@ -77,6 +77,11 @@ export const clearGuestCart = (): void => {
 };
 
 import { cartApi } from '@/common/api/cart.api';
+import {
+    addToCartClientSchema,
+    mergeCartClientSchema,
+    updateCartItemClientSchema,
+} from '@/common/validation/schemas';
 
 // ─── API calls (user đã đăng nhập) ──────────────────────────────────────────
 
@@ -86,12 +91,14 @@ export const fetchCartApi = async (): Promise<CartResponse> => {
 };
 
 export const addToCartApi = async (variantId: number, quantity: number): Promise<CartResponse> => {
-    const response = await cartApi.add({ variantId, quantity });
+    const payload = addToCartClientSchema.parse({ variantId, quantity });
+    const response = await cartApi.add(payload);
     return response.data;
 };
 
 export const updateCartItemApi = async (cartItemId: number, quantity: number): Promise<CartResponse> => {
-    const response = await cartApi.update({ cartItemId, quantity });
+    const payload = updateCartItemClientSchema.parse({ cartItemId, quantity });
+    const response = await cartApi.update(payload);
     return response.data;
 };
 
@@ -101,7 +108,8 @@ export const removeCartItemApi = async (cartItemId: number): Promise<CartRespons
 };
 
 export const mergeCartApi = async (items: { variantId: number; quantity: number }[]): Promise<CartResponse> => {
-    const response = await cartApi.merge(items);
+    const payload = mergeCartClientSchema.parse({ items });
+    const response = await cartApi.merge(payload.items);
     return response.data;
 };
 

@@ -3,12 +3,15 @@ import { publicTracking } from '@/common/services/tracking.service';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, Package, ShieldCheck, ChevronRight, Loader2, ArrowLeft, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { trackingLookupClientSchema } from '@/common/validation/schemas';
 
 export function TrackingLookupPage() {
   const { t } = useTranslation('pages', { keyPrefix: 'trackingLookup' });
   const [orderCode, setOrderCode] = useState('');
   const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [orderCodeError, setOrderCodeError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -29,29 +32,48 @@ export function TrackingLookupPage() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const trimCode = orderCode.trim();
-    const trimPhone = phone.trim();
+    const parsed = trackingLookupClientSchema.safeParse({ orderCode, contact: phone });
 
-    if (!trimCode) {
-      setError(t('errors.enterOrderCode'));
-      return;
-    }
-    if (!trimPhone) {
-      setError(t('errors.enterPhone'));
+    if (!parsed.success) {
+      const trimmedOrderCode = orderCode.trim();
+      const trimmedPhone = phone.trim();
+      const orderCodeIssue = parsed.error.issues.some((issue) => issue.path[0] === 'orderCode');
+      const phoneIssue = parsed.error.issues.some((issue) => issue.path[0] === 'contact');
+
+      setOrderCodeError(orderCodeIssue ? (!trimmedOrderCode ? t('errors.enterOrderCode') : t('errors.orderCodeInvalid')) : '');
+      setPhoneError(phoneIssue ? (!trimmedPhone ? t('errors.enterPhone') : t('errors.phoneInvalid')) : '');
+      setError(null);
       return;
     }
 
     setLoading(true);
     setError(null);
+    setOrderCodeError('');
+    setPhoneError('');
 
     try {
-      const data = await publicTracking(trimCode, trimPhone);
-      window.sessionStorage.setItem('publicTrackingLookup', JSON.stringify({ orderCode: trimCode, contact: trimPhone }));
-      navigate(`/tracking/${(data as any).orderId}?orderCode=${encodeURIComponent(trimCode)}&phone=${encodeURIComponent(trimPhone)}`);
+      const data = await publicTracking(parsed.data.orderCode, parsed.data.contact);
+      window.sessionStorage.setItem('publicTrackingLookup', JSON.stringify({ orderCode: parsed.data.orderCode, contact: parsed.data.contact }));
+      navigate(`/tracking/${(data as any).orderId}?orderCode=${encodeURIComponent(parsed.data.orderCode)}&phone=${encodeURIComponent(parsed.data.contact)}`);
     } catch (err: unknown) {
-      const requestError = err as { response?: { data?: { errorCode?: string } }; message?: string };
-      const code = requestError?.response?.data?.errorCode;
-      setError(code === 'TRACKING_NOT_FOUND' ? t('errors.notFound') : requestError.message || t('errors.lookupFailed'));
+      const requestError = err as Error & {
+        code?: string;
+        details?: Array<{ field?: string; message?: string }>;
+      };
+
+      if (Array.isArray(requestError.details)) {
+        for (const issue of requestError.details) {
+          if (issue.field === 'orderCode' && issue.message) {
+            setOrderCodeError(issue.message);
+          }
+
+          if ((issue.field === 'contact' || issue.field === 'phone') && issue.message) {
+            setPhoneError(issue.message);
+          }
+        }
+      }
+
+      setError(requestError.code === 'TRACKING_NOT_FOUND' ? t('errors.notFound') : requestError.message || t('errors.lookupFailed'));
     } finally {
       setLoading(false);
     }
@@ -100,11 +122,16 @@ export function TrackingLookupPage() {
                 type="text"
                 placeholder={t('form.orderCodePlaceholder')}
                 value={orderCode}
-                onChange={(e) => setOrderCode(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-sm focus:outline-none focus:border-blue-500/60 focus:bg-white/8 focus:ring-1 focus:ring-blue-500/30 transition-all duration-200"
+                onChange={(e) => {
+                  setOrderCode(e.target.value);
+                  setOrderCodeError('');
+                  setError(null);
+                }}
+                className={`w-full pl-10 pr-4 py-3 rounded-xl bg-white/5 border text-white placeholder:text-slate-500 text-sm focus:outline-none focus:bg-white/8 focus:ring-1 transition-all duration-200 ${orderCodeError ? 'border-red-500/70 focus:border-red-400 focus:ring-red-500/20' : 'border-white/10 focus:border-blue-500/60 focus:ring-blue-500/30'}`}
                 required
               />
             </div>
+            {orderCodeError && <p className="mt-2 text-xs text-red-400">{orderCodeError}</p>}
           </div>
 
           <div className="mb-6">
@@ -117,11 +144,16 @@ export function TrackingLookupPage() {
                 type="tel"
                 placeholder={t('form.phonePlaceholder')}
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-sm focus:outline-none focus:border-blue-500/60 focus:bg-white/8 focus:ring-1 focus:ring-blue-500/30 transition-all duration-200"
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  setPhoneError('');
+                  setError(null);
+                }}
+                className={`w-full pl-10 pr-4 py-3 rounded-xl bg-white/5 border text-white placeholder:text-slate-500 text-sm focus:outline-none focus:bg-white/8 focus:ring-1 transition-all duration-200 ${phoneError ? 'border-red-500/70 focus:border-red-400 focus:ring-red-500/20' : 'border-white/10 focus:border-blue-500/60 focus:ring-blue-500/30'}`}
                 required
               />
             </div>
+            {phoneError && <p className="mt-2 text-xs text-red-400">{phoneError}</p>}
           </div>
 
           {error && (

@@ -1,4 +1,5 @@
 import { api } from '@/common/utils/api';
+import { addressIdClientParamSchema, profileAddressClientSchema, profileUpdateClientSchema } from '@/common/validation/schemas';
 
 export interface UserProfile {
     userId: number;
@@ -21,6 +22,7 @@ export interface Address {
     addressLine: string;
     city: string;
     district: string | null;
+    ward: string | null;
     isDefault: boolean;
 }
 
@@ -34,7 +36,8 @@ export interface CreateAddressData {
     phone: string;
     addressLine: string;
     city: string;
-    district?: string;
+    district: string;
+    ward: string;
     isDefault?: boolean;
 }
 
@@ -65,7 +68,8 @@ class UserService {
      * Update user profile
      */
     async updateProfile(data: UpdateProfileData): Promise<UserProfile> {
-        const response = await api.put<ApiResponse<UserProfile>>('/api/users/profile', data);
+        const payload = profileUpdateClientSchema.parse(data);
+        const response = await api.put<ApiResponse<UserProfile>>('/api/users/profile', payload);
         return response.data;
     }
 
@@ -97,7 +101,8 @@ class UserService {
      * Create new address
      */
     async createAddress(data: CreateAddressData): Promise<Address> {
-        const response = await api.post<ApiResponse<Address>>('/api/users/addresses', data);
+        const payload = profileAddressClientSchema.parse(data);
+        const response = await api.post<ApiResponse<Address>>('/api/users/addresses', payload);
         return response.data;
     }
 
@@ -105,7 +110,9 @@ class UserService {
      * Update address
      */
     async updateAddress(addressId: number, data: Partial<CreateAddressData>): Promise<Address> {
-        const response = await api.put<ApiResponse<Address>>(`/api/users/addresses/${addressId}`, data);
+        const { id } = addressIdClientParamSchema.parse({ id: addressId });
+        const payload = profileAddressClientSchema.parse(data);
+        const response = await api.put<ApiResponse<Address>>(`/api/users/addresses/${id}`, payload);
         return response.data;
     }
 
@@ -113,14 +120,16 @@ class UserService {
      * Delete address
      */
     async deleteAddress(addressId: number): Promise<void> {
-        await api.delete(`/api/users/addresses/${addressId}`);
+        const { id } = addressIdClientParamSchema.parse({ id: addressId });
+        await api.delete(`/api/users/addresses/${id}`);
     }
 
     /**
      * Set address as default
      */
     async setDefaultAddress(addressId: number): Promise<Address> {
-        const response = await api.put<ApiResponse<Address>>(`/api/users/addresses/${addressId}/default`);
+        const { id } = addressIdClientParamSchema.parse({ id: addressId });
+        const response = await api.put<ApiResponse<Address>>(`/api/users/addresses/${id}/default`);
         return response.data;
     }
 

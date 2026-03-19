@@ -1,19 +1,6 @@
-import { z } from 'zod';
+import { passwordRequirements, passwordValidation } from '@/common/validation/schemas';
 
-export const passwordRequirements = {
-    minLength: 8,
-    hasUpperCase: /[A-Z]/,
-    hasLowerCase: /[a-z]/,
-    hasNumber: /[0-9]/,
-    hasSpecialChar: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/,
-};
-
-export const passwordValidation = z.string()
-    .min(passwordRequirements.minLength, `Password must be at least ${passwordRequirements.minLength} characters long`)
-    .regex(passwordRequirements.hasUpperCase, 'Password must contain at least one uppercase letter')
-    .regex(passwordRequirements.hasLowerCase, 'Password must contain at least one lowercase letter')
-    .regex(passwordRequirements.hasNumber, 'Password must contain at least one number')
-    .regex(passwordRequirements.hasSpecialChar, 'Password must contain at least one special character');
+export { passwordRequirements, passwordValidation };
 
 export const calculatePasswordStrength = (password: string): number => {
     let score = 0;
