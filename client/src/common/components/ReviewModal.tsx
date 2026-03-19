@@ -60,7 +60,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
     return (
         <div
             role="presentation"
-            className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-all duration-200 ease-out ${
+            className={`fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-[3px] transition-all duration-200 ease-out ${
                 isVisible ? 'opacity-100' : 'opacity-0'
             }`}
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -69,18 +69,22 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="review-modal-title"
-                className={`relative w-full max-w-md overflow-hidden rounded-2xl border border-gray-200/10 bg-[#0B0B0C] shadow-2xl shadow-black/40 transform-gpu transition-all duration-200 ease-out will-change-transform ${
+                className={`relative w-full max-w-md overflow-hidden rounded-2xl border border-white/12 shadow-[0_25px_60px_rgba(0,0,0,0.7)] transform-gpu transition-all duration-200 ease-out will-change-transform ${
                     isVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'
                 }`}
+                style={{
+                    background:
+                        'linear-gradient(135deg, rgba(15,15,25,0.98) 0%, rgba(20,20,35,0.98) 100%)',
+                }}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between border-b border-gray-200/10 px-6 pb-4 pt-5">
+                <div className="flex items-center justify-between border-b border-white/[0.06] px-6 pb-4 pt-5">
                     <h2 id="review-modal-title" className="text-sm font-bold uppercase tracking-widest text-white/80">
                         Đánh giá sản phẩm
                     </h2>
                     <button
                         onClick={onClose}
-                        className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                        className="rounded-lg p-1.5 text-white/40 transition-all hover:bg-white/10 hover:text-white"
                     >
                         <X size={16} />
                     </button>
@@ -88,8 +92,8 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
 
                 <div className="px-6 py-5 space-y-5">
                     {/* Product summary */}
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-                        <div className="h-14 w-14 rounded-lg bg-white/5 border border-white/10 overflow-hidden shrink-0">
+                    <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.04] p-3">
+                        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/5">
                             {thumbnail ? (
                                 <img src={thumbnail} alt={item.productName} className="h-full w-full object-cover" />
                             ) : (
@@ -142,7 +146,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
                             placeholder="Chia sẻ cảm nhận của bạn về sản phẩm..."
                             rows={4}
                             maxLength={1000}
-                            className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/25 resize-none focus:outline-none focus:border-white/30 focus:bg-black/40 transition-all"
+                            className="w-full resize-none rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/25 transition-all focus:border-white/30 focus:bg-black/40 focus:outline-none"
                         />
                         <p className="text-[10px] text-white/25 text-right mt-1">{comment.length}/1000</p>
                     </div>

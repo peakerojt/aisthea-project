@@ -89,7 +89,7 @@ export function TrackingLookupPage() {
       <div className="fixed top-5 left-5 z-10">
         <button
           onClick={() => navigate('/', { replace: true, state: { initialView: 'STORE_MY_ORDERS' } })}
-          className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors cursor-pointer group"
+          className="group flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-400 backdrop-blur-sm transition-colors hover:text-white"
         >
           <ArrowLeft className="size-4 group-hover:-translate-x-0.5 transition-transform" />
           {t('actions.backToOrders')}
@@ -97,11 +97,11 @@ export function TrackingLookupPage() {
       </div>
 
       <div className="mb-8 text-center">
-        <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold px-3 py-1.5 rounded-full mb-4 uppercase tracking-widest">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-blue-400">
           <span className="size-1.5 rounded-full bg-blue-400 animate-pulse" />
           {t('hero.badge')}
         </div>
-        <h1 className="text-4xl sm:text-5xl font-extrabold text-white mb-3 leading-tight">
+        <h1 className="mb-3 text-4xl font-black uppercase leading-tight tracking-tighter text-white sm:text-5xl">
           {t('hero.titlePrefix')}{' '}
           <span className="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">{t('hero.titleHighlight')}</span>
         </h1>
@@ -109,11 +109,18 @@ export function TrackingLookupPage() {
       </div>
 
       <div className="w-full max-w-md">
-        <form onSubmit={onSubmit} className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/40">
+        <form
+          onSubmit={onSubmit}
+          className="relative rounded-2xl border border-white/10 bg-black/30 p-6 shadow-[0_25px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-8"
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(16,23,36,0.92) 0%, rgba(8,12,20,0.92) 100%)',
+          }}
+        >
           <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/5 via-transparent to-emerald-500/5 pointer-events-none" />
 
           <div className="mb-4">
-            <label className="block text-sm font-semibold text-slate-200 mb-1.5">{t('form.orderCodeLabel')}</label>
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-slate-300">{t('form.orderCodeLabel')}</label>
             <div className="relative">
               <Package className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
               <input
@@ -127,7 +134,7 @@ export function TrackingLookupPage() {
                   setOrderCodeError('');
                   setError(null);
                 }}
-                className={`w-full pl-10 pr-4 py-3 rounded-xl bg-white/5 border text-white placeholder:text-slate-500 text-sm focus:outline-none focus:bg-white/8 focus:ring-1 transition-all duration-200 ${orderCodeError ? 'border-red-500/70 focus:border-red-400 focus:ring-red-500/20' : 'border-white/10 focus:border-blue-500/60 focus:ring-blue-500/30'}`}
+                className={`w-full rounded-xl border bg-white/[0.04] py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 transition-all duration-200 focus:bg-white/[0.07] focus:outline-none focus:ring-1 ${orderCodeError ? 'border-red-500/70 focus:border-red-400 focus:ring-red-500/20' : 'border-white/10 focus:border-blue-500/60 focus:ring-blue-500/30'}`}
                 required
               />
             </div>
@@ -135,7 +142,7 @@ export function TrackingLookupPage() {
           </div>
 
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-slate-200 mb-1.5">{t('form.phoneLabel')}</label>
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-slate-300">{t('form.phoneLabel')}</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
               <input
@@ -149,7 +156,7 @@ export function TrackingLookupPage() {
                   setPhoneError('');
                   setError(null);
                 }}
-                className={`w-full pl-10 pr-4 py-3 rounded-xl bg-white/5 border text-white placeholder:text-slate-500 text-sm focus:outline-none focus:bg-white/8 focus:ring-1 transition-all duration-200 ${phoneError ? 'border-red-500/70 focus:border-red-400 focus:ring-red-500/20' : 'border-white/10 focus:border-blue-500/60 focus:ring-blue-500/30'}`}
+                className={`w-full rounded-xl border bg-white/[0.04] py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 transition-all duration-200 focus:bg-white/[0.07] focus:outline-none focus:ring-1 ${phoneError ? 'border-red-500/70 focus:border-red-400 focus:ring-red-500/20' : 'border-white/10 focus:border-blue-500/60 focus:ring-blue-500/30'}`}
                 required
               />
             </div>
@@ -166,7 +173,7 @@ export function TrackingLookupPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-sm bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg shadow-blue-500/25 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 py-3.5 text-sm font-bold uppercase tracking-[0.12em] text-white shadow-lg shadow-blue-500/25 transition-all duration-200 hover:from-blue-500 hover:to-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? (
               <>

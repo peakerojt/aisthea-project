@@ -121,25 +121,19 @@ export const Home: React.FC = () => {
 
       <section className="relative h-screen w-full flex items-center">
         <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2500&auto=format&fit=crop)' }} />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#040508]/88 via-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/20 to-transparent" />
         <div className="relative z-10 container mx-auto px-6 md:px-12 pt-20">
-          <div className="max-w-[min(33rem,100%)] animate-fade-in-up">
-            <div className="mb-6 flex items-center gap-4">
-              <span className="h-px w-10 bg-primary/90" />
-              <p className="text-[10px] font-medium uppercase tracking-[0.38em] text-white/72 sm:text-[11px]">
-                {t('hero.titleLine1')}
-              </p>
-            </div>
-            <h1 className="max-w-[10ch] font-['Epilogue'] text-[clamp(3.35rem,7.8vw,6.45rem)] font-[760] leading-[0.94] tracking-[-0.065em] text-white [text-wrap:balance]">
-              {t('hero.titleLine2')}
+          <div className="max-w-4xl animate-fade-in-up">
+            <h1 className="text-5xl md:text-7xl lg:text-9xl font-black text-white uppercase tracking-tighter leading-[0.9] mb-8">
+              {t('hero.titleLine1')} <br />{t('hero.titleLine2')}
             </h1>
-            <div className="mt-7 h-px w-12 bg-white/18 md:mt-8" />
-            <p className="mt-6 max-w-[24rem] text-[0.98rem] font-light leading-[1.95] text-white/74 md:mt-8 md:text-[1.02rem]">
+            <div className="h-1 w-24 bg-primary mb-8" />
+            <p className="text-gray-200 text-lg md:text-xl max-w-xl mb-12 leading-relaxed font-light border-l-2 border-white/20 pl-6">
               {t('hero.subtitle')}
             </p>
             <button
               onClick={() => navigate('/collection')}
-              className="group mt-10 inline-flex items-center gap-3 border border-primary/45 bg-primary/95 px-7 py-4 text-[10px] font-semibold uppercase tracking-[0.32em] text-white shadow-[0_18px_40px_rgba(227,24,55,0.22)] transition-all hover:border-primary/60 hover:bg-red-700 md:mt-12 md:px-8"
+              className="bg-primary hover:bg-red-700 text-white px-10 py-5 text-xs font-bold uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/20 flex items-center gap-3 group"
             >
               {t('hero.cta')}
               <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>

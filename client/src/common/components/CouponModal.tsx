@@ -74,7 +74,7 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
 
     return (
         <div
-            className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-all duration-200 ease-out lg:p-0 ${
+            className={`fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-[3px] transition-all duration-200 ease-out lg:p-0 ${
                 isVisible ? 'opacity-100' : 'opacity-0'
             }`}
             role="presentation"
@@ -86,33 +86,40 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="coupon-modal-title"
-                className={`relative flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-gray-200/10 bg-[#0B0B0C] shadow-2xl shadow-black/40 transform-gpu transition-all duration-200 ease-out will-change-transform ${
+                className={`relative flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/12 bg-[#0F1115] shadow-[0_28px_70px_rgba(0,0,0,0.65)] transform-gpu transition-all duration-200 ease-out will-change-transform ${
                     isVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'
                 }`}
+                style={{
+                    background:
+                        'linear-gradient(180deg, rgba(18,19,25,0.98) 0%, rgba(10,11,15,0.98) 100%)',
+                }}
             >
 
                 {/* Header */}
-                <div className="flex items-center justify-between border-b border-gray-200/10 bg-white/[0.03] p-4">
+                <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.04] px-4 py-4">
                     <h2 id="coupon-modal-title" className="text-lg font-bold uppercase tracking-wide text-white">Kho Voucher</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-1">
+                    <button
+                        onClick={onClose}
+                        className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-white/10 hover:text-white"
+                    >
                         <span className="material-symbols-outlined">close</span>
                     </button>
                 </div>
 
                 {/* Input Manual Code */}
-                <div className="p-4 border-b border-white/15 bg-bg-dark">
+                <div className="border-b border-white/10 bg-black/20 p-4">
                     <div className="flex gap-2">
                         <input
                             type="text"
                             placeholder="Nhập mã giảm giá..."
                             value={inputCode}
                             onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-                            className="flex-1 bg-surface-dark border border-white/15 rounded-sm px-3 py-2 text-sm focus:border-white focus:outline-none transition-colors text-white uppercase placeholder:normal-case"
+                            className="flex-1 rounded-lg border border-white/12 bg-black/30 px-3 py-2 text-sm text-white uppercase placeholder:normal-case transition-colors focus:border-white/40 focus:outline-none"
                         />
                         <button
                             onClick={handleApplyText}
                             disabled={!inputCode.trim()}
-                            className="bg-primary text-white px-4 font-bold text-xs rounded-sm hover:bg-red-700 disabled:opacity-50 transition-colors uppercase"
+                            className="rounded-lg bg-primary px-4 text-xs font-bold uppercase text-white transition-colors hover:bg-red-700 disabled:opacity-50"
                         >
                             Áp dụng
                         </button>
@@ -120,7 +127,7 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                 </div>
 
                 {/* Body - List */}
-                <div className="p-4 overflow-y-auto flex-1 custom-scrollbar space-y-4 bg-bg-dark">
+                <div className="custom-scrollbar flex-1 space-y-4 overflow-y-auto bg-black/10 p-4">
                     {loading && (
                         <div className="text-center text-gray-400 text-sm py-8 flex flex-col items-center gap-2">
                             <span className="material-symbols-outlined animate-spin text-primary">autorenew</span>
@@ -149,13 +156,13 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                         return (
                             <div
                                 key={coupon.couponId}
-                                className={`flex bg-surface-dark border rounded-sm overflow-hidden transition-all duration-300 relative ${isEligible
-                                    ? 'border-primary/40 hover:border-primary shadow-[0_0_15px_rgba(255,0,0,0.05)]'
-                                    : 'border-white/15 opacity-60 grayscale-[0.8]'
+                                className={`relative flex overflow-hidden rounded-xl border transition-all duration-300 ${isEligible
+                                    ? 'border-primary/35 bg-white/[0.03] shadow-[0_0_20px_rgba(255,0,0,0.08)] hover:border-primary/60'
+                                    : 'border-white/10 bg-white/[0.02] opacity-70 grayscale-[0.5]'
                                     }`}
                             >
                                 {/* Left Decorator (Shopee/Lazada style edge) */}
-                                <div className={`w-28 flex flex-col items-center justify-center p-3 shrink-0 border-r border-dashed border-white/15 relative ${isEligible ? 'bg-primary/10 text-primary' : 'bg-white/5 text-gray-400'
+                                <div className={`relative flex w-28 shrink-0 flex-col items-center justify-center border-r border-dashed border-white/12 p-3 ${isEligible ? 'bg-primary/10 text-primary' : 'bg-white/5 text-gray-400'
                                     }`}>
                                     <span className="material-symbols-outlined text-3xl mb-1">local_offer</span>
                                     <span className="font-bold text-[10px] text-center uppercase tracking-wider block leading-tight">

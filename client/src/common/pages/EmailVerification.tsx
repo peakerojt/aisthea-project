@@ -193,7 +193,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
       <AuthLayout backgroundImage="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2000">
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-16 h-16 text-primary animate-spin mb-6" />
-          <h1 className="text-2xl font-bold text-white mb-2">{t('states.verifyingTitle')}</h1>
+          <h1 className="mb-2 text-3xl font-black uppercase tracking-tight text-white">{t('states.verifyingTitle')}</h1>
           <p className="text-gray-400">{t('states.verifyingDescription')}</p>
         </div>
       </AuthLayout>
@@ -204,7 +204,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
     return (
       <AuthLayout backgroundImage="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2000">
         <div className="flex flex-col items-center justify-center py-16">
-          <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mb-6">
+          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-green-500/30 bg-green-500/15 shadow-[0_0_30px_rgba(34,197,94,0.18)]">
             <CheckCircle className="w-12 h-12 text-green-500" />
           </div>
           <h1 className="text-3xl font-black text-white uppercase tracking-tight mb-4">{t('states.successTitle')}</h1>
@@ -219,7 +219,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
     return (
       <AuthLayout backgroundImage="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2000">
         <div className="flex flex-col items-center justify-center py-16">
-          <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center mb-6">
+          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-red-500/30 bg-red-500/15 shadow-[0_0_30px_rgba(239,68,68,0.16)]">
             <XCircle className="w-12 h-12 text-red-500" />
           </div>
           <h1 className="text-3xl font-black text-white uppercase tracking-tight mb-4">{t('states.errorTitle')}</h1>
@@ -240,7 +240,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
                   onChange={(e) => handleCodeChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
                   onPaste={handlePaste}
-                  className={`w-12 h-14 text-center text-2xl font-bold text-white bg-gray-900 border-2 rounded-lg focus:outline-none transition-colors ${codeError ? 'border-red-500 focus:border-red-400' : 'border-gray-700 focus:border-primary'}`}
+                  className={`h-14 w-12 rounded-xl border-2 bg-black/35 text-center text-2xl font-bold text-white backdrop-blur-sm transition-colors focus:outline-none ${codeError ? 'border-red-500 focus:border-red-400' : 'border-gray-700 focus:border-primary'}`}
                 />
               ))}
             </div>
@@ -250,7 +250,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
             <button
               onClick={handleResendEmail}
               disabled={isResending || resendCooldown > 0}
-              className="w-full bg-white/10 hover:bg-white/20 text-white font-bold text-sm uppercase tracking-[0.15em] py-4 rounded-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded-sm bg-white/10 py-4 text-sm font-bold uppercase tracking-[0.15em] text-white transition-all hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isResending
                 ? t('actions.sending')
@@ -271,12 +271,13 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
   return (
     <AuthLayout backgroundImage="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2000">
       <div className="flex flex-col items-center py-10">
-        <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mb-6">
+        <div className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-primary">{t('label')}</div>
+        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-primary/30 bg-primary/15 shadow-[0_0_30px_rgba(220,38,38,0.16)]">
           <Mail className="w-12 h-12 text-primary" />
         </div>
 
-        <h1 className="text-3xl font-black text-white uppercase tracking-tight mb-2 text-center">{t('states.pendingTitle')}</h1>
-        <p className="text-gray-400 text-center mb-8 max-w-sm">
+        <h1 className="mb-2 text-center text-3xl font-black uppercase tracking-tight text-white">{t('states.pendingTitle')}</h1>
+        <p className="mb-8 max-w-sm text-center text-gray-400">
           {t('states.pendingDescriptionPrefix')}{' '}
           <span className="text-white font-semibold">{userEmail || t('states.yourEmail')}</span>. {t('states.pendingDescriptionSuffix')}
         </p>
@@ -308,7 +309,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
                 onChange={(e) => handleCodeChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
                 onPaste={handlePaste}
-                className={`w-12 h-14 text-center text-2xl font-bold text-white bg-gray-900 border-2 rounded-lg focus:outline-none transition-colors ${codeError ? 'border-red-500 focus:border-red-400' : 'border-gray-700 focus:border-primary'}`}
+                className={`h-14 w-12 rounded-xl border-2 bg-black/35 text-center text-2xl font-bold text-white backdrop-blur-sm transition-colors focus:outline-none ${codeError ? 'border-red-500 focus:border-red-400' : 'border-gray-700 focus:border-primary'}`}
                 autoFocus={index === 0}
               />
             ))}
@@ -317,8 +318,8 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
 
           <p className="text-gray-500 text-xs text-center">{t('states.codeExpires')}</p>
 
-          <div className="bg-gray-900/50 border border-gray-800 rounded-sm p-4">
-            <h3 className="text-white font-bold text-sm mb-2">{t('help.title')}</h3>
+          <div className="rounded-2xl border border-white/10 bg-black/30 p-4 backdrop-blur-sm">
+            <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-white">{t('help.title')}</h3>
             <ul className="text-gray-400 text-sm space-y-1 mb-4">
               <li>• {t('help.tip1')}</li>
               <li>• {t('help.tip2')}</li>
@@ -338,7 +339,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
                     }
                   }}
                   placeholder={t('form.emailPlaceholder')}
-                  className={`w-full py-3 px-4 text-sm text-white bg-gray-900 border rounded-sm focus:outline-none mb-3 ${emailError ? 'border-red-500 focus:border-red-400' : 'border-gray-700 focus:border-primary'}`}
+                  className={`mb-3 w-full rounded-xl border bg-black/35 px-4 py-3 text-sm text-white backdrop-blur-sm focus:outline-none ${emailError ? 'border-red-500 focus:border-red-400' : 'border-gray-700 focus:border-primary'}`}
                 />
                 {emailError && <p className="mb-3 text-sm text-red-400">{emailError}</p>}
               </div>
@@ -349,7 +350,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
             <button
               onClick={handleResendEmail}
               disabled={isResending || resendCooldown > 0 || !userEmail}
-              className="w-full bg-white/10 hover:bg-white/20 text-white font-bold text-sm uppercase tracking-wider py-3 rounded-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded-sm bg-white/10 py-3 text-sm font-bold uppercase tracking-wider text-white transition-all hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isResending
                 ? t('actions.sending')
@@ -360,11 +361,11 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
           </div>
 
           <div className="flex items-center justify-center gap-4 pt-4">
-            <button onClick={() => navigate('/login')} className="text-gray-400 hover:text-white text-sm transition-colors">
+            <button onClick={() => navigate('/login')} className="text-sm text-gray-400 transition-colors hover:text-white">
               {t('actions.backToLogin')}
             </button>
             <span className="text-gray-700">|</span>
-            <button onClick={() => navigate('/signup')} className="text-gray-400 hover:text-white text-sm transition-colors">
+            <button onClick={() => navigate('/signup')} className="text-sm text-gray-400 transition-colors hover:text-white">
               {t('actions.useDifferentEmail')}
             </button>
           </div>

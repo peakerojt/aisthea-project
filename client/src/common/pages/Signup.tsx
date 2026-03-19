@@ -105,11 +105,11 @@ export const Signup: React.FC = () => {
   return (
     <AuthLayout backgroundImage="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2000">
       <div className="mb-10">
-        <p className="mb-4 text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">{t('label')}</p>
-        <h1 className="mb-4 text-[clamp(2.2rem,5vw,3.3rem)] font-extrabold leading-[1.02] tracking-[-0.035em] text-white">
+        <p className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-primary">{t('label')}</p>
+        <h1 className="mb-2 text-4xl font-black uppercase tracking-tighter text-white md:text-5xl">
           {t('title')}
         </h1>
-        <p className="max-w-xl text-[16px] font-normal leading-[1.6] text-gray-300 md:text-[17px]">
+        <p className="max-w-xl text-gray-400">
           {t('subtitle')}
         </p>
       </div>
@@ -128,7 +128,7 @@ export const Signup: React.FC = () => {
             placeholder=" "
           />
           <label
-            className={`absolute top-3 z-0 origin-[0] text-[13px] font-medium tracking-[0.01em] duration-300 pointer-events-none transform -translate-y-6 scale-75 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:scale-75 peer-focus:-translate-y-6 ${
+            className={`pointer-events-none absolute top-3 z-0 origin-[0] -translate-y-6 scale-75 transform text-sm font-medium uppercase tracking-wide duration-300 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-6 peer-focus:scale-75 ${
               errors.fullName ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
             }`}
           >
@@ -152,7 +152,7 @@ export const Signup: React.FC = () => {
             placeholder=" "
           />
           <label
-            className={`absolute top-3 z-0 origin-[0] text-[13px] font-medium tracking-[0.01em] duration-300 pointer-events-none transform -translate-y-6 scale-75 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:scale-75 peer-focus:-translate-y-6 ${
+            className={`pointer-events-none absolute top-3 z-0 origin-[0] -translate-y-6 scale-75 transform text-sm font-medium uppercase tracking-wide duration-300 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-6 peer-focus:scale-75 ${
               errors.email ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
             }`}
           >
@@ -176,7 +176,7 @@ export const Signup: React.FC = () => {
             placeholder=" "
           />
           <label
-            className={`absolute top-3 z-0 origin-[0] text-[13px] font-medium tracking-[0.01em] duration-300 pointer-events-none transform -translate-y-6 scale-75 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:scale-75 peer-focus:-translate-y-6 ${
+            className={`pointer-events-none absolute top-3 z-0 origin-[0] -translate-y-6 scale-75 transform text-sm font-medium uppercase tracking-wide duration-300 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-6 peer-focus:scale-75 ${
               errors.password ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
             }`}
           >
@@ -210,7 +210,7 @@ export const Signup: React.FC = () => {
             placeholder=" "
           />
           <label
-            className={`absolute top-3 z-0 origin-[0] text-[13px] font-medium tracking-[0.01em] duration-300 pointer-events-none transform -translate-y-6 scale-75 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:scale-75 peer-focus:-translate-y-6 ${
+            className={`pointer-events-none absolute top-3 z-0 origin-[0] -translate-y-6 scale-75 transform text-sm font-medium uppercase tracking-wide duration-300 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-6 peer-focus:scale-75 ${
               errors.confirmPassword ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
             }`}
           >
@@ -241,7 +241,7 @@ export const Signup: React.FC = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-sm bg-primary py-4 text-base font-semibold tracking-[0.06em] text-white transition-all shadow-lg shadow-primary/20 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-sm bg-primary py-4 text-sm font-bold uppercase tracking-[0.15em] text-white shadow-lg shadow-primary/20 transition-all hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? t('actions.creating') : t('actions.create')}
           </button>
@@ -250,8 +250,8 @@ export const Signup: React.FC = () => {
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-white/10"></div>
             </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-[#0a0a0a] px-4 text-[12px] font-semibold tracking-[0.08em] text-gray-500">{t('divider.or')}</span>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-[#0a0a0a] px-4 font-bold tracking-wider text-gray-500">{t('divider.or')}</span>
             </div>
           </div>
 
@@ -259,7 +259,7 @@ export const Signup: React.FC = () => {
             type="button"
             onClick={() => (window.location.href = `${import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'}/api/auth/google`)}
             disabled={isSubmitting}
-            className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-sm border border-gray-200 bg-white py-4 text-base font-semibold tracking-[0.05em] text-gray-900 transition-all hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-sm border border-gray-200 bg-white py-4 text-sm font-bold uppercase tracking-[0.15em] text-gray-900 transition-all hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
