@@ -18,6 +18,29 @@ const createTransporter = () => nodemailer.createTransport({
     },
 });
 
+const serializeMailError = (error: unknown) => {
+    if (error instanceof Error) {
+        const mailError = error as Error & {
+            code?: string;
+            command?: string;
+            response?: string;
+            responseCode?: number;
+        };
+
+        return {
+            name: mailError.name,
+            message: mailError.message,
+            code: mailError.code,
+            command: mailError.command,
+            responseCode: mailError.responseCode,
+            response: mailError.response,
+            stack: mailError.stack,
+        };
+    }
+
+    return { value: error };
+};
+
 /**
  * Send verification email to user with 6-digit code
  */
@@ -105,11 +128,25 @@ export const sendVerificationEmail = async (email: string, code: string, fullNam
     };
 
     try {
-        await createTransporter().sendMail(mailOptions);
+        const info = await createTransporter().sendMail(mailOptions);
+        logger.debug('[emailService] Verification email sent', {
+            to: email,
+            accepted: info.accepted,
+            rejected: info.rejected,
+            response: info.response,
+            messageId: info.messageId,
+        });
 
         return true;
     } catch (error) {
-        logger.error('[emailService] Failed to send verification email', { error, smtpUser: SMTP_USER });
+        logger.error('[emailService] Failed to send verification email', {
+            mailError: serializeMailError(error),
+            smtpHost: SMTP_HOST,
+            smtpPort: SMTP_PORT,
+            smtpUser: SMTP_USER,
+            smtpFrom: SMTP_FROM,
+            to: email,
+        });
         throw new Error('Failed to send verification email');
     }
 }
@@ -210,10 +247,24 @@ export const sendPasswordResetEmail = async (email: string, token: string, fullN
     };
 
     try {
-        await createTransporter().sendMail(mailOptions);
+        const info = await createTransporter().sendMail(mailOptions);
+        logger.debug('[emailService] Password reset email sent', {
+            to: email,
+            accepted: info.accepted,
+            rejected: info.rejected,
+            response: info.response,
+            messageId: info.messageId,
+        });
         return true;
     } catch (error) {
-        logger.error('[emailService] Failed to send password reset email', { error, smtpUser: SMTP_USER });
+        logger.error('[emailService] Failed to send password reset email', {
+            mailError: serializeMailError(error),
+            smtpHost: SMTP_HOST,
+            smtpPort: SMTP_PORT,
+            smtpUser: SMTP_USER,
+            smtpFrom: SMTP_FROM,
+            to: email,
+        });
         throw new Error('Failed to send password reset email');
     }
 };
@@ -224,10 +275,19 @@ export const sendPasswordResetEmail = async (email: string, token: string, fullN
 export const verifyEmailConnection = async () => {
     try {
         await createTransporter().verify();
-        logger.info('[emailService] SMTP connection verified');
+        logger.info('[emailService] SMTP connection verified', {
+            smtpHost: SMTP_HOST,
+            smtpPort: SMTP_PORT,
+            smtpUser: SMTP_USER,
+        });
         return true;
     } catch (error) {
-        logger.error('[emailService] SMTP connection failed', { error });
+        logger.error('[emailService] SMTP connection failed', {
+            mailError: serializeMailError(error),
+            smtpHost: SMTP_HOST,
+            smtpPort: SMTP_PORT,
+            smtpUser: SMTP_USER,
+        });
         return false;
     }
 };

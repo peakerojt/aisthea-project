@@ -8,6 +8,29 @@ const TOKEN_EXPIRY_HOURS = 24;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const REFRESH_SECRET = process.env.REFRESH_SECRET || 'your-refresh-secret';
 
+const serializeVerificationError = (error: unknown) => {
+    if (error instanceof Error) {
+        const detailedError = error as Error & {
+            code?: string;
+            command?: string;
+            response?: string;
+            responseCode?: number;
+        };
+
+        return {
+            name: detailedError.name,
+            message: detailedError.message,
+            code: detailedError.code,
+            command: detailedError.command,
+            responseCode: detailedError.responseCode,
+            response: detailedError.response,
+            stack: detailedError.stack,
+        };
+    }
+
+    return { value: error };
+};
+
 /**
  * Generate a 6-digit verification code
  */
@@ -41,7 +64,11 @@ export const createVerificationToken = async (userId: number, email: string, ful
     // Send email asynchronously (don't await)
     // This prevents the UI from blocking while SMTP connects
     sendVerificationEmail(email, token, fullName).catch((error) => {
-        logger.error('[verificationService] Failed to send verification email (async)', { error });
+        logger.error('[verificationService] Failed to send verification email (async)', {
+            verificationError: serializeVerificationError(error),
+            userId,
+            email,
+        });
     });
 
     return token;
