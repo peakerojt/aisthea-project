@@ -4,6 +4,14 @@ import { loadEnv } from './load-env';
 
 loadEnv();
 
+const stripWrappingQuotes = (value: string) => value.replace(/^['"]|['"]$/g, '');
+const normalizeOptionalEnvValue = (value: string) => stripWrappingQuotes(value).trim();
+const normalizeSmtpPassword = (value: string) => normalizeOptionalEnvValue(value).replace(/\s+/g, '');
+const resolvePreferredEnvValue = (preferred: string, fallback: string) =>
+    normalizeOptionalEnvValue(preferred || fallback);
+const resolvePreferredSmtpPassword = (preferred: string, fallback: string) =>
+    normalizeSmtpPassword(preferred || fallback);
+
 const envSchema = z.object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
     PORT: z.string().default('5000').transform((val) => parseInt(val, 10)),
@@ -38,14 +46,14 @@ const envSchema = z.object({
     GOOGLE_CALLBACK_URL: z.string().optional().default(''),
 
     // Email (SMTP_* preferred, EMAIL_* kept for backward compatibility)
-    SMTP_HOST: z.string().default('smtp.gmail.com'),
+    SMTP_HOST: z.string().default('smtp.gmail.com').transform(normalizeOptionalEnvValue),
     SMTP_PORT: z.string().default('587').transform((val) => parseInt(val, 10)),
-    SMTP_USER: z.string().optional().default(''),
-    SMTP_PASS: z.string().optional().default(''),
-    SMTP_FROM: z.string().optional().default(''),
-    EMAIL_USER: z.string().optional().default(''),
-    EMAIL_PASS: z.string().optional().default(''),
-    EMAIL_FROM: z.string().optional().default(''),
+    SMTP_USER: z.string().optional().default('').transform(normalizeOptionalEnvValue),
+    SMTP_PASS: z.string().optional().default('').transform(normalizeSmtpPassword),
+    SMTP_FROM: z.string().optional().default('').transform(normalizeOptionalEnvValue),
+    EMAIL_USER: z.string().optional().default('').transform(normalizeOptionalEnvValue),
+    EMAIL_PASS: z.string().optional().default('').transform(normalizeSmtpPassword),
+    EMAIL_FROM: z.string().optional().default('').transform(normalizeOptionalEnvValue),
 
     // Weather + AI
     WEATHER_API_KEY: z.string().optional().default(''),
@@ -86,17 +94,15 @@ export const env = {
     googleCallbackUrl: _parsedEnv.data.GOOGLE_CALLBACK_URL,
     smtpHost: _parsedEnv.data.SMTP_HOST,
     smtpPort: _parsedEnv.data.SMTP_PORT,
-    smtpUser: _parsedEnv.data.SMTP_USER || _parsedEnv.data.EMAIL_USER,
-    smtpPass: _parsedEnv.data.SMTP_PASS || _parsedEnv.data.EMAIL_PASS,
+    smtpUser: resolvePreferredEnvValue(_parsedEnv.data.SMTP_USER, _parsedEnv.data.EMAIL_USER),
+    smtpPass: resolvePreferredSmtpPassword(_parsedEnv.data.SMTP_PASS, _parsedEnv.data.EMAIL_PASS),
     smtpFrom:
-        _parsedEnv.data.SMTP_FROM ||
-        _parsedEnv.data.EMAIL_FROM ||
+        resolvePreferredEnvValue(_parsedEnv.data.SMTP_FROM, _parsedEnv.data.EMAIL_FROM) ||
         'AISTHEA <noreply@aisthea.com>',
-    emailUser: _parsedEnv.data.SMTP_USER || _parsedEnv.data.EMAIL_USER,
-    emailPass: _parsedEnv.data.SMTP_PASS || _parsedEnv.data.EMAIL_PASS,
+    emailUser: resolvePreferredEnvValue(_parsedEnv.data.SMTP_USER, _parsedEnv.data.EMAIL_USER),
+    emailPass: resolvePreferredSmtpPassword(_parsedEnv.data.SMTP_PASS, _parsedEnv.data.EMAIL_PASS),
     emailFrom:
-        _parsedEnv.data.SMTP_FROM ||
-        _parsedEnv.data.EMAIL_FROM ||
+        resolvePreferredEnvValue(_parsedEnv.data.SMTP_FROM, _parsedEnv.data.EMAIL_FROM) ||
         'AISTHEA <noreply@aisthea.com>',
     weatherApiKey: _parsedEnv.data.WEATHER_API_KEY,
     openAiApiKey: _parsedEnv.data.OPENAI_API_KEY,
