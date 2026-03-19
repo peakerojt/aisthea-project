@@ -1,8 +1,8 @@
-import dotenv from 'dotenv';
 import { z } from 'zod';
 import { logger } from './logger';
+import { loadEnv } from './load-env';
 
-dotenv.config();
+loadEnv();
 
 const envSchema = z.object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -19,6 +19,7 @@ const envSchema = z.object({
 
     // Client
     CLIENT_URL: z.string().default('http://localhost:3000'),
+    SERVER_URL: z.string().default('http://localhost:5000'),
 
     // Cloudinary
     CLOUDINARY_CLOUD_NAME: z.string().optional().default(''),
@@ -36,7 +37,12 @@ const envSchema = z.object({
     GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
     GOOGLE_CALLBACK_URL: z.string().optional().default(''),
 
-    // Email
+    // Email (SMTP_* preferred, EMAIL_* kept for backward compatibility)
+    SMTP_HOST: z.string().default('smtp.gmail.com'),
+    SMTP_PORT: z.string().default('587').transform((val) => parseInt(val, 10)),
+    SMTP_USER: z.string().optional().default(''),
+    SMTP_PASS: z.string().optional().default(''),
+    SMTP_FROM: z.string().optional().default(''),
     EMAIL_USER: z.string().optional().default(''),
     EMAIL_PASS: z.string().optional().default(''),
     EMAIL_FROM: z.string().optional().default(''),
@@ -67,6 +73,7 @@ export const env = {
     jwtExpiresIn: _parsedEnv.data.JWT_EXPIRES_IN,
     refreshExpiresIn: _parsedEnv.data.REFRESH_EXPIRES_IN,
     clientUrl: _parsedEnv.data.CLIENT_URL,
+    serverUrl: _parsedEnv.data.SERVER_URL,
     cloudinaryCloudName: _parsedEnv.data.CLOUDINARY_CLOUD_NAME,
     cloudinaryApiKey: _parsedEnv.data.CLOUDINARY_API_KEY,
     cloudinaryApiSecret: _parsedEnv.data.CLOUDINARY_API_SECRET,
@@ -77,9 +84,20 @@ export const env = {
     googleClientId: _parsedEnv.data.GOOGLE_CLIENT_ID,
     googleClientSecret: _parsedEnv.data.GOOGLE_CLIENT_SECRET,
     googleCallbackUrl: _parsedEnv.data.GOOGLE_CALLBACK_URL,
-    emailUser: _parsedEnv.data.EMAIL_USER,
-    emailPass: _parsedEnv.data.EMAIL_PASS,
-    emailFrom: _parsedEnv.data.EMAIL_FROM,
+    smtpHost: _parsedEnv.data.SMTP_HOST,
+    smtpPort: _parsedEnv.data.SMTP_PORT,
+    smtpUser: _parsedEnv.data.SMTP_USER || _parsedEnv.data.EMAIL_USER,
+    smtpPass: _parsedEnv.data.SMTP_PASS || _parsedEnv.data.EMAIL_PASS,
+    smtpFrom:
+        _parsedEnv.data.SMTP_FROM ||
+        _parsedEnv.data.EMAIL_FROM ||
+        'AISTHEA <noreply@aisthea.com>',
+    emailUser: _parsedEnv.data.SMTP_USER || _parsedEnv.data.EMAIL_USER,
+    emailPass: _parsedEnv.data.SMTP_PASS || _parsedEnv.data.EMAIL_PASS,
+    emailFrom:
+        _parsedEnv.data.SMTP_FROM ||
+        _parsedEnv.data.EMAIL_FROM ||
+        'AISTHEA <noreply@aisthea.com>',
     weatherApiKey: _parsedEnv.data.WEATHER_API_KEY,
     openAiApiKey: _parsedEnv.data.OPENAI_API_KEY,
     openAiModel: _parsedEnv.data.OPENAI_MODEL,

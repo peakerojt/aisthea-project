@@ -1,12 +1,13 @@
 import nodemailer from 'nodemailer';
 import { logger } from '../lib/logger';
+import { env } from '../lib/env';
 
-const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
-const SMTP_FROM = process.env.SMTP_FROM || 'AISTHEA <noreply@aisthea.com>';
-const SERVER_URL = process.env.SERVER_URL || 'http://localhost:5000';
+const SMTP_HOST = env.smtpHost;
+const SMTP_PORT = env.smtpPort;
+const SMTP_USER = env.smtpUser;
+const SMTP_PASS = env.smtpPass;
+const SMTP_FROM = env.smtpFrom;
+const SERVER_URL = env.serverUrl;
 
 const createTransporter = () => nodemailer.createTransport({
     host: SMTP_HOST,

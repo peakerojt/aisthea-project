@@ -1,12 +1,10 @@
 import os from 'os';
 import http from 'http';
-import dotenv from 'dotenv';
+import './lib/load-env';
 import { createApp } from './app';
 import { logger } from './lib/logger';
 import { initSocket } from './socket';
 import { initI18n } from './i18n';
-
-dotenv.config();
 
 const PORT = Number(process.env.PORT) || 5000;
 
