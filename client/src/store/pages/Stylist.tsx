@@ -5,10 +5,11 @@ import { ChatWidget } from '@/common/components/ChatWidget';
 import { fetchWeatherByCity, fetchWeatherByCoords } from '@/common/api/weather.api';
 import { requestOutfitRecommendation } from '@/common/api/outfit.api';
 import { WeatherResponse } from '@/types/weather';
-import { OutfitProfile, OutfitRecommendation } from '@/types/outfit';
+import { OutfitLocationInput, OutfitProfile, OutfitRecommendation } from '@/types/outfit';
 import { fetchProducts, Product, getPrimaryImage } from '@/common/services/product.service';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
 import { useTranslation } from 'react-i18next';
+import { matchesProfileAudience, ProfileAudience } from '@/store/utils/stylistAudience';
 
 const QUICK_CITIES = [
   { query: 'Hanoi, VN' },
@@ -46,13 +47,97 @@ const MOOD_KEYWORDS: Record<string, string[]> = {
   evening: ['dress', 'skirt', 'blazer', 'heel', 'loafer', 'leather', 'shirt'],
 };
 
-const PROFILE_STYLE_RULES = [
-  { matches: ['toi gian', 'minimal', 'minimalist'], keywords: ['linen', 'shirt', 'so mi', 'blazer', 'loafer', 'chino'] },
-  { matches: ['the thao', 'sport', 'sporty', 'active'], keywords: ['tank', 'tee', 'short', 'sneaker', 'jogger', 'hoodie'] },
-  { matches: ['co dien', 'classic', 'formal'], keywords: ['shirt', 'so mi', 'blazer', 'loafer', 'trouser', 'dress'] },
-  { matches: ['street', 'streetwear'], keywords: ['hoodie', 'tee', 'cargo', 'sneaker', 'jacket'] },
-  { matches: ['vintage', 'retro'], keywords: ['cardigan', 'shirt', 'skirt', 'loafer', 'dress'] },
+type ProfileOption = {
+  value: string;
+  labelKey: string;
+  promptValue: string;
+  keywords: string[];
+};
+
+type GenderOption = {
+  value: string;
+  labelKey: string;
+  promptValue: string;
+  audience: ProfileAudience;
+};
+
+const PROFILE_GENDER_OPTIONS: GenderOption[] = [
+  { value: 'male', labelKey: 'weatherOutfit.profile.genderOptions.male', promptValue: 'Nam', audience: 'male' },
+  { value: 'female', labelKey: 'weatherOutfit.profile.genderOptions.female', promptValue: 'Nữ', audience: 'female' },
+  { value: 'unisex', labelKey: 'weatherOutfit.profile.genderOptions.unisex', promptValue: 'Unisex', audience: 'unisex' },
 ];
+
+const PROFILE_STYLE_OPTIONS: ProfileOption[] = [
+  {
+    value: 'minimal',
+    labelKey: 'weatherOutfit.profile.styleOptions.minimal',
+    promptValue: 'Tối giản',
+    keywords: ['linen', 'shirt', 'so mi', 'blazer', 'loafer', 'chino'],
+  },
+  {
+    value: 'sporty',
+    labelKey: 'weatherOutfit.profile.styleOptions.sporty',
+    promptValue: 'Thể thao',
+    keywords: ['tank', 'tee', 'short', 'sneaker', 'jogger', 'hoodie'],
+  },
+  {
+    value: 'classic',
+    labelKey: 'weatherOutfit.profile.styleOptions.classic',
+    promptValue: 'Cổ điển',
+    keywords: ['shirt', 'so mi', 'blazer', 'loafer', 'trouser', 'dress'],
+  },
+  {
+    value: 'streetwear',
+    labelKey: 'weatherOutfit.profile.styleOptions.streetwear',
+    promptValue: 'Streetwear',
+    keywords: ['hoodie', 'tee', 'cargo', 'sneaker', 'jacket'],
+  },
+  {
+    value: 'vintage',
+    labelKey: 'weatherOutfit.profile.styleOptions.vintage',
+    promptValue: 'Vintage',
+    keywords: ['cardigan', 'shirt', 'skirt', 'loafer', 'dress'],
+  },
+];
+
+const PROFILE_OCCASION_OPTIONS: ProfileOption[] = [
+  {
+    value: 'work',
+    labelKey: 'weatherOutfit.profile.occasionOptions.work',
+    promptValue: 'Đi làm / công sở',
+    keywords: ['shirt', 'so mi', 'blazer', 'trouser', 'chino', 'loafer'],
+  },
+  {
+    value: 'casual',
+    labelKey: 'weatherOutfit.profile.occasionOptions.casual',
+    promptValue: 'Đi chơi hằng ngày',
+    keywords: ['tee', 't-shirt', 'jean', 'denim', 'sneaker', 'shirt'],
+  },
+  {
+    value: 'travel',
+    labelKey: 'weatherOutfit.profile.occasionOptions.travel',
+    promptValue: 'Du lịch / di chuyển nhiều',
+    keywords: ['hoodie', 'jacket', 'cargo', 'short', 'tee', 'sneaker', 'tote'],
+  },
+  {
+    value: 'evening',
+    labelKey: 'weatherOutfit.profile.occasionOptions.evening',
+    promptValue: 'Hẹn hò / buổi tối',
+    keywords: ['dress', 'skirt', 'blazer', 'heel', 'loafer', 'shirt'],
+  },
+  {
+    value: 'weekend',
+    labelKey: 'weatherOutfit.profile.occasionOptions.weekend',
+    promptValue: 'Dạo phố cuối tuần',
+    keywords: ['tee', 'shirt', 'short', 'jean', 'sneaker', 'jacket'],
+  },
+];
+
+const TOLERANCE_PROMPT_VALUES: Record<NonNullable<OutfitProfile['tolerance']>, string> = {
+  low: 'Chịu lạnh/nóng kém',
+  medium: 'Bình thường',
+  high: 'Chịu nhiệt tốt',
+};
 
 const OUTFIT_KEYWORD_RULES = [
   { matches: ['linen', 'linen'], keywords: ['linen', 'shirt', 'so mi'] },
@@ -80,13 +165,6 @@ const OUTFIT_KEYWORD_RULES = [
   { matches: ['glasses', 'kinh'], keywords: ['glasses'] },
 ];
 
-const GENDER_RULES = {
-  maleRequest: ['nam', 'male', 'men', 'man', 'boy'],
-  femaleRequest: ['nu', 'nữ', 'female', 'women', 'woman', 'girl'],
-  maleProduct: ['nam', 'men', 'male', 'boy'],
-  femaleProduct: ['nu', 'nữ', 'women', 'female', 'girl'],
-};
-
 type OutfitSlotKey = 'top' | 'bottom' | 'shoes' | 'accessories';
 
 type RecommendationContext = {
@@ -96,7 +174,7 @@ type RecommendationContext = {
   occasionKeywords: string[];
   outfitKeywords: string[];
   outfitSummary: string;
-  queryGender: string;
+  profileAudience: ProfileAudience | null;
 };
 
 const SLOT_KEYWORDS: Record<OutfitSlotKey, string[]> = {
@@ -153,6 +231,7 @@ const getProductSearchBlob = (product: Product) =>
     product.name,
     product.description || '',
     product.category?.name || '',
+    product.category?.slug || '',
     product.brand?.name || '',
   ].join(' '));
 
@@ -209,16 +288,12 @@ const scoreProduct = (product: Product, context: RecommendationContext, prioriti
     score += 4;
   }
 
-  if (context.queryGender) {
-    const wantsMale = GENDER_RULES.maleRequest.some((keyword) => context.queryGender.includes(keyword));
-    const wantsFemale = GENDER_RULES.femaleRequest.some((keyword) => context.queryGender.includes(keyword));
-    const isMaleProduct = hasAnyKeyword(searchBlob, GENDER_RULES.maleProduct);
-    const isFemaleProduct = hasAnyKeyword(searchBlob, GENDER_RULES.femaleProduct);
-
-    if (wantsMale && isMaleProduct) score += 4;
-    if (wantsFemale && isFemaleProduct) score += 4;
-    if (wantsMale && isFemaleProduct) score -= 6;
-    if (wantsFemale && isMaleProduct) score -= 6;
+  if (context.profileAudience && context.profileAudience !== 'unisex') {
+    if (matchesProfileAudience(product, context.profileAudience)) {
+      score += 6;
+    } else {
+      score -= 20;
+    }
   }
 
   return score;
@@ -235,6 +310,8 @@ const GEOLOCATION_FALLBACK_OPTIONS: PositionOptions = {
   timeout: 15_000,
   maximumAge: 600_000,
 };
+
+const getHemisphere = (lat: number): 'north' | 'south' => (lat < 0 ? 'south' : 'north');
 
 type GeolocationPermissionState = PermissionState | 'unsupported';
 
@@ -310,6 +387,7 @@ export const Stylist: React.FC = () => {
   const [city, setCity] = useState('');
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
   const [outfit, setOutfit] = useState<OutfitRecommendation | null>(null);
+  const [outfitLocation, setOutfitLocation] = useState<OutfitLocationInput | null>(null);
   const [profile, setProfile] = useState<OutfitProfile>(defaultProfile);
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -339,6 +417,26 @@ export const Stylist: React.FC = () => {
   );
 
   const [activeMood, setActiveMood] = useState(moodChoices[0].value);
+
+  const selectedGenderOption = useMemo(
+    () => PROFILE_GENDER_OPTIONS.find((option) => option.value === profile.gender),
+    [profile.gender],
+  );
+
+  const selectedStyleOption = useMemo(
+    () => PROFILE_STYLE_OPTIONS.find((option) => option.value === profile.style),
+    [profile.style],
+  );
+
+  const selectedOccasionOption = useMemo(
+    () => PROFILE_OCCASION_OPTIONS.find((option) => option.value === profile.occasion),
+    [profile.occasion],
+  );
+
+  const audienceFilteredProducts = useMemo(
+    () => products.filter((product) => matchesProfileAudience(product, selectedGenderOption?.audience ?? null)),
+    [products, selectedGenderOption?.audience],
+  );
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -373,16 +471,30 @@ export const Stylist: React.FC = () => {
     if (weatherSummary) parts.push(weatherSummary);
     if (weather?.seasonContext) parts.push(`Season context: ${weather.seasonContext}`);
     if (activeMoodLabel) parts.push(`Preferred mood: ${activeMoodLabel}`);
+    if (selectedGenderOption) parts.push(`Gender profile: ${selectedGenderOption.promptValue}`);
+    if (selectedStyleOption) parts.push(`Style profile: ${selectedStyleOption.promptValue}`);
+    if (selectedOccasionOption) parts.push(`Occasion profile: ${selectedOccasionOption.promptValue}`);
+    if (profile.tolerance) parts.push(`Temperature tolerance: ${TOLERANCE_PROMPT_VALUES[profile.tolerance]}`);
     if (outfit?.summary) parts.push(`Current outfit suggestion: ${outfit.summary}`);
 
     return parts.join('\n');
-  }, [activeMood, moodChoices, outfit?.summary, weather?.seasonContext, weatherSummary]);
+  }, [
+    activeMood,
+    moodChoices,
+    outfit?.summary,
+    profile.tolerance,
+    selectedGenderOption,
+    selectedOccasionOption,
+    selectedStyleOption,
+    weather?.seasonContext,
+    weatherSummary,
+  ]);
 
   const recommendationContext = useMemo<RecommendationContext>(() => {
     const weatherKeywords = getWeatherPreferenceKeywords(weather);
     const moodKeywords = MOOD_KEYWORDS[activeMood] || [];
-    const styleKeywords = collectKeywords(profile.style || '', PROFILE_STYLE_RULES);
-    const occasionKeywords = collectKeywords(profile.occasion || '', PROFILE_STYLE_RULES);
+    const styleKeywords = selectedStyleOption?.keywords || [];
+    const occasionKeywords = selectedOccasionOption?.keywords || [];
     const outfitKeywords = outfit
       ? collectKeywords(
           [outfit.summary, outfit.items.top, outfit.items.bottom, outfit.items.shoes, ...outfit.items.accessories].join(' '),
@@ -397,14 +509,14 @@ export const Stylist: React.FC = () => {
       occasionKeywords,
       outfitKeywords,
       outfitSummary: normalizeText(outfit?.summary || ''),
-      queryGender: normalizeText(profile.gender || ''),
+      profileAudience: selectedGenderOption?.audience ?? null,
     };
-  }, [activeMood, outfit, profile.gender, profile.occasion, profile.style, weather]);
+  }, [activeMood, outfit, selectedGenderOption, selectedOccasionOption, selectedStyleOption, weather]);
 
   const recommendedProducts = useMemo(() => {
-    if (products.length === 0) return [];
+    if (audienceFilteredProducts.length === 0) return [];
 
-    const scored = products.map((product) => ({
+    const scored = audienceFilteredProducts.map((product) => ({
       product,
       score: scoreProduct(product, recommendationContext),
     }));
@@ -419,13 +531,13 @@ export const Stylist: React.FC = () => {
 
     const seasonKey = getSeasonKey(weather?.seasonContext);
     const seasonalFallbackKeywords = SEASON_KEYWORDS[seasonKey];
-    const filtered = products.filter((item) => {
+    const filtered = audienceFilteredProducts.filter((item) => {
       const searchBlob = getProductSearchBlob(item);
       return seasonalFallbackKeywords.some((keyword) => searchBlob.includes(normalizeText(keyword)));
     });
 
-    return (filtered.length > 0 ? filtered : products).slice(0, 8);
-  }, [products, recommendationContext, weather]);
+    return (filtered.length > 0 ? filtered : audienceFilteredProducts).slice(0, 8);
+  }, [audienceFilteredProducts, recommendationContext, weather]);
 
   const groupedRecommendations = useMemo(() => {
     if (!outfit) return [];
@@ -447,7 +559,7 @@ export const Stylist: React.FC = () => {
         ]),
       );
 
-      const ranked = products
+      const ranked = audienceFilteredProducts
         .filter((product) => classifyProductSlot(product) === slot.key)
         .map((product) => ({
           product,
@@ -468,7 +580,7 @@ export const Stylist: React.FC = () => {
         products: matches,
       };
     });
-  }, [outfit, products, recommendationContext]);
+  }, [audienceFilteredProducts, outfit, recommendationContext]);
 
   const handleUseLocation = () => {
     setError(null);
@@ -499,6 +611,11 @@ export const Stylist: React.FC = () => {
         const data = await fetchWeatherByCoords(position.coords.latitude, position.coords.longitude);
         setWeather(data);
         setCity(data.locationName);
+        setOutfitLocation({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+          hemisphere: getHemisphere(position.coords.latitude),
+        });
         setOutfit(null);
       } catch (geoError) {
         console.warn('Geolocation failed', {
@@ -528,6 +645,10 @@ export const Stylist: React.FC = () => {
     try {
       const data = await fetchWeatherByCity(selectedCity);
       setWeather(data);
+      setOutfitLocation({
+        city: selectedCity,
+        hemisphere: getHemisphere(data.lat),
+      });
       setOutfit(null);
     } catch (err) {
       setCityError((err as Error).message);
@@ -551,20 +672,27 @@ export const Stylist: React.FC = () => {
       return;
     }
 
+    if (!outfitLocation || (!outfitLocation.city && (outfitLocation.lat === undefined || outfitLocation.lon === undefined))) {
+      setError(t('weatherOutfit.errors.weatherRequired'));
+      return;
+    }
+
     setError(null);
     setLoadingOutfit(true);
     try {
+      const activeMoodLabel = moodChoices.find((mood) => mood.value === activeMood)?.label;
       const data = await requestOutfitRecommendation({
-        weather,
-        seasonContext: weather.seasonContext,
+        location: outfitLocation,
         profile: {
-          ...profile,
-          gender: profile.gender?.trim() || undefined,
-          style: profile.style?.trim() || undefined,
-          occasion: profile.occasion?.trim() || activeMood,
+          gender: selectedGenderOption?.promptValue || undefined,
+          style: selectedStyleOption?.promptValue || undefined,
+          tolerance: profile.tolerance,
+          occasion: selectedOccasionOption?.promptValue || activeMoodLabel || activeMood,
         },
       });
-      setOutfit(data);
+      setWeather(data.weather);
+      setCity(data.weather.locationName);
+      setOutfit(data.recommendation);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -595,6 +723,7 @@ export const Stylist: React.FC = () => {
                 </button>
                 <div className="flex flex-1 min-w-[260px] gap-2">
                   <input
+                    list="stylist-city-suggestions"
                     value={city}
                     onChange={(event) => {
                       setCity(event.target.value);
@@ -611,6 +740,13 @@ export const Stylist: React.FC = () => {
                   </button>
                 </div>
               </div>
+              <datalist id="stylist-city-suggestions">
+                {quickCities.map((cityOption) => (
+                  <option key={`suggestion-${cityOption.query}`} value={cityOption.query}>
+                    {cityOption.label}
+                  </option>
+                ))}
+              </datalist>
               <div className="flex flex-wrap gap-2">
                 {quickCities.map((cityOption) => (
                   <button
@@ -685,37 +821,73 @@ export const Stylist: React.FC = () => {
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-primary">{t('weatherOutfit.hero.badge')}</p>
               <h2 className="mt-3 text-2xl md:text-3xl font-bold">{t('weatherOutfit.profile.title')}</h2>
+              <p className="mt-2 text-sm text-white/55 max-w-xl">{t('weatherOutfit.profile.note')}</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
-              <input
-                value={profile.gender || ''}
-                onChange={(event) => setProfile((prev) => ({ ...prev, gender: event.target.value }))}
-                placeholder={t('weatherOutfit.profile.genderPlaceholder')}
-                className="bg-black/30 border border-white/10 rounded-sm px-3 py-2 text-sm"
-              />
-              <input
-                value={profile.style || ''}
-                onChange={(event) => setProfile((prev) => ({ ...prev, style: event.target.value }))}
-                placeholder={t('weatherOutfit.profile.stylePlaceholder')}
-                className="bg-black/30 border border-white/10 rounded-sm px-3 py-2 text-sm"
-              />
-              <input
-                value={profile.occasion || ''}
-                onChange={(event) => setProfile((prev) => ({ ...prev, occasion: event.target.value }))}
-                placeholder={t('weatherOutfit.profile.occasionPlaceholder')}
-                className="bg-black/30 border border-white/10 rounded-sm px-3 py-2 text-sm md:col-span-2"
-              />
-              <select
-                value={profile.tolerance || 'medium'}
-                onChange={(event) => setProfile((prev) => ({ ...prev, tolerance: event.target.value as OutfitProfile['tolerance'] }))}
-                className="bg-black/30 border border-white/10 rounded-sm px-3 py-2 text-sm md:col-span-2"
-              >
-                <option value="low">{t('weatherOutfit.profile.tolerance.low')}</option>
-                <option value="medium">{t('weatherOutfit.profile.tolerance.medium')}</option>
-                <option value="high">{t('weatherOutfit.profile.tolerance.high')}</option>
-              </select>
+              <label className="flex flex-col gap-2">
+                <span className="text-xs uppercase tracking-widest text-white/55">{t('weatherOutfit.profile.genderLabel')}</span>
+                <select
+                  value={profile.gender || ''}
+                  onChange={(event) => setProfile((prev) => ({ ...prev, gender: event.target.value }))}
+                  className="bg-black/30 border border-white/10 rounded-sm px-3 py-2 text-sm"
+                >
+                  <option value="">{t('weatherOutfit.profile.genderPlaceholder')}</option>
+                  {PROFILE_GENDER_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {t(option.labelKey)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-2">
+                <span className="text-xs uppercase tracking-widest text-white/55">{t('weatherOutfit.profile.styleLabel')}</span>
+                <select
+                  value={profile.style || ''}
+                  onChange={(event) => setProfile((prev) => ({ ...prev, style: event.target.value }))}
+                  className="bg-black/30 border border-white/10 rounded-sm px-3 py-2 text-sm"
+                >
+                  <option value="">{t('weatherOutfit.profile.stylePlaceholder')}</option>
+                  {PROFILE_STYLE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {t(option.labelKey)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-2">
+                <span className="text-xs uppercase tracking-widest text-white/55">{t('weatherOutfit.profile.occasionLabel')}</span>
+                <select
+                  value={profile.occasion || ''}
+                  onChange={(event) => setProfile((prev) => ({ ...prev, occasion: event.target.value }))}
+                  className="bg-black/30 border border-white/10 rounded-sm px-3 py-2 text-sm"
+                >
+                  <option value="">{t('weatherOutfit.profile.occasionPlaceholder')}</option>
+                  {PROFILE_OCCASION_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {t(option.labelKey)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-2">
+                <span className="text-xs uppercase tracking-widest text-white/55">{t('weatherOutfit.profile.toleranceLabel')}</span>
+                <select
+                  value={profile.tolerance || 'medium'}
+                  onChange={(event) => setProfile((prev) => ({ ...prev, tolerance: event.target.value as OutfitProfile['tolerance'] }))}
+                  className="bg-black/30 border border-white/10 rounded-sm px-3 py-2 text-sm"
+                >
+                  <option value="low">{t('weatherOutfit.profile.tolerance.low')}</option>
+                  <option value="medium">{t('weatherOutfit.profile.tolerance.medium')}</option>
+                  <option value="high">{t('weatherOutfit.profile.tolerance.high')}</option>
+                </select>
+              </label>
             </div>
+
+            <p className="text-xs text-white/45 leading-relaxed">{t('weatherOutfit.profile.aiContextHint')}</p>
 
             <button
               onClick={() => void handleRecommend()}

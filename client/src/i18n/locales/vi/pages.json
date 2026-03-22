@@ -490,9 +490,34 @@
     },
     "profile": {
       "title": "Hồ sơ phong cách",
-      "genderPlaceholder": "Giới tính (tùy chọn)",
-      "stylePlaceholder": "Phong cách (tối giản, thể thao, cổ điển...)",
-      "occasionPlaceholder": "Mục đích (đi làm, đi chơi...)",
+      "note": "Các lựa chọn này giúp AI hiểu đúng giới tính, phong cách, mục đích sử dụng và thời tiết tại địa điểm hiện tại để gợi ý outfit chính xác hơn.",
+      "genderLabel": "Giới tính",
+      "genderPlaceholder": "Chọn giới tính",
+      "genderOptions": {
+        "male": "Nam",
+        "female": "Nữ",
+        "unisex": "Unisex"
+      },
+      "styleLabel": "Phong cách chủ đạo",
+      "stylePlaceholder": "Chọn phong cách",
+      "styleOptions": {
+        "minimal": "Tối giản",
+        "sporty": "Thể thao",
+        "classic": "Cổ điển",
+        "streetwear": "Streetwear",
+        "vintage": "Vintage"
+      },
+      "occasionLabel": "Mục đích sử dụng",
+      "occasionPlaceholder": "Chọn mục đích",
+      "occasionOptions": {
+        "work": "Đi làm / công sở",
+        "casual": "Đi chơi hằng ngày",
+        "travel": "Du lịch / di chuyển nhiều",
+        "evening": "Hẹn hò / buổi tối",
+        "weekend": "Dạo phố cuối tuần"
+      },
+      "toleranceLabel": "Khả năng chịu nhiệt",
+      "aiContextHint": "AI sẽ kết hợp địa điểm, thời tiết, mood hiện tại và hồ sơ phong cách để gợi ý outfit, đồng thời lọc phần sản phẩm theo đúng giới tính đã chọn.",
       "tolerance": {
         "low": "Chịu lạnh/nóng kém",
         "medium": "Bình thường",

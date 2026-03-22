@@ -1,8 +1,17 @@
+import type { WeatherResponse } from './weather';
+
 export interface OutfitProfile {
   gender?: string;
   style?: string;
   tolerance?: 'low' | 'medium' | 'high';
   occasion?: string;
+}
+
+export interface OutfitLocationInput {
+  city?: string;
+  lat?: number;
+  lon?: number;
+  hemisphere?: 'north' | 'south';
 }
 
 export interface OutfitRecommendation {
@@ -15,4 +24,9 @@ export interface OutfitRecommendation {
   };
   tips: string[];
   warnings: string[];
+}
+
+export interface OutfitRecommendationResponse {
+  weather: WeatherResponse;
+  recommendation: OutfitRecommendation;
 }

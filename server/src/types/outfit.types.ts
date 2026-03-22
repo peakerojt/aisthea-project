@@ -1,4 +1,4 @@
-import { NormalizedWeather } from './weather.types';
+import { WeatherWithSeason } from './weather.types';
 
 export interface OutfitProfileInput {
   gender?: string;
@@ -7,9 +7,20 @@ export interface OutfitProfileInput {
   occasion?: string;
 }
 
+export interface OutfitLocationInput {
+  lat?: number;
+  lon?: number;
+  city?: string;
+  hemisphere?: 'north' | 'south';
+}
+
+export interface OutfitRecommendRequest {
+  location: OutfitLocationInput;
+  profile?: OutfitProfileInput;
+}
+
 export interface OutfitRecommendInput {
-  weather: NormalizedWeather;
-  seasonContext: string;
+  weather: WeatherWithSeason;
   profile?: OutfitProfileInput;
 }
 
