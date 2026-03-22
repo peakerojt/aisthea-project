@@ -1,3 +1,5 @@
+/* Patch: Orders pricing fields
+   Safe to re-run on older databases. Adds columns only if missing. */
 IF COL_LENGTH('Orders', 'ShippingFee') IS NULL
 BEGIN
     ALTER TABLE Orders ADD ShippingFee DECIMAL(18,2) NOT NULL CONSTRAINT DF_Orders_ShippingFee DEFAULT 0;

@@ -1,10 +1,10 @@
-﻿/* =============================================================
+/* =============================================================
    FILE: server/database/01_schema_all.sql
    PROJECT: AISTHEA
    DATABASE: AISTHEA (SQL Server / T-SQL)
-   DESCRIPTION: Full schema â€” synchronized with prisma/schema.prisma
-   
-   TABLES (31):
+   DESCRIPTION: Idempotent base schema aligned with server/prisma/schema.prisma
+
+   TABLES (35):
      Users, EmailVerificationTokens, PasswordResetTokens,
      Roles, UserRoles, Permissions, RolePermissions, UserLogins,
      Addresses, Brands, Categories, Attributes, AttributeValues,
@@ -13,7 +13,8 @@
      Coupons, Orders, OrderItems, OrderStatusHistory,
      Shipments, Payments, Refunds,
      Reviews, InventoryLogs, OrderReturns,
-     PurchaseOrders, PurchaseOrderItems
+     PurchaseOrders, PurchaseOrderItems,
+     Inventory, StockMovements, GoodsReceipts, GoodsReceiptItems
    ============================================================= */
 
 USE AISTHEA;
@@ -29,21 +30,21 @@ PRINT '============================================================';
 GO
 
 /* =============================================================
-   LEVEL 0 â€” No Dependencies
+   LEVEL 0 - No dependencies
    ============================================================= */
 
--- â”€â”€ Roles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Roles
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Roles')
 BEGIN
     CREATE TABLE Roles (
         RoleId   INT           IDENTITY(1,1) PRIMARY KEY,
         RoleName NVARCHAR(50)  NOT NULL UNIQUE
     );
-    PRINT 'âœ“ Roles';
+    PRINT 'OK: Roles';
 END
 GO
 
--- â”€â”€ Users â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Users
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Users')
 BEGIN
     CREATE TABLE Users (
@@ -64,11 +65,11 @@ BEGIN
     CREATE NONCLUSTERED INDEX IX_Users_Email_Status ON Users(Email, Status);
     CREATE NONCLUSTERED INDEX IX_Users_Phone        ON Users(Phone) WHERE Phone IS NOT NULL;
     CREATE NONCLUSTERED INDEX IX_Users_Status       ON Users(Status);
-    PRINT 'âœ“ Users';
+    PRINT 'OK: Users';
 END
 GO
 
--- â”€â”€ Permissions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Permissions
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Permissions')
 BEGIN
     CREATE TABLE Permissions (
@@ -78,11 +79,11 @@ BEGIN
         Description  NVARCHAR(255) NOT NULL
     );
     CREATE NONCLUSTERED INDEX IX_Permissions_Module ON Permissions(Module);
-    PRINT 'âœ“ Permissions';
+    PRINT 'OK: Permissions';
 END
 GO
 
--- â”€â”€ Brands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Brands
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Brands')
 BEGIN
     CREATE TABLE Brands (
@@ -90,22 +91,22 @@ BEGIN
         Name        NVARCHAR(100) NOT NULL UNIQUE,
         Description NVARCHAR(255) NULL
     );
-    PRINT 'âœ“ Brands';
+    PRINT 'OK: Brands';
 END
 GO
 
--- â”€â”€ Attributes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Attributes
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Attributes')
 BEGIN
     CREATE TABLE Attributes (
         AttributeId INT          IDENTITY(1,1) PRIMARY KEY,
         Name        NVARCHAR(50) NOT NULL UNIQUE
     );
-    PRINT 'âœ“ Attributes';
+    PRINT 'OK: Attributes';
 END
 GO
 
--- â”€â”€ Coupons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Coupons
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Coupons')
 BEGIN
     CREATE TABLE Coupons (
@@ -125,15 +126,15 @@ BEGIN
         UpdatedAt         DATETIME2     NOT NULL DEFAULT GETDATE()
     );
     CREATE NONCLUSTERED INDEX IX_Coupons_IsActive ON Coupons(IsActive);
-    PRINT 'âœ“ Coupons';
+    PRINT 'OK: Coupons';
 END
 GO
 
 /* =============================================================
-   LEVEL 1 â€” Depends on Level 0
+   LEVEL 1 - Depends on level 0
    ============================================================= */
 
--- â”€â”€ EmailVerificationTokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- EmailVerificationTokens
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'EmailVerificationTokens')
 BEGIN
     CREATE TABLE EmailVerificationTokens (
@@ -146,11 +147,11 @@ BEGIN
             FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
     );
     CREATE NONCLUSTERED INDEX IX_EmailVerificationTokens_UserId ON EmailVerificationTokens(UserId);
-    PRINT 'âœ“ EmailVerificationTokens';
+    PRINT 'OK: EmailVerificationTokens';
 END
 GO
 
--- â”€â”€ PasswordResetTokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- PasswordResetTokens
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'PasswordResetTokens')
 BEGIN
     CREATE TABLE PasswordResetTokens (
@@ -163,11 +164,11 @@ BEGIN
             FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
     );
     CREATE NONCLUSTERED INDEX IX_PasswordResetTokens_UserId ON PasswordResetTokens(UserId);
-    PRINT 'âœ“ PasswordResetTokens';
+    PRINT 'OK: PasswordResetTokens';
 END
 GO
 
--- â”€â”€ UserRoles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- UserRoles
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'UserRoles')
 BEGIN
     CREATE TABLE UserRoles (
@@ -177,11 +178,11 @@ BEGIN
         CONSTRAINT FK_UserRoles_Users FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE,
         CONSTRAINT FK_UserRoles_Roles FOREIGN KEY (RoleId) REFERENCES Roles(RoleId) ON DELETE CASCADE
     );
-    PRINT 'âœ“ UserRoles';
+    PRINT 'OK: UserRoles';
 END
 GO
 
--- â”€â”€ RolePermissions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- RolePermissions
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'RolePermissions')
 BEGIN
     CREATE TABLE RolePermissions (
@@ -193,11 +194,11 @@ BEGIN
         CONSTRAINT FK_RolePermissions_Permissions
             FOREIGN KEY (PermissionId) REFERENCES Permissions(PermissionId) ON DELETE CASCADE
     );
-    PRINT 'âœ“ RolePermissions';
+    PRINT 'OK: RolePermissions';
 END
 GO
 
--- â”€â”€ UserLogins â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- UserLogins
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'UserLogins')
 BEGIN
     CREATE TABLE UserLogins (
@@ -215,11 +216,11 @@ BEGIN
             FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
     );
     CREATE NONCLUSTERED INDEX IX_UserLogins_UserId ON UserLogins(UserId);
-    PRINT 'âœ“ UserLogins';
+    PRINT 'OK: UserLogins';
 END
 GO
 
--- â”€â”€ Addresses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Addresses
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Addresses')
 BEGIN
     CREATE TABLE Addresses (
@@ -236,7 +237,7 @@ BEGIN
             FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
     );
     CREATE NONCLUSTERED INDEX IX_Addresses_UserId_IsDefault ON Addresses(UserId, IsDefault);
-    PRINT 'âœ“ Addresses';
+    PRINT 'OK: Addresses';
 END
 GO
 
@@ -249,11 +250,11 @@ IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Addresses')
    )
 BEGIN
     ALTER TABLE Addresses ADD Ward NVARCHAR(50) NULL;
-    PRINT '✓ Addresses.Ward added';
+    PRINT 'OK: Addresses.Ward added';
 END
 GO
 
--- â”€â”€ Categories (self-referencing) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Categories
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Categories')
 BEGIN
     CREATE TABLE Categories (
@@ -267,11 +268,11 @@ BEGIN
             FOREIGN KEY (ParentId) REFERENCES Categories(CategoryId)
     );
     CREATE NONCLUSTERED INDEX IX_Categories_ParentId ON Categories(ParentId) WHERE ParentId IS NOT NULL;
-    PRINT 'âœ“ Categories';
+    PRINT 'OK: Categories';
 END
 GO
 
--- â”€â”€ AttributeValues â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- AttributeValues
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'AttributeValues')
 BEGIN
     CREATE TABLE AttributeValues (
@@ -281,13 +282,12 @@ BEGIN
         CONSTRAINT FK_AttributeValues_Attributes
             FOREIGN KEY (AttributeId) REFERENCES Attributes(AttributeId) ON DELETE CASCADE
     );
-    PRINT 'âœ“ AttributeValues';
+    PRINT 'OK: AttributeValues';
 END
 GO
 
--- â”€â”€ Orders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
--- Valid Status: Pending | Processing | Shipping | Delivered | Cancelled
---               Return_Requested | Returned
+-- Orders
+-- Status: Pending | Processing | Shipping | Delivered | Cancelled | Return_Requested | Returned
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Orders')
 BEGIN
     CREATE TABLE Orders (
@@ -318,15 +318,15 @@ BEGIN
     CREATE NONCLUSTERED INDEX IX_Orders_CreatedAt   ON Orders(CreatedAt);
     CREATE NONCLUSTERED INDEX IX_Orders_Status      ON Orders(Status);
     CREATE NONCLUSTERED INDEX IX_Orders_UserId      ON Orders(UserId) WHERE UserId IS NOT NULL;
-    PRINT 'âœ“ Orders';
+    PRINT 'OK: Orders';
 END
 GO
 
 /* =============================================================
-   LEVEL 2 â€” Depends on Level 1
+   LEVEL 2 - Depends on level 1
    ============================================================= */
 
--- â”€â”€ Products â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Products
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Products')
 BEGIN
     CREATE TABLE Products (
@@ -349,11 +349,11 @@ BEGIN
     CREATE NONCLUSTERED INDEX IX_Products_BasePrice      ON Products(BasePrice);
     CREATE NONCLUSTERED INDEX IX_Products_Name           ON Products(Name);
     CREATE NONCLUSTERED INDEX IX_Products_Status         ON Products(Status);
-    PRINT 'âœ“ Products';
+    PRINT 'OK: Products';
 END
 GO
 
--- â”€â”€ Payments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Payments
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Payments')
 BEGIN
     CREATE TABLE Payments (
@@ -369,15 +369,15 @@ BEGIN
             FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) ON DELETE CASCADE
     );
     CREATE NONCLUSTERED INDEX IX_Payments_OrderId ON Payments(OrderId);
-    PRINT 'âœ“ Payments';
+    PRINT 'OK: Payments';
 END
 GO
 
 /* =============================================================
-   LEVEL 3 â€” Depends on Level 2
+   LEVEL 3 - Depends on level 2
    ============================================================= */
 
--- â”€â”€ ProductVariants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- ProductVariants
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ProductVariants')
 BEGIN
     CREATE TABLE ProductVariants (
@@ -394,11 +394,11 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_ProductVariants_ProductId    ON ProductVariants(ProductId)    WHERE IsDeleted = 0;
     CREATE NONCLUSTERED INDEX IX_ProductVariants_StockQuantity ON ProductVariants(StockQuantity);
-    PRINT 'âœ“ ProductVariants';
+    PRINT 'OK: ProductVariants';
 END
 GO
 
--- â”€â”€ Carts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Carts
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Carts')
 BEGIN
     CREATE TABLE Carts (
@@ -410,11 +410,11 @@ BEGIN
         CONSTRAINT FK_Carts_Users
             FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
     );
-    PRINT 'âœ“ Carts';
+    PRINT 'OK: Carts';
 END
 GO
 
--- â”€â”€ OrderItems â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- OrderItems
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'OrderItems')
 BEGIN
     CREATE TABLE OrderItems (
@@ -431,11 +431,11 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_OrderItems_OrderId   ON OrderItems(OrderId);
     CREATE NONCLUSTERED INDEX IX_OrderItems_VariantId ON OrderItems(VariantId) WHERE VariantId IS NOT NULL;
-    PRINT 'âœ“ OrderItems';
+    PRINT 'OK: OrderItems';
 END
 GO
 
--- â”€â”€ OrderStatusHistory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- OrderStatusHistory
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'OrderStatusHistory')
 BEGIN
     CREATE TABLE OrderStatusHistory (
@@ -451,11 +451,11 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_OrderStatusHistory_OrderId           ON OrderStatusHistory(OrderId);
     CREATE NONCLUSTERED INDEX IX_OrderStatusHistory_OrderId_ChangedAt ON OrderStatusHistory(OrderId, ChangedAt);
-    PRINT 'âœ“ OrderStatusHistory';
+    PRINT 'OK: OrderStatusHistory';
 END
 GO
 
--- â”€â”€ Shipments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Shipments
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Shipments')
 BEGIN
     CREATE TABLE Shipments (
@@ -478,11 +478,11 @@ BEGIN
     );
     EXEC('CREATE NONCLUSTERED INDEX IX_Shipments_TrackingNumber ON Shipments(TrackingNumber) WHERE TrackingNumber IS NOT NULL;');
     EXEC('CREATE NONCLUSTERED INDEX IX_Shipments_ProviderOrderCode ON Shipments(ProviderOrderCode) WHERE ProviderOrderCode IS NOT NULL;');
-    PRINT 'âœ“ Shipments';
+    PRINT 'OK: Shipments';
 END
 GO
 
--- â”€â”€ OrderReturns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- OrderReturns
 -- Status: PENDING_APPROVAL | APPROVED | REJECTED | COMPLETED
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'OrderReturns')
 BEGIN
@@ -501,14 +501,14 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_OrderReturns_Status  ON OrderReturns(Status);
     CREATE NONCLUSTERED INDEX IX_OrderReturns_UserId  ON OrderReturns(UserId) WHERE UserId IS NOT NULL;
-    PRINT 'âœ“ OrderReturns';
+    PRINT 'OK: OrderReturns';
 END
 GO
 
--- â”€â”€ Refunds â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
--- type: FULL | PARTIAL
--- method: ORIGINAL_GATEWAY | BANK_TRANSFER | STORE_WALLET
--- status: PENDING | PROCESSING | SUCCESS | FAILED
+-- Refunds
+-- Type: FULL | PARTIAL
+-- Method: ORIGINAL_GATEWAY | BANK_TRANSFER | STORE_WALLET
+-- Status: PENDING | PROCESSING | SUCCESS | FAILED
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Refunds')
 BEGIN
     CREATE TABLE Refunds (
@@ -530,17 +530,17 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_Refunds_OrderId ON Refunds(OrderId);
     CREATE NONCLUSTERED INDEX IX_Refunds_Status  ON Refunds(Status);
-    PRINT 'âœ“ Refunds';
+    PRINT 'OK: Refunds';
 END
 GO
 
 GO
 
 /* =============================================================
-   LEVEL 4 â€” Depends on Level 3
+   LEVEL 4 - Depends on level 3
    ============================================================= */
 
--- â”€â”€ VariantAttributes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- VariantAttributes
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'VariantAttributes')
 BEGIN
     CREATE TABLE VariantAttributes (
@@ -551,11 +551,11 @@ BEGIN
         CONSTRAINT FK_VariantAttributes_Values   FOREIGN KEY (ValueId)   REFERENCES AttributeValues(ValueId)   ON DELETE CASCADE
     );
     CREATE NONCLUSTERED INDEX IX_VariantAttributes_ValueId ON VariantAttributes(ValueId);
-    PRINT 'âœ“ VariantAttributes';
+    PRINT 'OK: VariantAttributes';
 END
 GO
 
--- â”€â”€ ProductImages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- ProductImages
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ProductImages')
 BEGIN
     CREATE TABLE ProductImages (
@@ -572,11 +572,11 @@ BEGIN
         ON ProductImages(ProductId) INCLUDE (ImageUrl, ThumbnailUrl, IsPrimary);
     CREATE NONCLUSTERED INDEX IX_ProductImages_VariantId
         ON ProductImages(VariantId) WHERE VariantId IS NOT NULL;
-    PRINT 'âœ“ ProductImages';
+    PRINT 'OK: ProductImages';
 END
 GO
 
--- â”€â”€ CartItems â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- CartItems
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'CartItems')
 BEGIN
     CREATE TABLE CartItems (
@@ -590,11 +590,11 @@ BEGIN
         CONSTRAINT UQ_CartItems_Cart_Variant UNIQUE (CartId, VariantId)
     );
     CREATE NONCLUSTERED INDEX IX_CartItems_VariantId ON CartItems(VariantId);
-    PRINT 'âœ“ CartItems';
+    PRINT 'OK: CartItems';
 END
 GO
 
--- â”€â”€ Reviews â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- Reviews
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Reviews')
 BEGIN
     CREATE TABLE Reviews (
@@ -612,11 +612,11 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_Reviews_ProductId ON Reviews(ProductId);
     CREATE NONCLUSTERED INDEX IX_Reviews_UserId    ON Reviews(UserId);
-    PRINT 'âœ“ Reviews';
+    PRINT 'OK: Reviews';
 END
 GO
 
--- â”€â”€ InventoryLogs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- InventoryLogs
 -- Reason: CHECKOUT | PURCHASE_RECEIPT | RETURN_RESTORE | MANUAL_ADJUST
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'InventoryLogs')
 BEGIN
@@ -637,7 +637,7 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_InventoryLogs_VariantId ON InventoryLogs(VariantId);
     CREATE NONCLUSTERED INDEX IX_InventoryLogs_OrderId   ON InventoryLogs(OrderId) WHERE OrderId IS NOT NULL;
-    PRINT 'âœ“ InventoryLogs';
+    PRINT 'OK: InventoryLogs';
 END
 GO
 
@@ -646,7 +646,7 @@ GO
    ============================================================= */
 
 -- PurchaseOrders
--- status: PENDING | PARTIALLY_RECEIVED | RECEIVED | CANCELLED
+-- Status: PENDING | PARTIALLY_RECEIVED | RECEIVED | CANCELLED
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'PurchaseOrders')
 BEGIN
     CREATE TABLE PurchaseOrders (
@@ -671,7 +671,7 @@ BEGIN
 END
 GO
 
--- Keep existing databases in sync with prisma schema (idempotent)
+-- Backfill missing PurchaseOrders columns for older databases
 IF COL_LENGTH('PurchaseOrders', 'ExpectedReceivedAt') IS NULL
 BEGIN
     ALTER TABLE PurchaseOrders ADD ExpectedReceivedAt DATETIME2 NULL;
@@ -724,7 +724,7 @@ BEGIN
 END
 GO
 
--- Inventory snapshot (single-store)
+-- Inventory
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Inventory')
 BEGIN
     CREATE TABLE Inventory (
@@ -741,7 +741,7 @@ BEGIN
 END
 GO
 
--- Backfill inventory snapshot from legacy ProductVariants.StockQuantity
+-- Seed Inventory from legacy ProductVariants.StockQuantity when rows are missing
 INSERT INTO Inventory (VariantId, AvailableQuantity, ReservedQuantity, IncomingQuantity, UpdatedAt)
 SELECT
     pv.VariantId,
@@ -754,7 +754,7 @@ LEFT JOIN Inventory i ON i.VariantId = pv.VariantId
 WHERE i.VariantId IS NULL;
 GO
 
--- Stock movement ledger
+-- StockMovements
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StockMovements')
 BEGIN
     CREATE TABLE StockMovements (
@@ -778,7 +778,7 @@ BEGIN
 END
 GO
 
--- Goods receipts header (linked to purchase orders)
+-- GoodsReceipts
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'GoodsReceipts')
 BEGIN
     CREATE TABLE GoodsReceipts (
@@ -798,7 +798,7 @@ BEGIN
 END
 GO
 
--- Goods receipts line items
+-- GoodsReceiptItems
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'GoodsReceiptItems')
 BEGIN
     CREATE TABLE GoodsReceiptItems (
@@ -822,12 +822,12 @@ END
 GO
 
 /* =============================================================
-   UNIQUE FILTERED INDEX â€” ProductImages (one primary per product)
+   UNIQUE FILTERED INDEX - ProductImages
    ============================================================= */
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_ProductImages_Primary' AND object_id = OBJECT_ID('ProductImages'))
 BEGIN
     CREATE UNIQUE INDEX UX_ProductImages_Primary ON ProductImages(ProductId) WHERE IsPrimary = 1;
-    PRINT 'âœ“ Index: UX_ProductImages_Primary';
+    PRINT 'OK: Index: UX_ProductImages_Primary';
 END
 GO
 
@@ -836,12 +836,12 @@ GO
    ============================================================= */
 PRINT '';
 PRINT '============================================================';
-PRINT '  Schema ready - simplified single-store schema';
-PRINT '  Synchronized with: server/prisma/schema.prisma';
+PRINT '  Schema ready';
+PRINT '  Aligned with: server/prisma/schema.prisma';
 PRINT '============================================================';
 GO
 
--- Quick verification: list all user tables
+-- Quick check: list user tables and row counts
 SELECT
     t.name                          AS TableName,
     p.rows                          AS TotalRows

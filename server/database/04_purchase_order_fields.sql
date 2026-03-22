@@ -1,4 +1,5 @@
-﻿-- Add metadata fields for purchase-order receiving workflow
+/* Patch: PurchaseOrders receiving fields
+   Safe to re-run on older databases. Adds columns only if missing. */
 IF COL_LENGTH('PurchaseOrders', 'ExpectedReceivedAt') IS NULL
 BEGIN
     ALTER TABLE PurchaseOrders ADD ExpectedReceivedAt DATETIME2 NULL;

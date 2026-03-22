@@ -1,3 +1,5 @@
+/* Patch: Shipments provider fields
+   Safe to re-run on older databases. Adds columns and supporting index if missing. */
 IF COL_LENGTH('Shipments', 'ShippingMode') IS NULL
 BEGIN
     ALTER TABLE Shipments ADD ShippingMode NVARCHAR(20) NOT NULL CONSTRAINT DF_Shipments_ShippingMode DEFAULT 'manual';

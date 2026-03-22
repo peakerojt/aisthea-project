@@ -1,7 +1,6 @@
-﻿
 /* =============================================================
    FILE: server/database/03_seed_data_standard_fixed.sql
-   DESCRIPTION: Dữ liệu chuẩn được generate từ DATA/CSV files
+   DESCRIPTION: Reference seed data generated from DATA/CSV files
    Generated: 2026-03-11T07:48:38.788Z
    ============================================================= */
 
@@ -9,32 +8,32 @@ USE [AISTHEA];
 GO
 
 -- ============================================================
--- STEP 1: Clean up existing product/procurement data (reverse dependency)
+-- STEP 1: Clear existing product and procurement data
 -- ============================================================
--- Procurement tables must be deleted before ProductVariants
+-- Delete in dependency order
 IF OBJECT_ID('dbo.GoodsReceiptItems', 'U') IS NOT NULL DELETE FROM [GoodsReceiptItems];
 IF OBJECT_ID('dbo.GoodsReceipts', 'U') IS NOT NULL DELETE FROM [GoodsReceipts];
 IF OBJECT_ID('dbo.PurchaseOrderItems', 'U') IS NOT NULL DELETE FROM [PurchaseOrderItems];
 IF OBJECT_ID('dbo.PurchaseOrders', 'U') IS NOT NULL DELETE FROM [PurchaseOrders];
 
--- Stock tracking tables (new inventory module)
+-- Inventory and stock tracking
 IF OBJECT_ID('dbo.StockMovements', 'U') IS NOT NULL DELETE FROM [StockMovements];
 IF OBJECT_ID('dbo.Inventory', 'U') IS NOT NULL DELETE FROM [Inventory];
 IF OBJECT_ID('dbo.InventoryLogs', 'U') IS NOT NULL DELETE FROM [InventoryLogs];
 
--- Product-related children
+-- Product child tables
 IF OBJECT_ID('dbo.VariantAttributes', 'U') IS NOT NULL DELETE FROM [VariantAttributes];
 IF OBJECT_ID('dbo.ProductImages', 'U') IS NOT NULL DELETE FROM [ProductImages];
 IF OBJECT_ID('dbo.CartItems', 'U') IS NOT NULL DELETE FROM [CartItems];
 
--- Product core
+-- Product master tables
 IF OBJECT_ID('dbo.ProductVariants', 'U') IS NOT NULL DELETE FROM [ProductVariants];
 IF OBJECT_ID('dbo.Products', 'U') IS NOT NULL DELETE FROM [Products];
 IF OBJECT_ID('dbo.Categories', 'U') IS NOT NULL DELETE FROM [Categories];
 IF OBJECT_ID('dbo.AttributeValues', 'U') IS NOT NULL DELETE FROM [AttributeValues];
 IF OBJECT_ID('dbo.Attributes', 'U') IS NOT NULL DELETE FROM [Attributes];
 
--- Identity reseed
+-- Reset identity counters
 IF OBJECT_ID('dbo.GoodsReceiptItems', 'U') IS NOT NULL DBCC CHECKIDENT ('[GoodsReceiptItems]', RESEED, 0);
 IF OBJECT_ID('dbo.GoodsReceipts', 'U') IS NOT NULL DBCC CHECKIDENT ('[GoodsReceipts]', RESEED, 0);
 IF OBJECT_ID('dbo.PurchaseOrderItems', 'U') IS NOT NULL DBCC CHECKIDENT ('[PurchaseOrderItems]', RESEED, 0);

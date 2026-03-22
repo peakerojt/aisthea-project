@@ -1,9 +1,9 @@
 /* =============================================================
-   PATCH: Addresses.Ward metadata
+   PATCH: Addresses.Ward
 
    Purpose:
-   - Keep the Addresses table aligned with the application schema
-   - Add Ward column for profile address book + checkout parity
+   - Keep Addresses aligned with the app schema
+   - Add Ward for profile address book and checkout
    ============================================================= */
 
 IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Addresses')
