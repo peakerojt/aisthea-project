@@ -237,21 +237,23 @@ export const OrderDetailPage: React.FC = () => {
       {confirmReceiptDialog && (
         <div
           role="presentation"
-          className={`fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-[3px] transition-all duration-200 ease-out ${
+          className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 transition-all duration-200 ease-out ${
             isConfirmReceiptVisible ? 'opacity-100' : 'opacity-0'
           }`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setConfirmReceiptDialog(false);
+            }
+          }}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="confirm-receipt-title"
-            className={`w-full max-w-sm space-y-5 rounded-2xl border border-white/12 p-6 shadow-[0_25px_60px_rgba(0,0,0,0.7)] transform-gpu transition-all duration-200 ease-out will-change-transform ${
+            className={`w-full max-w-sm space-y-5 rounded-2xl border border-gray-200/10 bg-[#0B0B0C] p-6 shadow-2xl shadow-black/40 transform-gpu transition-all duration-200 ease-out will-change-transform ${
               isConfirmReceiptVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'
             }`}
-            style={{
-              background:
-                'linear-gradient(135deg, rgba(15,15,25,0.98) 0%, rgba(20,20,35,0.98) 100%)',
-            }}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 shrink-0">

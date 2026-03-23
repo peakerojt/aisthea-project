@@ -12,6 +12,8 @@ import { OrderSummaryRail } from '@/common/components/OrderSummaryRail';
 import { CheckoutSectionCard } from '@/common/components/CheckoutSectionCard';
 import { formatCurrencyVND } from '@/common/utils/currency';
 import { setLatestOrderData } from '@/common/utils/orderSnapshot';
+import vnpayLogo from '@/assets/images/vnpay-logo.png';
+import { fetchVNDistricts, fetchVNProvinces, fetchVNWards, resolveVNLocationSelection, type VNLocationOption } from '@/common/utils/vnLocation';
 import { orderApi } from '@/common/api/order.api';
 import { OrderQuote } from '@/common/services/order.service';
 import {
@@ -22,6 +24,7 @@ import {
 } from '@/common/validation/schemas';
 import { FieldErrorMap, firstFieldError, mapZodFieldErrors } from '@/common/validation/errors';
 import { ZodError } from 'zod';
+import { userService, type Address as SavedAddress, type UserProfile } from '@/store/services/user.service';
 
 interface CheckoutProps {
     cart?: CartItem[];
@@ -65,11 +68,17 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
     const [couponError, setCouponError] = useState('');
     const [couponSuccessMsg, setCouponSuccessMsg] = useState('');
     const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
+    const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+    const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<string>(() => sessionStorage.getItem('checkoutSavedAddressId') || '');
+    const [isSavedAddressLoading, setIsSavedAddressLoading] = useState(false);
+    const hasUserEditedShippingRef = React.useRef(
+        Boolean(formData.address || formData.city || formData.district || formData.ward)
+    );
 
     // Location API states
-    const [provinces, setProvinces] = useState<{ code: string, name: string }[]>([]);
-    const [districts, setDistricts] = useState<{ code: string, name: string }[]>([]);
-    const [wards, setWards] = useState<{ code: string, name: string }[]>([]);
+    const [provinces, setProvinces] = useState<VNLocationOption[]>([]);
+    const [districts, setDistricts] = useState<VNLocationOption[]>([]);
+    const [wards, setWards] = useState<VNLocationOption[]>([]);
 
     const [selectedCityCode, setSelectedCityCode] = useState<string>(() => sessionStorage.getItem('checkoutCityCode') || '');
     const [selectedDistrictCode, setSelectedDistrictCode] = useState<string>(() => sessionStorage.getItem('checkoutDistrictCode') || '');
@@ -77,6 +86,12 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
 
     const selectedShippingMethod: 'STANDARD' = 'STANDARD';
     const fieldErrorClassName = 'mt-1 text-xs text-red-400';
+    const selectedSavedAddress = useMemo(
+        () => savedAddresses.find((address) => String(address.addressId) === selectedSavedAddressId) ?? null,
+        [savedAddresses, selectedSavedAddressId]
+    );
+    const formatSavedAddressOption = (address: SavedAddress) =>
+        `${address.addressLine}, ${address.ward}, ${address.district}, ${address.city}`;
 
     const apiFieldToFormField = (field?: string): string | null => {
         if (!field) return null;
@@ -167,28 +182,179 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
     }, [formData, selectedCityCode, selectedDistrictCode, selectedWardCode]);
 
     useEffect(() => {
-        fetch('https://provinces.open-api.vn/api/p/')
-            .then(res => res.json())
+        if (selectedSavedAddressId) {
+            sessionStorage.setItem('checkoutSavedAddressId', selectedSavedAddressId);
+            return;
+        }
+
+        sessionStorage.removeItem('checkoutSavedAddressId');
+    }, [selectedSavedAddressId]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        if (!user) {
+            setSavedAddresses([]);
+            setSelectedSavedAddressId('');
+            return;
+        }
+
+        const hydrateCheckoutProfile = async () => {
+            setIsSavedAddressLoading(true);
+
+            try {
+                const [profileData, addressesData]: [UserProfile, SavedAddress[]] = await Promise.all([
+                    userService.getProfile(),
+                    userService.getAddresses(),
+                ]);
+
+                if (cancelled) return;
+
+                setSavedAddresses(addressesData);
+                setFormData(prev => ({
+                    ...prev,
+                    email: profileData.email || prev.email || '',
+                    fullName: profileData.fullName || prev.fullName || '',
+                    phone: profileData.phone || prev.phone || '',
+                }));
+
+                if (addressesData.length === 0) {
+                    setSelectedSavedAddressId('');
+                    return;
+                }
+
+                const persistedAddressId = sessionStorage.getItem('checkoutSavedAddressId');
+                const persistedAddress = persistedAddressId
+                    ? addressesData.find((address) => String(address.addressId) === persistedAddressId)
+                    : null;
+
+                if (persistedAddress) {
+                    setSelectedSavedAddressId(String(persistedAddress.addressId));
+                    return;
+                }
+
+                if (hasUserEditedShippingRef.current) {
+                    return;
+                }
+
+                const defaultAddress = addressesData.find((address) => address.isDefault) ?? addressesData[0];
+                setSelectedSavedAddressId(defaultAddress ? String(defaultAddress.addressId) : '');
+            } catch (profileError) {
+                if (!cancelled) {
+                    console.error('[Checkout] Failed to hydrate profile/address data:', profileError);
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsSavedAddressLoading(false);
+                }
+            }
+        };
+
+        void hydrateCheckoutProfile();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [user]);
+
+    useEffect(() => {
+        fetchVNProvinces()
             .then(data => setProvinces(data))
             .catch(err => console.error("Failed to fetch provinces:", err));
 
         if (selectedCityCode) {
-            fetch(`https://provinces.open-api.vn/api/p/${selectedCityCode}?depth=2`)
-                .then(res => res.json())
-                .then(data => setDistricts(data.districts))
+            fetchVNDistricts(selectedCityCode)
+                .then(data => setDistricts(data))
                 .catch(err => console.error(err));
         }
 
         if (selectedDistrictCode) {
-            fetch(`https://provinces.open-api.vn/api/d/${selectedDistrictCode}?depth=2`)
-                .then(res => res.json())
-                .then(data => setWards(data.wards))
+            fetchVNWards(selectedDistrictCode)
+                .then(data => setWards(data))
                 .catch(err => console.error(err));
         }
     }, []);
 
+    const syncSavedAddressLocation = React.useCallback(async (address: SavedAddress) => {
+        try {
+            const resolved = await resolveVNLocationSelection(address, provinces);
+            setSelectedCityCode(resolved.provinceCode);
+            setDistricts(resolved.districts);
+            setSelectedDistrictCode(resolved.districtCode);
+            setWards(resolved.wards);
+            setSelectedWardCode(resolved.wardCode);
+        } catch (locationError) {
+            console.error('[Checkout] Failed to sync saved address locations:', locationError);
+        }
+    }, [provinces]);
+
+    useEffect(() => {
+        if (!selectedSavedAddress) {
+            return;
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            fullName: selectedSavedAddress.recipientName || prev.fullName,
+            phone: selectedSavedAddress.phone || prev.phone,
+            address: selectedSavedAddress.addressLine || '',
+            city: selectedSavedAddress.city || '',
+            district: selectedSavedAddress.district || '',
+            ward: selectedSavedAddress.ward || '',
+        }));
+
+        void syncSavedAddressLocation(selectedSavedAddress);
+    }, [selectedSavedAddress, syncSavedAddressLocation]);
+
+    useEffect(() => {
+        if (!selectedSavedAddressId) {
+            return;
+        }
+
+        const nextSelectedAddress = savedAddresses.find(
+            (address) => String(address.addressId) === selectedSavedAddressId
+        );
+
+        if (!nextSelectedAddress) {
+            setSelectedSavedAddressId('');
+        }
+    }, [savedAddresses, selectedSavedAddressId]);
+
+    const handleSavedAddressChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const nextAddressId = e.target.value;
+        setSelectedSavedAddressId(nextAddressId);
+
+        if (nextAddressId) {
+            return;
+        }
+
+        hasUserEditedShippingRef.current = false;
+        setError('');
+        setFormErrors(prev => {
+            const next = { ...prev };
+            delete next.address;
+            delete next.city;
+            delete next.district;
+            delete next.ward;
+            return next;
+        });
+        setFormData(prev => ({
+            ...prev,
+            address: '',
+            city: '',
+            district: '',
+            ward: '',
+        }));
+        setSelectedCityCode('');
+        setSelectedDistrictCode('');
+        setSelectedWardCode('');
+        setDistricts([]);
+        setWards([]);
+    };
+
     const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const code = e.target.value;
+        hasUserEditedShippingRef.current = true;
         clearFieldError('city');
         clearFieldError('district');
         clearFieldError('ward');
@@ -204,15 +370,15 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
         setWards([]);
 
         if (code) {
-            fetch(`https://provinces.open-api.vn/api/p/${code}?depth=2`)
-                .then(res => res.json())
-                .then(data => setDistricts(data.districts))
+            fetchVNDistricts(code)
+                .then(data => setDistricts(data))
                 .catch(err => console.error("Failed to fetch districts:", err));
         }
     };
 
     const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const code = e.target.value;
+        hasUserEditedShippingRef.current = true;
         clearFieldError('district');
         clearFieldError('ward');
         setError('');
@@ -225,15 +391,15 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
         setWards([]);
 
         if (code) {
-            fetch(`https://provinces.open-api.vn/api/d/${code}?depth=2`)
-                .then(res => res.json())
-                .then(data => setWards(data.wards))
+            fetchVNWards(code)
+                .then(data => setWards(data))
                 .catch(err => console.error("Failed to fetch wards:", err));
         }
     };
 
     const handleWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const code = e.target.value;
+        hasUserEditedShippingRef.current = true;
         clearFieldError('ward');
         setError('');
         setSelectedWardCode(code);
@@ -443,6 +609,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
+        if (name === 'address' || name === 'city' || name === 'district' || name === 'ward') {
+            hasUserEditedShippingRef.current = true;
+        }
         clearFieldError(name);
         setError('');
 
@@ -726,6 +895,37 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                             style={{ animationDelay: '0.2s' }}
                         >
                             <div className="space-y-4">
+                                {savedAddresses.length > 0 && (
+                                    <div>
+                                        <label htmlFor="checkout-saved-address" className={fieldLabelClassName}>
+                                            {t('labels.savedAddress')}
+                                        </label>
+                                        <select
+                                            id="checkout-saved-address"
+                                            value={selectedSavedAddressId}
+                                            onChange={handleSavedAddressChange}
+                                            className={`${selectClassName} cursor-pointer text-white`}
+                                            style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
+                                        >
+                                            <option value="">{t('placeholders.manualAddressEntry')}</option>
+                                            {savedAddresses.map((addressOption) => (
+                                                <option key={addressOption.addressId} value={String(addressOption.addressId)}>
+                                                    {`${formatSavedAddressOption(addressOption)}${addressOption.isDefault ? ` • ${t('savedAddress.defaultBadge')}` : ''}`}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <p className="mt-2 text-xs text-gray-400">
+                                            {isSavedAddressLoading ? t('savedAddress.loading') : t('savedAddress.hint')}
+                                        </p>
+                                        {selectedSavedAddress && (
+                                            <p className="mt-2 text-xs text-white/60">
+                                                {formatSavedAddressOption(selectedSavedAddress)}
+                                                {selectedSavedAddress.isDefault ? ` • ${t('savedAddress.defaultDescription')}` : ''}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
                                 <div>
                                     <label htmlFor="checkout-address" className={fieldLabelClassName}>{t('labels.address')}</label>
                                     <input
@@ -878,7 +1078,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
                                         />
                                         <span className="text-sm font-medium">{t('payment.vnpay')}</span>
                                     </div>
-                                    <img src="https://vnpay.vn/s1/img/vnpay-logo.svg" alt="VNPAY" className="h-6 brightness-200" />
+                                    <img src={vnpayLogo} alt="VNPAY" className="h-6 w-auto object-contain" />
                                 </label>
 
                                 <div className="h-[1px] bg-border-dark w-full"></div>

@@ -2,6 +2,9 @@ import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
 import { useTranslation } from 'react-i18next';
+import { useProductsAPI } from '@/common/hooks/useProducts';
+import { Product } from '@/common/services/product.service';
+import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
 
 const CATEGORY_IMAGES = {
   Men: {
@@ -24,10 +27,31 @@ const CATEGORY_IMAGES = {
   }
 };
 
-const TRENDING_DATA = {
-  Men: [],
-  Women: [],
-  Accessories: []
+const GENDER_KEYWORDS = {
+  Men: ['nam', 'men', 'man', 'male'],
+  Women: ['nu', 'nữ', 'women', 'woman', 'female'],
+  Accessories: ['phu kien', 'phụ kiện', 'accessories', 'bag', 'tui', 'túi', 'jewelry', 'trang suc', 'trang sức', 'watch', 'dong ho', 'đồng hồ', 'eyewear', 'kinh', 'kính'],
+};
+
+const TRENDING_KEYWORDS = {
+  Men: {
+    Outerwear: ['ao khoac', 'áo khoác', 'jacket', 'coat', 'blazer', 'hoodie'],
+    Tops: ['ao', 'áo', 'shirt', 'tee', 't-shirt', 'polo', 'sweater'],
+    Bottoms: ['quan', 'quần', 'pants', 'trouser', 'jeans', 'shorts'],
+    Shoes: ['giay', 'giày', 'shoe', 'sneaker', 'loafer', 'boot'],
+  },
+  Women: {
+    Outerwear: ['ao khoac', 'áo khoác', 'jacket', 'coat', 'blazer', 'cardigan'],
+    Tops: ['ao', 'áo', 'shirt', 'tee', 'blouse', 'crop', 'knit'],
+    Bottoms: ['quan', 'quần', 'pants', 'skirt', 'jeans', 'shorts'],
+    Shoes: ['giay', 'giày', 'shoe', 'heel', 'sandal', 'sneaker'],
+  },
+  Accessories: {
+    Bags: ['tui', 'túi', 'bag', 'mini bag', 'tote', 'crossbody'],
+    Jewelry: ['trang suc', 'trang sức', 'jewelry', 'necklace', 'ring', 'bracelet'],
+    Eyewear: ['kinh', 'kính', 'eyewear', 'glasses', 'sunglasses'],
+    Watches: ['dong ho', 'đồng hồ', 'watch', 'chrono'],
+  },
 };
 
 const formatPrice = (price: number): string => new Intl.NumberFormat('vi-VN').format(price);
@@ -52,15 +76,68 @@ const translateProductTag = (tag?: string): string => {
 };
 
 const translateSectionLabel = (section: string): string => SECTION_LABELS[section] || section;
+const normalizeText = (value?: string | null): string => (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 export const Category: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'category' });
   const navigate = useNavigate();
+  const { data: rawProducts = [], isLoading } = useProductsAPI();
   const { gender = 'men' } = useParams<{ gender: string }>();
   const category = (gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase()) as keyof typeof CATEGORY_IMAGES;
   const images = CATEGORY_IMAGES[category] || CATEGORY_IMAGES['Men'];
   const sections = Object.keys(images);
-  const trendingItems = TRENDING_DATA[category] || TRENDING_DATA['Men'];
+  const genderKeywords = GENDER_KEYWORDS[category] || GENDER_KEYWORDS['Men'];
+  const categoryKeywordGroups = TRENDING_KEYWORDS[category] || TRENDING_KEYWORDS['Men'];
+  const fallbackImage = images[sections[0] as keyof typeof images];
+
+  const getProductScore = (product: Product): number => {
+    const haystack = normalizeText([
+      product.name,
+      product.slug,
+      product.description,
+      product.category?.name,
+      product.brand?.name,
+    ].filter(Boolean).join(' '));
+
+    const genderScore = genderKeywords.reduce((score, keyword) => score + (haystack.includes(keyword) ? 4 : 0), 0);
+    const sectionScore = sections.reduce((score, section) => {
+      const keywords = categoryKeywordGroups[section as keyof typeof categoryKeywordGroups] || [];
+      return score + keywords.reduce((sectionTotal, keyword) => sectionTotal + (haystack.includes(keyword) ? 2 : 0), 0);
+    }, 0);
+    const stockScore = (product.variants?.[0]?.stockQuantity ?? 0) > 0 ? 2 : 0;
+    const imageScore = product.images?.length ? 1 : 0;
+
+    return genderScore + sectionScore + stockScore + imageScore;
+  };
+
+  const getProductTag = (product: Product, rank: number): string | undefined => {
+    if (rank === 0) return 'Best Seller';
+
+    const createdAt = new Date(product.createdAt);
+    if (!Number.isNaN(createdAt.getTime())) {
+      const ageInDays = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+      if (ageInDays <= 45) return 'New';
+    }
+
+    return undefined;
+  };
+
+  const mappedTrendingItems = rawProducts
+    .map((product) => ({ product, score: getProductScore(product) }))
+    .filter(({ score }) => score > 0);
+
+  const rankedTrendingProducts = (mappedTrendingItems.length >= 4 ? mappedTrendingItems : rawProducts.map((product) => ({ product, score: getProductScore(product) })))
+    .sort((left, right) => right.score - left.score || right.product.productId - left.product.productId)
+    .slice(0, 4);
+
+  const trendingItems = rankedTrendingProducts.map(({ product }, index) => ({
+    id: product.productId.toString(),
+    name: product.name,
+    price: Number(product.variants?.[0]?.price ?? product.basePrice),
+    image: product.images?.[0]?.imageUrl || product.images?.[0]?.thumbnailUrl || fallbackImage,
+    category: product.category?.name || translateSectionLabel(sections[index % sections.length]),
+    tag: getProductTag(product, index),
+  }));
 
   return (
     <div className="w-full bg-bg-dark font-sans text-white overflow-x-hidden min-h-screen flex flex-col">
@@ -119,40 +196,67 @@ export const Category: React.FC = () => {
         </div>
 
         {/* Product Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
-          {trendingItems.map((product) => (
-            <div key={product.id} className="group cursor-pointer flex flex-col gap-5" onClick={() => navigate(`/product/${product.id}`)}>
-
-              <div className="aspect-[3/4] overflow-hidden relative bg-surface-dark w-full">
-                {product.tag && (
-                  <div className={`absolute top-4 left-4 z-10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest ${product.tag === 'Best Seller' ? 'bg-white text-black' : 'bg-primary text-white'}`}>
-                    {translateProductTag(product.tag)}
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="flex flex-col gap-5 animate-pulse">
+                <div className="aspect-[3/4] bg-white/5 w-full rounded-sm" />
+                <div className="space-y-3">
+                  <div className="h-4 bg-white/10 rounded w-2/3" />
+                  <div className="flex justify-between items-center gap-4">
+                    <div className="h-3 bg-white/10 rounded w-1/3" />
+                    <div className="h-3 bg-white/10 rounded w-1/4" />
                   </div>
-                )}
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-
-                {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-                <button className="absolute bottom-0 left-0 w-full py-4 bg-white text-black text-xs font-bold uppercase tracking-widest translate-y-full group-hover:translate-y-0 transition-transform duration-300 flex items-center justify-center shadow-xl z-20 hover:bg-gray-100">
-                  {t('quickView')}
-                </button>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <h4 className="text-base font-bold text-white uppercase tracking-wide group-hover:text-primary transition-colors">{product.name}</h4>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">{product.category}</span>
-                  <span className="text-sm font-bold text-white">{formatPrice(product.price)}đ</span>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : trendingItems.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
+            {trendingItems.map((product) => (
+              <div key={product.id} className="group cursor-pointer flex flex-col gap-5" onClick={() => navigate(`/product/${product.id}`)}>
+
+                <div className="aspect-[3/4] overflow-hidden relative bg-surface-dark w-full">
+                  {product.tag && (
+                    <div className={`absolute top-4 left-4 z-10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest ${product.tag === 'Best Seller' ? 'bg-white text-black' : 'bg-primary text-white'}`}>
+                      {translateProductTag(product.tag)}
+                    </div>
+                  )}
+                  <img
+                    src={getCloudinaryProductCard(product.image)}
+                    alt={product.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+
+                  {/* Hover Overlay */}
+                  <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+                  <button className="absolute bottom-0 left-0 w-full py-4 bg-white text-black text-xs font-bold uppercase tracking-widest translate-y-full group-hover:translate-y-0 transition-transform duration-300 flex items-center justify-center shadow-xl z-20 hover:bg-gray-100">
+                    {t('quickView')}
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <h4 className="text-base font-bold text-white uppercase tracking-wide group-hover:text-primary transition-colors">{product.name}</h4>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">{product.category}</span>
+                    <span className="text-sm font-bold text-white">{formatPrice(product.price)}đ</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="border border-white/10 bg-white/[0.02] px-8 py-14 text-center">
+            <p className="text-sm uppercase tracking-[0.3em] text-white/45 mb-4">{t('curatedForYou')}</p>
+            <h4 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-white mb-4">{t('trendingNow')}</h4>
+            <p className="text-sm md:text-base text-white/60 max-w-2xl mx-auto leading-relaxed">
+              Sản phẩm nổi bật cho danh mục này đang được cập nhật. Bạn có thể khám phá thêm toàn bộ bộ sưu tập ngay bây giờ.
+            </p>
+          </div>
+        )}
 
         <div className="mt-24 text-center">
           <button

@@ -453,7 +453,9 @@
       "titleWithOutfit": "Sản phẩm phù hợp với outfit",
       "matchingHint": "Danh sách này được ưu tiên theo thời tiết hiện tại, phong cách đã chọn, hồ sơ phong cách và kết quả outfit AI vừa tạo.",
       "itemsLabel": "món",
-      "noSlotProducts": "Chưa tìm được sản phẩm khớp rõ cho nhóm này."
+      "noSlotProducts": "Chưa tìm được sản phẩm khớp rõ cho nhóm này.",
+      "noSlotProductsHint": "Database hiện chưa có sản phẩm phù hợp cho slot này theo hồ sơ và outfit đang chọn.",
+      "slotFallbackHint": "Không có item khớp mạnh, đang hiển thị sản phẩm đúng loại từ database."
     },
     "states": {
       "loadingWeather": "Đang lấy dữ liệu thời tiết...",
@@ -764,7 +766,13 @@
     }
   },
   "profile": {
-    "title": "Hồ sơ của tôi",
+    "hero": {
+      "kicker": "Customer hub",
+      "subtitle": "Theo dõi trạng thái tài khoản, cập nhật thông tin liên hệ và quản lý mọi điểm chạm mua sắm trong một không gian gọn gàng hơn.",
+      "loadingHint": "Chúng tôi đang chuẩn bị lại hồ sơ, địa chỉ và các đơn gần đây của bạn.",
+      "errorTitle": "Không thể hiển thị hồ sơ lúc này",
+      "errorHint": "Hãy thử tải lại để đồng bộ dữ liệu tài khoản, sổ địa chỉ và lịch sử mua sắm mới nhất."
+    },
     "states": {
       "loading": "Đang tải hồ sơ...",
       "notProvided": "Chưa cung cấp",
@@ -774,21 +782,79 @@
       "loadProfile": "Không thể tải hồ sơ.",
       "updateProfile": "Không thể cập nhật hồ sơ."
     },
+    "messages": {
+      "profileSaved": "Thông tin cá nhân đã được cập nhật.",
+      "emailCopied": "Đã sao chép email."
+    },
     "common": {
-      "save": "Lưu",
-      "cancel": "Hủy"
+      "cancel": "Hủy",
+      "refresh": "Làm mới"
     },
     "actions": {
       "edit": "Chỉnh sửa",
       "delete": "Xóa",
       "editInfo": "Chỉnh sửa thông tin",
       "saveChanges": "Lưu thay đổi",
-      "signOut": "Đăng xuất"
+      "signOut": "Đăng xuất",
+      "manageOrders": "Quản lý đơn hàng",
+      "retry": "Tải lại hồ sơ",
+      "copyEmail": "Sao chép email",
+      "addPhone": "Thêm số điện thoại"
+    },
+    "sidebar": {
+      "title": "Xin chào bạn!",
+      "subtitle": "Quản lý hồ sơ, sổ địa chỉ và các thông tin mua sắm theo bố cục tập trung, rõ ràng hơn.",
+      "overview": "Hồ sơ",
+      "personal": "Tài khoản của tôi",
+      "addresses": "Địa chỉ",
+      "orders": "Đơn hàng",
+      "account": "Bảo mật tài khoản",
+      "security": "Bảo mật"
+    },
+    "tabs": {
+      "orders": "Đơn hàng",
+      "addresses": "Địa chỉ",
+      "account": "Tài khoản",
+      "security": "Bảo mật"
+    },
+    "filters": {
+      "all": "Tất cả",
+      "shipping": "Đang giao",
+      "delivered": "Đã giao",
+      "pending": "Chờ xác nhận"
+    },
+    "stats": {
+      "orders": "Đơn hàng",
+      "addresses": "Địa chỉ",
+      "status": "Trạng thái tài khoản"
     },
     "labels": {
       "googleAccount": "Tài khoản Google",
       "profileCompleteness": "Mức độ hoàn thiện hồ sơ",
-      "completenessHint": "Hoàn thiện hồ sơ để mở khóa đầy đủ tính năng"
+      "completenessHint": "Hoàn thiện hồ sơ để checkout nhanh hơn, đồng thời giúp các bước mua sắm sau này mượt hơn.",
+      "memberSince": "Thành viên từ {{date}}",
+      "accountStatus": "Trạng thái tài khoản",
+      "primaryContact": "Liên hệ chính",
+      "deliveryHotline": "Liên hệ giao hàng",
+      "accountHealth": "Tình trạng tài khoản",
+      "loginNetwork": "Mạng đăng nhập",
+      "profileScore": "Điểm hồ sơ",
+      "googleConnected": "Đăng nhập liên kết với Google đã sẵn sàng.",
+      "localAccount": "Tài khoản đang dùng phương thức đăng nhập tiêu chuẩn."
+    },
+    "summary": {
+      "orders": "Đơn gần đây",
+      "completeness": "{{value}}% hoàn thiện",
+      "accountTitle": "Thông tin tài khoản",
+      "googleLinked": "Đã liên kết Google",
+      "googleUnlinked": "Chưa liên kết Google"
+    },
+    "details": {
+      "joined": "Ngày tham gia",
+      "status": "Trạng thái",
+      "phone": "Số điện thoại",
+      "email": "Email",
+      "provider": "Liên kết đăng nhập"
     },
     "fields": {
       "fullName": "Họ và tên",
@@ -797,18 +863,63 @@
     },
     "sections": {
       "personal": "Thông tin cá nhân",
+      "personalEyebrow": "Thông tin cơ bản",
       "addresses": "Địa chỉ ({{count}})",
-      "recentOrders": "Đơn hàng gần đây",
-      "account": "Tài khoản"
+      "addressesEyebrow": "Sổ địa chỉ",
+      "recentOrders": "Đơn hàng",
+      "ordersEyebrow": "Hoạt động mua sắm",
+      "account": "Tài khoản",
+      "accountEyebrow": "Bảo mật & phiên đăng nhập"
+    },
+    "descriptions": {
+      "personal": "Kiểm tra nhanh thông tin đang hiển thị cho đơn hàng, vận chuyển và các liên hệ hỗ trợ.",
+      "addresses": "Ưu tiên địa chỉ mặc định cho những lần thanh toán tiếp theo và giữ mọi điểm giao hàng của bạn ở cùng một nơi.",
+      "recentOrders": "Xem nhanh trạng thái những đơn mới nhất trước khi chuyển sang lịch sử đơn hàng đầy đủ.",
+      "account": "Những thông tin liên quan tới trạng thái truy cập và độ an toàn của tài khoản được tách riêng tại đây."
+    },
+    "forms": {
+      "personalTitle": "Cập nhật thông tin cá nhân",
+      "personalHint": "Tên và số điện thoại chính xác sẽ giúp việc xác nhận đơn và hỗ trợ sau mua thuận tiện hơn."
+    },
+    "overview": {
+      "completeness": {
+        "label": "Độ sẵn sàng",
+        "description": "Hoàn thiện thêm để profile vận hành trơn tru hơn."
+      },
+      "addressBook": {
+        "label": "Sổ địa chỉ",
+        "empty": "Chưa có địa chỉ mặc định nào được lưu.",
+        "defaultValue": "Địa chỉ ưu tiên hiện ở {{city}}."
+      },
+      "orders": {
+        "label": "Nhịp mua sắm",
+        "empty": "Chưa có đơn gần đây để hiển thị.",
+        "latestValue": "Đơn gần nhất được tạo ngày {{date}}."
+      }
+    },
+    "quickActions": {
+      "title": "Lối tắt hữu ích",
+      "description": "Những thao tác thường dùng nhất được gom lại để bạn quay lại hành trình mua sắm nhanh hơn.",
+      "ordersTitle": "Xem toàn bộ đơn hàng",
+      "ordersHint": "Theo dõi lịch sử, trạng thái và các bước tiếp theo của từng đơn.",
+      "collectionTitle": "Quay lại bộ sưu tập",
+      "collectionHint": "Tiếp tục khám phá sản phẩm mới mà không cần rời khỏi nhịp mua sắm.",
+      "addressTitle": "Thêm địa chỉ giao hàng",
+      "addressHint": "Lưu sẵn điểm nhận để checkout nhanh hơn ở lần mua tiếp theo."
     },
     "avatar": {
       "alt": "Ảnh đại diện",
       "confirmDelete": "Bạn có chắc muốn xóa ảnh đại diện?",
       "actions": {
-        "uploading": "Đang tải lên..."
+        "uploading": "Đang tải lên...",
+        "save": "Lưu ảnh",
+        "change": "Đổi ảnh",
+        "add": "Thêm ảnh",
+        "remove": "Xóa ảnh"
       },
       "messages": {
-        "uploadSuccess": "Tải ảnh đại diện thành công."
+        "uploadSuccess": "Tải ảnh đại diện thành công.",
+        "deleteSuccess": "Ảnh đại diện đã được xóa."
       },
       "errors": {
         "invalidType": "Vui lòng chọn tệp hình ảnh (JPEG, PNG, GIF hoặc WebP).",
@@ -818,7 +929,10 @@
       }
     },
     "addresses": {
-      "empty": "Bạn chưa lưu địa chỉ nào.",
+      "empty": "Bạn chưa có địa chỉ.",
+      "emptyHint": "Thêm để checkout nhanh hơn.",
+      "formHint": "Điền đầy đủ thông tin nhận hàng để việc giao vận và liên hệ hỗ trợ được chính xác hơn.",
+      "defaultHint": "Địa chỉ này sẽ được ưu tiên chọn sẵn trong những lần thanh toán tiếp theo.",
       "confirmDelete": "Bạn có chắc muốn xóa địa chỉ này?",
       "labels": {
         "default": "Mặc định"
@@ -831,6 +945,11 @@
         "district": "Quận/Huyện",
         "ward": "Phường/Xã"
       },
+      "placeholders": {
+        "selectCity": "Chọn Tỉnh/Thành phố",
+        "selectDistrict": "Chọn Quận/Huyện",
+        "selectWard": "Chọn Phường/Xã"
+      },
       "actions": {
         "add": "Thêm địa chỉ",
         "addNew": "Thêm mới",
@@ -838,19 +957,59 @@
         "save": "Lưu địa chỉ",
         "setDefault": "Đặt mặc định"
       },
+      "messages": {
+        "created": "Địa chỉ mới đã được lưu.",
+        "updated": "Địa chỉ đã được cập nhật.",
+        "deleted": "Địa chỉ đã được xóa.",
+        "defaultSet": "Đã đặt địa chỉ mặc định thành công."
+      },
       "errors": {
         "saveFailed": "Không thể lưu địa chỉ.",
         "deleteFailed": "Không thể xóa địa chỉ.",
         "defaultFailed": "Không thể đặt địa chỉ mặc định."
+      },
+      "validation": {
+        "recipientName": "Vui lòng nhập người nhận hợp lệ.",
+        "phone": "Số điện thoại phải là số di động Việt Nam hợp lệ.",
+        "addressLine": "Địa chỉ chi tiết phải có ít nhất 6 ký tự.",
+        "city": "Vui lòng chọn Tỉnh/Thành phố.",
+        "district": "Vui lòng chọn Quận/Huyện.",
+        "ward": "Vui lòng chọn Phường/Xã."
       }
     },
     "recentOrders": {
       "empty": "Bạn chưa có đơn hàng nào.",
+      "emptyHint": "Khi đơn đầu tiên được tạo, bạn sẽ thấy trạng thái và tổng tiền xuất hiện ngay tại đây.",
+      "filteredEmpty": "Không có đơn hàng khớp bộ lọc này.",
+      "filteredEmptyHint": "Hãy thử đổi bộ lọc để xem các đơn gần đây theo trạng thái khác.",
       "orderNumber": "Đơn hàng #{{orderNumber}}",
+      "totalLabel": "Tổng thanh toán",
       "actions": {
         "startShopping": "Mua sắm ngay",
-        "viewAll": "Xem tất cả đơn hàng"
+        "viewAll": "Xem tất cả đơn hàng",
+        "viewDetail": "Xem chi tiết"
       }
+    },
+    "account": {
+      "securityTitle": "Bảo vệ tài khoản chủ động",
+      "securityHint": "Giữ email, số điện thoại và phương thức đăng nhập luôn cập nhật để quá trình xác minh diễn ra suôn sẻ.",
+      "contactHint": "Đây là số liên hệ ưu tiên cho đơn hàng và hỗ trợ sau mua."
+    },
+    "security": {
+      "description": "Quản lý đổi mật khẩu, xác thực hai lớp và các phương thức đăng nhập trong một khu vực tập trung.",
+      "passwordTitle": "Đổi mật khẩu",
+      "passwordHint": "Cập nhật mật khẩu định kỳ để tăng độ an toàn cho tài khoản mua sắm của bạn.",
+      "passwordAction": "Đổi mật khẩu",
+      "googleTitle": "Liên kết Google",
+      "googleLinkedHint": "Tài khoản hiện đã có liên kết Google để hỗ trợ đăng nhập nhanh hơn.",
+      "googleUnlinkedHint": "Tài khoản hiện chưa liên kết Google. Bạn vẫn có thể tiếp tục dùng đăng nhập tiêu chuẩn.",
+      "loginMethodsTitle": "Phương thức đăng nhập",
+      "loginMethodsHint": "Theo dõi trạng thái đăng nhập tiêu chuẩn và liên kết xã hội hiện có để kiểm soát truy cập tốt hơn.",
+      "twoFactorTitle": "Xác thực hai lớp (2FA)",
+      "twoFactorHint": "Khu vực này được dành sẵn cho bước bảo mật nâng cao khi hệ thống sẵn sàng.",
+      "optional": "Tùy chọn",
+      "signOutTitle": "Đăng xuất khỏi phiên hiện tại",
+      "signOutHint": "Dùng thao tác này khi bạn đang đăng nhập trên thiết bị công cộng hoặc muốn kết thúc phiên làm việc ngay."
     }
   },
   "orderDetail": {
@@ -934,6 +1093,7 @@
       "email": "Email",
       "fullName": "Họ và tên",
       "phone": "Số điện thoại",
+      "savedAddress": "Địa chỉ đã lưu",
       "address": "Địa chỉ chi tiết",
       "city": "Tỉnh/Thành",
       "district": "Quận/Huyện",
@@ -946,11 +1106,18 @@
       "emailRequired": "Email (bắt buộc)",
       "fullNameRequired": "Họ và tên (bắt buộc)",
       "phoneRequired": "Số điện thoại (bắt buộc)",
+      "manualAddressEntry": "Tùy Chọn",
       "addressRequired": "Địa chỉ cụ thể (thôn, xóm, số nhà, ngõ...)",
       "selectProvince": "1. Chọn Tỉnh/Thành",
       "selectDistrict": "2. Chọn Quận/Huyện",
       "selectWard": "3. Chọn Phường/Xã",
       "noteOptional": "Ghi chú (tùy chọn - tối đa 500 ký tự)"
+    },
+    "savedAddress": {
+      "hint": "Nếu bạn đã lưu địa chỉ trong hồ sơ, hãy chọn tại đây để điền nhanh thông tin giao hàng.",
+      "loading": "Đang tải sổ địa chỉ từ hồ sơ...",
+      "defaultBadge": "Mặc định",
+      "defaultDescription": "Địa chỉ ưu tiên"
     },
       "shipping": {
         "methodTitle": "Phương thức vận chuyển",

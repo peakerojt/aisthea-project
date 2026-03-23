@@ -60,7 +60,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
     return (
         <div
             role="presentation"
-            className={`fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-[3px] transition-all duration-200 ease-out ${
+            className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 transition-all duration-200 ease-out ${
                 isVisible ? 'opacity-100' : 'opacity-0'
             }`}
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -69,16 +69,12 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="review-modal-title"
-                className={`relative w-full max-w-md overflow-hidden rounded-2xl border border-white/12 shadow-[0_25px_60px_rgba(0,0,0,0.7)] transform-gpu transition-all duration-200 ease-out will-change-transform ${
+                className={`relative w-full max-w-md overflow-hidden rounded-2xl border border-gray-200/10 bg-[#0B0B0C] shadow-2xl shadow-black/40 transform-gpu transition-all duration-200 ease-out will-change-transform ${
                     isVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'
                 }`}
-                style={{
-                    background:
-                        'linear-gradient(135deg, rgba(15,15,25,0.98) 0%, rgba(20,20,35,0.98) 100%)',
-                }}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between border-b border-white/[0.06] px-6 pb-4 pt-5">
+                <div className="flex items-center justify-between border-b border-gray-200/10 px-6 pb-4 pt-5">
                     <h2 id="review-modal-title" className="text-sm font-bold uppercase tracking-widest text-white/80">
                         Đánh giá sản phẩm
                     </h2>
@@ -92,7 +88,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
 
                 <div className="px-6 py-5 space-y-5">
                     {/* Product summary */}
-                    <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.04] p-3">
+                    <div className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
                         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/5">
                             {thumbnail ? (
                                 <img src={thumbnail} alt={item.productName} className="h-full w-full object-cover" />

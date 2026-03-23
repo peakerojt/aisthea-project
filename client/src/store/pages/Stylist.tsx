@@ -6,10 +6,11 @@ import { fetchWeatherByCity, fetchWeatherByCoords } from '@/common/api/weather.a
 import { requestOutfitRecommendation } from '@/common/api/outfit.api';
 import { WeatherResponse } from '@/types/weather';
 import { OutfitLocationInput, OutfitProfile, OutfitRecommendation } from '@/types/outfit';
-import { fetchProducts, Product, getPrimaryImage } from '@/common/services/product.service';
+import { fetchProductsPage, Product, getPrimaryImage } from '@/common/services/product.service';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
 import { useTranslation } from 'react-i18next';
 import { matchesProfileAudience, ProfileAudience } from '@/store/utils/stylistAudience';
+import { detectProductSlotFromCategory, OutfitSlotKey } from '@/store/utils/stylistSlot';
 
 const QUICK_CITIES = [
   { query: 'Hanoi, VN' },
@@ -39,6 +40,8 @@ const SEASON_KEYWORDS: Record<string, string[]> = {
   rainy: ['jacket', 'hoodie', 'coat', 'wind'],
   mild: ['shirt', 'blazer', 'cardigan', 'pants', 'dress'],
 };
+
+const STYLIST_PRODUCT_PAGE_SIZE = 100;
 
 const MOOD_KEYWORDS: Record<string, string[]> = {
   work: ['shirt', 'so mi', 'blazer', 'trouser', 'chino', 'loafer', 'linen'],
@@ -165,8 +168,6 @@ const OUTFIT_KEYWORD_RULES = [
   { matches: ['glasses', 'kinh'], keywords: ['glasses'] },
 ];
 
-type OutfitSlotKey = 'top' | 'bottom' | 'shoes' | 'accessories';
-
 type RecommendationContext = {
   weatherKeywords: string[];
   moodKeywords: string[];
@@ -176,6 +177,8 @@ type RecommendationContext = {
   outfitSummary: string;
   profileAudience: ProfileAudience | null;
 };
+
+type GroupFallbackMode = 'exact' | 'slot-fallback' | 'empty';
 
 const SLOT_KEYWORDS: Record<OutfitSlotKey, string[]> = {
   top: ['shirt', 'so mi', 'tee', 't-shirt', 'tank', 'blazer', 'hoodie', 'jacket', 'cardigan', 'sweater'],
@@ -194,12 +197,21 @@ const normalizeText = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const containsKeyword = (text: string, keyword: string) => {
+  const normalizedText = ` ${normalizeText(text)} `;
+  const normalizedKeyword = normalizeText(keyword);
+
+  if (!normalizedKeyword) return false;
+
+  return normalizedText.includes(` ${normalizedKeyword} `);
+};
+
 const collectKeywords = (value: string, rules: Array<{ matches: string[]; keywords: string[] }>) => {
   const normalized = normalizeText(value);
   const keywords = new Set<string>();
 
   for (const rule of rules) {
-    if (rule.matches.some((match) => normalized.includes(normalizeText(match)))) {
+    if (rule.matches.some((match) => containsKeyword(normalized, match))) {
       rule.keywords.forEach((keyword) => keywords.add(keyword));
     }
   }
@@ -235,12 +247,17 @@ const getProductSearchBlob = (product: Product) =>
     product.brand?.name || '',
   ].join(' '));
 
-const hasAnyKeyword = (text: string, keywords: string[]) => keywords.some((keyword) => text.includes(normalizeText(keyword)));
+const hasAnyKeyword = (text: string, keywords: string[]) => keywords.some((keyword) => containsKeyword(text, keyword));
 
 const countKeywordMatches = (text: string, keywords: string[]) =>
-  keywords.filter((keyword) => text.includes(normalizeText(keyword))).length;
+  keywords.filter((keyword) => containsKeyword(text, keyword)).length;
 
 const classifyProductSlot = (product: Product): OutfitSlotKey | null => {
+  const slotFromCategory = detectProductSlotFromCategory(product);
+  if (slotFromCategory) {
+    return slotFromCategory;
+  }
+
   const searchBlob = getProductSearchBlob(product);
   const scoreMap: Record<OutfitSlotKey, number> = {
     top: countKeywordMatches(searchBlob, SLOT_KEYWORDS.top),
@@ -261,30 +278,30 @@ const scoreProduct = (product: Product, context: RecommendationContext, prioriti
   let score = 0;
 
   if (prioritizedKeywords.length > 0) {
-    score += prioritizedKeywords.filter((keyword) => searchBlob.includes(normalizeText(keyword))).length * 6;
+    score += prioritizedKeywords.filter((keyword) => containsKeyword(searchBlob, keyword)).length * 6;
   }
 
   if (context.outfitKeywords.length > 0) {
-    score += context.outfitKeywords.filter((keyword) => searchBlob.includes(normalizeText(keyword))).length * 5;
+    score += context.outfitKeywords.filter((keyword) => containsKeyword(searchBlob, keyword)).length * 5;
   }
 
   if (context.styleKeywords.length > 0) {
-    score += context.styleKeywords.filter((keyword) => searchBlob.includes(normalizeText(keyword))).length * 4;
+    score += context.styleKeywords.filter((keyword) => containsKeyword(searchBlob, keyword)).length * 4;
   }
 
   if (context.occasionKeywords.length > 0) {
-    score += context.occasionKeywords.filter((keyword) => searchBlob.includes(normalizeText(keyword))).length * 3;
+    score += context.occasionKeywords.filter((keyword) => containsKeyword(searchBlob, keyword)).length * 3;
   }
 
   if (context.moodKeywords.length > 0) {
-    score += context.moodKeywords.filter((keyword) => searchBlob.includes(normalizeText(keyword))).length * 3;
+    score += context.moodKeywords.filter((keyword) => containsKeyword(searchBlob, keyword)).length * 3;
   }
 
   if (context.weatherKeywords.length > 0) {
-    score += context.weatherKeywords.filter((keyword) => searchBlob.includes(normalizeText(keyword))).length * 2;
+    score += context.weatherKeywords.filter((keyword) => containsKeyword(searchBlob, keyword)).length * 2;
   }
 
-  if (context.outfitSummary && searchBlob.includes(context.outfitSummary)) {
+  if (context.outfitSummary && containsKeyword(searchBlob, context.outfitSummary)) {
     score += 4;
   }
 
@@ -442,8 +459,28 @@ export const Stylist: React.FC = () => {
     const loadProducts = async () => {
       setLoadingProducts(true);
       try {
-        const data = await fetchProducts();
-        setProducts(data);
+        const firstPage = await fetchProductsPage({
+          status: 'Active',
+          page: 1,
+          limit: STYLIST_PRODUCT_PAGE_SIZE,
+        });
+
+        if (firstPage.meta.totalPages <= 1) {
+          setProducts(firstPage.data);
+          return;
+        }
+
+        const remainingPages = await Promise.all(
+          Array.from({ length: firstPage.meta.totalPages - 1 }, (_, index) =>
+            fetchProductsPage({
+              status: 'Active',
+              page: index + 2,
+              limit: STYLIST_PRODUCT_PAGE_SIZE,
+            }),
+          ),
+        );
+
+        setProducts([firstPage.data, ...remainingPages.map((page) => page.data)].flat());
       } catch (err) {
         console.error(err);
       } finally {
@@ -533,7 +570,7 @@ export const Stylist: React.FC = () => {
     const seasonalFallbackKeywords = SEASON_KEYWORDS[seasonKey];
     const filtered = audienceFilteredProducts.filter((item) => {
       const searchBlob = getProductSearchBlob(item);
-      return seasonalFallbackKeywords.some((keyword) => searchBlob.includes(normalizeText(keyword)));
+      return seasonalFallbackKeywords.some((keyword) => containsKeyword(searchBlob, keyword));
     });
 
     return (filtered.length > 0 ? filtered : audienceFilteredProducts).slice(0, 8);
@@ -559,8 +596,9 @@ export const Stylist: React.FC = () => {
         ]),
       );
 
-      const ranked = audienceFilteredProducts
-        .filter((product) => classifyProductSlot(product) === slot.key)
+      const slotPool = audienceFilteredProducts.filter((product) => classifyProductSlot(product) === slot.key);
+
+      const ranked = slotPool
         .map((product) => ({
           product,
           score: scoreProduct(product, recommendationContext, slotKeywords),
@@ -568,16 +606,36 @@ export const Stylist: React.FC = () => {
         .filter((entry) => entry.score > 0)
         .sort((left, right) => right.score - left.score || left.product.name.localeCompare(right.product.name));
 
-      const matches = ranked
+      const exactMatches = ranked
         .filter((entry) => !usedProductIds.has(entry.product.productId))
         .slice(0, 2)
         .map((entry) => entry.product);
 
+      const slotFallback = slotPool
+        .filter((product) => !usedProductIds.has(product.productId) && !exactMatches.some((item) => item.productId === product.productId))
+        .map((product) => ({
+          product,
+          score: scoreProduct(product, recommendationContext, slotKeywords),
+        }))
+        .sort((left, right) => right.score - left.score || left.product.name.localeCompare(right.product.name))
+        .slice(0, Math.max(0, 2 - exactMatches.length))
+        .map((entry) => entry.product);
+
+      const matches = [...exactMatches, ...slotFallback];
+
       matches.forEach((product) => usedProductIds.add(product.productId));
+
+      let fallbackMode: GroupFallbackMode = 'empty';
+      if (exactMatches.length > 0 && slotFallback.length === 0) {
+        fallbackMode = 'exact';
+      } else if (matches.length > 0) {
+        fallbackMode = 'slot-fallback';
+      }
 
       return {
         key: slot.key,
         products: matches,
+        fallbackMode,
       };
     });
   }, [audienceFilteredProducts, outfit, recommendationContext]);
@@ -976,6 +1034,10 @@ export const Stylist: React.FC = () => {
                     </p>
                   </div>
 
+                  {group.fallbackMode === 'slot-fallback' && (
+                    <p className="mb-4 text-xs text-white/45">{t('stylist.products.slotFallbackHint')}</p>
+                  )}
+
                   {group.products.length > 0 ? (
                     <div className="grid sm:grid-cols-2 gap-4">
                       {group.products.map((product) => {
@@ -999,7 +1061,10 @@ export const Stylist: React.FC = () => {
                       })}
                     </div>
                   ) : (
-                    <p className="text-sm text-white/50">{t('stylist.products.noSlotProducts')}</p>
+                    <div className="space-y-2">
+                      <p className="text-sm text-white/50">{t('stylist.products.noSlotProducts')}</p>
+                      <p className="text-xs text-white/35">{t('stylist.products.noSlotProductsHint')}</p>
+                    </div>
                   )}
                 </div>
               ))}

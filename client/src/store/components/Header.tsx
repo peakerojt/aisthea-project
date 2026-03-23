@@ -215,7 +215,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
   const headerClass = isScrolled
     ? 'bg-bg-dark/95 backdrop-blur-sm border-b border-border-dark'
     : transparent
-      ? 'bg-gradient-to-b from-black/80 to-transparent border-b border-transparent'
+      ? 'bg-gradient-to-b from-black/80 to-transparent border-none'
       : 'bg-bg-dark/95 backdrop-blur-sm border-b border-border-dark';
 
   const searchDropdownVisible =
