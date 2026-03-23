@@ -1,8 +1,16 @@
 {
   "errors": {
-    "circularParent": "Danh mục cha không hợp lệ vì gây vòng lặp cây danh mục.",
+    "invalidId": "Mã danh mục không hợp lệ.",
+    "circularParent": "Danh mục cha không hợp lệ vì tạo vòng lặp phân cấp.",
     "notFound": "Không tìm thấy danh mục.",
     "hasChildren": "Không thể xóa danh mục vì vẫn còn danh mục con.",
-    "hasProducts": "Không thể xóa danh mục vì vẫn còn sản phẩm."
+    "hasProducts": "Không thể xóa danh mục vì vẫn còn sản phẩm.",
+    "noFile": "Vui lòng chọn ảnh để tải lên."
+  },
+  "success": {
+    "created": "Tạo danh mục thành công.",
+    "updated": "Cập nhật danh mục thành công.",
+    "deleted": "Xóa danh mục thành công.",
+    "imageUploaded": "Tải ảnh danh mục thành công."
   }
 }

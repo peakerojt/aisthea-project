@@ -26,7 +26,7 @@ export const addressSchema = z.object({
 }).strict();
 
 export const addressIdParamSchema = z.object({
-  id: z.coerce.number().int('Address id must be an integer').positive('Address id must be greater than 0'),
+  id: z.coerce.number().int('Mã địa chỉ phải là số nguyên').positive('Mã địa chỉ phải lớn hơn 0'),
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

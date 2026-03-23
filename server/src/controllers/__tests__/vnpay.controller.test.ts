@@ -93,7 +93,7 @@ describe('vnpay.controller', () => {
     });
 
     const payload = res.json.mock.calls[0][0];
-    const url = new URL(payload.vnpUrl);
+    const url = new URL(payload.data.vnpUrl);
 
     expect(url.searchParams.get('vnp_TxnRef')).toBe('88');
     expect(url.searchParams.get('vnp_Amount')).toBe('118800000');

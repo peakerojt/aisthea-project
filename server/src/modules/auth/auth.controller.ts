@@ -13,6 +13,7 @@ import { prisma } from '../../lib/prisma';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { setCsrfCookie } from '../../middlewares/security.middleware';
+import { AppError } from '../../middlewares/error.middleware';
 
 /**
  * Auth controller — thin wrappers around existing auth service functions.
@@ -24,7 +25,6 @@ export const authController = {
         res.json({
             success: true,
             messageKey: 'common:success.ok',
-            message: 'Request processed successfully.',
             data: { csrfToken },
         });
     },
@@ -35,18 +35,9 @@ export const authController = {
             res.status(201).json({
                 success: true,
                 messageKey: 'auth:success.registered',
-                message: 'Registration successful! Please check your email to verify your account.',
                 data: { requiresVerification: true, email: newUser.email },
             });
         } catch (err: any) {
-            if (err.message === 'Email already exists') {
-                return res.status(409).json({
-                    success: false,
-                    errorCode: 'EMAIL_EXISTS',
-                    messageKey: 'auth:errors.emailExists',
-                    message: err.message,
-                });
-            }
             next(err);
         }
     },
@@ -76,30 +67,6 @@ export const authController = {
                 : result
             );
         } catch (err: any) {
-            if (err.message === 'Invalid email or password') {
-                return res.status(401).json({
-                    success: false,
-                    errorCode: 'INVALID_CREDENTIALS',
-                    messageKey: 'auth:errors.invalidCredentials',
-                    message: err.message,
-                });
-            }
-            if (err.message === 'Please verify your email before logging in') {
-                return res.status(403).json({
-                    success: false,
-                    errorCode: 'EMAIL_NOT_VERIFIED',
-                    messageKey: 'auth:errors.emailNotVerified',
-                    message: err.message,
-                });
-            }
-            if (err.message === 'Your account has been banned') {
-                return res.status(403).json({
-                    success: false,
-                    errorCode: 'ACCOUNT_BANNED',
-                    messageKey: 'auth:errors.accountBanned',
-                    message: err.message,
-                });
-            }
             next(err);
         }
     },
@@ -120,26 +87,9 @@ export const authController = {
             res.json({
                 success: true,
                 messageKey: 'auth:success.emailVerified',
-                message: 'Email verified successfully!',
                 data: { userId: result.userId, email: result.email, fullName: result.fullName, avatarUrl: result.avatarUrl, roles: result.roles },
             });
         } catch (err: any) {
-            if (err.message === 'Invalid verification token') {
-                return res.status(400).json({
-                    success: false,
-                    errorCode: 'INVALID_TOKEN',
-                    messageKey: 'auth:errors.invalidToken',
-                    message: err.message,
-                });
-            }
-            if (err.message?.includes('expired')) {
-                return res.status(400).json({
-                    success: false,
-                    errorCode: 'TOKEN_EXPIRED',
-                    messageKey: 'auth:errors.tokenExpired',
-                    message: err.message,
-                });
-            }
             next(err);
         }
     },
@@ -150,17 +100,8 @@ export const authController = {
             res.json({
                 success: true,
                 messageKey: 'auth:success.verificationEmailSent',
-                message: 'Verification email sent. Please check your inbox.',
             });
         } catch (err: any) {
-            if (err.message === 'No account found with this email') {
-                return res.status(404).json({
-                    success: false,
-                    errorCode: 'USER_NOT_FOUND',
-                    messageKey: 'common:errors.notFound',
-                    message: err.message,
-                });
-            }
             next(err);
         }
     },
@@ -172,17 +113,8 @@ export const authController = {
             res.json({
                 success: true,
                 messageKey: 'auth:success.passwordResetSent',
-                message: 'If an account exists with this email, password reset instructions have been sent.',
             });
         } catch (err: any) {
-            if (err.message === 'This account uses Google Login. Please sign in with Google.') {
-                return res.status(400).json({
-                    success: false,
-                    errorCode: 'GOOGLE_LOGIN_ONLY',
-                    messageKey: 'auth:errors.googleLoginOnly',
-                    message: err.message,
-                });
-            }
             next(err);
         }
     },
@@ -216,9 +148,8 @@ export const authController = {
             if (!token) {
                 return res.status(400).json({
                     success: false,
-                    errorCode: 'MISSING_TOKEN',
-                    messageKey: 'auth:errors.missingToken',
-                    message: 'A reset code or valid reset link is required.',
+                    errorCode: 'RESET_TOKEN_REQUIRED',
+                    messageKey: 'auth:errors.resetTokenRequired',
                 });
             }
             const { resetPassword: resetPasswordService } = await import('../../services/password.service');
@@ -227,17 +158,10 @@ export const authController = {
             res.json({
                 success: true,
                 messageKey: 'auth:success.passwordReset',
-                message: 'Password reset successfully. You may now log in.',
             });
         } catch (err: any) {
-            if (err.message?.includes('expired') || err.message?.includes('Invalid')) {
+            if (err instanceof AppError && ['INVALID_TOKEN', 'TOKEN_EXPIRED'].includes(err.errorCode)) {
                 res.clearCookie('resetToken', { path: '/' });
-                return res.status(400).json({
-                    success: false,
-                    errorCode: 'INVALID_TOKEN',
-                    messageKey: 'auth:errors.invalidToken',
-                    message: err.message,
-                });
             }
             next(err);
         }
@@ -249,9 +173,8 @@ export const authController = {
             if (!refreshToken) {
                 return res.status(401).json({
                     success: false,
-                    errorCode: 'MISSING_TOKEN',
-                    messageKey: 'auth:errors.missingToken',
-                    message: 'No refresh token.',
+                    errorCode: 'REFRESH_TOKEN_REQUIRED',
+                    messageKey: 'auth:errors.refreshTokenRequired',
                 });
             }
 
@@ -265,8 +188,7 @@ export const authController = {
                 return res.status(401).json({
                     success: false,
                     errorCode: 'USER_NOT_FOUND',
-                    messageKey: 'common:errors.notFound',
-                    message: 'User not found.',
+                    messageKey: 'users:errors.userNotFound',
                 });
             }
 
@@ -277,7 +199,6 @@ export const authController = {
                     success: false,
                     errorCode: 'REFRESH_TOKEN_REVOKED',
                     messageKey: 'auth:errors.refreshTokenRevoked',
-                    message: 'Refresh token is no longer valid.',
                 });
             }
 
@@ -307,7 +228,6 @@ export const authController = {
                 success: true,
                 data: { accessToken: newAccessToken },
                 messageKey: 'auth:success.tokenRefreshed',
-                message: 'Token refreshed.',
             });
         } catch (err) {
             next(err);
@@ -321,9 +241,8 @@ export const authController = {
                 return res.status(401).json({
                     success: false,
                     isAuthenticated: false,
-                    errorCode: 'NO_TOKEN',
-                    messageKey: 'auth:errors.missingToken',
-                    message: 'No authentication token.',
+                    errorCode: 'AUTH_TOKEN_REQUIRED',
+                    messageKey: 'auth:errors.authTokenRequired',
                 });
             }
 
@@ -342,8 +261,7 @@ export const authController = {
                     success: false,
                     isAuthenticated: false,
                     errorCode: 'USER_NOT_FOUND',
-                    messageKey: 'common:errors.notFound',
-                    message: 'User not found.',
+                    messageKey: 'users:errors.userNotFound',
                 });
             }
 
@@ -363,7 +281,6 @@ export const authController = {
                     isAuthenticated: false,
                     errorCode: 'TOKEN_EXPIRED',
                     messageKey: 'auth:errors.tokenExpired',
-                    message: 'Token expired.',
                 });
             }
             next(err);
@@ -388,7 +305,6 @@ export const authController = {
         res.json({
             success: true,
             messageKey: 'auth:success.loggedOut',
-            message: 'Logged out successfully.',
         });
     },
 

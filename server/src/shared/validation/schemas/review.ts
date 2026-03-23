@@ -10,7 +10,10 @@ export const createReviewSchema = z.object({
   orderItemId: positiveIntField,
   rating: ratingField,
   comment: reviewCommentField,
-  images: z.array(z.string().trim().url('Each image must be a valid URL')).max(10, 'Cannot upload more than 10 images').optional(),
+  images: z
+    .array(z.string().trim().url('Mỗi hình ảnh phải là một URL hợp lệ'))
+    .max(10, 'Không thể tải lên quá 10 hình ảnh')
+    .optional(),
 }).strict();
 
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;

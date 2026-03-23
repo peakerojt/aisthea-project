@@ -5,10 +5,11 @@ import { resolveRequestLocale } from './locale.middleware';
 
 type JsonObject = Record<string, unknown>;
 
-const RESPONSE_BYPASS_PREFIXES = ['/api/vnpay'];
+const RESPONSE_BYPASS_PATHS = ['/api/vnpay/vnpay_return', '/api/vnpay/vnpay_ipn'];
 
 const shouldBypassNormalization = (req: Request, body: JsonObject) => {
-  if (RESPONSE_BYPASS_PREFIXES.some((prefix) => req.originalUrl.startsWith(prefix))) {
+  const path = req.path || req.originalUrl;
+  if (RESPONSE_BYPASS_PATHS.some((bypassPath) => path.startsWith(bypassPath))) {
     return true;
   }
 
@@ -21,7 +22,10 @@ const shouldBypassNormalization = (req: Request, body: JsonObject) => {
 
 const toLocale = (req: Request): AppLocale => req.locale || resolveRequestLocale(req);
 
-const inferErrorType = (statusCode: number, errorCode?: string): 'VALIDATION' | 'BUSINESS' | 'AUTH' | 'PERMISSION' | 'SYSTEM' => {
+const inferErrorType = (
+  statusCode: number,
+  errorCode?: string,
+): 'VALIDATION' | 'BUSINESS' | 'AUTH' | 'PERMISSION' | 'SYSTEM' => {
   const normalized = normalizeErrorCode(errorCode);
 
   if (statusCode >= 500) return 'SYSTEM';
@@ -46,8 +50,51 @@ const hasErrorShape = (statusCode: number, body: JsonObject) =>
   statusCode >= 400 ||
   body.success === false ||
   typeof body.errorCode === 'string' ||
-  typeof body.code === 'string' ||
   typeof body.error === 'string';
+
+const localizeMessage = (locale: AppLocale, messageKey?: string, rawMessage?: string) => {
+  if (typeof messageKey === 'string' && messageKey.trim().length > 0) {
+    return t(locale, messageKey);
+  }
+
+  if (typeof rawMessage === 'string' && rawMessage.trim().length > 0) {
+    return rawMessage.trim();
+  }
+
+  return t(locale, 'common:success.ok');
+};
+
+const localizeDetails = (locale: AppLocale, details: unknown) => {
+  if (!Array.isArray(details)) {
+    return undefined;
+  }
+
+  return details.map((detail) => {
+    if (!detail || typeof detail !== 'object' || Array.isArray(detail)) {
+      return detail;
+    }
+
+    const detailRecord = detail as Record<string, unknown>;
+    const detailCode = normalizeErrorCode(detailRecord.code);
+    const detailMessageKey =
+      typeof detailRecord.messageKey === 'string' && detailRecord.messageKey.trim().length > 0
+        ? detailRecord.messageKey
+        : resolveErrorMessageKey(detailCode);
+    const params =
+      typeof detailRecord.field === 'string' && detailRecord.field.trim().length > 0
+        ? { field: detailRecord.field }
+        : undefined;
+
+    return {
+      ...detailRecord,
+      ...(detailMessageKey ? { messageKey: detailMessageKey } : {}),
+      message:
+        typeof detailRecord.message === 'string' && detailRecord.message.trim().length > 0 && !detailMessageKey
+          ? detailRecord.message
+          : t(locale, detailMessageKey || 'common:errors.validation', params),
+    };
+  });
+};
 
 const normalizeErrorPayload = (req: Request, statusCode: number, body: JsonObject): JsonObject => {
   const locale = toLocale(req);
@@ -62,11 +109,8 @@ const normalizeErrorPayload = (req: Request, statusCode: number, body: JsonObjec
       ? body.messageKey
       : resolveErrorMessageKey(normalizedCode);
 
-  const message =
-    typeof body.message === 'string' && body.message.trim().length > 0
-      ? body.message
-      : t(locale, messageKey);
-  const details = Array.isArray(body.details) ? body.details : undefined;
+  const details = localizeDetails(locale, body.details);
+  const message = localizeMessage(locale, messageKey, typeof body.message === 'string' ? body.message : undefined);
   const field =
     typeof body.field === 'string'
       ? body.field
@@ -80,7 +124,6 @@ const normalizeErrorPayload = (req: Request, statusCode: number, body: JsonObjec
     statusCode: typeof body.statusCode === 'number' ? body.statusCode : statusCode,
     type: typeof body.type === 'string' ? body.type : inferErrorType(statusCode, normalizedCode),
     errorCode: normalizedCode,
-    // keep legacy clients working while moving to errorCode
     code: typeof body.code === 'string' ? body.code : normalizedCode,
     messageKey,
     message,
@@ -97,10 +140,7 @@ const normalizeSuccessPayload = (req: Request, body: JsonObject): JsonObject => 
     typeof body.messageKey === 'string' && body.messageKey.trim().length > 0
       ? body.messageKey
       : resolveSuccessMessageKey(inferredCode);
-  const message =
-    typeof body.message === 'string' && body.message.trim().length > 0
-      ? body.message
-      : t(locale, messageKey);
+  const message = localizeMessage(locale, messageKey, typeof body.message === 'string' ? body.message : undefined);
 
   return {
     ...body,

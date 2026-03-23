@@ -138,6 +138,74 @@ export const Category: React.FC = () => {
     category: product.category?.name || translateSectionLabel(sections[index % sections.length]),
     tag: getProductTag(product, index),
   }));
+  const hasTrendingItems = trendingItems.length > 0;
+  let trendingSectionContent: React.ReactNode;
+  if (isLoading) {
+    trendingSectionContent = (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="flex flex-col gap-5 animate-pulse">
+            <div className="aspect-[3/4] bg-white/5 w-full rounded-sm" />
+            <div className="space-y-3">
+              <div className="h-4 bg-white/10 rounded w-2/3" />
+              <div className="flex justify-between items-center gap-4">
+                <div className="h-3 bg-white/10 rounded w-1/3" />
+                <div className="h-3 bg-white/10 rounded w-1/4" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  } else if (hasTrendingItems) {
+    trendingSectionContent = (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
+        {trendingItems.map((product) => (
+          <div key={product.id} className="group cursor-pointer flex flex-col gap-5" onClick={() => navigate(`/product/${product.id}`)}>
+
+            <div className="aspect-[3/4] overflow-hidden relative bg-surface-dark w-full">
+              {product.tag && (
+                <div className={`absolute top-4 left-4 z-10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest ${product.tag === 'Best Seller' ? 'bg-white text-black' : 'bg-primary text-white'}`}>
+                  {translateProductTag(product.tag)}
+                </div>
+              )}
+              <img
+                src={getCloudinaryProductCard(product.image)}
+                alt={product.name}
+                loading="lazy"
+                decoding="async"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+
+              <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+              <button className="absolute bottom-0 left-0 w-full py-4 bg-white text-black text-xs font-bold uppercase tracking-widest translate-y-full group-hover:translate-y-0 transition-transform duration-300 flex items-center justify-center shadow-xl z-20 hover:bg-gray-100">
+                {t('quickView')}
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <h4 className="text-base font-bold text-white uppercase tracking-wide group-hover:text-primary transition-colors">{product.name}</h4>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">{product.category}</span>
+                <span className="text-sm font-bold text-white">{formatPrice(product.price)}đ</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  } else {
+    trendingSectionContent = (
+      <div className="border border-white/10 bg-white/[0.02] px-8 py-14 text-center">
+        <p className="text-sm uppercase tracking-[0.3em] text-white/45 mb-4">{t('curatedForYou')}</p>
+        <h4 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-white mb-4">{t('trendingNow')}</h4>
+        <p className="text-sm md:text-base text-white/60 max-w-2xl mx-auto leading-relaxed">
+          {t('fallbackDescription')}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full bg-bg-dark font-sans text-white overflow-x-hidden min-h-screen flex flex-col">
@@ -195,68 +263,7 @@ export const Category: React.FC = () => {
           </div>
         </div>
 
-        {/* Product Grid */}
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="flex flex-col gap-5 animate-pulse">
-                <div className="aspect-[3/4] bg-white/5 w-full rounded-sm" />
-                <div className="space-y-3">
-                  <div className="h-4 bg-white/10 rounded w-2/3" />
-                  <div className="flex justify-between items-center gap-4">
-                    <div className="h-3 bg-white/10 rounded w-1/3" />
-                    <div className="h-3 bg-white/10 rounded w-1/4" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : trendingItems.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
-            {trendingItems.map((product) => (
-              <div key={product.id} className="group cursor-pointer flex flex-col gap-5" onClick={() => navigate(`/product/${product.id}`)}>
-
-                <div className="aspect-[3/4] overflow-hidden relative bg-surface-dark w-full">
-                  {product.tag && (
-                    <div className={`absolute top-4 left-4 z-10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest ${product.tag === 'Best Seller' ? 'bg-white text-black' : 'bg-primary text-white'}`}>
-                      {translateProductTag(product.tag)}
-                    </div>
-                  )}
-                  <img
-                    src={getCloudinaryProductCard(product.image)}
-                    alt={product.name}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-                  <button className="absolute bottom-0 left-0 w-full py-4 bg-white text-black text-xs font-bold uppercase tracking-widest translate-y-full group-hover:translate-y-0 transition-transform duration-300 flex items-center justify-center shadow-xl z-20 hover:bg-gray-100">
-                    {t('quickView')}
-                  </button>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <h4 className="text-base font-bold text-white uppercase tracking-wide group-hover:text-primary transition-colors">{product.name}</h4>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">{product.category}</span>
-                    <span className="text-sm font-bold text-white">{formatPrice(product.price)}đ</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="border border-white/10 bg-white/[0.02] px-8 py-14 text-center">
-            <p className="text-sm uppercase tracking-[0.3em] text-white/45 mb-4">{t('curatedForYou')}</p>
-            <h4 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-white mb-4">{t('trendingNow')}</h4>
-            <p className="text-sm md:text-base text-white/60 max-w-2xl mx-auto leading-relaxed">
-              Sản phẩm nổi bật cho danh mục này đang được cập nhật. Bạn có thể khám phá thêm toàn bộ bộ sưu tập ngay bây giờ.
-            </p>
-          </div>
-        )}
+        {trendingSectionContent}
 
         <div className="mt-24 text-center">
           <button

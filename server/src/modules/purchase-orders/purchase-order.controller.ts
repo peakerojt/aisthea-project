@@ -61,6 +61,9 @@ const MAX_NOTES_LENGTH = 1000;
 const PHONE_REGEX = /^[0-9+().\-\s]{6,20}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const sendPurchaseOrderError = (res: Response, status: number, errorCode: string) =>
+  res.status(status).json({ success: false, errorCode });
+
 function parsePositiveInt(raw: string | string[] | undefined): number | null {
   const value = Array.isArray(raw) ? raw[0] : raw;
   const parsed = Number(value);
@@ -255,7 +258,7 @@ export async function listPurchaseOrders(req: Request, res: Response) {
     });
   } catch (error) {
     logger.error('[purchaseOrderController] listPurchaseOrders failed', { error });
-    res.status(500).json({ success: false, message: 'Failed to list purchase orders.' });
+    res.status(500).json({ success: false, errorCode: 'FETCH_PURCHASE_ORDERS_FAILED' });
   }
 }
 
@@ -263,18 +266,18 @@ export async function getPurchaseOrderById(req: Request, res: Response) {
   try {
     const purchaseOrderId = parsePositiveInt(req.params.id);
     if (!purchaseOrderId) {
-      return res.status(400).json({ success: false, message: 'Invalid purchase order ID.' });
+      return sendPurchaseOrderError(res, 400, 'INVALID_PURCHASE_ORDER_ID');
     }
 
     const purchaseOrder = await getPurchaseOrderByIdInternal(purchaseOrderId);
     if (!purchaseOrder) {
-      return res.status(404).json({ success: false, message: 'Purchase order not found.' });
+      return sendPurchaseOrderError(res, 404, 'PURCHASE_ORDER_NOT_FOUND');
     }
 
     return res.json({ success: true, data: mapPurchaseOrder(purchaseOrder) });
   } catch (error) {
     logger.error('[purchaseOrderController] getPurchaseOrderById failed', { error });
-    return res.status(500).json({ success: false, message: 'Failed to load purchase order.' });
+    return sendPurchaseOrderError(res, 500, 'FETCH_PURCHASE_ORDER_FAILED');
   }
 }
 
@@ -293,72 +296,72 @@ export async function createPurchaseOrder(req: Request, res: Response) {
 
     const normalizedSupplier = normalizeOptionalString(supplier, MAX_SUPPLIER_LENGTH);
     if (normalizedSupplier === 'INVALID' || !normalizedSupplier) {
-      return res.status(400).json({ success: false, message: 'Supplier is required.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_SUPPLIER_REQUIRED');
     }
 
     const normalizedInvoiceNumber = normalizeOptionalString(invoiceNumber, MAX_INVOICE_LENGTH);
     if (normalizedInvoiceNumber === 'INVALID') {
-      return res.status(400).json({ success: false, message: 'Invoice number must be <= 100 characters.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_INVOICE_TOO_LONG');
     }
 
     const normalizedSupplierContactName = normalizeOptionalString(supplierContactName, MAX_CONTACT_LENGTH);
     if (normalizedSupplierContactName === 'INVALID') {
-      return res.status(400).json({ success: false, message: 'Supplier contact name must be <= 100 characters.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_CONTACT_TOO_LONG');
     }
 
     const normalizedSupplierPhone = normalizeOptionalString(supplierPhone, MAX_PHONE_LENGTH);
     if (normalizedSupplierPhone === 'INVALID') {
-      return res.status(400).json({ success: false, message: 'Supplier phone must be <= 20 characters.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_PHONE_TOO_LONG');
     }
     if (normalizedSupplierPhone && !PHONE_REGEX.test(normalizedSupplierPhone)) {
-      return res.status(400).json({ success: false, message: 'Supplier phone format is invalid.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_PHONE_INVALID');
     }
 
     const normalizedSupplierEmail = normalizeOptionalString(supplierEmail, MAX_EMAIL_LENGTH);
     if (normalizedSupplierEmail === 'INVALID') {
-      return res.status(400).json({ success: false, message: 'Supplier email must be <= 100 characters.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_EMAIL_TOO_LONG');
     }
     if (normalizedSupplierEmail && !EMAIL_REGEX.test(normalizedSupplierEmail)) {
-      return res.status(400).json({ success: false, message: 'Supplier email format is invalid.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_EMAIL_INVALID');
     }
 
     const normalizedNotes = normalizeOptionalString(notes, MAX_NOTES_LENGTH);
     if (normalizedNotes === 'INVALID') {
-      return res.status(400).json({ success: false, message: 'Notes must be <= 1000 characters.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_NOTES_TOO_LONG');
     }
 
     let parsedExpectedReceivedAt: Date | null = null;
     if (expectedReceivedAt !== null && expectedReceivedAt !== undefined) {
       if (typeof expectedReceivedAt !== 'string' || expectedReceivedAt.trim().length === 0) {
-        return res.status(400).json({ success: false, message: 'Expected received date must be a valid ISO date string.' });
+        return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_EXPECTED_DATE_INVALID');
       }
       const maybeDate = new Date(expectedReceivedAt);
       if (Number.isNaN(maybeDate.getTime())) {
-        return res.status(400).json({ success: false, message: 'Expected received date must be a valid ISO date string.' });
+        return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_EXPECTED_DATE_INVALID');
       }
       if (maybeDate < getCurrentMinuteFloor()) {
-        return res.status(400).json({ success: false, message: 'Expected received date cannot be in the past.' });
+        return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_EXPECTED_DATE_PAST');
       }
       parsedExpectedReceivedAt = maybeDate;
     }
 
     if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ success: false, message: 'At least one purchase order item is required.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_ITEMS_REQUIRED');
     }
 
     const seenVariantIds = new Set<number>();
     for (const item of items) {
       if (!Number.isInteger(item.variantId) || item.variantId <= 0) {
-        return res.status(400).json({ success: false, message: 'Each item must include a valid variantId.' });
+        return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_ITEM_VARIANT_INVALID');
       }
       if (!Number.isInteger(item.orderedQty) || item.orderedQty <= 0) {
-        return res.status(400).json({ success: false, message: 'Each item must include orderedQty > 0.' });
+        return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_ITEM_QUANTITY_INVALID');
       }
       if (typeof item.unitCost !== 'number' || Number.isNaN(item.unitCost) || item.unitCost <= 0) {
-        return res.status(400).json({ success: false, message: 'Each item must include unitCost > 0.' });
+        return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_ITEM_UNIT_COST_INVALID');
       }
       if (seenVariantIds.has(item.variantId)) {
-        return res.status(400).json({ success: false, message: `Duplicate variantId detected: ${item.variantId}.` });
+        return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_DUPLICATE_VARIANT');
       }
       seenVariantIds.add(item.variantId);
     }
@@ -369,7 +372,7 @@ export async function createPurchaseOrder(req: Request, res: Response) {
       select: { variantId: true },
     });
     if (variants.length !== variantIds.length) {
-      return res.status(400).json({ success: false, message: 'One or more variants do not exist.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_VARIANT_MISSING');
     }
 
     const createdBy = (req as any).user?.userId ?? null;
@@ -426,10 +429,10 @@ export async function createPurchaseOrder(req: Request, res: Response) {
       });
     });
 
-    return res.status(201).json({ success: true, data: mapPurchaseOrder(created) });
+    return res.status(201).json({ success: true, code: 'PURCHASE_ORDER_CREATED', data: mapPurchaseOrder(created) });
   } catch (error) {
     logger.error('[purchaseOrderController] createPurchaseOrder failed', { error });
-    return res.status(500).json({ success: false, message: 'Failed to create purchase order.' });
+    return sendPurchaseOrderError(res, 500, 'CREATE_PURCHASE_ORDER_FAILED');
   }
 }
 
@@ -437,7 +440,7 @@ export async function receivePurchaseOrder(req: Request, res: Response) {
   try {
     const purchaseOrderId = parsePositiveInt(req.params.id);
     if (!purchaseOrderId) {
-      return res.status(400).json({ success: false, message: 'Invalid purchase order ID.' });
+      return sendPurchaseOrderError(res, 400, 'INVALID_PURCHASE_ORDER_ID');
     }
 
     const { items, notes } = req.body as {
@@ -449,22 +452,22 @@ export async function receivePurchaseOrder(req: Request, res: Response) {
       ? normalizeOptionalString(notes, MAX_NOTES_LENGTH)
       : null;
     if (normalizedNotes === 'INVALID') {
-      return res.status(400).json({ success: false, message: 'Notes must be <= 1000 characters.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_NOTES_TOO_LONG');
     }
 
     if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ success: false, message: 'At least one receipt item is required.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_RECEIPT_ITEMS_REQUIRED');
     }
 
     for (const item of items) {
       if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
-        return res.status(400).json({ success: false, message: 'Each receipt item must include quantity > 0.' });
+        return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_RECEIPT_ITEM_QUANTITY_INVALID');
       }
       if (
         (!Number.isInteger(item.purchaseOrderItemId) || (item.purchaseOrderItemId ?? 0) <= 0) &&
         (!Number.isInteger(item.variantId) || (item.variantId ?? 0) <= 0)
       ) {
-        return res.status(400).json({ success: false, message: 'Each receipt item must include purchaseOrderItemId or variantId.' });
+        return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_RECEIPT_ITEM_REFERENCE_REQUIRED');
       }
     }
 
@@ -638,34 +641,34 @@ export async function receivePurchaseOrder(req: Request, res: Response) {
       });
     });
 
-    return res.json({ success: true, data: mapPurchaseOrder(updated) });
+    return res.json({ success: true, code: 'PURCHASE_ORDER_RECEIVED', data: mapPurchaseOrder(updated) });
   } catch (error) {
     logger.error('[purchaseOrderController] receivePurchaseOrder failed', { error });
     const code = error instanceof Error ? error.message : '';
 
     if (code === 'PURCHASE_ORDER_NOT_FOUND') {
-      return res.status(404).json({ success: false, message: 'Purchase order not found.' });
+      return sendPurchaseOrderError(res, 404, 'PURCHASE_ORDER_NOT_FOUND');
     }
     if (code === 'PURCHASE_ORDER_CANCELLED') {
-      return res.status(400).json({ success: false, message: 'Cancelled purchase orders cannot be received.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_CANCELLED');
     }
     if (code === 'PURCHASE_ORDER_ALREADY_RECEIVED') {
-      return res.status(400).json({ success: false, message: 'Purchase order is already fully received.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_ALREADY_RECEIVED');
     }
     if (code === 'PURCHASE_ORDER_ITEM_NOT_FOUND') {
-      return res.status(400).json({ success: false, message: 'One or more receipt items do not belong to this purchase order.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_ITEM_NOT_FOUND');
     }
     if (code === 'DUPLICATE_RECEIPT_ITEM') {
-      return res.status(400).json({ success: false, message: 'Duplicate receipt items are not allowed.' });
+      return sendPurchaseOrderError(res, 400, 'DUPLICATE_RECEIPT_ITEM');
     }
     if (code === 'RECEIPT_EXCEEDS_ORDERED_QTY') {
-      return res.status(400).json({ success: false, message: 'Received quantity exceeds the remaining ordered quantity.' });
+      return sendPurchaseOrderError(res, 400, 'RECEIPT_EXCEEDS_ORDERED_QTY');
     }
     if (code === 'VARIANT_NOT_FOUND') {
-      return res.status(400).json({ success: false, message: 'One or more variants no longer exist.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_VARIANT_MISSING');
     }
 
-    return res.status(500).json({ success: false, message: 'Failed to receive purchase order.' });
+    return sendPurchaseOrderError(res, 500, 'RECEIVE_PURCHASE_ORDER_FAILED');
   }
 }
 
@@ -673,7 +676,7 @@ export async function cancelPurchaseOrder(req: Request, res: Response) {
   try {
     const purchaseOrderId = parsePositiveInt(req.params.id);
     if (!purchaseOrderId) {
-      return res.status(400).json({ success: false, message: 'Invalid purchase order ID.' });
+      return sendPurchaseOrderError(res, 400, 'INVALID_PURCHASE_ORDER_ID');
     }
 
     const { notes } = req.body as { notes?: string | null };
@@ -681,7 +684,7 @@ export async function cancelPurchaseOrder(req: Request, res: Response) {
       ? normalizeOptionalString(notes, MAX_NOTES_LENGTH)
       : null;
     if (normalizedNotes === 'INVALID') {
-      return res.status(400).json({ success: false, message: 'Notes must be <= 1000 characters.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_NOTES_TOO_LONG');
     }
 
     const existing = await prisma.purchaseOrder.findUnique({
@@ -689,13 +692,13 @@ export async function cancelPurchaseOrder(req: Request, res: Response) {
     });
 
     if (!existing) {
-      return res.status(404).json({ success: false, message: 'Purchase order not found.' });
+      return sendPurchaseOrderError(res, 404, 'PURCHASE_ORDER_NOT_FOUND');
     }
     if (existing.status === PURCHASE_ORDER_STATUSES.CANCELLED) {
-      return res.status(400).json({ success: false, message: 'Purchase order is already cancelled.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_ALREADY_CANCELLED');
     }
     if (existing.status === PURCHASE_ORDER_STATUSES.RECEIVED) {
-      return res.status(400).json({ success: false, message: 'Received purchase orders cannot be cancelled.' });
+      return sendPurchaseOrderError(res, 400, 'PURCHASE_ORDER_RECEIVED_CANNOT_CANCEL');
     }
 
     const updated = await prisma.purchaseOrder.update({
@@ -708,12 +711,12 @@ export async function cancelPurchaseOrder(req: Request, res: Response) {
 
     const purchaseOrder = await getPurchaseOrderByIdInternal(updated.purchaseOrderId);
     if (!purchaseOrder) {
-      return res.status(404).json({ success: false, message: 'Purchase order not found.' });
+      return sendPurchaseOrderError(res, 404, 'PURCHASE_ORDER_NOT_FOUND');
     }
 
-    return res.json({ success: true, data: mapPurchaseOrder(purchaseOrder) });
+    return res.json({ success: true, code: 'PURCHASE_ORDER_CANCELLED', data: mapPurchaseOrder(purchaseOrder) });
   } catch (error) {
     logger.error('[purchaseOrderController] cancelPurchaseOrder failed', { error });
-    return res.status(500).json({ success: false, message: 'Failed to cancel purchase order.' });
+    return sendPurchaseOrderError(res, 500, 'CANCEL_PURCHASE_ORDER_FAILED');
   }
 }

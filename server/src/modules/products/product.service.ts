@@ -338,7 +338,6 @@ export const productService = {
       await productRepository.softDelete(id);
       return {
         mode: 'archived' as const,
-        message: 'Product archived - existing orders found.',
       };
     }
 
@@ -362,7 +361,7 @@ export const productService = {
 
     return {
       mode: 'deleted' as const,
-      message: `Product deleted with ${imageUrls.length} image(s).`,
+      deletedImageCount: imageUrls.length,
     };
   },
 };

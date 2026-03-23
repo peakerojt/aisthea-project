@@ -55,6 +55,7 @@
         "markInStock": "Đánh dấu còn hàng",
         "deleteSelected": "Ẩn đã chọn",
         "resetFilters": "Đặt lại bộ lọc",
+        "searchLabel": "Tìm kiếm",
         "searchPlaceholder": "Tìm theo tên, SKU…",
         "importExport": "Nhập / Xuất"
     },

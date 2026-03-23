@@ -100,7 +100,7 @@ export const ForgotPasswordPage: React.FC = () => {
               disabled={status === 'loading'}
               className="w-full py-3 bg-white text-black font-bold rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {status === 'loading' ? t('actions.sending') : t('actions.sendCode')}
+              {status === 'loading' ? t('actions.sending') : t('actions.sendLink')}
             </button>
 
             <div className="text-center mt-4">

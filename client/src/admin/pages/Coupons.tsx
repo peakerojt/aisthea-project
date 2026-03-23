@@ -294,7 +294,7 @@ const CouponDialog: React.FC<CouponDialogProps> = ({ coupon, onClose, onSaved, s
                                     value={type === 'PERCENTAGE' ? value : fmtCurrencyInput(value)}
                                     onChange={type === 'PERCENTAGE' ? (e) => setValue(e.target.value) : handleCurrencyInput(setValue)}
                                     className={inputClass('value')}
-                                    placeholder={type === 'PERCENTAGE' ? 'VD: 20' : 'VD: 50.000'}
+                                    placeholder={type === 'PERCENTAGE' ? t('coupons:form.placeholders.valuePercent') : t('coupons:form.placeholders.valueFixed')}
                                 />
                                 {errors.value && <p className="mt-1 text-[11px] text-red-400">{errors.value}</p>}
                             </div>
@@ -312,7 +312,7 @@ const CouponDialog: React.FC<CouponDialogProps> = ({ coupon, onClose, onSaved, s
                                     value={fmtCurrencyInput(maxDiscountAmount)}
                                     onChange={handleCurrencyInput(setMaxDiscountAmount)}
                                     className="w-full rounded-lg border border-blue-500/20 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-white/25 transition-colors focus:border-blue-500/40 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
-                                    placeholder="VD: 50.000 (để trống = không giới hạn)"
+                                    placeholder={t('coupons:form.placeholders.maxDiscount')}
                                 />
                                 <p className="mt-1.5 text-[10px] text-white/30">
                                     {t('coupons:form.maxDiscountNote')}
@@ -330,7 +330,7 @@ const CouponDialog: React.FC<CouponDialogProps> = ({ coupon, onClose, onSaved, s
                                     value={fmtCurrencyInput(minOrderValue)}
                                     onChange={handleCurrencyInput(setMinOrderValue, '0')}
                                     className={inputClass('minOrderValue')}
-                                    placeholder="0 = không điều kiện"
+                                    placeholder={t('coupons:form.placeholders.minOrderValue')}
                                 />
                             </div>
                             <div>
@@ -765,7 +765,7 @@ export const Coupons: React.FC = () => {
                                                     <p className="text-xs text-white/60">
                                                         Đơn tối thiểu:{' '}
                                                         <span className="font-semibold text-white">
-                                                            {c.minOrderValue > 0 ? fmtCurrency(c.minOrderValue) : 'Không giới hạn'}
+                                                            {c.minOrderValue > 0 ? fmtCurrency(c.minOrderValue) : t('coupons:common.unlimited')}
                                                         </span>
                                                     </p>
                                                     <p className="text-[11px] text-white/40 mt-0.5">

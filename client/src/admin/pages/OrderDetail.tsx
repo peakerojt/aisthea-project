@@ -452,14 +452,14 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
                             {order.deliveryProof && deliveryProofImages.length > 0 && (
                                 <Card>
-                                    <SectionTitle icon={Truck} title="Hình ảnh giao hàng" />
+                                    <SectionTitle icon={Truck} title={t('sections.deliveryProof')} />
                                     <div className="p-5 space-y-4">
                                         <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold ${order.deliveryProof.reviewed
                                             ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
                                             : 'border-amber-500/25 bg-amber-500/10 text-amber-300'
                                             }`}>
                                             <Check size={14} />
-                                            {order.deliveryProof.reviewed ? 'Đã xem lại hình ảnh giao hàng' : 'Chưa xác nhận xem lại hình ảnh'}
+                                            {order.deliveryProof.reviewed ? t('deliveryProof.reviewed') : t('deliveryProof.unreviewed')}
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
                                             {deliveryProofImages.map((imageUrl, index) => (
@@ -471,12 +471,12 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                                 >
                                                     <img
                                                         src={getImageUrl(imageUrl)}
-                                                        alt={`delivery-proof-${index + 1}`}
+                                                        alt={t('deliveryProof.imageAlt', { index: index + 1 })}
                                                         loading="lazy"
                                                         className="w-full h-36 object-cover group-hover:scale-[1.02] transition-transform"
                                                     />
                                                     <div className="absolute inset-x-0 bottom-0 px-3 py-2 bg-gradient-to-t from-black/80 via-black/20 to-transparent text-[11px] text-white/80 text-left">
-                                                        Xem ảnh giao hàng {index + 1}
+                                                        {t('deliveryProof.imageButton', { index: index + 1 })}
                                                     </div>
                                                 </button>
                                             ))}
@@ -513,7 +513,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                 <div
                     role="dialog"
                     aria-modal="true"
-                    aria-label="Xem ảnh giao hàng"
+                    aria-label={t('deliveryProof.lightboxLabel')}
                     className={`fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/60 px-4 py-8 transition-all duration-200 ease-out ${
                         isDeliveryProofLightboxVisible ? 'opacity-100' : 'opacity-0'
                     }`}
@@ -551,18 +551,25 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                     >
                         <img
                             src={getImageUrl(activeDeliveryProofImage)}
-                            alt={`delivery-proof-preview-${deliveryProofLightboxIndex !== null ? deliveryProofLightboxIndex + 1 : 1}`}
+                            alt={t('deliveryProof.previewAlt', {
+                                index: deliveryProofLightboxIndex !== null ? deliveryProofLightboxIndex + 1 : 1,
+                            })}
                             className="max-w-[92vw] max-h-[78vh] object-contain rounded-2xl shadow-2xl"
                         />
                         <div className="flex items-center justify-between text-sm text-white/70">
-                            <span>Ảnh giao hàng {deliveryProofLightboxIndex !== null ? deliveryProofLightboxIndex + 1 : 1}/{deliveryProofImages.length}</span>
+                            <span>
+                                {t('deliveryProof.imageCounter', {
+                                    current: deliveryProofLightboxIndex !== null ? deliveryProofLightboxIndex + 1 : 1,
+                                    total: deliveryProofImages.length,
+                                })}
+                            </span>
                             <a
                                 href={getImageUrl(activeDeliveryProofImage)}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-primary hover:text-primary/80 transition-colors"
                             >
-                                Mở ảnh gốc
+                                {t('deliveryProof.openOriginal')}
                             </a>
                         </div>
                     </div>

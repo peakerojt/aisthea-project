@@ -1,6 +1,32 @@
 {
   "errors": {
+    "invalidProductId": "Invalid product ID.",
+    "invalidProductOrImageId": "Invalid product ID or image ID.",
+    "invalidImageId": "Invalid image ID.",
     "invalidAttribute": "Invalid variant attribute payload.",
-    "notFound": "Product not found."
+    "notFound": "Product not found.",
+    "noFile": "Please select an image to upload.",
+    "noFiles": "Please select at least one image to upload.",
+    "imageNotFound": "Image not found.",
+    "imageNotFoundForProduct": "Image not found for this product.",
+    "fetchImagesFailed": "Failed to load product images.",
+    "uploadImageFailed": "Failed to upload image.",
+    "uploadImagesFailed": "Failed to upload images.",
+    "setPrimaryImageFailed": "Failed to update the cover image.",
+    "deleteImageFailed": "Failed to delete image.",
+    "templateDownloadFailed": "Failed to generate the product import template.",
+    "exportFailed": "Failed to export products.",
+    "importFileRequired": "Please upload an Excel (.xlsx) or CSV (.csv) file.",
+    "importFailed": "Failed to process the product import file."
+  },
+  "success": {
+    "created": "Product created successfully.",
+    "updated": "Product updated successfully.",
+    "statusUpdated": "Product status updated successfully.",
+    "archived": "Product archived because it is referenced by existing orders.",
+    "deleted": "Product deleted successfully.",
+    "imageUploaded": "Image uploaded successfully.",
+    "imageDeleted": "Image deleted successfully.",
+    "primaryImageUpdated": "Cover image updated successfully."
   }
 }

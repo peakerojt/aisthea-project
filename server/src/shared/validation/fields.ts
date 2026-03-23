@@ -44,14 +44,14 @@ const requiredText = (label: string, min: number, max: number) =>
     normalizeTextInput,
     z
       .string()
-      .min(min, `${label} must be at least ${min} characters`)
-      .max(max, `${label} must be at most ${max} characters`),
+      .min(min, `${label} phải có ít nhất ${min} ký tự`)
+      .max(max, `${label} không được vượt quá ${max} ký tự`),
   );
 
 const optionalText = (label: string, max: number) =>
   z.preprocess(
     normalizeOptionalTextInput,
-    z.string().max(max, `${label} must be at most ${max} characters`).optional(),
+    z.string().max(max, `${label} không được vượt quá ${max} ký tự`).optional(),
   );
 
 export const passwordRequirements = {
@@ -67,9 +67,9 @@ export const emailField = z.preprocess(
   normalizeEmailInput,
   z
     .string()
-    .min(1, 'Email is required')
-    .max(100, 'Email must be at most 100 characters')
-    .email('Invalid email address'),
+    .min(1, 'Vui lòng nhập email')
+    .max(100, 'Email không được vượt quá 100 ký tự')
+    .email('Email không hợp lệ'),
 );
 
 export const optionalEmailField = z.preprocess(
@@ -79,30 +79,36 @@ export const optionalEmailField = z.preprocess(
   },
   z
     .string()
-    .max(100, 'Email must be at most 100 characters')
-    .email('Invalid email address')
+    .max(100, 'Email không được vượt quá 100 ký tự')
+    .email('Email không hợp lệ')
     .optional(),
 );
 
 export const passwordField = z
   .string()
-  .min(passwordRequirements.minLength, `Password must be at least ${passwordRequirements.minLength} characters`)
-  .max(passwordRequirements.maxLength, `Password must be at most ${passwordRequirements.maxLength} characters`)
-  .regex(passwordRequirements.hasUpperCase, 'Password must contain at least one uppercase letter')
-  .regex(passwordRequirements.hasLowerCase, 'Password must contain at least one lowercase letter')
-  .regex(passwordRequirements.hasNumber, 'Password must contain at least one number')
-  .regex(passwordRequirements.hasSpecialChar, 'Password must contain at least one special character');
+  .min(
+    passwordRequirements.minLength,
+    `Mật khẩu phải có ít nhất ${passwordRequirements.minLength} ký tự`,
+  )
+  .max(
+    passwordRequirements.maxLength,
+    `Mật khẩu không được vượt quá ${passwordRequirements.maxLength} ký tự`,
+  )
+  .regex(passwordRequirements.hasUpperCase, 'Mật khẩu phải có ít nhất một chữ cái viết hoa')
+  .regex(passwordRequirements.hasLowerCase, 'Mật khẩu phải có ít nhất một chữ cái viết thường')
+  .regex(passwordRequirements.hasNumber, 'Mật khẩu phải có ít nhất một chữ số')
+  .regex(passwordRequirements.hasSpecialChar, 'Mật khẩu phải có ít nhất một ký tự đặc biệt');
 
-export const loginPasswordField = z.string().min(1, 'Password is required');
+export const loginPasswordField = z.string().min(1, 'Vui lòng nhập mật khẩu');
 
-export const fullNameField = requiredText('Full name', 2, 100);
-export const optionalFullNameField = optionalText('Full name', 100);
+export const fullNameField = requiredText('Họ và tên', 2, 100);
+export const optionalFullNameField = optionalText('Họ và tên', 100);
 
 export const phoneField = z.preprocess(
   normalizePhoneInput,
   z
     .string()
-    .regex(/^0\d{9}$/, 'Phone number must be a valid Vietnamese mobile number'),
+    .regex(/^0\d{9}$/, 'Số điện thoại phải là số di động Việt Nam hợp lệ'),
 );
 
 export const optionalPhoneField = z.preprocess(
@@ -112,34 +118,34 @@ export const optionalPhoneField = z.preprocess(
   },
   z
     .string()
-    .regex(/^0\d{9}$/, 'Phone number must be a valid Vietnamese mobile number')
+    .regex(/^0\d{9}$/, 'Số điện thoại phải là số di động Việt Nam hợp lệ')
     .optional(),
 );
 
-export const addressLineField = requiredText('Address', 6, 255);
-export const cityField = requiredText('City', 1, 50);
-export const districtField = requiredText('District', 1, 50);
-export const wardField = requiredText('Ward', 1, 50);
+export const addressLineField = requiredText('Địa chỉ', 6, 255);
+export const cityField = requiredText('Tỉnh/Thành phố', 1, 50);
+export const districtField = requiredText('Quận/Huyện', 1, 50);
+export const wardField = requiredText('Phường/Xã', 1, 50);
 
-export const optionalDistrictField = optionalText('District', 50);
-export const noteField = optionalText('Note', 500);
-export const reviewCommentField = optionalText('Comment', 1000);
-export const searchKeywordField = optionalText('Search keyword', 100);
+export const optionalDistrictField = optionalText('Quận/Huyện', 50);
+export const noteField = optionalText('Ghi chú', 500);
+export const reviewCommentField = optionalText('Bình luận', 1000);
+export const searchKeywordField = optionalText('Từ khóa tìm kiếm', 100);
 
 export const couponCodeField = z.preprocess(
   normalizeCouponInput,
   z
     .string()
-    .min(1, 'Coupon code is required')
-    .max(50, 'Coupon code must be at most 50 characters'),
+    .min(1, 'Vui lòng nhập mã giảm giá')
+    .max(50, 'Mã giảm giá không được vượt quá 50 ký tự'),
 );
 
 export const optionalCouponCodeField = z.preprocess(
   normalizeCouponInput,
   z
     .string()
-    .min(1, 'Coupon code is required')
-    .max(50, 'Coupon code must be at most 50 characters')
+    .min(1, 'Vui lòng nhập mã giảm giá')
+    .max(50, 'Mã giảm giá không được vượt quá 50 ký tự')
     .optional(),
 );
 
@@ -147,8 +153,8 @@ export const skuField = z.preprocess(
   normalizeTextInput,
   z
     .string()
-    .min(1, 'SKU is required')
-    .max(50, 'SKU must be at most 50 characters'),
+    .min(1, 'Vui lòng nhập SKU')
+    .max(50, 'SKU không được vượt quá 50 ký tự'),
 );
 
 export const slugField = z.preprocess(
@@ -158,27 +164,27 @@ export const slugField = z.preprocess(
   },
   z
     .string()
-    .min(1, 'Slug is required')
-    .max(255, 'Slug must be at most 255 characters')
-    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
+    .min(1, 'Vui lòng nhập slug')
+    .max(255, 'Slug không được vượt quá 255 ký tự')
+    .regex(/^[a-z0-9-]+$/, 'Slug chỉ được chứa chữ thường, số và dấu gạch nối'),
 );
 
-export const attributeNameField = requiredText('Attribute name', 1, 50);
-export const attributeValueField = requiredText('Attribute value', 1, 50);
-export const productNameField = requiredText('Product name', 1, 255);
-export const descriptionField = optionalText('Description', 5000);
+export const attributeNameField = requiredText('Tên thuộc tính', 1, 50);
+export const attributeValueField = requiredText('Giá trị thuộc tính', 1, 50);
+export const productNameField = requiredText('Tên sản phẩm', 1, 255);
+export const descriptionField = optionalText('Mô tả', 5000);
 
-export const quantityField = z.number().int('Quantity must be an integer').positive('Quantity must be greater than 0');
-export const nonNegativeQuantityField = z.number().int('Quantity must be an integer').min(0, 'Quantity cannot be negative');
-export const positiveIntField = z.number().int('Value must be an integer').positive('Value must be greater than 0');
-export const nonNegativeNumberField = z.number().min(0, 'Value cannot be negative');
-export const priceField = z.number().positive('Price must be positive');
-export const ratingField = z.number().int('Rating must be an integer').min(1, 'Rating must be at least 1').max(5, 'Rating must be at most 5');
+export const quantityField = z.number().int('Số lượng phải là số nguyên').positive('Số lượng phải lớn hơn 0');
+export const nonNegativeQuantityField = z.number().int('Số lượng phải là số nguyên').min(0, 'Số lượng không được âm');
+export const positiveIntField = z.number().int('Giá trị phải là số nguyên').positive('Giá trị phải lớn hơn 0');
+export const nonNegativeNumberField = z.number().min(0, 'Giá trị không được âm');
+export const priceField = z.number().positive('Giá phải lớn hơn 0');
+export const ratingField = z.number().int('Đánh giá phải là số nguyên').min(1, 'Đánh giá phải từ 1 trở lên').max(5, 'Đánh giá không được vượt quá 5');
 
-export const couponSubtotalField = z.number().positive('Cart subtotal must be greater than 0');
+export const couponSubtotalField = z.number().positive('Tạm tính giỏ hàng phải lớn hơn 0');
 
 export const shippingCityCodeField = z
   .string()
   .trim()
-  .min(1, 'Shipping city code is required')
-  .regex(/^\d+$/, 'Shipping city code must be numeric');
+  .min(1, 'Vui lòng nhập mã tỉnh/thành giao hàng')
+  .regex(/^\d+$/, 'Mã tỉnh/thành giao hàng chỉ được chứa chữ số');

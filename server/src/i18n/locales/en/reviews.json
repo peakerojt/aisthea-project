@@ -1,9 +1,17 @@
 {
   "errors": {
+    "invalidOrderItemId": "orderItemId is required and must be a number.",
+    "invalidProductId": "productId is required and must be a number.",
+    "invalidRating": "Rating must be an integer between 1 and 5.",
     "orderItemNotFound": "Order item not found.",
     "notOrderOwner": "You do not own this order.",
     "itemNotDelivered": "You can review only delivered items.",
     "productMismatch": "Product does not match purchased item.",
-    "alreadyExists": "Review already exists for this item."
+    "alreadyExists": "Review already exists for this item.",
+    "createFailed": "Failed to create review.",
+    "fetchFailed": "Failed to fetch reviews."
+  },
+  "success": {
+    "created": "Review created successfully."
   }
 }

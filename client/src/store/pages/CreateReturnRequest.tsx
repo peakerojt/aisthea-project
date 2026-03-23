@@ -76,7 +76,7 @@ export const CreateReturnRequest: React.FC<Props> = ({ orderIdForReturn, onSucce
         const res = await (orderService as any).getOrderById(orderIdForReturn);
         return (res as any)?.data?.data ?? (res as any)?.data ?? res;
       }
-      throw new Error('Order detail unavailable');
+      throw new Error('Không thể tải chi tiết đơn hàng.');
     },
     select: (res) => {
       // Normalize different response shapes

@@ -67,9 +67,18 @@
         "labelStatus": "Trạng thái",
         "statusActive": "Kích hoạt",
         "statusInactive": "Vô hiệu hóa",
+        "placeholders": {
+            "valuePercent": "VD: 20",
+            "valueFixed": "VD: 50.000",
+            "maxDiscount": "VD: 50.000 (để trống = không giới hạn)",
+            "minOrderValue": "0 = không điều kiện"
+        },
         "saving": "Đang lưu…",
         "create": "Tạo mã",
         "update": "Cập nhật"
+    },
+    "common": {
+        "unlimited": "Không giới hạn"
     },
     "delete": {
         "title": "Vô hiệu hóa mã giảm giá",

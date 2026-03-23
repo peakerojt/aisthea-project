@@ -1,0 +1,42 @@
+{
+  "errors": {
+    "fetchListFailed": "Không thể tải danh sách phiếu nhập hàng.",
+    "fetchOneFailed": "Không thể tải chi tiết phiếu nhập hàng.",
+    "createFailed": "Không thể tạo phiếu nhập hàng.",
+    "receiveFailed": "Không thể ghi nhận phiếu nhập hàng.",
+    "cancelFailed": "Không thể hủy phiếu nhập hàng.",
+    "invalidId": "Mã phiếu nhập hàng không hợp lệ.",
+    "notFound": "Không tìm thấy phiếu nhập hàng.",
+    "supplierRequired": "Nhà cung cấp là bắt buộc.",
+    "invoiceTooLong": "Số hóa đơn không được vượt quá 100 ký tự.",
+    "contactTooLong": "Tên liên hệ nhà cung cấp không được vượt quá 100 ký tự.",
+    "phoneTooLong": "Số điện thoại nhà cung cấp không được vượt quá 20 ký tự.",
+    "phoneInvalid": "Định dạng số điện thoại nhà cung cấp không hợp lệ.",
+    "emailTooLong": "Email nhà cung cấp không được vượt quá 100 ký tự.",
+    "emailInvalid": "Định dạng email nhà cung cấp không hợp lệ.",
+    "notesTooLong": "Ghi chú không được vượt quá 1000 ký tự.",
+    "expectedDateInvalid": "Ngày dự kiến nhận phải là chuỗi ngày ISO hợp lệ.",
+    "expectedDatePast": "Ngày dự kiến nhận không được ở trong quá khứ.",
+    "itemsRequired": "Cần có ít nhất một mặt hàng trong phiếu nhập.",
+    "itemVariantInvalid": "Mỗi mặt hàng phải có variantId hợp lệ.",
+    "itemQuantityInvalid": "Mỗi mặt hàng phải có orderedQty lớn hơn 0.",
+    "itemUnitCostInvalid": "Mỗi mặt hàng phải có unitCost lớn hơn 0.",
+    "duplicateVariant": "Không được nhập trùng biến thể trong cùng một phiếu nhập.",
+    "variantMissing": "Một hoặc nhiều biến thể không tồn tại.",
+    "receiptItemsRequired": "Cần có ít nhất một dòng nhận hàng.",
+    "receiptItemQuantityInvalid": "Mỗi dòng nhận hàng phải có quantity lớn hơn 0.",
+    "receiptItemReferenceRequired": "Mỗi dòng nhận hàng phải có purchaseOrderItemId hoặc variantId.",
+    "cancelledCannotReceive": "Không thể nhận hàng cho phiếu nhập đã hủy.",
+    "alreadyReceived": "Phiếu nhập hàng đã được nhận đủ.",
+    "receiptItemNotFound": "Một hoặc nhiều dòng nhận hàng không thuộc phiếu nhập này.",
+    "receiptDuplicate": "Không được nhập trùng dòng nhận hàng.",
+    "receiptExceedsOrderedQty": "Số lượng nhận vượt quá số lượng còn lại cần nhập.",
+    "alreadyCancelled": "Phiếu nhập hàng đã bị hủy.",
+    "receivedCannotCancel": "Không thể hủy phiếu nhập đã nhận đủ."
+  },
+  "success": {
+    "created": "Tạo phiếu nhập hàng thành công.",
+    "received": "Ghi nhận nhập hàng thành công.",
+    "cancelled": "Hủy phiếu nhập hàng thành công."
+  }
+}

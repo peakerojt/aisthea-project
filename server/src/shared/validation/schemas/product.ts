@@ -24,12 +24,12 @@ const variantSchema = z.object({
   price: priceField,
   stockQuantity: nonNegativeQuantityField,
   isDefault: z.boolean().optional(),
-  attributeValues: z.array(variantAttributeSchema).min(1, 'Each variant must have at least one attribute'),
+  attributeValues: z.array(variantAttributeSchema).min(1, 'Mỗi biến thể phải có ít nhất một thuộc tính'),
 }).strict();
 
 const imageSchema = z.object({
-  imageUrl: z.string().trim().url('Invalid image URL'),
-  thumbnailUrl: z.string().trim().url('Invalid thumbnail URL').optional(),
+  imageUrl: z.string().trim().url('URL hình ảnh không hợp lệ'),
+  thumbnailUrl: z.string().trim().url('URL ảnh thu nhỏ không hợp lệ').optional(),
   isPrimary: z.boolean().optional(),
 }).strict();
 
@@ -39,7 +39,7 @@ const updateVariantSchema = z.object({
   price: priceField,
   stockQuantity: nonNegativeQuantityField,
   isDefault: z.boolean().optional(),
-  attributeValues: z.array(variantAttributeSchema).min(1, 'Each variant must have at least one attribute'),
+  attributeValues: z.array(variantAttributeSchema).min(1, 'Mỗi biến thể phải có ít nhất một thuộc tính'),
 }).strict();
 
 export const createProductSchema = z.object({
@@ -50,7 +50,7 @@ export const createProductSchema = z.object({
   categoryId: positiveIntField,
   brandId: positiveIntField.optional(),
   status: productStatusSchema.optional().default('Active'),
-  variants: z.array(variantSchema).min(1, 'At least one variant is required'),
+  variants: z.array(variantSchema).min(1, 'Phải có ít nhất một biến thể'),
   images: z.array(imageSchema).optional().default([]),
 }).strict();
 

@@ -1,6 +1,32 @@
 {
   "errors": {
-    "invalidAttribute": "Dữ liệu thuộc tính phân loại không hợp lệ.",
-    "notFound": "Không tìm thấy sản phẩm."
+    "invalidProductId": "Mã sản phẩm không hợp lệ.",
+    "invalidProductOrImageId": "Mã sản phẩm hoặc ảnh không hợp lệ.",
+    "invalidImageId": "Mã ảnh không hợp lệ.",
+    "invalidAttribute": "Dữ liệu thuộc tính biến thể không hợp lệ.",
+    "notFound": "Không tìm thấy sản phẩm.",
+    "noFile": "Vui lòng chọn ảnh để tải lên.",
+    "noFiles": "Vui lòng chọn ít nhất một ảnh để tải lên.",
+    "imageNotFound": "Không tìm thấy ảnh.",
+    "imageNotFoundForProduct": "Không tìm thấy ảnh thuộc sản phẩm này.",
+    "fetchImagesFailed": "Không thể tải danh sách ảnh sản phẩm.",
+    "uploadImageFailed": "Không thể tải ảnh lên.",
+    "uploadImagesFailed": "Không thể tải nhiều ảnh lên.",
+    "setPrimaryImageFailed": "Không thể cập nhật ảnh bìa.",
+    "deleteImageFailed": "Không thể xóa ảnh.",
+    "templateDownloadFailed": "Không thể tạo file mẫu nhập sản phẩm.",
+    "exportFailed": "Không thể xuất danh sách sản phẩm.",
+    "importFileRequired": "Vui lòng tải lên file Excel (.xlsx) hoặc CSV (.csv).",
+    "importFailed": "Không thể xử lý file nhập sản phẩm."
+  },
+  "success": {
+    "created": "Tạo sản phẩm thành công.",
+    "updated": "Cập nhật sản phẩm thành công.",
+    "statusUpdated": "Cập nhật trạng thái sản phẩm thành công.",
+    "archived": "Sản phẩm đã được ẩn vì đang được tham chiếu trong các đơn hàng hiện có.",
+    "deleted": "Xóa sản phẩm thành công.",
+    "imageUploaded": "Tải ảnh lên thành công.",
+    "imageDeleted": "Xóa ảnh thành công.",
+    "primaryImageUpdated": "Cập nhật ảnh bìa thành công."
   }
 }

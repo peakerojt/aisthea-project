@@ -48,6 +48,9 @@ type InventorySummary = {
   ok: number;
 };
 
+const isPositiveInteger = (value: number) => Number.isInteger(value) && value > 0;
+const isPositiveFiniteNumber = (value: number) => Number.isFinite(value) && value > 0;
+
 const useDebouncedValue = <T,>(value: T, delayMs: number) => {
   const [debounced, setDebounced] = useState(value);
 
@@ -104,6 +107,7 @@ type PurchaseOrderDraftRowProps = {
   modalFieldClass: string;
   modalFieldLabelClass: string;
   chooseVariantLabel: string;
+  itemRowLabel: string;
   variantLabelText: string;
   qtyLabelText: string;
   costLabelText: string;
@@ -121,6 +125,7 @@ const PurchaseOrderDraftRow = React.memo(({
   modalFieldClass,
   modalFieldLabelClass,
   chooseVariantLabel,
+  itemRowLabel,
   variantLabelText,
   qtyLabelText,
   costLabelText,
@@ -170,7 +175,7 @@ const PurchaseOrderDraftRow = React.memo(({
   return (
     <div className="rounded-xl border border-white/10 bg-black/20 p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-white">Dòng sản phẩm {index + 1}</p>
+        <p className="text-sm font-medium text-white">{itemRowLabel}</p>
         <button onClick={handleRemove} disabled={!canRemove} className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-medium text-red-300 disabled:opacity-40"><X size={14} />{removeItemLabel}</button>
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-start">
@@ -438,6 +443,12 @@ export const Restock: React.FC = () => {
     setDraftItems([{ variantId: '', orderedQty: 1, unitCost: 1 }]);
   };
 
+  const hasSelectedDraftVariant = (item: DraftItem) => item.variantId !== '';
+  const hasInvalidDraftOrderedQty = (item: DraftItem) =>
+    hasSelectedDraftVariant(item) && !isPositiveInteger(item.orderedQty);
+  const hasInvalidDraftUnitCost = (item: DraftItem) =>
+    hasSelectedDraftVariant(item) && !isPositiveFiniteNumber(item.unitCost);
+
   const handleCreate = async () => {
     if (!supplier.trim()) return setError(tt('restock:po.errors.supplierRequired'));
 
@@ -449,14 +460,10 @@ export const Restock: React.FC = () => {
       }
     }
 
-    const hasInvalidOrderedQty = draftItems.some(
-      (item) => item.variantId !== '' && (!Number.isInteger(item.orderedQty) || item.orderedQty <= 0),
-    );
+    const hasInvalidOrderedQty = draftItems.some(hasInvalidDraftOrderedQty);
     if (hasInvalidOrderedQty) return setError(tt('restock:po.errors.invalidOrderedQty'));
 
-    const hasInvalidUnitCost = draftItems.some(
-      (item) => item.variantId !== '' && (!Number.isFinite(item.unitCost) || item.unitCost <= 0),
-    );
+    const hasInvalidUnitCost = draftItems.some(hasInvalidDraftUnitCost);
     if (hasInvalidUnitCost) return setError(tt('restock:po.errors.invalidUnitCost'));
 
     const items = draftItems
@@ -680,7 +687,7 @@ export const Restock: React.FC = () => {
                 type="button"
                 onClick={() => changeInventoryPage(Math.max(1, inventoryPage - 1))}
                 disabled={!inventoryCanPrev || fetchingInventory}
-                aria-label="Trang trước"
+                aria-label={tt('restock:po.pagination.previousInventory')}
                 className="h-8 w-8 rounded-lg"
               >
                 <ChevronLeft size={14} />
@@ -692,7 +699,7 @@ export const Restock: React.FC = () => {
                 type="button"
                 onClick={() => changeInventoryPage(Math.min(inventoryMeta.totalPages, inventoryPage + 1))}
                 disabled={!inventoryCanNext || fetchingInventory}
-                aria-label="Trang sau"
+                aria-label={tt('restock:po.pagination.nextInventory')}
                 className="h-8 w-8 rounded-lg"
               >
                 <ChevronRight size={14} />
@@ -785,7 +792,7 @@ export const Restock: React.FC = () => {
                 type="button"
                 onClick={() => setPoPage((prev) => Math.max(1, prev - 1))}
                 disabled={!poCanPrev || loadingOrders}
-                aria-label="Trang trước PO"
+                aria-label={tt('restock:po.pagination.previousPo')}
                 className="h-8 w-8 rounded-lg"
               >
                 <ChevronLeft size={14} />
@@ -797,7 +804,7 @@ export const Restock: React.FC = () => {
                 type="button"
                 onClick={() => setPoPage((prev) => Math.min(poMeta.totalPages, prev + 1))}
                 disabled={!poCanNext || loadingOrders}
-                aria-label="Trang sau PO"
+                aria-label={tt('restock:po.pagination.nextPo')}
                 className="h-8 w-8 rounded-lg"
               >
                 <ChevronRight size={14} />
@@ -901,7 +908,7 @@ export const Restock: React.FC = () => {
                     type="text"
                     value={supplier}
                     onChange={(e) => setSupplier(e.target.value)}
-                    placeholder="Ví dụ: Shoppe, Xưởng may Minh Anh..."
+                    placeholder={tt('restock:po.create.placeholders.supplier')}
                     className={modalFieldClass}
                   />
                 </div>
@@ -921,7 +928,7 @@ export const Restock: React.FC = () => {
                     type="text"
                     value={invoiceNumber}
                     onChange={(e) => setInvoiceNumber(e.target.value)}
-                    placeholder="Ví dụ: HD-2026-0318"
+                    placeholder={tt('restock:po.create.placeholders.invoice')}
                     className={modalFieldClass}
                   />
                 </div>
@@ -931,7 +938,7 @@ export const Restock: React.FC = () => {
                     type="text"
                     value={supplierContactName}
                     onChange={(e) => setSupplierContactName(e.target.value)}
-                    placeholder="Ví dụ: Nguyễn Minh Anh"
+                    placeholder={tt('restock:po.create.placeholders.contactName')}
                     className={modalFieldClass}
                   />
                 </div>
@@ -941,7 +948,7 @@ export const Restock: React.FC = () => {
                     type="tel"
                     value={supplierPhone}
                     onChange={(e) => setSupplierPhone(e.target.value)}
-                    placeholder="Ví dụ: 0901234567"
+                    placeholder={tt('restock:po.create.placeholders.phone')}
                     className={modalFieldClass}
                   />
                 </div>
@@ -951,7 +958,7 @@ export const Restock: React.FC = () => {
                     type="email"
                     value={supplierEmail}
                     onChange={(e) => setSupplierEmail(e.target.value)}
-                    placeholder="Ví dụ: supplier@example.com"
+                    placeholder={tt('restock:po.create.placeholders.email')}
                     className={modalFieldClass}
                   />
                 </div>
@@ -960,7 +967,7 @@ export const Restock: React.FC = () => {
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Ví dụ: Giao trước 17h, ưu tiên đủ size S và M."
+                    placeholder={tt('restock:po.create.placeholders.notes')}
                     className={modalTextareaClass}
                   />
                 </div>
@@ -986,6 +993,7 @@ export const Restock: React.FC = () => {
                     modalFieldClass={modalFieldClass}
                     modalFieldLabelClass={modalFieldLabelClass}
                     chooseVariantLabel={createModalLabels.chooseVariant}
+                    itemRowLabel={tt('restock:po.create.itemRow', { index: index + 1 })}
                     variantLabelText={createModalLabels.variant}
                     qtyLabelText={createModalLabels.qty}
                     costLabelText={createModalLabels.cost}

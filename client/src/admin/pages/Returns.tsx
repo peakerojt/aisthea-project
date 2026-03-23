@@ -202,7 +202,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
                                             onClick={() => setLightboxImg(url)}
                                             className="aspect-square rounded overflow-hidden border border-white/10 hover:border-white/30 transition-colors cursor-pointer group relative"
                                         >
-                                            <img src={url} alt={`Minh chứng ${i + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                                            <img src={url} alt={t('modal.proofImageAltNumber', { index: i + 1 })} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
                                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                                                 <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
@@ -251,7 +251,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
                 <div
                     role="dialog"
                     aria-modal="true"
-                    aria-label="Xem ảnh minh chứng"
+                    aria-label={t('modal.proofLightboxLabel')}
                     className={`fixed inset-0 z-[300] flex cursor-pointer items-center justify-center bg-slate-900/60 p-4 transition-all duration-200 ease-out ${
                         isLightboxVisible ? 'opacity-100' : 'opacity-0'
                     }`}
@@ -262,9 +262,10 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onAction }) =>
                             isLightboxVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'
                         }`}
                     >
-                        <img src={lightboxImg} alt="Minh chứng" className="max-h-[84vh] max-w-[88vw] rounded-xl object-contain" />
+                        <img src={lightboxImg} alt={t('modal.proofImageAlt')} className="max-h-[84vh] max-w-[88vw] rounded-xl object-contain" />
                     </div>
                     <button
+                        aria-label={t('modal.closeProofLightbox')}
                         className="absolute right-6 top-6 rounded-full border border-white/10 bg-black/70 p-2 text-white/60 transition-colors duration-200 hover:text-white"
                         onClick={() => setLightboxImg(null)}
                     >
@@ -337,10 +338,9 @@ export const Returns: React.FC = () => {
     ) => {
         try {
             const result = await adminReturnService.process(returnId, action, note);
-            const message = result.messageKey ? t(result.messageKey) : result.message;
             showToast({
                 type: 'success',
-                title: message,
+                title: result.message || t('feedback.processError'),
             });
             setSelectedReturn(null);
             await load();

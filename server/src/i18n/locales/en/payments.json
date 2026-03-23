@@ -1,0 +1,18 @@
+{
+  "errors": {
+    "missingOrderId": "Missing required parameter: orderId.",
+    "orderNotVnpay": "This order is not configured for VNPay payment.",
+    "orderAlreadyPaid": "This order has already been paid.",
+    "configMissing": "VNPay configuration is missing.",
+    "createPaymentUrlFailed": "Failed to create the VNPay payment URL.",
+    "orderNotPaid": "This order has not been paid, so it cannot be refunded.",
+    "overRefund": "Refund amount exceeds the total order value.",
+    "gatewayFailed": "The payment gateway rejected the refund transaction.",
+    "invalidAmount": "Refund amount is invalid.",
+    "missingRequiredFields": "Missing required fields: amount, type, method, reason.",
+    "fetchRefundHistoryFailed": "Failed to load refund history."
+  },
+  "success": {
+    "refundInitiated": "Refund request sent successfully."
+  }
+}

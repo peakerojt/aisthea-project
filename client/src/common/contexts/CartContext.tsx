@@ -257,7 +257,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const addItemsBatch = useCallback(async (items: Array<{ variantId: number; quantity: number }>) => {
         if (!isAuthenticated) {
-            throw new Error('Batch cart updates require authentication.');
+            throw new Error('Bạn cần đăng nhập để cập nhật nhiều sản phẩm trong giỏ hàng.');
         }
 
         const normalizedItems = items.filter((item) => item.variantId && item.quantity > 0);

@@ -147,7 +147,7 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
     res.json({ data: orders.map(buildOrderSummaryRow), meta });
   } catch (error: any) {
     logger.error('[getAllOrders] Failed', { message: error?.message, prismaCode: error?.code, meta: error?.meta, url: req.originalUrl });
-    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR' });
   }
 };
 
@@ -156,7 +156,7 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
 export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
   try {
     const orderId = parseIdParam(req.params.id);
-    if (orderId === null) return res.status(400).json({ error: 'Invalid order ID' });
+    if (orderId === null) return res.status(400).json({ errorCode: 'INVALID_ORDER_ID' });
 
     const order = await prisma.order.findUnique({
       where: { orderId },
@@ -192,7 +192,7 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    if (!order) return res.status(404).json({ success: false, errorCode: 'ORDER_NOT_FOUND', message: 'Order not found' });
+    if (!order) return res.status(404).json({ success: false, errorCode: 'ORDER_NOT_FOUND' });
 
     const variantFallbackBySku = await loadVariantFallbacksBySku(order.items);
     const shipping = getOrderTrackingSummary(order.orderNumber, order.shipment);
@@ -268,7 +268,7 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
     });
   } catch (error: any) {
     logger.error('[getAdminOrderDetail] Failed', { message: error?.message, orderId: req.params.id, url: req.originalUrl });
-    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR' });
   }
 };
 
@@ -277,8 +277,8 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
 export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
   try {
     const orderId = parseIdParam(req.params.id);
-    if (orderId === null) return res.status(400).json({ error: 'Invalid order ID' });
-    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (orderId === null) return res.status(400).json({ errorCode: 'INVALID_ORDER_ID' });
+    if (!req.user) return res.status(401).json({ errorCode: 'UNAUTHORIZED' });
 
     const { status, note, deliveryProofImages, deliveryProofReviewed } = req.body as {
       status: string;
@@ -294,7 +294,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       deliveryProofReviewed,
     });
 
-    res.json({ success: true, messageKey: SUCCESS_MESSAGES.ORDER_STATUS_UPDATED, ...result });
+    res.json({ success: true, code: SUCCESS_MESSAGES.ORDER_STATUS_UPDATED, ...result });
   } catch (error: any) {
     logger.error('[updateOrderStatus] Failed', {
       message: error?.message,
@@ -317,12 +317,11 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
         errorCode: errorCode ?? 'REQUEST_FAILED',
         code: errorCode ?? 'REQUEST_FAILED',
         messageKey,
-        message: error.message,
         ...(process.env.NODE_ENV === 'production' ? {} : { details: error?.details }),
       });
       return;
     }
-    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR' });
   }
 };
 
@@ -331,7 +330,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
 export const getMyOrders = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!userId) return res.status(401).json({ errorCode: 'UNAUTHORIZED' });
 
     const { status, page, pageSize, sort } = req.query;
     const filters = {
@@ -346,7 +345,7 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
     res.json({ data: orders.map(buildOrderSummaryRow), meta });
   } catch (error: any) {
     logger.error('[getMyOrders] Failed', { message: error?.message, userId: req.user?.userId, url: req.originalUrl });
-    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR' });
   }
 };
 
@@ -355,10 +354,10 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
 export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!userId) return res.status(401).json({ errorCode: 'UNAUTHORIZED' });
 
     const orderId = parseIdParam(req.params.orderId);
-    if (orderId === null) return res.status(400).json({ error: 'Invalid order ID' });
+    if (orderId === null) return res.status(400).json({ errorCode: 'INVALID_ORDER_ID' });
 
     const order = await prisma.order.findFirst({
       where: { orderId, userId },
@@ -392,7 +391,7 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (!order) return res.status(404).json({ errorCode: 'ORDER_NOT_FOUND' });
 
     const variantFallbackBySku = await loadVariantFallbacksBySku(order.items);
     const shipping = getOrderTrackingSummary(order.orderNumber, order.shipment);
@@ -461,7 +460,7 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
     });
   } catch (error: any) {
     logger.error('[getMyOrderDetail] Failed', { message: error?.message, orderId: req.params.orderId, userId: req.user?.userId });
-    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR' });
   }
 };
 
@@ -470,7 +469,7 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
 export const quoteOrder = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!userId) return res.status(401).json({ errorCode: 'UNAUTHORIZED' });
 
     const { items, couponCode, shippingCityCode, shippingMethod } = req.body as QuoteOrderInput;
 
@@ -495,9 +494,9 @@ export const quoteOrder = async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     logger.error('[quoteOrder] Failed', { message: error?.message, userId: req.user?.userId });
     if (error.status) {
-      return res.status(error.status).json({ success: false, errorCode: error.code, message: error.message });
+      return res.status(error.status).json({ success: false, errorCode: error.code });
     }
-    return res.status(500).json({ success: false, errorCode: 'CHECKOUT_QUOTE_FAILED', message: 'Failed to calculate pricing.' });
+    return res.status(500).json({ success: false, errorCode: 'CHECKOUT_QUOTE_FAILED' });
   }
 };
 
@@ -506,7 +505,7 @@ export const quoteOrder = async (req: AuthRequest, res: Response) => {
 export const createOrder = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!userId) return res.status(401).json({ errorCode: 'UNAUTHORIZED' });
 
     const {
       paymentMethod, customerName, customerEmail, customerPhone, shippingCity, shippingDistrict,
@@ -542,6 +541,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
 
     return res.json({
       success: true,
+      code: 'ORDER_CREATED',
       orderId,
       orderCode: orderDetail.orderCode,
       trackingCode: orderDetail.trackingCode,
@@ -552,12 +552,11 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       ),
       pricing: orderDetail.pricing,
       paymentMethod: orderDetail.paymentMethod,
-      message: 'Order created successfully',
     });
   } catch (error: any) {
     logger.error('[createOrder] Checkout failed', { message: error?.message, errorCode: error?.code, userId: req.user?.userId });
-    if (error.status) return res.status(error.status).json({ success: false, errorCode: error.code, message: error.message });
-    return res.status(500).json({ success: false, errorCode: 'CHECKOUT_FAILED', message: 'Checkout failed. Please try again.' });
+    if (error.status) return res.status(error.status).json({ success: false, errorCode: error.code });
+    return res.status(500).json({ success: false, errorCode: 'CHECKOUT_FAILED' });
   }
 };
 
@@ -566,17 +565,17 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
 export const uploadDeliveryProofImages = async (req: AuthRequest, res: Response) => {
   try {
     const orderId = parseIdParam(req.params.id);
-    if (orderId === null) return res.status(400).json({ error: 'Invalid order ID' });
+    if (orderId === null) return res.status(400).json({ errorCode: 'INVALID_ORDER_ID' });
 
     const order = await prisma.order.findUnique({
       where: { orderId },
       select: { orderId: true },
     });
-    if (!order) return res.status(404).json({ success: false, errorCode: 'ORDER_NOT_FOUND', message: 'Order not found' });
+    if (!order) return res.status(404).json({ success: false, errorCode: 'ORDER_NOT_FOUND' });
 
     const files = Array.isArray(req.files) ? req.files : [];
     if (files.length === 0) {
-      return res.status(400).json({ success: false, errorCode: 'DELIVERY_PROOF_REQUIRED', message: 'At least one delivery proof image is required.' });
+      return res.status(400).json({ success: false, errorCode: 'DELIVERY_PROOF_REQUIRED' });
     }
 
     const uploaded = await Promise.all(
@@ -601,14 +600,14 @@ export const uploadDeliveryProofImages = async (req: AuthRequest, res: Response)
 
     return res.status(201).json({
       success: true,
+      code: 'DELIVERY_PROOF_UPLOADED',
       data: {
         images: uploaded,
       },
-      message: 'Delivery proof images uploaded successfully.',
     });
   } catch (error: any) {
     logger.error('[uploadDeliveryProofImages] Failed', { message: error?.message, orderId: req.params.id });
-    return res.status(500).json({ success: false, errorCode: 'DELIVERY_PROOF_UPLOAD_FAILED', message: 'Failed to upload delivery proof images.' });
+    return res.status(500).json({ success: false, errorCode: 'DELIVERY_PROOF_UPLOAD_FAILED' });
   }
 };
 
@@ -689,9 +688,9 @@ export const confirmReceipt = async (req: AuthRequest, res: Response) => {
       }
     });
 
-    return res.json({ success: true, messageKey: SUCCESS_MESSAGES.RECEIPT_CONFIRMED, orderId, newStatus: ORDER_STATUS.DELIVERED });
+    return res.json({ success: true, code: SUCCESS_MESSAGES.RECEIPT_CONFIRMED, orderId, newStatus: ORDER_STATUS.DELIVERED });
   } catch (error: any) {
     logger.error('[confirmReceipt] Failed', { message: error?.message, orderId: req.params.id, userId: req.user?.userId });
-    return res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
+    return res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR' });
   }
 };

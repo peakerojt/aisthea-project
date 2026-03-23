@@ -23,7 +23,7 @@ export const orderItemSchema = z.object({
 }).strict();
 
 export const quoteOrderSchema = z.object({
-  items: z.array(orderItemSchema).min(1, 'At least one item is required'),
+  items: z.array(orderItemSchema).min(1, 'Phải có ít nhất một sản phẩm'),
   couponCode: optionalCouponCodeField,
   shippingCityCode: shippingCityCodeField.optional(),
   shippingMethod: shippingMethodSchema.optional(),
@@ -39,24 +39,27 @@ export const createOrderSchema = z.object({
   shippingWard: wardField,
   shippingAddressDetail: addressLineField,
   note: noteField,
-  items: z.array(orderItemSchema).min(1, 'At least one item is required'),
+  items: z.array(orderItemSchema).min(1, 'Phải có ít nhất một sản phẩm'),
   couponCode: optionalCouponCodeField,
   shippingCityCode: shippingCityCodeField,
   shippingMethod: shippingMethodSchema,
 }).strict();
 
 export const orderIdParamSchema = z.object({
-  id: z.coerce.number().int('Order id must be an integer').positive('Order id must be greater than 0'),
+  id: z.coerce.number().int('Mã đơn hàng phải là số nguyên').positive('Mã đơn hàng phải lớn hơn 0'),
 });
 
 export const myOrderIdParamSchema = z.object({
-  orderId: z.coerce.number().int('Order id must be an integer').positive('Order id must be greater than 0'),
+  orderId: z.coerce.number().int('Mã đơn hàng phải là số nguyên').positive('Mã đơn hàng phải lớn hơn 0'),
 });
 
 export const updateOrderStatusSchema = z.object({
-  status: z.string().trim().min(1, 'Status is required'),
+  status: z.string().trim().min(1, 'Vui lòng nhập trạng thái'),
   note: noteField,
-  deliveryProofImages: z.array(z.string().url('Each delivery proof image must be a valid URL')).max(5).optional(),
+  deliveryProofImages: z
+    .array(z.string().url('Mỗi ảnh bằng chứng giao hàng phải là một URL hợp lệ'))
+    .max(5)
+    .optional(),
   deliveryProofReviewed: z.boolean().optional(),
 }).strict();
 

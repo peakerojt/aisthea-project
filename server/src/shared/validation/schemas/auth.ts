@@ -6,14 +6,18 @@ import {
   passwordField,
 } from '../fields';
 
-const verificationCodeField = z.string().trim().min(1, 'Verification code is required').max(32, 'Verification code is too long');
+const verificationCodeField = z
+  .string()
+  .trim()
+  .min(1, 'Vui lòng nhập mã xác thực')
+  .max(32, 'Mã xác thực quá dài');
 const resetCodeField = z.preprocess(
   (value) => {
     if (typeof value !== 'string') return value;
     const normalized = value.trim();
     return normalized.length > 0 ? normalized : undefined;
   },
-  z.string().regex(/^\d{6}$/, 'Reset code must be exactly 6 digits').optional(),
+  z.string().regex(/^\d{6}$/, 'Mã đặt lại phải gồm đúng 6 chữ số').optional(),
 );
 
 export const registerSchema = z.object({

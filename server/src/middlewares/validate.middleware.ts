@@ -15,7 +15,6 @@ const issueCodeMap: Record<string, string> = {
 const normalizeIssue = (issue: any) => ({
     field: Array.isArray(issue?.path) && issue.path.length > 0 ? issue.path.join('.') : '',
     code: issueCodeMap[issue?.code] ?? 'VALIDATION_INVALID',
-    message: issue?.message ?? 'Invalid value',
 });
 
 const extractIssues = (error: ZodError) =>
@@ -24,7 +23,7 @@ const extractIssues = (error: ZodError) =>
             return issue.keys.map((key: string) => ({
                 field: key,
                 code: 'VALIDATION_UNKNOWN_FIELD',
-                message: `Unrecognized field: ${key}`,
+                messageKey: 'common:errors.unknownField',
             }));
         }
 
@@ -61,7 +60,6 @@ export const validate =
                     errorCode: 'VALIDATION_ERROR',
                     code: 'VALIDATION_ERROR',
                     messageKey: 'common:errors.validation',
-                    message: 'Request validation failed.',
                     field: issues[0]?.field || undefined,
                     details: issues,
                     traceId: req.traceId,

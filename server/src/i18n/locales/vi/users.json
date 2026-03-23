@@ -1,0 +1,37 @@
+{
+  "errors": {
+    "userNotFound": "Không tìm thấy người dùng.",
+    "invalidUserId": "Mã người dùng không hợp lệ.",
+    "fetchProfileFailed": "Không thể tải hồ sơ người dùng.",
+    "updateProfileFailed": "Không thể cập nhật hồ sơ người dùng.",
+    "invalidAvatarPayload": "Vui lòng tải lên ảnh đại diện hoặc gửi dữ liệu base64 trong trường avatar.",
+    "invalidAvatarFormat": "Vui lòng tải lên tệp ảnh hợp lệ.",
+    "unsupportedAvatarType": "Định dạng ảnh đã chọn không được hỗ trợ.",
+    "uploadAvatarFailed": "Không thể tải ảnh đại diện lên.",
+    "fetchAddressesFailed": "Không thể tải danh sách địa chỉ.",
+    "createAddressFailed": "Không thể tạo địa chỉ mới.",
+    "updateAddressFailed": "Không thể cập nhật địa chỉ.",
+    "deleteAddressFailed": "Không thể xóa địa chỉ.",
+    "setDefaultAddressFailed": "Không thể đặt địa chỉ mặc định.",
+    "addressRequiredFields": "Vui lòng nhập đầy đủ người nhận, số điện thoại, địa chỉ, thành phố, quận huyện và phường xã.",
+    "addressNotFound": "Không tìm thấy địa chỉ hoặc bạn không có quyền truy cập.",
+    "fetchRecentOrdersFailed": "Không thể tải đơn hàng gần đây.",
+    "fetchUsersFailed": "Không thể tải danh sách người dùng.",
+    "cannotBanSelf": "Bạn không thể khóa chính tài khoản của mình.",
+    "cannotBanAdmin": "Bạn không thể khóa tài khoản quản trị viên khác.",
+    "updateStatusFailed": "Không thể cập nhật trạng thái người dùng.",
+    "roleNotFound": "Không tìm thấy vai trò.",
+    "updateRoleFailed": "Không thể cập nhật vai trò người dùng."
+  },
+  "success": {
+    "profileUpdated": "Cập nhật hồ sơ thành công.",
+    "avatarUploaded": "Tải ảnh đại diện lên thành công.",
+    "avatarDeleted": "Xóa ảnh đại diện thành công.",
+    "addressCreated": "Tạo địa chỉ thành công.",
+    "addressUpdated": "Cập nhật địa chỉ thành công.",
+    "addressDeleted": "Xóa địa chỉ thành công.",
+    "defaultAddressSet": "Cập nhật địa chỉ mặc định thành công.",
+    "statusUpdated": "Cập nhật trạng thái người dùng thành công.",
+    "roleUpdated": "Cập nhật vai trò người dùng thành công."
+  }
+}

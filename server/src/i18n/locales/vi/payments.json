@@ -1,0 +1,18 @@
+{
+  "errors": {
+    "missingOrderId": "Thiếu tham số bắt buộc: orderId.",
+    "orderNotVnpay": "Đơn hàng này không được cấu hình thanh toán bằng VNPay.",
+    "orderAlreadyPaid": "Đơn hàng này đã được thanh toán.",
+    "configMissing": "Thiếu cấu hình VNPay.",
+    "createPaymentUrlFailed": "Không thể tạo liên kết thanh toán VNPay.",
+    "orderNotPaid": "Đơn hàng chưa được thanh toán nên không thể hoàn tiền.",
+    "overRefund": "Số tiền hoàn vượt quá giá trị đơn hàng.",
+    "gatewayFailed": "Cổng thanh toán đã từ chối giao dịch hoàn tiền.",
+    "invalidAmount": "Số tiền hoàn không hợp lệ.",
+    "missingRequiredFields": "Thiếu các trường bắt buộc: amount, type, method, reason.",
+    "fetchRefundHistoryFailed": "Không thể tải lịch sử hoàn tiền."
+  },
+  "success": {
+    "refundInitiated": "Đã gửi yêu cầu hoàn tiền thành công."
+  }
+}

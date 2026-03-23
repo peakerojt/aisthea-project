@@ -361,7 +361,7 @@ export const Products: React.FC = () => {
               >
                 <div className="grid w-full gap-3 md:grid-cols-[minmax(280px,360px)_auto]">
                   <label className="relative">
-                    <span className={adminUiTokens.fieldLabel}>Tìm kiếm</span>
+                    <span className={adminUiTokens.fieldLabel}>{t('products:toolbar.searchLabel')}</span>
                     <Search size={15} className="pointer-events-none absolute left-3 top-[38px] -translate-y-1/2 text-white/30" />
                     <input
                       type="text"

@@ -545,6 +545,15 @@ export const Profile: React.FC = () => {
     }
   };
 
+  const handleSectionChange = useCallback((section: ProfileSection) => {
+    if (section === 'personal') {
+      openOverview();
+      return;
+    }
+
+    openTab(section as Exclude<ProfileSection, 'personal'>);
+  }, [openOverview, openTab]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-bg-dark font-sans text-white">
@@ -660,6 +669,121 @@ export const Profile: React.FC = () => {
     return normalizedStatus === ORDER_STATUS.PENDING;
   });
   const linkedProviderLabel = profile.googleId ? t('summary.googleLinked') : t('summary.googleUnlinked');
+  const showAvatarImage = Boolean(profile.avatarUrl || avatarPreview) && !avatarLoadFailed;
+  const showSavedAvatarAction = Boolean(profile.avatarUrl);
+  const showFilteredOrdersEmpty = recentOrders.length > 0 && filteredOrders.length === 0;
+  let avatarActionContent: React.ReactNode = null;
+  if (avatarPreview) {
+    avatarActionContent = (
+      <div className="flex flex-wrap gap-3">
+        <button
+          onClick={handleUploadAvatar}
+          disabled={uploadingAvatar}
+          className={`${solidPrimaryButtonClassName} flex-1 rounded px-5 py-3 disabled:cursor-not-allowed disabled:opacity-60`}
+        >
+          {uploadingAvatar ? t('avatar.actions.uploading') : t('avatar.actions.save')}
+        </button>
+        <button
+          onClick={() => {
+            setAvatarPreview(null);
+            setAvatarFeedback(null);
+          }}
+          className={`${subtleButtonClassName} rounded px-5 py-3`}
+        >
+          {t('common.cancel')}
+        </button>
+      </div>
+    );
+  } else if (showSavedAvatarAction) {
+    avatarActionContent = (
+      <button
+        onClick={handleDeleteAvatar}
+        className="w-fit text-xs font-bold uppercase tracking-widest text-red-300 transition-colors hover:text-red-200"
+      >
+        {t('avatar.actions.remove')}
+      </button>
+    );
+  }
+
+  let recentOrdersContent: React.ReactNode;
+  if (recentOrders.length === 0) {
+    recentOrdersContent = (
+      <div className="rounded-sm border border-white/5 bg-black/20 p-10 text-center">
+        <Package size={26} className="mx-auto text-white/45" />
+        <h3 className="mt-4 text-xl font-bold">{t('recentOrders.empty')}</h3>
+        <p className="mt-2 text-sm leading-7 text-white/58">{t('recentOrders.emptyHint')}</p>
+        <button onClick={() => navigate('/collection')} className={`mt-5 ${solidPrimaryButtonClassName} rounded px-5 py-3`}>
+          {t('recentOrders.actions.startShopping')}
+        </button>
+      </div>
+    );
+  } else if (showFilteredOrdersEmpty) {
+    recentOrdersContent = (
+      <div className="rounded-sm border border-white/5 bg-black/20 p-10 text-center">
+        <Package size={26} className="mx-auto text-white/45" />
+        <h3 className="mt-4 text-xl font-bold">{t('recentOrders.filteredEmpty')}</h3>
+        <p className="mt-2 text-sm leading-7 text-white/58">{t('recentOrders.filteredEmptyHint')}</p>
+      </div>
+    );
+  } else {
+    recentOrdersContent = (
+      <div className="space-y-3">
+        {filteredOrders.map((order) => {
+          const normalizedStatus = normalizeStatus(order.status);
+          const statusMeta = normalizedStatus ? getStatusMeta(normalizedStatus) : null;
+
+          return (
+            <div
+              key={order.orderId}
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(`/orders/${order.orderId}`)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  navigate(`/orders/${order.orderId}`);
+                }
+              }}
+              className="flex cursor-pointer flex-col gap-4 rounded-sm border border-white/10 bg-black/20 p-5 transition-colors hover:border-white/20 hover:bg-black/25 md:flex-row md:items-center"
+            >
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-mono text-sm text-white">#{order.orderNumber}</span>
+                  <span className="text-[10px] uppercase tracking-widest text-white/40">{formatShortDate(order.createdAt)}</span>
+                  <span
+                    className={`inline-flex rounded border px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${
+                      statusMeta ? `${statusMeta.badgeClass} ${statusMeta.textClass}` : 'border-white/10 text-white/70'
+                    }`}
+                  >
+                    {statusMeta?.label || order.status || t('states.unknown')}
+                  </span>
+                </div>
+                <div className="mt-3 text-sm text-white/70">
+                  <span className="text-white/50">{t('recentOrders.totalLabel')}:</span>{' '}
+                  <span className="font-semibold text-white">{formatCurrencyVND(Number(order.totalAmount ?? 0))}</span>
+                </div>
+                <div className="mt-2 text-xs text-white/40">
+                  {t('recentOrders.orderNumber', { orderNumber: order.orderNumber })}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    navigate(`/orders/${order.orderId}`);
+                  }}
+                  className="border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-white/10"
+                >
+                  {t('recentOrders.actions.viewDetail')}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-bg-dark font-sans text-white">
@@ -677,7 +801,7 @@ export const Profile: React.FC = () => {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => (item.id === 'personal' ? openOverview() : openTab(item.id as Exclude<ProfileSection, 'personal'>))}
+                      onClick={() => handleSectionChange(item.id)}
                       className={`flex w-full items-center gap-3 border-l-4 px-3 py-4 text-left text-base transition-colors ${
                         isActive
                           ? 'border-primary bg-primary/10 font-bold text-primary'
@@ -709,7 +833,7 @@ export const Profile: React.FC = () => {
                   return (
                     <button
                       key={`${item.id}-mobile`}
-                      onClick={() => (item.id === 'personal' ? openOverview() : openTab(item.id as Exclude<ProfileSection, 'personal'>))}
+                      onClick={() => handleSectionChange(item.id)}
                       className={`inline-flex items-center gap-2 rounded px-3 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${
                         isActive
                           ? 'bg-primary/15 text-primary border border-primary/30'
@@ -738,7 +862,7 @@ export const Profile: React.FC = () => {
 
                     <div className={`${luxeCardClassName} px-6 py-8 text-center before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.14),transparent)] before:content-['']`}>
                       <div className="relative z-[1] mx-auto w-fit">
-                        {(profile.avatarUrl || avatarPreview) && !avatarLoadFailed ? (
+                        {showAvatarImage ? (
                           <img
                             src={avatarPreview || getImageUrl(profile.avatarUrl)}
                             alt={t('avatar.alt')}
@@ -763,35 +887,7 @@ export const Profile: React.FC = () => {
                       </div>
                     </div>
 
-                    {avatarPreview ? (
-                      <div className="flex flex-wrap gap-3">
-                        <button
-                          onClick={handleUploadAvatar}
-                          disabled={uploadingAvatar}
-                          className={`${solidPrimaryButtonClassName} flex-1 rounded px-5 py-3 disabled:cursor-not-allowed disabled:opacity-60`}
-                        >
-                          {uploadingAvatar ? t('avatar.actions.uploading') : t('avatar.actions.save')}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setAvatarPreview(null);
-                            setAvatarFeedback(null);
-                          }}
-                          className={`${subtleButtonClassName} rounded px-5 py-3`}
-                        >
-                          {t('common.cancel')}
-                        </button>
-                      </div>
-                    ) : (
-                      profile.avatarUrl && (
-                        <button
-                          onClick={handleDeleteAvatar}
-                          className="w-fit text-xs font-bold uppercase tracking-widest text-red-300 transition-colors hover:text-red-200"
-                        >
-                          {t('avatar.actions.remove')}
-                        </button>
-                      )
-                    )}
+                    {avatarActionContent}
 
                     <button
                       type="button"
@@ -1184,78 +1280,7 @@ export const Profile: React.FC = () => {
                 </div>
 
                 <div className="p-6">
-                  {recentOrders.length === 0 ? (
-                    <div className="rounded-sm border border-white/5 bg-black/20 p-10 text-center">
-                      <Package size={26} className="mx-auto text-white/45" />
-                      <h3 className="mt-4 text-xl font-bold">{t('recentOrders.empty')}</h3>
-                      <p className="mt-2 text-sm leading-7 text-white/58">{t('recentOrders.emptyHint')}</p>
-                      <button onClick={() => navigate('/collection')} className={`mt-5 ${solidPrimaryButtonClassName} rounded px-5 py-3`}>
-                        {t('recentOrders.actions.startShopping')}
-                      </button>
-                    </div>
-                  ) : filteredOrders.length === 0 ? (
-                    <div className="rounded-sm border border-white/5 bg-black/20 p-10 text-center">
-                      <Package size={26} className="mx-auto text-white/45" />
-                      <h3 className="mt-4 text-xl font-bold">{t('recentOrders.filteredEmpty')}</h3>
-                      <p className="mt-2 text-sm leading-7 text-white/58">{t('recentOrders.filteredEmptyHint')}</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {filteredOrders.map((order) => {
-                        const normalizedStatus = normalizeStatus(order.status);
-                        const statusMeta = normalizedStatus ? getStatusMeta(normalizedStatus) : null;
-
-                        return (
-                          <div
-                            key={order.orderId}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => navigate(`/orders/${order.orderId}`)}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter' || event.key === ' ') {
-                                event.preventDefault();
-                                navigate(`/orders/${order.orderId}`);
-                              }
-                            }}
-                            className="flex cursor-pointer flex-col gap-4 rounded-sm border border-white/10 bg-black/20 p-5 transition-colors hover:border-white/20 hover:bg-black/25 md:flex-row md:items-center"
-                          >
-                            <div className="flex-1">
-                              <div className="flex flex-wrap items-center gap-3">
-                                <span className="font-mono text-sm text-white">#{order.orderNumber}</span>
-                                <span className="text-[10px] uppercase tracking-widest text-white/40">{formatShortDate(order.createdAt)}</span>
-                                <span
-                                  className={`inline-flex rounded border px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${
-                                    statusMeta ? `${statusMeta.badgeClass} ${statusMeta.textClass}` : 'border-white/10 text-white/70'
-                                  }`}
-                                >
-                                  {statusMeta?.label || order.status || t('states.unknown')}
-                                </span>
-                              </div>
-                              <div className="mt-3 text-sm text-white/70">
-                                <span className="text-white/50">Tổng tiền:</span>{' '}
-                                <span className="font-semibold text-white">{formatCurrencyVND(Number(order.totalAmount ?? 0))}</span>
-                              </div>
-                              <div className="mt-2 text-xs text-white/40">
-                                {t('recentOrders.orderNumber', { orderNumber: order.orderNumber })}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  navigate(`/orders/${order.orderId}`);
-                                }}
-                                className="border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-white/10"
-                              >
-                                {t('recentOrders.actions.viewDetail')}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  {recentOrdersContent}
                 </div>
               </div>
             </section>

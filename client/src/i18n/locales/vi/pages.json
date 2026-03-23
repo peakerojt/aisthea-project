@@ -54,7 +54,8 @@
     "trendingNow": "Xu hướng hiện tại",
     "sortByPopularity": "Sắp xếp theo độ phổ biến",
     "quickView": "Xem nhanh",
-    "viewAllCollections": "Xem tất cả bộ sưu tập"
+    "viewAllCollections": "Xem tất cả bộ sưu tập",
+    "fallbackDescription": "Sản phẩm nổi bật cho danh mục này đang được cập nhật. Bạn có thể khám phá thêm toàn bộ bộ sưu tập ngay bây giờ."
   },
   "collection": {
     "quickView": "Xem nhanh",
@@ -306,6 +307,7 @@
     "validation": {
       "fullNameMin": "Họ và tên phải có ít nhất 2 ký tự",
       "emailInvalid": "Email không hợp lệ",
+      "confirmPasswordRequired": "Vui lòng xác nhận mật khẩu",
       "passwordMismatch": "Mật khẩu xác nhận không khớp"
     },
     "errors": {
@@ -334,7 +336,6 @@
     "actions": {
       "sending": "Đang gửi...",
       "sendLink": "Gửi hướng dẫn đặt lại",
-      "sendCode": "Gửi mã đặt lại",
       "enterCode": "Nhập mã để đặt lại mật khẩu",
       "backToLogin": "Quay lại đăng nhập"
     },
@@ -380,6 +381,7 @@
     }
   },
   "emailVerification": {
+    "label": "Xác thực email",
     "messages": {
       "emailRequired": "Vui lòng nhập email",
       "emailInvalid": "Email không hợp lệ.",
@@ -735,6 +737,7 @@
       "enterOrderCode": "Vui lòng nhập mã đơn hàng.",
       "enterPhone": "Vui lòng nhập số điện thoại.",
       "orderCodeInvalid": "Mã đơn hàng phải có ít nhất 4 ký tự.",
+      "orderCodeTooLong": "Mã đơn hàng không được vượt quá 50 ký tự.",
       "phoneInvalid": "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0.",
       "notFound": "Không tìm thấy thông tin đơn hàng với dữ liệu đã nhập.",
       "lookupFailed": "Không thể tra cứu đơn hàng. Vui lòng thử lại."
@@ -767,9 +770,6 @@
   },
   "profile": {
     "hero": {
-      "kicker": "Customer hub",
-      "subtitle": "Theo dõi trạng thái tài khoản, cập nhật thông tin liên hệ và quản lý mọi điểm chạm mua sắm trong một không gian gọn gàng hơn.",
-      "loadingHint": "Chúng tôi đang chuẩn bị lại hồ sơ, địa chỉ và các đơn gần đây của bạn.",
       "errorTitle": "Không thể hiển thị hồ sơ lúc này",
       "errorHint": "Hãy thử tải lại để đồng bộ dữ liệu tài khoản, sổ địa chỉ và lịch sử mua sắm mới nhất."
     },
@@ -796,7 +796,6 @@
       "editInfo": "Chỉnh sửa thông tin",
       "saveChanges": "Lưu thay đổi",
       "signOut": "Đăng xuất",
-      "manageOrders": "Quản lý đơn hàng",
       "retry": "Tải lại hồ sơ",
       "copyEmail": "Sao chép email",
       "addPhone": "Thêm số điện thoại"
@@ -831,12 +830,9 @@
     "labels": {
       "googleAccount": "Tài khoản Google",
       "profileCompleteness": "Mức độ hoàn thiện hồ sơ",
-      "completenessHint": "Hoàn thiện hồ sơ để checkout nhanh hơn, đồng thời giúp các bước mua sắm sau này mượt hơn.",
       "memberSince": "Thành viên từ {{date}}",
-      "accountStatus": "Trạng thái tài khoản",
       "primaryContact": "Liên hệ chính",
       "deliveryHotline": "Liên hệ giao hàng",
-      "accountHealth": "Tình trạng tài khoản",
       "loginNetwork": "Mạng đăng nhập",
       "profileScore": "Điểm hồ sơ",
       "googleConnected": "Đăng nhập liên kết với Google đã sẵn sàng.",
@@ -850,7 +846,6 @@
       "googleUnlinked": "Chưa liên kết Google"
     },
     "details": {
-      "joined": "Ngày tham gia",
       "status": "Trạng thái",
       "phone": "Số điện thoại",
       "email": "Email",
@@ -858,7 +853,6 @@
     },
     "fields": {
       "fullName": "Họ và tên",
-      "email": "Email",
       "phone": "Số điện thoại"
     },
     "sections": {
@@ -870,12 +864,6 @@
       "ordersEyebrow": "Hoạt động mua sắm",
       "account": "Tài khoản",
       "accountEyebrow": "Bảo mật & phiên đăng nhập"
-    },
-    "descriptions": {
-      "personal": "Kiểm tra nhanh thông tin đang hiển thị cho đơn hàng, vận chuyển và các liên hệ hỗ trợ.",
-      "addresses": "Ưu tiên địa chỉ mặc định cho những lần thanh toán tiếp theo và giữ mọi điểm giao hàng của bạn ở cùng một nơi.",
-      "recentOrders": "Xem nhanh trạng thái những đơn mới nhất trước khi chuyển sang lịch sử đơn hàng đầy đủ.",
-      "account": "Những thông tin liên quan tới trạng thái truy cập và độ an toàn của tài khoản được tách riêng tại đây."
     },
     "forms": {
       "personalTitle": "Cập nhật thông tin cá nhân",
@@ -913,8 +901,6 @@
       "actions": {
         "uploading": "Đang tải lên...",
         "save": "Lưu ảnh",
-        "change": "Đổi ảnh",
-        "add": "Thêm ảnh",
         "remove": "Xóa ảnh"
       },
       "messages": {
@@ -989,11 +975,6 @@
         "viewAll": "Xem tất cả đơn hàng",
         "viewDetail": "Xem chi tiết"
       }
-    },
-    "account": {
-      "securityTitle": "Bảo vệ tài khoản chủ động",
-      "securityHint": "Giữ email, số điện thoại và phương thức đăng nhập luôn cập nhật để quá trình xác minh diễn ra suôn sẻ.",
-      "contactHint": "Đây là số liên hệ ưu tiên cho đơn hàng và hỗ trợ sau mua."
     },
     "security": {
       "description": "Quản lý đổi mật khẩu, xác thực hai lớp và các phương thức đăng nhập trong một khu vực tập trung.",
@@ -1214,7 +1195,8 @@
       "customer": "Khách hàng",
       "shippingAddress": "Địa chỉ giao hàng",
       "payment": "Thanh toán",
-      "statusHistory": "Lịch sử trạng thái"
+      "statusHistory": "Lịch sử trạng thái",
+      "deliveryProof": "Hình ảnh giao hàng"
     },
     "payment": {
       "paid": "Đã thanh toán",
@@ -1222,6 +1204,16 @@
       "completed": "Thành công",
       "method": "Phương thức",
       "status": "Trạng thái"
+    },
+    "deliveryProof": {
+      "reviewed": "Đã xem lại hình ảnh giao hàng",
+      "unreviewed": "Chưa xác nhận xem lại hình ảnh",
+      "imageAlt": "Ảnh giao hàng {{index}}",
+      "imageButton": "Xem ảnh giao hàng {{index}}",
+      "lightboxLabel": "Xem ảnh giao hàng",
+      "previewAlt": "Xem trước ảnh giao hàng {{index}}",
+      "imageCounter": "Ảnh giao hàng {{current}}/{{total}}",
+      "openOriginal": "Mở ảnh gốc"
     },
     "toast": {
       "refundRequested": "Lệnh hoàn tiền đã được gửi tới cổng thanh toán thành công."

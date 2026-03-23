@@ -13,14 +13,14 @@ export const validateCouponRequestSchema = z.object({
 export const couponTypeSchema = z.enum(['FIXED_AMOUNT', 'PERCENTAGE']);
 
 const couponDateField = z.coerce.date();
-const couponAmountField = z.coerce.number().positive('Coupon value must be greater than 0');
+const couponAmountField = z.coerce.number().positive('Giá trị mã giảm giá phải lớn hơn 0');
 const optionalMaxDiscountField = z.preprocess(
   (value) => {
     if (value === '' || value === undefined) return undefined;
     if (value === null) return null;
     return Number(value);
   },
-  z.number().positive('Max discount amount must be greater than 0').nullable().optional(),
+  z.number().positive('Giá trị giảm tối đa phải lớn hơn 0').nullable().optional(),
 );
 
 const createCouponBaseSchema = z.object({
@@ -28,7 +28,7 @@ const createCouponBaseSchema = z.object({
   type: couponTypeSchema,
   value: couponAmountField,
   maxDiscountAmount: optionalMaxDiscountField,
-  minOrderValue: z.coerce.number().min(0, 'Minimum order value cannot be negative').optional(),
+  minOrderValue: z.coerce.number().min(0, 'Giá trị đơn hàng tối thiểu không được âm').optional(),
   startDate: couponDateField,
   endDate: couponDateField,
   usageLimit: positiveIntField,
@@ -44,7 +44,7 @@ const validateCouponWindow = (
     ctx.addIssue({
       code: 'custom',
       path: ['value'],
-      message: 'Percentage coupon value must be between 1 and 100',
+      message: 'Giá trị mã giảm giá theo phần trăm phải nằm trong khoảng từ 1 đến 100',
     });
   }
 
@@ -52,7 +52,7 @@ const validateCouponWindow = (
     ctx.addIssue({
       code: 'custom',
       path: ['endDate'],
-      message: 'End date must be after start date',
+      message: 'Ngày kết thúc phải sau ngày bắt đầu',
     });
   }
 };
@@ -63,18 +63,18 @@ export const updateCouponSchema = createCouponBaseSchema
   .partial()
   .strict()
   .refine((payload) => Object.keys(payload).length > 0, {
-    message: 'At least one coupon field must be provided',
+    message: 'Phải cung cấp ít nhất một trường để cập nhật mã giảm giá',
   })
   .superRefine(validateCouponWindow);
 
 export const couponIdParamSchema = z.object({
-  id: z.coerce.number().int('Coupon id must be an integer').positive('Coupon id must be greater than 0'),
+  id: z.coerce.number().int('Mã giảm giá phải là số nguyên').positive('Mã giảm giá phải lớn hơn 0'),
 });
 
 export const couponListQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional().default(1),
   pageSize: z.coerce.number().int().positive().max(100).optional().default(20),
-  search: z.string().trim().max(50, 'Search must be at most 50 characters').optional(),
+  search: z.string().trim().max(50, 'Từ khóa tìm kiếm không được vượt quá 50 ký tự').optional(),
   isActive: z.preprocess(
     (value) => {
       if (value === undefined || value === '') return undefined;

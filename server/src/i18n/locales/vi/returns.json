@@ -1,0 +1,18 @@
+{
+  "errors": {
+    "invalidReturnId": "Mã yêu cầu trả hàng không hợp lệ.",
+    "reasonRequired": "Lý do trả hàng là bắt buộc.",
+    "invalidProofImages": "proofImages phải là một mảng URL ảnh.",
+    "adminRequired": "Bạn cần quyền quản trị để thực hiện thao tác này.",
+    "invalidAction": "Thao tác xử lý trả hàng không hợp lệ.",
+    "orderNotDelivered": "Chỉ có thể yêu cầu trả hàng với đơn đã giao.",
+    "windowExpired": "Đã quá thời hạn 7 ngày để yêu cầu trả hàng.",
+    "alreadyExists": "Đơn hàng này đã có yêu cầu trả hàng.",
+    "notFound": "Không tìm thấy yêu cầu trả hàng."
+  },
+  "success": {
+    "approved": "Duyệt yêu cầu trả hàng thành công.",
+    "rejected": "Từ chối yêu cầu trả hàng thành công.",
+    "refundCompleted": "Hoàn tiền và hoàn kho thành công."
+  }
+}

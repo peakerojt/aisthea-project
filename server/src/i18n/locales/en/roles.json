@@ -1,0 +1,14 @@
+{
+  "errors": {
+    "fetchRolesFailed": "Failed to fetch roles.",
+    "fetchPermissionsFailed": "Failed to fetch permissions.",
+    "invalidRoleId": "Invalid role ID.",
+    "invalidPermissionIds": "permissionIds must be an array of numbers.",
+    "roleNotFound": "Role not found.",
+    "superAdminProtected": "Cannot modify permissions of the Super Admin role.",
+    "updatePermissionsFailed": "Failed to update role permissions."
+  },
+  "success": {
+    "permissionsUpdated": "Role permissions updated successfully."
+  }
+}

@@ -16,7 +16,7 @@ export const downloadTemplateHandler = async (_req: Request, res: Response) => {
         res.send(buffer);
     } catch (error) {
         logger.error('[importExportController] downloadTemplateHandler failed', { error });
-        res.status(500).json({ error: 'Không thể tạo file template. Vui lòng thử lại.' });
+        res.status(500).json({ success: false, errorCode: 'PRODUCT_TEMPLATE_DOWNLOAD_FAILED' });
     }
 };
 
@@ -34,7 +34,7 @@ export const exportProductsHandler = async (_req: Request, res: Response) => {
         res.send(buffer);
     } catch (error) {
         logger.error('[importExportController] exportProductsHandler failed', { error });
-        res.status(500).json({ error: 'Không thể xuất sản phẩm. Vui lòng thử lại.' });
+        res.status(500).json({ success: false, errorCode: 'PRODUCT_EXPORT_FAILED' });
     }
 };
 
@@ -46,13 +46,13 @@ export const exportProductsHandler = async (_req: Request, res: Response) => {
 export const importProductsHandler = async (req: Request, res: Response) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ error: 'Vui lòng tải lên file Excel (.xlsx) hoặc CSV (.csv)' });
+            return res.status(400).json({ success: false, errorCode: 'PRODUCT_IMPORT_FILE_REQUIRED' });
         }
 
         const report = await importProducts(req.file.buffer);
         res.json(report);
     } catch (error) {
         logger.error('[importExportController] importProductsHandler failed', { error });
-        res.status(500).json({ error: 'Lỗi xử lý file nhập. Vui lòng kiểm tra định dạng file.' });
+        res.status(500).json({ success: false, errorCode: 'PRODUCT_IMPORT_FAILED' });
     }
 };

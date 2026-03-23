@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { prisma } from '../utils/prisma';
 import { sendPasswordResetEmail } from './email.service';
+import { AppError } from '../middlewares/error.middleware';
 
 const TOKEN_EXPIRY_HOURS = 1;
 const RESET_CODE_MIN = 100000;
@@ -23,7 +24,7 @@ const generateResetCode = async () => {
         }
     }
 
-    throw new Error('Unable to generate a unique password reset code');
+    throw new AppError(500, 'INTERNAL_SERVER_ERROR', 'common:errors.internalServer');
 };
 
 /**
@@ -43,7 +44,7 @@ export const createPasswordResetToken = async (email: string) => {
         // For now, we'll throw an error or just return true.
         // Let's throw specific error if it's safe, or handle UI side.
         // Ideally we should send an email saying "You use Google login".
-        throw new Error('This account uses Google Login. Please sign in with Google.');
+        throw new AppError(400, 'GOOGLE_LOGIN_ONLY', 'auth:errors.googleLoginOnly');
     }
 
     // Delete existing tokens
@@ -108,12 +109,12 @@ export const resetPassword = async (token: string, newPassword: string) => {
     });
 
     if (!resetToken) {
-        throw new Error('Invalid or expired password reset token');
+        throw new AppError(400, 'INVALID_TOKEN', 'auth:errors.invalidToken');
     }
 
     if (resetToken.expiresAt < new Date()) {
         await prisma.passwordResetToken.delete({ where: { token } });
-        throw new Error('Password reset token has expired');
+        throw new AppError(400, 'TOKEN_EXPIRED', 'auth:errors.tokenExpired');
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);

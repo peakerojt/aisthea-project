@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma';
 import { sendVerificationEmail } from './email.service';
 import { logger } from '../lib/logger';
+import { AppError } from '../middlewares/error.middleware';
 
 const TOKEN_EXPIRY_HOURS = 24;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -87,7 +88,7 @@ export const verifyEmailToken = async (token: string) => {
 
 
     if (!verificationToken) {
-        throw new Error('Invalid verification token');
+        throw new AppError(400, 'INVALID_TOKEN', 'auth:errors.invalidToken');
     }
 
     // Check if token has expired
@@ -96,7 +97,7 @@ export const verifyEmailToken = async (token: string) => {
         await prisma.emailVerificationToken.delete({
             where: { token },
         });
-        throw new Error('Verification token has expired. Please request a new one.');
+        throw new AppError(400, 'TOKEN_EXPIRED', 'auth:errors.tokenExpired');
     }
 
     // Check if user is already verified
@@ -105,7 +106,7 @@ export const verifyEmailToken = async (token: string) => {
         await prisma.emailVerificationToken.delete({
             where: { token },
         });
-        throw new Error('Email is already verified');
+        throw new AppError(409, 'EMAIL_ALREADY_VERIFIED', 'auth:errors.emailAlreadyVerified');
     }
 
     // Get user roles for JWT
@@ -165,15 +166,15 @@ export const resendVerificationEmail = async (email: string) => {
     });
 
     if (!user) {
-        throw new Error('No account found with this email');
+        throw new AppError(404, 'USER_NOT_FOUND', 'users:errors.userNotFound');
     }
 
     if (user.status === 'Active') {
-        throw new Error('Email is already verified');
+        throw new AppError(409, 'EMAIL_ALREADY_VERIFIED', 'auth:errors.emailAlreadyVerified');
     }
 
     if (user.status === 'Banned') {
-        throw new Error('This account has been banned');
+        throw new AppError(403, 'ACCOUNT_BANNED', 'auth:errors.accountBanned');
     }
 
     // Create new verification token and send email

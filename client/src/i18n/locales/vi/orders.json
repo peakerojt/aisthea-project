@@ -34,7 +34,8 @@
         "COMPLETED": "Hoàn thành",
         "CANCELLED": "Đã hủy",
         "RETURN_REQUESTED": "Yêu cầu trả hàng",
-        "RETURNED": "Đã trả hàng"
+        "RETURNED": "Đã trả hàng",
+        "other": "Khác"
     },
     "statusBadge": {
         "PENDING": "Chờ xác nhận",
@@ -49,24 +50,53 @@
     "filters": {
         "all": "Tất cả",
         "allStatus": "Tất cả trạng thái",
+        "searchLabel": "Tìm kiếm",
         "searchPlaceholder": "Tìm theo mã đơn hoặc tên khách hàng…",
         "searchPlaceholderAdmin": "Tìm tên, SĐT, mã đơn...",
         "clear": "Xóa bộ lọc",
         "dateFrom": "Từ ngày",
-        "dateTo": "Đến ngày"
+        "dateTo": "Đến ngày",
+        "sortLabel": "Sắp xếp"
     },
     "table": {
         "orderId": "Mã đơn",
         "customer": "Khách hàng",
         "date": "Ngày đặt",
+        "time": "Thời gian",
         "total": "Tổng tiền",
         "payment": "Thanh toán",
+        "shipping": "Giao hàng",
         "status": "Trạng thái",
         "actions": "Thao tác",
         "itemCount": "{{count}} sản phẩm"
     },
-    "pagination": "Trang {{page}} / {{totalPages}} · {{total}} đơn hàng",
+    "sortOptions": {
+        "createdAtDesc": "Mới nhất",
+        "createdAtAsc": "Cũ nhất",
+        "totalAmountDesc": "Giá trị cao nhất",
+        "totalAmountAsc": "Giá trị thấp nhất",
+        "statusAsc": "Theo trạng thái",
+        "paymentStatusDesc": "Theo thanh toán"
+    },
+    "paymentStatus": {
+        "paid": "Đã thanh toán",
+        "codPending": "COD chưa thu",
+        "pending": "Chờ thanh toán"
+    },
+    "paymentMethod": {
+        "COD": "COD",
+        "VNPAY": "VNPAY",
+        "OTHER": "Khác"
+    },
+    "pagination": {
+        "summary": "Trang {{page}}/{{totalPages}} · {{total}} đơn hàng",
+        "rangeSummary": "Hiển thị {{start}}-{{end}} trên {{total}} đơn hàng",
+        "perPage": "/ trang"
+    },
     "actions": {
+        "refresh": "Làm mới",
+        "reset": "Đặt lại",
+        "copyOrderNumber": "Sao chép mã đơn",
         "updateStatus": "Cập nhật trạng thái",
         "viewDetail": "Xem chi tiết",
         "printInvoice": "In hóa đơn",

@@ -18,11 +18,11 @@ export const updateCartItemSchema = z.object({
 }).strict();
 
 export const mergeCartSchema = z.object({
-  items: z.array(cartLineSchema).max(100, 'Too many cart items in one request'),
+  items: z.array(cartLineSchema).max(100, 'Có quá nhiều sản phẩm trong một yêu cầu'),
 }).strict();
 
 export const cartItemIdParamSchema = z.object({
-  cartItemId: z.coerce.number().int('cartItemId must be an integer').positive('cartItemId must be greater than 0'),
+  cartItemId: z.coerce.number().int('Mã mục giỏ hàng phải là số nguyên').positive('Mã mục giỏ hàng phải lớn hơn 0'),
 });
 
 export type AddToCartInput = z.infer<typeof addToCartSchema>;

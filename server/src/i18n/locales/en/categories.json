@@ -1,8 +1,16 @@
 {
   "errors": {
+    "invalidId": "Invalid category ID.",
     "circularParent": "Invalid parent selection because it creates a circular hierarchy.",
     "notFound": "Category not found.",
     "hasChildren": "Cannot delete category because it still has child categories.",
-    "hasProducts": "Cannot delete category because it still has products."
+    "hasProducts": "Cannot delete category because it still has products.",
+    "noFile": "Please select an image to upload."
+  },
+  "success": {
+    "created": "Category created successfully.",
+    "updated": "Category updated successfully.",
+    "deleted": "Category deleted successfully.",
+    "imageUploaded": "Category image uploaded successfully."
   }
 }

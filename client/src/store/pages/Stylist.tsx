@@ -328,7 +328,13 @@ const GEOLOCATION_FALLBACK_OPTIONS: PositionOptions = {
   maximumAge: 600_000,
 };
 
-const getHemisphere = (lat: number): 'north' | 'south' => (lat < 0 ? 'south' : 'north');
+const getHemisphere = (lat: number): 'north' | 'south' => {
+  if (lat < 0) {
+    return 'south';
+  }
+
+  return 'north';
+};
 
 type GeolocationPermissionState = PermissionState | 'unsupported';
 

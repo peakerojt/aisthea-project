@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import pagesVI from '../../i18n/locales/vi/pages.json';
 import {
   addressIdParamSchema,
   addressSchema,
@@ -7,9 +8,7 @@ import {
   createOrderSchema,
   createReviewSchema,
   forgotPasswordSchema,
-  loginSchema,
   mergeCartSchema,
-  noteField,
   passwordField,
   passwordRequirements,
   paymentMethodSchema,
@@ -17,7 +16,6 @@ import {
   productNameField,
   quantityField,
   quoteOrderSchema,
-  registerSchema,
   resendVerificationSchema,
   resetPasswordSchema,
   searchKeywordField,
@@ -30,20 +28,159 @@ import {
   updateCartItemSchema,
   descriptionField,
   positiveIntField,
-  addressLineField,
-  cityField,
-  districtField,
-  emailField,
-  fullNameField,
   phoneField,
-  wardField,
 } from '@validation';
+
+const translate = (key: string, defaultValue = '') => {
+  const normalizedKey = key.startsWith('pages:') ? key.slice('pages:'.length) : key;
+  const resolved = normalizedKey
+    .split('.')
+    .reduce<unknown>((current, segment) => (
+      current && typeof current === 'object' && segment in current
+        ? (current as Record<string, unknown>)[segment]
+        : undefined
+    ), pagesVI);
+
+  return typeof resolved === 'string' ? resolved : defaultValue;
+};
 
 const emptyStringToUndefined = (value: unknown) => {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
 };
+
+const collapseWhitespace = (value: string) => value.trim().replace(/\s+/g, ' ');
+
+const normalizeTextInput = (value: unknown) => {
+  if (typeof value !== 'string') return value;
+  return collapseWhitespace(value);
+};
+
+const normalizeOptionalTextInput = (value: unknown) => {
+  if (typeof value !== 'string') return value;
+  const normalized = collapseWhitespace(value);
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+const normalizeEmailInput = (value: unknown) => {
+  if (typeof value !== 'string') return value;
+  return value.trim().toLowerCase();
+};
+
+const normalizePhoneInput = (value: unknown) => {
+  if (typeof value !== 'string') return value;
+
+  const compact = value.trim().replace(/[\s\-().]/g, '');
+  if (compact.startsWith('+84')) {
+    return `0${compact.slice(3)}`;
+  }
+
+  if (compact.startsWith('84') && compact.length === 11) {
+    return `0${compact.slice(2)}`;
+  }
+
+  return compact;
+};
+
+const loginEmailField = z.preprocess(
+  normalizeEmailInput,
+  z
+    .string()
+    .min(1, translate('pages:login.validation.emailInvalid'))
+    .max(100, translate('pages:login.validation.emailInvalid'))
+    .email(translate('pages:login.validation.emailInvalid')),
+);
+
+const loginPasswordField = z
+  .string()
+  .min(1, translate('pages:login.validation.passwordRequired'));
+
+const signupFullNameField = z.preprocess(
+  normalizeTextInput,
+  z
+    .string()
+    .min(2, translate('pages:signup.validation.fullNameMin'))
+    .max(100, translate('pages:signup.validation.fullNameMin')),
+);
+
+const signupEmailField = z.preprocess(
+  normalizeEmailInput,
+  z
+    .string()
+    .min(1, translate('pages:signup.validation.emailInvalid'))
+    .max(100, translate('pages:signup.validation.emailInvalid'))
+    .email(translate('pages:signup.validation.emailInvalid')),
+);
+
+const checkoutEmailField = z.preprocess(
+  normalizeEmailInput,
+  z
+    .string()
+    .min(1, translate('pages:checkout.validation.emailRequired'))
+    .max(100, translate('pages:checkout.validation.emailFormat'))
+    .refine((value) => !/\s/.test(value), translate('pages:checkout.validation.emailNoSpaces'))
+    .email(translate('pages:checkout.validation.emailFormat')),
+);
+
+const checkoutFullNameField = z.preprocess(
+  normalizeTextInput,
+  z
+    .string()
+    .min(1, translate('pages:checkout.validation.fullNameRequired'))
+    .min(2, translate('pages:checkout.validation.fullNameMin'))
+    .max(100, translate('pages:checkout.validation.fullNameMin'))
+    .refine(
+      (value) => !/[@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(value),
+      translate('pages:checkout.validation.fullNameNoSpecial'),
+    ),
+);
+
+const checkoutPhoneField = z.preprocess(
+  normalizePhoneInput,
+  z
+    .string()
+    .min(1, translate('pages:checkout.validation.phoneRequired'))
+    .regex(/^0\d{9}$/, translate('pages:checkout.validation.phoneFormat')),
+);
+
+const checkoutAddressField = z.preprocess(
+  normalizeTextInput,
+  z
+    .string()
+    .min(1, translate('pages:checkout.validation.addressRequired'))
+    .min(6, translate('pages:checkout.validation.addressLength'))
+    .max(255, translate('pages:checkout.validation.addressLength')),
+);
+
+const checkoutCityField = z.preprocess(
+  normalizeTextInput,
+  z
+    .string()
+    .min(1, translate('pages:checkout.validation.cityRequired'))
+    .max(50, translate('pages:checkout.validation.cityRequired')),
+);
+
+const checkoutDistrictField = z.preprocess(
+  normalizeTextInput,
+  z
+    .string()
+    .min(1, translate('pages:checkout.validation.districtRequired'))
+    .max(50, translate('pages:checkout.validation.districtRequired')),
+);
+
+const checkoutWardField = z.preprocess(
+  normalizeTextInput,
+  z
+    .string()
+    .min(1, translate('pages:checkout.validation.wardRequired'))
+    .max(50, translate('pages:checkout.validation.wardRequired')),
+);
+
+const checkoutNoteField = z.preprocess(
+  normalizeOptionalTextInput,
+  z.string().max(500, translate('pages:checkout.validation.noteMax')).optional(),
+);
 
 const coercePositiveIntField = z.preprocess((value) => {
   if (value === '' || value === null || value === undefined) return undefined;
@@ -62,15 +199,21 @@ const optionalSkuField = z.preprocess(emptyStringToUndefined, skuField.optional(
 export const passwordValidation = passwordField;
 export { passwordRequirements };
 
-export const signupFormSchema = registerSchema.extend({
-  confirmPassword: z.string().min(1, 'Please confirm your password'),
+export const signupFormSchema = z.object({
+  email: signupEmailField,
+  password: passwordField,
+  fullName: signupFullNameField,
+  confirmPassword: z.string().min(1, translate('pages:signup.validation.confirmPasswordRequired')),
   newsletter: z.boolean().default(true),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Passwords do not match',
+}).strict().refine((data) => data.password === data.confirmPassword, {
+  message: translate('pages:signup.validation.passwordMismatch'),
   path: ['confirmPassword'],
 });
 
-export const loginFormSchema = loginSchema;
+export const loginFormSchema = z.object({
+  email: loginEmailField,
+  password: loginPasswordField,
+}).strict();
 
 export const adminProductFormSchema = z.object({
   name: productNameField,
@@ -83,14 +226,14 @@ export const adminProductFormSchema = z.object({
 });
 
 export const checkoutFormSchema = z.object({
-  email: emailField,
-  fullName: fullNameField,
-  phone: phoneField,
-  address: addressLineField,
-  city: cityField,
-  district: districtField,
-  ward: wardField,
-  note: noteField,
+  email: checkoutEmailField,
+  fullName: checkoutFullNameField,
+  phone: checkoutPhoneField,
+  address: checkoutAddressField,
+  city: checkoutCityField,
+  district: checkoutDistrictField,
+  ward: checkoutWardField,
+  note: checkoutNoteField,
   paymentMethod: paymentMethodSchema,
 }).strict();
 
@@ -114,7 +257,10 @@ export const productStatusUpdateClientSchema = updateProductStatusSchema;
 export const trackingLookupClientSchema = z.object({
   orderCode: z.preprocess(
     (value) => typeof value === 'string' ? value.trim() : value,
-    z.string().min(4, 'Order code must be at least 4 characters').max(50, 'Order code must be at most 50 characters'),
+    z
+      .string()
+      .min(4, translate('pages:trackingLookup.errors.orderCodeInvalid'))
+      .max(50, translate('pages:trackingLookup.errors.orderCodeTooLong')),
   ),
   contact: phoneField,
 }).strict();

@@ -1,5 +1,10 @@
 import { api } from '@/common/utils/api';
-import { addressIdClientParamSchema, profileAddressClientSchema, profileUpdateClientSchema } from '@/common/validation/schemas';
+import {
+    addressIdClientParamSchema,
+    profileAddressClientSchema,
+    profileUpdateClientSchema,
+    type ProfileAddressClientInput,
+} from '@/common/validation/schemas';
 
 export interface UserProfile {
     userId: number;
@@ -29,16 +34,6 @@ export interface Address {
 export interface UpdateProfileData {
     fullName?: string;
     phone?: string;
-}
-
-export interface CreateAddressData {
-    recipientName: string;
-    phone: string;
-    addressLine: string;
-    city: string;
-    district: string;
-    ward: string;
-    isDefault?: boolean;
 }
 
 export interface RecentOrder {
@@ -100,7 +95,7 @@ class UserService {
     /**
      * Create new address
      */
-    async createAddress(data: CreateAddressData): Promise<Address> {
+    async createAddress(data: ProfileAddressClientInput): Promise<Address> {
         const payload = profileAddressClientSchema.parse(data);
         const response = await api.post<ApiResponse<Address>>('/api/users/addresses', payload);
         return response.data;
@@ -109,7 +104,7 @@ class UserService {
     /**
      * Update address
      */
-    async updateAddress(addressId: number, data: Partial<CreateAddressData>): Promise<Address> {
+    async updateAddress(addressId: number, data: ProfileAddressClientInput): Promise<Address> {
         const { id } = addressIdClientParamSchema.parse({ id: addressId });
         const payload = profileAddressClientSchema.parse(data);
         const response = await api.put<ApiResponse<Address>>(`/api/users/addresses/${id}`, payload);

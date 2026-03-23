@@ -149,7 +149,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { user: userData } = responseData;
 
       if (!userData) {
-        throw new Error("Registration succeeded but no user data returned");
+        throw new Error('Đăng ký thành công nhưng không nhận được dữ liệu người dùng.');
       }
 
       const mappedUser: User = {

@@ -29,17 +29,17 @@ const extractAvatarPayload = (req: AuthRequest) => {
 
   const avatar = req.body?.avatar;
   if (typeof avatar !== 'string') {
-    throw new Error('No avatar provided. Please upload a file or send base64 data in the "avatar" field.');
+    throw new UserModuleError(400, 'INVALID_AVATAR_PAYLOAD');
   }
 
   if (!avatar.startsWith('data:image/')) {
-    throw new Error('Invalid image format. Please upload a valid image file (JPEG, PNG, GIF, or WebP).');
+    throw new UserModuleError(400, 'INVALID_AVATAR_FORMAT');
   }
 
   const mimeType = avatar.split(';')[0]?.split(':')[1] ?? '';
   const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   if (!allowedTypes.includes(mimeType)) {
-    throw new Error(`Unsupported image type: ${mimeType}. Allowed types: JPEG, PNG, GIF, WebP`);
+    throw new UserModuleError(400, 'UNSUPPORTED_AVATAR_TYPE');
   }
 
   logger.debug('[userModuleController] Avatar upload via base64', {
@@ -52,6 +52,14 @@ const extractAvatarPayload = (req: AuthRequest) => {
 
 const getUserId = (req: AuthRequest) => req.user?.userId as number;
 
+const sendUserModuleError = (res: Response, error: unknown, fallbackCode: string, fallbackStatus = 500) => {
+  if (error instanceof UserModuleError) {
+    return res.status(error.status).json({ success: false, code: error.code });
+  }
+
+  return res.status(fallbackStatus).json({ success: false, code: fallbackCode });
+};
+
 export const userController = {
   getProfile: async (req: AuthRequest, res: Response) => {
     try {
@@ -59,7 +67,7 @@ export const userController = {
       res.status(200).json({ success: true, data: profile });
     } catch (error) {
       logger.error('[userModuleController] getProfile failed', { error });
-      res.status(500).json({ success: false, message: 'Failed to get profile' });
+      sendUserModuleError(res, error, 'FETCH_PROFILE_FAILED');
     }
   },
 
@@ -68,13 +76,12 @@ export const userController = {
       const updatedProfile = await userModuleService.updateProfile(getUserId(req), req.body as UpdateProfileInput);
       res.status(200).json({
         success: true,
-        message: 'Profile updated successfully',
+        code: 'PROFILE_UPDATED',
         data: updatedProfile,
       });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('[userModuleController] updateProfile failed', { error });
-      const message = error instanceof Error ? error.message : 'Failed to update profile';
-      res.status(400).json({ success: false, message });
+      sendUserModuleError(res, error, 'UPDATE_PROFILE_FAILED', 400);
     }
   },
 
@@ -83,13 +90,12 @@ export const userController = {
       const updatedUser = await userModuleService.uploadAvatar(getUserId(req), extractAvatarPayload(req));
       res.status(200).json({
         success: true,
-        message: 'Avatar uploaded successfully to cloud storage',
+        code: 'AVATAR_UPLOADED',
         data: updatedUser,
       });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('[userModuleController] uploadAvatar failed', { error });
-      const message = error instanceof Error ? error.message : 'Failed to upload avatar';
-      res.status(400).json({ success: false, message });
+      sendUserModuleError(res, error, 'UPLOAD_AVATAR_FAILED', 400);
     }
   },
 
@@ -98,12 +104,12 @@ export const userController = {
       const updatedUser = await userModuleService.deleteAvatar(getUserId(req));
       res.status(200).json({
         success: true,
-        message: 'Avatar deleted successfully',
+        code: 'AVATAR_DELETED',
         data: updatedUser,
       });
     } catch (error) {
       logger.error('[userModuleController] deleteAvatar failed', { error });
-      res.status(500).json({ success: false, message: 'Failed to delete avatar' });
+      sendUserModuleError(res, error, 'UPLOAD_AVATAR_FAILED');
     }
   },
 
@@ -113,7 +119,7 @@ export const userController = {
       res.status(200).json({ success: true, data: addresses });
     } catch (error) {
       logger.error('[userModuleController] getAddresses failed', { error });
-      res.status(500).json({ success: false, message: 'Failed to get addresses' });
+      sendUserModuleError(res, error, 'FETCH_ADDRESSES_FAILED');
     }
   },
 
@@ -122,20 +128,18 @@ export const userController = {
       const address = await userModuleService.createAddress(getUserId(req), req.body as AddressInput);
       res.status(201).json({
         success: true,
-        message: 'Address created successfully',
+        code: 'ADDRESS_CREATED',
         data: address,
       });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('[userModuleController] createAddress failed', { error });
-      const message = error instanceof Error ? error.message : 'Failed to create address';
-      res.status(400).json({ success: false, message });
+      sendUserModuleError(res, error, 'CREATE_ADDRESS_FAILED', 400);
     }
   },
 
   updateAddress: async (req: AuthRequest, res: Response) => {
     try {
       const { id: addressId } = req.params as unknown as AddressIdParams;
-
       const updatedAddress = await userModuleService.updateAddress(
         getUserId(req),
         addressId,
@@ -144,43 +148,38 @@ export const userController = {
 
       res.status(200).json({
         success: true,
-        message: 'Address updated successfully',
+        code: 'ADDRESS_UPDATED',
         data: updatedAddress,
       });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('[userModuleController] updateAddress failed', { error });
-      const message = error instanceof Error ? error.message : 'Failed to update address';
-      res.status(400).json({ success: false, message });
+      sendUserModuleError(res, error, 'UPDATE_ADDRESS_FAILED', 400);
     }
   },
 
   deleteAddress: async (req: AuthRequest, res: Response) => {
     try {
       const { id: addressId } = req.params as unknown as AddressIdParams;
-
       const result = await userModuleService.deleteAddress(getUserId(req), addressId);
       res.status(200).json({ success: true, ...result });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('[userModuleController] deleteAddress failed', { error });
-      const message = error instanceof Error ? error.message : 'Failed to delete address';
-      res.status(400).json({ success: false, message });
+      sendUserModuleError(res, error, 'DELETE_ADDRESS_FAILED', 400);
     }
   },
 
   setDefaultAddress: async (req: AuthRequest, res: Response) => {
     try {
       const { id: addressId } = req.params as unknown as AddressIdParams;
-
       const updatedAddress = await userModuleService.setDefaultAddress(getUserId(req), addressId);
       res.status(200).json({
         success: true,
-        message: 'Default address set successfully',
+        code: 'DEFAULT_ADDRESS_SET',
         data: updatedAddress,
       });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('[userModuleController] setDefaultAddress failed', { error });
-      const message = error instanceof Error ? error.message : 'Failed to set default address';
-      res.status(400).json({ success: false, message });
+      sendUserModuleError(res, error, 'SET_DEFAULT_ADDRESS_FAILED', 400);
     }
   },
 
@@ -191,7 +190,7 @@ export const userController = {
       res.status(200).json({ success: true, data: orders });
     } catch (error) {
       logger.error('[userModuleController] getRecentOrders failed', { error });
-      res.status(500).json({ success: false, message: 'Failed to get recent orders' });
+      sendUserModuleError(res, error, 'FETCH_RECENT_ORDERS_FAILED');
     }
   },
 
@@ -208,7 +207,7 @@ export const userController = {
       res.status(200).json({ success: true, ...result });
     } catch (error) {
       logger.error('[userModuleController] getAllUsers failed', { error });
-      res.status(500).json({ success: false, code: 'FETCH_USERS_FAILED', message: 'Failed to fetch users.' });
+      sendUserModuleError(res, error, 'FETCH_USERS_FAILED');
     }
   },
 
@@ -216,22 +215,18 @@ export const userController = {
     try {
       const targetId = parseRouteId(req.params.id as string);
       if (Number.isNaN(targetId)) {
-        return res.status(400).json({ success: false, code: 'INVALID_USER_ID', message: 'Invalid user ID.' });
+        return res.status(400).json({ success: false, code: 'INVALID_USER_ID' });
       }
 
       const updated = await userModuleService.updateUserStatus(getUserId(req), targetId);
       res.status(200).json({
         success: true,
         code: 'STATUS_UPDATED',
-        message: 'User status updated successfully.',
         data: updated,
       });
     } catch (error) {
       logger.error('[userModuleController] updateUserStatus failed', { error });
-      if (error instanceof UserModuleError) {
-        return res.status(error.status).json({ success: false, code: error.code, message: error.message });
-      }
-      res.status(500).json({ success: false, code: 'UPDATE_STATUS_FAILED', message: 'Failed to update user status.' });
+      sendUserModuleError(res, error, 'UPDATE_STATUS_FAILED');
     }
   },
 
@@ -239,7 +234,7 @@ export const userController = {
     try {
       const targetId = parseRouteId(req.params.id as string);
       if (Number.isNaN(targetId)) {
-        return res.status(400).json({ success: false, code: 'INVALID_USER_ID', message: 'Invalid user ID.' });
+        return res.status(400).json({ success: false, code: 'INVALID_USER_ID' });
       }
 
       const parsed = UpdateRoleSchema.safeParse(req.body);
@@ -247,7 +242,6 @@ export const userController = {
         return res.status(400).json({
           success: false,
           code: 'INVALID_BODY',
-          message: parsed.error.issues[0]?.message || 'Invalid request body.',
         });
       }
 
@@ -255,15 +249,11 @@ export const userController = {
       res.status(200).json({
         success: true,
         code: 'ROLE_UPDATED',
-        message: 'User role updated successfully.',
         data: result,
       });
     } catch (error) {
       logger.error('[userModuleController] updateUserRole failed', { error });
-      if (error instanceof UserModuleError) {
-        return res.status(error.status).json({ success: false, code: error.code, message: error.message });
-      }
-      res.status(500).json({ success: false, code: 'UPDATE_ROLE_FAILED', message: 'Failed to update user role.' });
+      sendUserModuleError(res, error, 'UPDATE_ROLE_FAILED');
     }
   },
 };

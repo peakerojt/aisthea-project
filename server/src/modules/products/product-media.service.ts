@@ -67,7 +67,7 @@ export const productMediaService = {
     });
 
     if (!product) {
-      throw new Error('Product not found');
+      throw new Error('PRODUCT_NOT_FOUND');
     }
 
     const result = await cloudinaryService.uploadProductVariantImage(
@@ -106,7 +106,7 @@ export const productMediaService = {
     });
 
     if (!product) {
-      throw new Error('Product not found');
+      throw new Error('PRODUCT_NOT_FOUND');
     }
 
     const images = files.map((file, index) => ({
@@ -139,7 +139,6 @@ export const productMediaService = {
     }
 
     return {
-      message: `Uploaded ${batchResult.totalUploaded} images, ${batchResult.totalFailed} failed`,
       data: {
         uploaded,
         failed: batchResult.failed,
@@ -158,7 +157,7 @@ export const productMediaService = {
     });
 
     if (!product) {
-      throw new Error('Product not found');
+      throw new Error('PRODUCT_NOT_FOUND');
     }
 
     const uploadPayloads = files.map((file) => ({
@@ -199,20 +198,19 @@ export const productMediaService = {
           } catch (error) {
             failed.push({
               index,
-              error: error instanceof Error ? error.message : 'DB save failed',
+              error: error instanceof Error ? error.message : 'DB_SAVE_FAILED',
             });
           }
         } else {
           failed.push({
             index,
-            error: outcome.reason instanceof Error ? outcome.reason.message : 'Upload failed',
+            error: outcome.reason instanceof Error ? outcome.reason.message : 'UPLOAD_FAILED',
           });
         }
       }),
     );
 
     return {
-      message: `Tải lên ${uploaded.length} ảnh thành công${failed.length > 0 ? `, ${failed.length} thất bại` : ''}`,
       data: {
         uploaded,
         failed,
@@ -230,7 +228,7 @@ export const productMediaService = {
     });
 
     if (!image) {
-      throw new Error('Image not found for this product');
+      throw new Error('IMAGE_NOT_FOUND_FOR_PRODUCT');
     }
 
     const [, updatedImage] = await prisma.$transaction([
@@ -250,7 +248,7 @@ export const productMediaService = {
   async deleteProductImage(imageId: number) {
     const image = await prisma.productImage.findUnique({ where: { imageId } });
     if (!image) {
-      throw new Error('Image not found');
+      throw new Error('IMAGE_NOT_FOUND');
     }
 
     const publicId = cloudinaryService.extractPublicId(image.imageUrl);

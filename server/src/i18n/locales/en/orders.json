@@ -6,14 +6,20 @@
     "cannotCancel": "Order can only be cancelled when status is pending.",
     "statusRequired": "Order status is required.",
     "invalidTransition": "Invalid order status transition.",
+    "orderNotShipping": "Only orders that are currently being shipped can be confirmed as received.",
     "deliveryProofRequired": "Delivery proof images are required before marking this order as delivered.",
     "deliveryProofReviewRequired": "Please confirm that you reviewed the delivery proof images before marking this order as delivered.",
     "stateConflict": "This order was updated elsewhere. Please refresh and try again.",
     "cartEmpty": "Cannot create an order with no items.",
-    "outOfStock": "Requested quantity exceeds available stock."
+    "outOfStock": "Requested quantity exceeds available stock.",
+    "quoteFailed": "Failed to calculate pricing.",
+    "checkoutFailed": "Checkout failed. Please try again.",
+    "deliveryProofUploadFailed": "Failed to upload delivery proof images."
   },
   "success": {
     "statusUpdated": "Order status updated successfully.",
-    "created": "Order created successfully."
+    "created": "Order created successfully.",
+    "deliveryProofUploaded": "Delivery proof images uploaded successfully.",
+    "receiptConfirmed": "Order receipt confirmed successfully."
   }
 }

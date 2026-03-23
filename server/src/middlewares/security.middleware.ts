@@ -68,7 +68,6 @@ export const applyCsrfProtection = (clientUrl: string, nodeEnv: string) => {
                     success: false,
                     errorCode: 'CSRF_ORIGIN_FORBIDDEN',
                     messageKey: 'common:errors.csrfOriginForbidden',
-                    message: 'Cross-site requests are not allowed.',
                 });
             }
         }
@@ -79,7 +78,6 @@ export const applyCsrfProtection = (clientUrl: string, nodeEnv: string) => {
                 success: false,
                 errorCode: 'CSRF_TOKEN_INVALID',
                 messageKey: 'common:errors.csrfTokenInvalid',
-                message: 'CSRF token is missing or invalid.',
             });
         }
 
@@ -113,7 +111,6 @@ export const globalRateLimiter = rateLimit({
         success: false,
         errorCode: 'RATE_LIMIT_EXCEEDED',
         messageKey: 'common:errors.rateLimitExceeded',
-        message: 'Too many requests. Please try again later.',
     },
 });
 
@@ -131,14 +128,12 @@ export const authRateLimiter = rateLimit({
         success: false,
         errorCode: 'AUTH_RATE_LIMIT_EXCEEDED',
         messageKey: 'common:errors.authRateLimitExceeded',
-        message: 'Too many authentication attempts. Please try again in 15 minutes.',
     },
     handler: (req: Request, res: Response) => {
         res.status(429).json({
             success: false,
             errorCode: 'AUTH_RATE_LIMIT_EXCEEDED',
             messageKey: 'common:errors.authRateLimitExceeded',
-            message: 'Too many authentication attempts. Please try again in 15 minutes.',
         });
     },
 });

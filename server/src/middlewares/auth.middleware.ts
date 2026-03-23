@@ -23,7 +23,6 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
             success: false,
             errorCode: 'UNAUTHORIZED',
             messageKey: 'common:errors.unauthorized',
-            message: 'Unauthenticated access.',
         });
     }
 
@@ -33,7 +32,6 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
                 success: false,
                 errorCode: 'TOKEN_EXPIRED',
                 messageKey: 'auth:errors.tokenExpired',
-                message: 'Session expired or invalid.',
             });
         }
 
@@ -42,7 +40,7 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
             req.user = user;
             return next();
         }
-        // 3) Check user status in DB â€” reject if account is Banned
+        // 3) Check user status in DB and reject banned accounts.
         try {
             const dbUser = await prisma.user.findUnique({
                 where: { userId: user.userId },
@@ -53,8 +51,7 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
                 return res.status(401).json({
                     success: false,
                     errorCode: 'USER_NOT_FOUND',
-                    messageKey: 'common:errors.notFound',
-                    message: 'Account does not exist.',
+                    messageKey: 'users:errors.userNotFound',
                 });
             }
 
@@ -65,7 +62,6 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
                     success: false,
                     errorCode: 'ACCOUNT_BANNED',
                     messageKey: 'auth:errors.accountBanned',
-                    message: 'Account is banned. Please contact administrator.',
                 });
             }
 
@@ -77,13 +73,12 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
                 success: false,
                 errorCode: 'INTERNAL_SERVER_ERROR',
                 messageKey: 'common:errors.internalServer',
-                message: 'Authentication error.',
             });
         }
     });
 };
 
-// â”€â”€â”€ RBAC: Permission Cache & Middleware â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// RBAC: Permission cache and middleware.
 
 interface CacheEntry {
     permissions: string[];
@@ -142,7 +137,6 @@ export const requirePermission = (requiredPermissionCode: string) => {
                 success: false,
                 errorCode: 'UNAUTHORIZED',
                 messageKey: 'common:errors.unauthorized',
-                message: 'Unauthenticated access.',
             });
         }
 
@@ -161,7 +155,6 @@ export const requirePermission = (requiredPermissionCode: string) => {
                     success: false,
                     errorCode: 'PERMISSION_DENIED',
                     messageKey: 'common:errors.forbidden',
-                    message: 'Permission denied.',
                     required: requiredPermissionCode,
                 });
             }
@@ -175,7 +168,6 @@ export const requirePermission = (requiredPermissionCode: string) => {
                 success: false,
                 errorCode: 'INTERNAL_SERVER_ERROR',
                 messageKey: 'common:errors.internalServer',
-                message: 'Permission check error.',
             });
         }
     };
@@ -192,7 +184,6 @@ export const checkRole = (allowedRoles: string[]) => {
                 success: false,
                 errorCode: 'UNAUTHORIZED',
                 messageKey: 'common:errors.unauthorized',
-                message: 'Unauthenticated access.',
             });
         }
 
@@ -204,7 +195,6 @@ export const checkRole = (allowedRoles: string[]) => {
                 success: false,
                 errorCode: 'FORBIDDEN_ROLE',
                 messageKey: 'common:errors.forbidden',
-                message: 'Access denied. You do not have the required role.',
             });
         }
 

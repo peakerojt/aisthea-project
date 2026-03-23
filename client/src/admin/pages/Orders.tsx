@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Search, Package, ChevronLeft, ChevronRight, Eye,
   AlertCircle, FilterX, Calendar, Copy, RefreshCw,
@@ -17,27 +17,9 @@ import {
   adminUiTokens,
 } from '@/admin/components/AdminUI';
 
-const STATUS_TABS = [
-  { key: 'ALL', label: 'Tất cả' },
-  { key: 'Pending', label: 'Chờ xác nhận' },
-  { key: 'Processing', label: 'Đang xử lý' },
-  { key: 'Shipping', label: 'Đang giao' },
-  { key: 'Delivered', label: 'Đã giao' },
-  { key: 'Cancelled', label: 'Đã hủy' },
-] as const;
-
-const SORT_OPTIONS = [
-  { value: 'createdAt_desc', label: 'Mới nhất' },
-  { value: 'createdAt_asc', label: 'Cũ nhất' },
-  { value: 'totalAmount_desc', label: 'Giá trị cao nhất' },
-  { value: 'totalAmount_asc', label: 'Giá trị thấp nhất' },
-  { value: 'status_asc', label: 'Theo trạng thái' },
-  { value: 'paymentStatus_desc', label: 'Theo thanh toán' },
-] as const;
-
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
-
-type StatusTabKey = (typeof STATUS_TABS)[number]['key'];
+type StatusTabKey = 'ALL' | 'Pending' | 'Processing' | 'Shipping' | 'Delivered' | 'Cancelled';
+type OrdersTranslator = (key: string, options?: Record<string, unknown>) => string;
 
 export const formatVND = (amount: string | number): string => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -81,21 +63,24 @@ export const getOrderStatusColor = (status: string | null | undefined) => {
   }
 };
 
-const getCompactStatusLabel = (status: string | null | undefined) => {
+const getCompactStatusLabel = (
+  status: string | null | undefined,
+  t: OrdersTranslator,
+) => {
   switch ((status ?? '').toUpperCase()) {
     case 'PENDING':
-      return 'Chờ xác nhận';
+      return t('status.PENDING');
     case 'PROCESSING':
-      return 'Đang xử lý';
+      return t('status.PROCESSING');
     case 'SHIPPING':
-      return 'Đang giao';
+      return t('status.SHIPPING');
     case 'DELIVERED':
     case 'COMPLETED':
-      return 'Đã giao';
+      return t('status.DELIVERED');
     case 'CANCELLED':
-      return 'Đã hủy';
+      return t('status.CANCELLED');
     default:
-      return status || 'Khác';
+      return status || t('status.other');
   }
 };
 
@@ -114,31 +99,38 @@ const getPaymentBadgeTone = (paymentStatus: string | null | undefined, paymentMe
   return 'bg-white/[0.04] text-white/65 border-white/10';
 };
 
-const getCompactPaymentLabel = (paymentStatus: string | null | undefined, paymentMethod?: string) => {
+const getCompactPaymentLabel = (
+  paymentStatus: string | null | undefined,
+  paymentMethod: string | undefined,
+  t: OrdersTranslator,
+) => {
   const normalizedStatus = (paymentStatus ?? '').toUpperCase();
   const normalizedMethod = (paymentMethod ?? '').toUpperCase();
 
   if (normalizedStatus === 'COMPLETED' || normalizedStatus === 'PAID' || normalizedStatus === 'SUCCESS') {
-    return 'Đã thanh toán';
+    return t('paymentStatus.paid');
   }
 
   if (normalizedMethod === 'COD') {
-    return 'COD chưa thu';
+    return t('paymentStatus.codPending');
   }
 
-  return 'Chờ thanh toán';
+  return t('paymentStatus.pending');
 };
 
-const getCompactPaymentMethodLabel = (paymentMethod?: string) => {
+const getCompactPaymentMethodLabel = (
+  paymentMethod: string | undefined,
+  t: OrdersTranslator,
+) => {
   const normalizedMethod = (paymentMethod ?? '').toUpperCase();
 
   switch (normalizedMethod) {
     case 'COD':
-      return 'COD';
+      return t('paymentMethod.COD');
     case 'VNPAY':
-      return 'VNPAY';
+      return t('paymentMethod.VNPAY');
     default:
-      return paymentMethod || 'Khác';
+      return paymentMethod || t('paymentMethod.OTHER');
   }
 };
 
@@ -175,33 +167,40 @@ const getVisiblePages = (page: number, totalPages: number) => {
   );
 };
 
-const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+const StatusBadge: React.FC<{ status: string; t: OrdersTranslator }> = ({ status, t }) => {
   const { badge, dot } = getOrderStatusColor(status);
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badge}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
-      {getCompactStatusLabel(status)}
+      {getCompactStatusLabel(status, t)}
     </span>
   );
 };
 
-const PaymentBadge: React.FC<{ paymentStatus: string; paymentMethod?: string }> = ({
+const PaymentBadge: React.FC<{ paymentStatus: string; paymentMethod?: string; t: OrdersTranslator }> = ({
   paymentStatus,
   paymentMethod,
+  t,
 }) => (
   <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getPaymentBadgeTone(paymentStatus, paymentMethod)}`}>
-    {getCompactPaymentLabel(paymentStatus, paymentMethod)}
+    {getCompactPaymentLabel(paymentStatus, paymentMethod, t)}
   </span>
 );
 
 interface OrderTableRowProps {
   order: AdminOrder;
+  t: OrdersTranslator;
+  copyOrderNumberTitle: string;
+  detailLabel: string;
   onOpen: (orderId: number) => void;
   onCopy: (orderNumber: string) => void;
 }
 
 const OrderTableRow = React.memo(({
   order,
+  t,
+  copyOrderNumberTitle,
+  detailLabel,
   onOpen,
   onCopy,
 }: OrderTableRowProps) => {
@@ -234,12 +233,12 @@ const OrderTableRow = React.memo(({
                 onCopy(order.orderNumber);
               }}
               className="rounded-md border border-white/10 p-1 text-white/35 transition-colors duration-150 hover:border-white/20 hover:text-white/80"
-              title="Sao chép mã đơn"
+              title={copyOrderNumberTitle}
             >
               <Copy size={12} />
             </button>
           </div>
-          <p className="text-[11px] text-white/50">{order.itemCount} sản phẩm</p>
+          <p className="text-[11px] text-white/50">{t('table.itemCount', { count: order.itemCount })}</p>
         </div>
       </td>
 
@@ -268,15 +267,15 @@ const OrderTableRow = React.memo(({
 
       <td className="px-5 py-3.5 align-middle">
         <div className="space-y-1.5">
-          <PaymentBadge paymentStatus={order.paymentStatus} paymentMethod={order.paymentMethod} />
+          <PaymentBadge paymentStatus={order.paymentStatus} paymentMethod={order.paymentMethod} t={t} />
           <p className="text-[11px] uppercase tracking-[0.14em] text-white/42">
-            {getCompactPaymentMethodLabel(order.paymentMethod)}
+            {getCompactPaymentMethodLabel(order.paymentMethod, t)}
           </p>
         </div>
       </td>
 
       <td className="px-5 py-3.5 align-middle">
-        <StatusBadge status={order.status} />
+        <StatusBadge status={order.status} t={t} />
       </td>
 
       <td className="sticky right-0 px-5 py-3.5 align-middle text-right bg-[#0f1014] transition-colors duration-150 group-hover:bg-[#14161b]">
@@ -289,7 +288,7 @@ const OrderTableRow = React.memo(({
           className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white/70 transition-colors duration-150 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
         >
           <Eye size={13} />
-          Chi tiết
+          {detailLabel}
         </button>
       </td>
     </tr>
@@ -299,6 +298,28 @@ const OrderTableRow = React.memo(({
 export const Orders: React.FC = () => {
   const { t } = useTranslation(['orders']);
   const navigate = useNavigate();
+  const statusTabs = useMemo(
+    () => ([
+      { key: 'ALL', label: t('filters.all') },
+      { key: 'Pending', label: t('status.PENDING') },
+      { key: 'Processing', label: t('status.PROCESSING') },
+      { key: 'Shipping', label: t('status.SHIPPING') },
+      { key: 'Delivered', label: t('status.DELIVERED') },
+      { key: 'Cancelled', label: t('status.CANCELLED') },
+    ] as const),
+    [t],
+  );
+  const sortOptions = useMemo(
+    () => ([
+      { value: 'createdAt_desc', label: t('sortOptions.createdAtDesc') },
+      { value: 'createdAt_asc', label: t('sortOptions.createdAtAsc') },
+      { value: 'totalAmount_desc', label: t('sortOptions.totalAmountDesc') },
+      { value: 'totalAmount_asc', label: t('sortOptions.totalAmountAsc') },
+      { value: 'status_asc', label: t('sortOptions.statusAsc') },
+      { value: 'paymentStatus_desc', label: t('sortOptions.paymentStatusDesc') },
+    ] as const),
+    [t],
+  );
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -363,7 +384,7 @@ export const Orders: React.FC = () => {
   const loadTabCounts = useCallback(async () => {
     try {
       const counts = await Promise.all(
-        STATUS_TABS.map(async (tab) => {
+        statusTabs.map(async (tab) => {
           const res = await adminOrderService.getAll({
             status: tab.key === 'ALL' ? undefined : tab.key,
             page: 1,
@@ -381,7 +402,7 @@ export const Orders: React.FC = () => {
     } catch {
       // Keep the previous counts if the auxiliary request fails.
     }
-  }, [endDate, search, startDate]);
+  }, [endDate, search, startDate, statusTabs]);
 
   useEffect(() => {
     void loadOrders();
@@ -461,12 +482,12 @@ export const Orders: React.FC = () => {
             <>
               <AdminSecondaryButton type="button" onClick={handleRefresh}>
                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                Làm mới
+                {t('actions.refresh')}
               </AdminSecondaryButton>
               {hasFilters && (
                 <AdminSecondaryButton type="button" onClick={handleClearFilters}>
                   <FilterX size={14} />
-                  Reset
+                  {t('actions.reset')}
                 </AdminSecondaryButton>
               )}
             </>
@@ -475,7 +496,7 @@ export const Orders: React.FC = () => {
           <div className="grid w-full gap-3 md:grid-cols-2 2xl:min-w-[960px] 2xl:grid-cols-[minmax(280px,1.4fr)_repeat(4,minmax(0,1fr))]">
               <label className="relative">
                 <span className={adminUiTokens.fieldLabel}>
-                  Tìm kiếm
+                  {t('filters.searchLabel')}
                 </span>
                 <Search size={15} className="pointer-events-none absolute left-3 top-[38px] -translate-y-1/2 text-white/30" />
                 <input
@@ -490,7 +511,7 @@ export const Orders: React.FC = () => {
               <label>
                 <span className={`${adminUiTokens.fieldLabel} flex items-center gap-1.5`}>
                   <Calendar size={12} />
-                  Từ ngày
+                  {t('filters.dateFrom')}
                 </span>
                 <input
                   type="date"
@@ -506,7 +527,7 @@ export const Orders: React.FC = () => {
               <label>
                 <span className={`${adminUiTokens.fieldLabel} flex items-center gap-1.5`}>
                   <Calendar size={12} />
-                  Đến ngày
+                  {t('filters.dateTo')}
                 </span>
                 <input
                   type="date"
@@ -521,7 +542,7 @@ export const Orders: React.FC = () => {
 
               <label>
                 <span className={adminUiTokens.fieldLabel}>
-                  Sắp xếp
+                  {t('filters.sortLabel')}
                 </span>
                 <select
                   value={sort}
@@ -531,7 +552,7 @@ export const Orders: React.FC = () => {
                   }}
                   className={adminUiTokens.fieldControl}
                 >
-                  {SORT_OPTIONS.map((option) => (
+                  {sortOptions.map((option) => (
                     <option key={option.value} value={option.value} className="bg-[#111318]">
                       {option.label}
                     </option>
@@ -542,7 +563,7 @@ export const Orders: React.FC = () => {
               <div>
                 <label>
                   <span className={adminUiTokens.fieldLabel}>
-                    / trang
+                    {t('pagination.perPage')}
                   </span>
                   <select
                     value={pageSize}
@@ -564,7 +585,7 @@ export const Orders: React.FC = () => {
         </AdminToolbar>
 
         <AdminTabs
-          items={STATUS_TABS.map((tab) => ({
+          items={statusTabs.map((tab) => ({
             key: tab.key,
             label: tab.label,
             count: tabCounts[tab.key] ?? 0,
@@ -610,7 +631,7 @@ export const Orders: React.FC = () => {
         ) : (
           <>
             <div className="border-b border-white/[0.06] px-5 py-3 text-xs text-white/45 lg:px-6">
-              Hiển thị {rangeStart}-{rangeEnd} trên {total} đơn hàng
+              {t('pagination.rangeSummary', { start: rangeStart, end: rangeEnd, total })}
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto">
@@ -620,10 +641,10 @@ export const Orders: React.FC = () => {
                     {[
                       t('table.orderId'),
                       t('table.customer'),
-                      'Thời gian',
+                      t('table.time'),
                       t('table.total'),
                       t('table.payment'),
-                      'Giao hàng',
+                      t('table.shipping'),
                       t('table.actions'),
                     ].map((label, index) => (
                       <th
@@ -642,6 +663,9 @@ export const Orders: React.FC = () => {
                     <OrderTableRow
                       key={order.orderId}
                       order={order}
+                      t={t}
+                      copyOrderNumberTitle={t('actions.copyOrderNumber')}
+                      detailLabel={t('actions.viewDetail')}
                       onOpen={(orderId) => navigate(`/admin/orders/${orderId}`)}
                       onCopy={(orderNumber) => {
                         void handleCopyOrderNumber(orderNumber);
@@ -657,7 +681,7 @@ export const Orders: React.FC = () => {
         {!loading && !error && totalPages > 1 && (
           <div className="flex flex-col gap-3 border-t border-white/[0.06] px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
             <p className="text-xs text-white/42">
-              Trang {page}/{totalPages} · {total} đơn hàng
+              {t('pagination.summary', { page, totalPages, total })}
             </p>
 
             <div className="flex items-center gap-2">

@@ -13,6 +13,16 @@ import enOrders from './locales/en/orders.json';
 import viOrders from './locales/vi/orders.json';
 import enTracking from './locales/en/tracking.json';
 import viTracking from './locales/vi/tracking.json';
+import enUsers from './locales/en/users.json';
+import viUsers from './locales/vi/users.json';
+import enReturns from './locales/en/returns.json';
+import viReturns from './locales/vi/returns.json';
+import enPayments from './locales/en/payments.json';
+import viPayments from './locales/vi/payments.json';
+import enPurchaseOrders from './locales/en/purchaseOrders.json';
+import viPurchaseOrders from './locales/vi/purchaseOrders.json';
+import enRoles from './locales/en/roles.json';
+import viRoles from './locales/vi/roles.json';
 
 export const SUPPORTED_LOCALES = ['en', 'vi'] as const;
 export type AppLocale = (typeof SUPPORTED_LOCALES)[number];
@@ -26,6 +36,11 @@ const resources = {
     reviews: enReviews,
     orders: enOrders,
     tracking: enTracking,
+    users: enUsers,
+    returns: enReturns,
+    payments: enPayments,
+    purchaseOrders: enPurchaseOrders,
+    roles: enRoles,
   },
   vi: {
     common: viCommon,
@@ -35,6 +50,11 @@ const resources = {
     reviews: viReviews,
     orders: viOrders,
     tracking: viTracking,
+    users: viUsers,
+    returns: viReturns,
+    payments: viPayments,
+    purchaseOrders: viPurchaseOrders,
+    roles: viRoles,
   },
 };
 

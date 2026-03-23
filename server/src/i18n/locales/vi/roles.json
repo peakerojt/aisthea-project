@@ -1,0 +1,14 @@
+{
+  "errors": {
+    "fetchRolesFailed": "Không thể tải danh sách vai trò.",
+    "fetchPermissionsFailed": "Không thể tải danh sách quyền.",
+    "invalidRoleId": "Mã vai trò không hợp lệ.",
+    "invalidPermissionIds": "permissionIds phải là một mảng số.",
+    "roleNotFound": "Không tìm thấy vai trò.",
+    "superAdminProtected": "Không thể chỉnh sửa quyền của vai trò Super Admin.",
+    "updatePermissionsFailed": "Không thể cập nhật quyền của vai trò."
+  },
+  "success": {
+    "permissionsUpdated": "Cập nhật quyền vai trò thành công."
+  }
+}

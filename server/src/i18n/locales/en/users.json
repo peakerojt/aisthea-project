@@ -1,0 +1,37 @@
+{
+  "errors": {
+    "userNotFound": "User not found.",
+    "invalidUserId": "Invalid user ID.",
+    "fetchProfileFailed": "Failed to load profile.",
+    "updateProfileFailed": "Failed to update profile.",
+    "invalidAvatarPayload": "Please upload an avatar file or provide base64 data in the avatar field.",
+    "invalidAvatarFormat": "Please upload a valid image file.",
+    "unsupportedAvatarType": "The selected image type is not supported.",
+    "uploadAvatarFailed": "Failed to upload avatar.",
+    "fetchAddressesFailed": "Failed to load addresses.",
+    "createAddressFailed": "Failed to create address.",
+    "updateAddressFailed": "Failed to update address.",
+    "deleteAddressFailed": "Failed to delete address.",
+    "setDefaultAddressFailed": "Failed to set the default address.",
+    "addressRequiredFields": "Please provide recipient name, phone number, address line, city, district, and ward.",
+    "addressNotFound": "Address not found or you do not have access.",
+    "fetchRecentOrdersFailed": "Failed to load recent orders.",
+    "fetchUsersFailed": "Failed to fetch users.",
+    "cannotBanSelf": "You cannot ban your own account.",
+    "cannotBanAdmin": "You cannot ban another admin account.",
+    "updateStatusFailed": "Failed to update user status.",
+    "roleNotFound": "Role not found.",
+    "updateRoleFailed": "Failed to update user role."
+  },
+  "success": {
+    "profileUpdated": "Profile updated successfully.",
+    "avatarUploaded": "Avatar uploaded successfully.",
+    "avatarDeleted": "Avatar deleted successfully.",
+    "addressCreated": "Address created successfully.",
+    "addressUpdated": "Address updated successfully.",
+    "addressDeleted": "Address deleted successfully.",
+    "defaultAddressSet": "Default address updated successfully.",
+    "statusUpdated": "User status updated successfully.",
+    "roleUpdated": "User role updated successfully."
+  }
+}

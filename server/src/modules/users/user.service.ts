@@ -17,7 +17,7 @@ class UserModuleError extends Error {
   status: number;
   code: string;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message = code) {
     super(message);
     this.status = status;
     this.code = code;
@@ -53,7 +53,7 @@ export const userModuleService = {
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new UserModuleError(404, 'USER_NOT_FOUND');
     }
 
     return {
@@ -64,11 +64,11 @@ export const userModuleService = {
 
   async updateProfile(userId: number, data: UpdateProfileInput) {
     if (data.fullName && data.fullName.trim().length === 0) {
-      throw new Error('Full name cannot be empty');
+      throw new UserModuleError(400, 'INVALID_BODY');
     }
 
-    if (data.phone && !/^[0-9\s\-\+\(\)]+$/.test(data.phone)) {
-      throw new Error('Invalid phone number format');
+    if (data.phone && !/^[0-9\s\-+()]+$/.test(data.phone)) {
+      throw new UserModuleError(400, 'INVALID_BODY');
     }
 
     return prisma.user.update({
@@ -90,7 +90,7 @@ export const userModuleService = {
 
   async uploadAvatar(userId: number, avatarBase64: string) {
     if (!avatarBase64.startsWith('data:image/')) {
-      throw new Error('Invalid image format. Only images are allowed.');
+      throw new UserModuleError(400, 'INVALID_AVATAR_FORMAT');
     }
 
     const payload = avatarBase64.split(',')[1];
@@ -98,7 +98,7 @@ export const userModuleService = {
     const maxSize = 5 * 1024 * 1024;
 
     if (base64Size > maxSize) {
-      throw new Error('Image size exceeds 5MB limit');
+      throw new UserModuleError(400, 'INVALID_BODY');
     }
 
     const currentUser = await prisma.user.findUnique({
@@ -171,7 +171,7 @@ export const userModuleService = {
 
   async createAddress(userId: number, data: AddressInput) {
     if (!data.recipientName || !data.phone || !data.addressLine || !data.city || !data.district || !data.ward) {
-      throw new Error('Missing required fields: recipientName, phone, addressLine, city, district, ward');
+      throw new UserModuleError(400, 'ADDRESS_REQUIRED_FIELDS');
     }
 
     if (data.isDefault) {
@@ -201,7 +201,7 @@ export const userModuleService = {
     });
 
     if (!existingAddress) {
-      throw new Error('Address not found or access denied');
+      throw new UserModuleError(404, 'ADDRESS_NOT_FOUND');
     }
 
     if (data.isDefault === true) {
@@ -223,14 +223,14 @@ export const userModuleService = {
     });
 
     if (!existingAddress) {
-      throw new Error('Address not found or access denied');
+      throw new UserModuleError(404, 'ADDRESS_NOT_FOUND');
     }
 
     await prisma.address.delete({
       where: { addressId },
     });
 
-    return { message: 'Address deleted successfully' };
+    return { code: 'ADDRESS_DELETED' };
   },
 
   async setDefaultAddress(userId: number, addressId: number) {
@@ -239,7 +239,7 @@ export const userModuleService = {
     });
 
     if (!existingAddress) {
-      throw new Error('Address not found or access denied');
+      throw new UserModuleError(404, 'ADDRESS_NOT_FOUND');
     }
 
     await prisma.address.updateMany({
@@ -348,7 +348,7 @@ export const userModuleService = {
 
   async updateUserStatus(requesterId: number, targetId: number) {
     if (requesterId === targetId) {
-      throw new UserModuleError(403, 'CANNOT_BAN_SELF', 'You cannot ban your own account.');
+      throw new UserModuleError(403, 'CANNOT_BAN_SELF');
     }
 
     const targetUser = await prisma.user.findUnique({
@@ -357,12 +357,12 @@ export const userModuleService = {
     });
 
     if (!targetUser) {
-      throw new UserModuleError(404, 'USER_NOT_FOUND', 'User not found.');
+      throw new UserModuleError(404, 'USER_NOT_FOUND');
     }
 
     const targetRoles = targetUser.userRoles.map((userRole) => userRole.role.roleName.toLowerCase());
     if (targetRoles.includes('admin')) {
-      throw new UserModuleError(403, 'CANNOT_BAN_ADMIN', 'You cannot ban another admin account.');
+      throw new UserModuleError(403, 'CANNOT_BAN_ADMIN');
     }
 
     const updated = await prisma.user.update({
@@ -381,12 +381,12 @@ export const userModuleService = {
   async updateUserRole(targetId: number, roleId: number) {
     const role = await prisma.role.findUnique({ where: { roleId } });
     if (!role) {
-      throw new UserModuleError(404, 'ROLE_NOT_FOUND', 'Role not found.');
+      throw new UserModuleError(404, 'ROLE_NOT_FOUND');
     }
 
     const user = await prisma.user.findUnique({ where: { userId: targetId } });
     if (!user) {
-      throw new UserModuleError(404, 'USER_NOT_FOUND', 'User not found.');
+      throw new UserModuleError(404, 'USER_NOT_FOUND');
     }
 
     await prisma.$transaction([

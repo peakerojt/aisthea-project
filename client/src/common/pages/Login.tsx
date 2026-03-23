@@ -64,7 +64,7 @@ export const Login: React.FC = () => {
       }
     } catch (error) {
       const err = error as Error & { status?: number; code?: string };
-      const message = err.status === 401 || err.message === 'Invalid email or password'
+      const message = err.status === 401 || err.code === 'INVALID_CREDENTIALS'
         ? t('errors.invalidCredentials')
         : err.message || t('errors.signInFailed');
       setAuthError(message);

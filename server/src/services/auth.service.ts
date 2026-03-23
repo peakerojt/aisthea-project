@@ -5,6 +5,7 @@ import { RegisterInput, LoginInput } from '../utils/schemas/auth.schema';
 import { createVerificationToken } from './verification.service';
 import { logger } from '../lib/logger';
 import bcrypt from 'bcryptjs';
+import { AppError } from '../middlewares/error.middleware';
 
 const LOCAL_LOGIN_PROVIDER = 'LOCAL';
 
@@ -18,7 +19,7 @@ export const registerUser = async (input: RegisterInput) => {
     });
 
     if (existingUser) {
-        throw new Error('Email already exists');
+        throw new AppError(409, 'EMAIL_EXISTS', 'auth:errors.emailExists');
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -90,24 +91,24 @@ export const loginUser = async (input: LoginInput) => {
 
     if (!user || !user.passwordHash) {
         logger.warn('Login failed: Invalid credentials', { email });
-        throw new Error('Invalid email or password');
+        throw new AppError(401, 'INVALID_CREDENTIALS', 'auth:errors.invalidCredentials');
     }
 
     if (user.status === 'Pending') {
         logger.warn('Login failed: Unverified email', { email });
-        throw new Error('Please verify your email before logging in');
+        throw new AppError(403, 'EMAIL_NOT_VERIFIED', 'auth:errors.emailNotVerified');
     }
 
     if (user.status === 'Banned') {
         logger.warn('Login failed: Account banned', { email, userId: user.userId });
-        throw new Error('Your account has been banned');
+        throw new AppError(403, 'ACCOUNT_BANNED', 'auth:errors.accountBanned');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
         logger.warn('Login failed: Invalid credentials', { email });
-        throw new Error('Invalid email or password');
+        throw new AppError(401, 'INVALID_CREDENTIALS', 'auth:errors.invalidCredentials');
     }
 
     const roles = user.userRoles.map(ur => ur.role.roleName);
@@ -123,7 +124,7 @@ export const loginUser = async (input: LoginInput) => {
     const REFRESH_SECRET = process.env.REFRESH_SECRET;
 
     if (!JWT_SECRET || !REFRESH_SECRET) {
-        throw new Error('Missing JWT_SECRET or REFRESH_SECRET environment variables');
+        throw new AppError(500, 'INTERNAL_SERVER_ERROR', 'common:errors.internalServer');
     }
 
     const accessToken = jwt.sign(

@@ -76,7 +76,7 @@ export const productController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await productService.createProduct(req.body);
-      res.status(201).json({ success: true, data: result, message: 'Product created successfully.' });
+      res.status(201).json({ success: true, code: 'PRODUCT_CREATED', data: result });
     } catch (error) {
       next(error);
     }
@@ -86,7 +86,7 @@ export const productController = {
     try {
       const id = parseProductId(req.params.id as string);
       const result = await productService.updateProduct(id, req.body);
-      res.json({ success: true, data: result, message: 'Product updated successfully.' });
+      res.json({ success: true, code: 'PRODUCT_UPDATED', data: result });
     } catch (error) {
       next(error);
     }
@@ -97,7 +97,7 @@ export const productController = {
       const id = parseProductId(req.params.id as string);
       const { status } = req.body as UpdateProductStatusInput;
       const result = await productService.updateProductStatus(id, status);
-      res.json({ success: true, data: result, message: 'Product status updated successfully.' });
+      res.json({ success: true, code: 'PRODUCT_STATUS_UPDATED', data: result });
     } catch (error) {
       next(error);
     }
@@ -107,7 +107,12 @@ export const productController = {
     try {
       const id = parseProductId(req.params.id as string);
       const result = await productService.deleteProduct(id);
-      res.json({ success: true, data: result, message: result.message });
+      res.json({
+        success: true,
+        code: result.mode === 'archived' ? 'PRODUCT_ARCHIVED' : 'PRODUCT_DELETED',
+        mode: result.mode,
+        ...(typeof result.deletedImageCount === 'number' ? { deletedImageCount: result.deletedImageCount } : {}),
+      });
     } catch (error) {
       next(error);
     }

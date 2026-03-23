@@ -1,9 +1,17 @@
 {
   "errors": {
-    "orderItemNotFound": "Không tìm thấy sản phẩm trong đơn hàng.",
+    "invalidOrderItemId": "orderItemId là bắt buộc và phải là số.",
+    "invalidProductId": "productId là bắt buộc và phải là số.",
+    "invalidRating": "Điểm đánh giá phải là số nguyên từ 1 đến 5.",
+    "orderItemNotFound": "Không tìm thấy mục đơn hàng.",
     "notOrderOwner": "Bạn không sở hữu đơn hàng này.",
     "itemNotDelivered": "Chỉ có thể đánh giá sản phẩm đã giao.",
     "productMismatch": "Sản phẩm không khớp với mục đã mua.",
-    "alreadyExists": "Bạn đã đánh giá sản phẩm này."
+    "alreadyExists": "Bạn đã đánh giá mục này rồi.",
+    "createFailed": "Không thể tạo đánh giá.",
+    "fetchFailed": "Không thể tải danh sách đánh giá."
+  },
+  "success": {
+    "created": "Tạo đánh giá thành công."
   }
 }

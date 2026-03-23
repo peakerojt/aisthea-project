@@ -53,7 +53,7 @@ export const getRolePermissionCodes = async (roleId: number): Promise<string[]> 
 export const updateRolePermissions = async (roleId: number, permissionIds: number[]) => {
     // Safety: never allow modifying Super Admin
     const role = await prisma.role.findUnique({ where: { roleId } });
-    if (!role) throw new Error('Role not found');
+    if (!role) throw new Error('ROLE_NOT_FOUND');
     if (role.roleName === 'Super Admin') {
         throw new Error('SUPER_ADMIN_PROTECTED');
     }
