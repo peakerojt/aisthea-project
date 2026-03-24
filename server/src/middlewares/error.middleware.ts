@@ -65,6 +65,7 @@ export function errorHandler(error: Error, req: Request, res: Response, _next: N
       errorCode: error.errorCode,
       code: error.errorCode,
       messageKey: error.messageKey,
+      ...(error.messageParams ? { messageParams: error.messageParams } : {}),
       message,
       ...(isProd ? {} : { details: error.details }), // Hide sensitive details in prod if needed, or keep them. Often AppError details are safe (like validation mismatches)
     });

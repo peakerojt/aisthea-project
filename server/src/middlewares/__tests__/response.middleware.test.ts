@@ -55,4 +55,37 @@ describe('response.middleware i18n normalization', () => {
     expect(payload.messageKey).toBe('auth:errors.invalidCredentials');
     expect(payload.message).toBe('Email hoặc mật khẩu không chính xác.');
   });
+
+  it('interpolates success message params during normalization', () => {
+    const req: any = {
+      locale: 'en',
+      path: '/api/admin/orders/1/status',
+      originalUrl: '/api/admin/orders/1/status',
+    };
+
+    const payload = normalizeApiResponseBody(req, 200, {
+      success: true,
+      messageKey: 'tracking:success.updateStatus',
+      messageParams: { status: 'CONFIRMED' },
+    }) as Record<string, unknown>;
+
+    expect(payload.message).toBe("Order status has been updated to 'CONFIRMED' successfully.");
+  });
+
+  it('interpolates error message params during normalization', () => {
+    const req: any = {
+      locale: 'en',
+      path: '/api/admin/orders/1/status',
+      originalUrl: '/api/admin/orders/1/status',
+    };
+
+    const payload = normalizeApiResponseBody(req, 400, {
+      success: false,
+      errorCode: 'INVALID_STATUS_TRANSITION',
+      messageKey: 'tracking:errors.invalidStatusTransition',
+      messageParams: { from: 'DELIVERED', to: 'PENDING' },
+    }) as Record<string, unknown>;
+
+    expect(payload.message).toBe("Cannot transition order from 'DELIVERED' to 'PENDING'. Check allowed transitions.");
+  });
 });

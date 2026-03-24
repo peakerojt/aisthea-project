@@ -140,6 +140,7 @@ export const trackingController = {
       return res.json({
         success: true,
         messageKey: 'tracking:success.updateStatus',
+        messageParams: { status: parsed.data.status },
         message: t(locale, 'tracking:success.updateStatus', { status: parsed.data.status }),
         data: updated,
       });

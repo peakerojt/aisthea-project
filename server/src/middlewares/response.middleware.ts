@@ -52,9 +52,14 @@ const hasErrorShape = (statusCode: number, body: JsonObject) =>
   typeof body.errorCode === 'string' ||
   typeof body.error === 'string';
 
-const localizeMessage = (locale: AppLocale, messageKey?: string, rawMessage?: string) => {
+const localizeMessage = (
+  locale: AppLocale,
+  messageKey?: string,
+  rawMessage?: string,
+  messageParams?: Record<string, unknown>,
+) => {
   if (typeof messageKey === 'string' && messageKey.trim().length > 0) {
-    return t(locale, messageKey);
+    return t(locale, messageKey, messageParams);
   }
 
   if (typeof rawMessage === 'string' && rawMessage.trim().length > 0) {
@@ -109,8 +114,17 @@ const normalizeErrorPayload = (req: Request, statusCode: number, body: JsonObjec
       ? body.messageKey
       : resolveErrorMessageKey(normalizedCode);
 
+  const messageParams =
+    body.messageParams && typeof body.messageParams === 'object' && !Array.isArray(body.messageParams)
+      ? (body.messageParams as Record<string, unknown>)
+      : undefined;
   const details = localizeDetails(locale, body.details);
-  const message = localizeMessage(locale, messageKey, typeof body.message === 'string' ? body.message : undefined);
+  const message = localizeMessage(
+    locale,
+    messageKey,
+    typeof body.message === 'string' ? body.message : undefined,
+    messageParams,
+  );
   const field =
     typeof body.field === 'string'
       ? body.field
@@ -136,11 +150,20 @@ const normalizeErrorPayload = (req: Request, statusCode: number, body: JsonObjec
 const normalizeSuccessPayload = (req: Request, body: JsonObject): JsonObject => {
   const locale = toLocale(req);
   const inferredCode = normalizeErrorCode(body.code);
+  const messageParams =
+    body.messageParams && typeof body.messageParams === 'object' && !Array.isArray(body.messageParams)
+      ? (body.messageParams as Record<string, unknown>)
+      : undefined;
   const messageKey =
     typeof body.messageKey === 'string' && body.messageKey.trim().length > 0
       ? body.messageKey
       : resolveSuccessMessageKey(inferredCode);
-  const message = localizeMessage(locale, messageKey, typeof body.message === 'string' ? body.message : undefined);
+  const message = localizeMessage(
+    locale,
+    messageKey,
+    typeof body.message === 'string' ? body.message : undefined,
+    messageParams,
+  );
 
   return {
     ...body,

@@ -58,7 +58,7 @@ describe('purchase-order.controller', () => {
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'Supplier email format is invalid.' }),
+      expect.objectContaining({ errorCode: 'PURCHASE_ORDER_EMAIL_INVALID', success: false }),
     );
   });
 
@@ -75,7 +75,7 @@ describe('purchase-order.controller', () => {
             purchaseOrderId: 11,
             purchaseOrderNumber: 'PO-TEST-0001',
             supplier: 'NCC A',
-            expectedReceivedAt: new Date('2026-03-20T00:00:00.000Z'),
+            expectedReceivedAt: new Date('2099-03-20T00:00:00.000Z'),
             invoiceNumber: 'INV-100',
             supplierContactName: 'Nguyen Van A',
             supplierPhone: '+84912345678',
@@ -112,7 +112,7 @@ describe('purchase-order.controller', () => {
       user: { userId: 99 },
       body: {
         supplier: 'NCC A',
-        expectedReceivedAt: '2026-03-20T00:00:00.000Z',
+        expectedReceivedAt: '2099-03-20T00:00:00.000Z',
         invoiceNumber: 'INV-100',
         supplierContactName: 'Nguyen Van A',
         supplierPhone: '+84912345678',
@@ -199,7 +199,7 @@ describe('purchase-order.controller', () => {
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'Received quantity exceeds the remaining ordered quantity.' }),
+      expect.objectContaining({ errorCode: 'RECEIPT_EXCEEDS_ORDERED_QTY', success: false }),
     );
   });
 });

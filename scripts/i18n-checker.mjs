@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = process.cwd();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT = path.resolve(__dirname, '..');
 const BASELINE_FILE = path.join(ROOT, 'scripts', 'i18n-unused-baseline.json');
 const UPDATE_BASELINE = process.argv.includes('--update-baseline');
 const ACTIVE_ROUTE_FILES = [

@@ -95,15 +95,6 @@ MOCK_AI=true
 - `npm run build`: Build for production
 - `npm run preview`: Preview the production build
 
-### GitNexus
-- `npm run gitnexus:status`: Check whether the local code index is fresh
-- `npm run gitnexus:analyze`: Rebuild the GitNexus index for the repository
-- `npm run gitnexus -- impact <symbol> --direction upstream`: Check blast radius before editing a symbol
-- `npm run gitnexus -- context <symbol>`: Inspect callers, callees, and process participation
-- `npm run gitnexus -- query "<concept>"`: Search execution flows by concept
-
-GitNexus is wired through the local `.gitnexus-tools` workspace, so a normal root `npm install` now installs the CLI automatically.
-
 ## 🔐 Hướng dẫn Cài đặt RBAC (Dành cho Team)
 
 Để chạy được chức năng Phân Quyền (RBAC) mới nhất, các thành viên cần thực hiện **3 bước** sau sau khi pull code về:

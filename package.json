@@ -6,15 +6,11 @@
         "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
         "kill:port": "powershell.exe -Command \"$p = (Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue).OwningProcess; if ($p) { Stop-Process -Id $p -Force; Write-Host 'Killed PID' $p } else { Write-Host 'Port 5000 is free' }\"",
         "dev:safe": "npm run kill:port && npm run dev",
-        "install:all": "npm install && npm install --prefix server && npm install --prefix client && npm install --prefix .gitnexus-tools",
-        "postinstall": "npm install --prefix server && npm install --prefix client && npm install --prefix .gitnexus-tools",
+        "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+        "postinstall": "npm install --prefix server && npm install --prefix client",
         "start": "npm run dev",
         "i18n:check": "node scripts/i18n-checker.mjs",
-        "i18n:check:update-baseline": "node scripts/i18n-checker.mjs --update-baseline",
-        "gitnexus": "node scripts/gitnexus.mjs",
-        "gitnexus:status": "node scripts/gitnexus.mjs status",
-        "gitnexus:analyze": "node scripts/gitnexus.mjs analyze",
-        "gitnexus:wiki": "node scripts/gitnexus.mjs wiki"
+        "i18n:check:update-baseline": "node scripts/i18n-checker.mjs --update-baseline"
     },
     "devDependencies": {
         "@playwright/test": "^1.58.2",
