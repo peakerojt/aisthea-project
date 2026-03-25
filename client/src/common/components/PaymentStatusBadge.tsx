@@ -30,12 +30,13 @@ export const PaymentStatusBadge: React.FC<PaymentStatusBadgeProps> = ({
 }) => {
   const { t } = useTranslation('enums');
   const meta = getPaymentStatusMeta(paymentMethod, paymentStatus);
+  const label = t(meta.labelKey, { defaultValue: meta.defaultLabel });
 
   return (
     <span
       className={`inline-flex items-center rounded-full border font-semibold ${SIZE_CLASSES[size]} ${uppercase ? 'uppercase tracking-wide' : ''} ${meta.badgeClass} ${className}`.trim()}
     >
-      {t(meta.labelKey, { defaultValue: meta.defaultLabel })}
+      {label === meta.labelKey ? meta.defaultLabel : label}
     </span>
   );
 };
@@ -46,10 +47,11 @@ export const PaymentMethodLabel: React.FC<PaymentMethodLabelProps> = ({
 }) => {
   const { t } = useTranslation('enums');
   const meta = getPaymentMethodMeta(paymentMethod);
+  const label = t(meta.labelKey, { defaultValue: meta.defaultLabel });
 
   return (
     <span className={className}>
-      {t(meta.labelKey, { defaultValue: meta.defaultLabel })}
+      {label === meta.labelKey ? meta.defaultLabel : label}
     </span>
   );
 };

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { API_BASE_URL } from '@/common/utils/api';
-import { useTrackingStore } from '@/store/components/tracking.store';
+import { useTrackingStore } from '@/store/state/tracking.store';
 import { TrackingData, TrackingTimelineItem } from '@/types/tracking';
 
 /**

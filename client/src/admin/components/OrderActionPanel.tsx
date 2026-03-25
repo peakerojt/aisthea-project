@@ -47,6 +47,15 @@ const getActionTone = (targetStatus: OrderStatusValue) => {
     return 'orange' as const;
 };
 
+const getNextStatusesForOrderAction = (currentStatus: string) => {
+    const normalized = currentStatus.trim().toUpperCase();
+    if (normalized === 'RETURN_REQUESTED') {
+        return [ORDER_STATUS.RETURNED];
+    }
+
+    return getValidNextStatuses(currentStatus);
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Cancellation / Note Dialog — glassmorphic sheet
 // ─────────────────────────────────────────────────────────────────────────────
@@ -73,17 +82,28 @@ const RETURN_PRESETS = [
 ];
 
 const NoteDialog: React.FC<NoteDialogProps> = ({ targetStatus, loading, onClose, onConfirm }) => {
+    const { t: rawT } = useTranslation('orders');
     const [note, setNote] = useState('');
     const isCancelled = targetStatus === ORDER_STATUS.CANCELLED;
     const meta = ORDER_STATUS_META[targetStatus];
     const presets = isCancelled ? CANCEL_PRESETS : RETURN_PRESETS;
-    const title = isCancelled ? 'Hủy đơn hàng' : 'Xác nhận trả hàng';
+    const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+        const translated = rawT(key, { ...(options ?? {}), defaultValue: fallback });
+        return translated === key ? fallback : translated;
+    };
+    const title = isCancelled
+        ? resolveText('statusDialog.cancelOrder.title', 'Hủy đơn hàng')
+        : resolveText('statusDialog.returned.title', 'Xác nhận trả hàng');
     const placeholder = isCancelled
-        ? 'Mô tả lý do hủy đơn hàng...'
-        : 'Mô tả lý do trả hàng...';
-    const hint = isCancelled
-        ? 'Tồn kho sẽ được hoàn lại tự động sau khi xác nhận.'
-        : 'Tồn kho sẽ được hoàn lại tự động sau khi xác nhận.';
+        ? resolveText('statusDialog.cancelOrder.placeholder', 'Mô tả lý do hủy đơn hàng...')
+        : resolveText('statusDialog.returned.placeholder', 'Mô tả lý do trả hàng...');
+    const hint = resolveText(
+        'statusDialog.common.hint',
+        'Tồn kho sẽ được hoàn lại tự động sau khi xác nhận.',
+    );
+    const keepLabel = resolveText('statusDialog.common.keep', 'Giữ lại');
+    const processingLabel = resolveText('statusDialog.common.processing', 'Đang xử lý...');
+    const reasonLabel = resolveText('statusDialog.common.reason', 'Lý do');
 
     useEffect(() => { setNote(''); }, [targetStatus]);
 
@@ -105,7 +125,7 @@ const NoteDialog: React.FC<NoteDialogProps> = ({ targetStatus, loading, onClose,
                         disabled={loading}
                         className="flex-1 py-2.5"
                     >
-                        Giữ lại
+                        {keepLabel}
                     </AdminSecondaryButton>
                     <AdminActionButton
                         onClick={() => onConfirm(note)}
@@ -118,7 +138,7 @@ const NoteDialog: React.FC<NoteDialogProps> = ({ targetStatus, loading, onClose,
                         {loading
                             ? <Loader2 size={14} className="animate-spin" />
                             : <StatusIcon name={meta.icon} size={14} />}
-                        {loading ? 'Đang xử lý...' : STATUS_ACTION_LABELS[targetStatus]}
+                        {loading ? processingLabel : STATUS_ACTION_LABELS[targetStatus]}
                     </AdminActionButton>
                 </div>
             )}
@@ -127,7 +147,7 @@ const NoteDialog: React.FC<NoteDialogProps> = ({ targetStatus, loading, onClose,
                     {/* Reason textarea */}
                     <div>
                         <label className="block text-[11px] font-bold uppercase tracking-widest text-white/40 mb-2">
-                            Lý do <span className={`normal-case ${meta.textClass}`}>*</span>
+                            {reasonLabel} <span className={`normal-case ${meta.textClass}`}>*</span>
                         </label>
                         <textarea
                             rows={3}
@@ -170,14 +190,26 @@ interface ConfirmDialogProps {
 }
 
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ targetStatus, loading, onClose, onConfirm }) => {
+    const { t: rawT } = useTranslation('orders');
     const meta = ORDER_STATUS_META[targetStatus];
+    const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+        const translated = rawT(key, { ...(options ?? {}), defaultValue: fallback });
+        return translated === key ? fallback : translated;
+    };
+    const confirmPrefixLabel = resolveText(
+        'statusDialog.common.confirmPrefix',
+        'Xác nhận chuyển sang trạng thái',
+    );
+    const cancelLabel = resolveText('statusDialog.common.cancel', 'Hủy bỏ');
+    const confirmLabel = resolveText('statusDialog.common.confirm', 'Xác nhận');
+    const processingLabel = resolveText('statusDialog.common.processing', 'Đang xử lý...');
     return createPortal(
         <AdminModalShell
             icon={ICON_MAP[meta.icon] ?? Package}
             iconWrapperClassName={`${meta.badgeClass} rounded-xl`}
             iconClassName={meta.textClass}
             title={STATUS_ACTION_LABELS[targetStatus]}
-            subtitle={<>Xác nhận chuyển sang trạng thái <span className={`font-semibold ${meta.textClass}`}>{meta.label}</span>?</>}
+            subtitle={<>{confirmPrefixLabel} <span className={`font-semibold ${meta.textClass}`}>{meta.label}</span>?</>}
             onClose={onClose}
             maxWidthClassName="max-w-sm"
             bodyClassName="p-6"
@@ -188,7 +220,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ targetStatus, loading, on
                         disabled={loading}
                         className="flex-1 py-2.5"
                     >
-                        Hủy bỏ
+                        {cancelLabel}
                     </AdminSecondaryButton>
                     <AdminActionButton
                         onClick={onConfirm}
@@ -199,7 +231,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ targetStatus, loading, on
                         className="flex-1 py-2.5 text-sm font-bold shadow-lg"
                     >
                         {loading ? <Loader2 size={14} className="animate-spin" /> : <StatusIcon name={meta.icon} size={14} />}
-                        {loading ? 'Đang xử lý...' : 'Xác nhận'}
+                        {loading ? processingLabel : confirmLabel}
                     </AdminActionButton>
                 </div>
             )}
@@ -398,10 +430,43 @@ const DeliveryProofDialog: React.FC<DeliveryProofDialogProps> = ({
     onClose,
     onConfirm,
 }) => {
+    const { t: rawT } = useTranslation('orders');
     const [files, setFiles] = useState<Array<{ key: string; file: File; previewUrl: string | null }>>([]);
     const [reviewed, setReviewed] = useState(false);
     const [isPreparingFiles, setIsPreparingFiles] = useState(false);
     const [reviewError, setReviewError] = useState('');
+    const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+        const translated = rawT(key, { ...(options ?? {}), defaultValue: fallback });
+        return translated === key ? fallback : translated;
+    };
+    const titleLabel = resolveText('statusDialog.deliveryProof.title', 'Xác nhận đã giao hàng');
+    const subtitleLabel = resolveText(
+        'statusDialog.deliveryProof.subtitle',
+        'Tải lên ảnh xác nhận giao hàng và đánh dấu đã xem lại hình ảnh trước khi chuyển đơn sang trạng thái đã giao hàng.',
+    );
+    const cancelLabel = resolveText('statusDialog.common.cancel', 'Hủy bỏ');
+    const processingLabel = resolveText('statusDialog.common.processing', 'Đang xử lý...');
+    const uploadingLabel = resolveText('statusDialog.deliveryProof.uploading', 'Đang tải ảnh...');
+    const confirmLabel = resolveText('statusDialog.deliveryProof.confirm', 'Xác nhận đã giao');
+    const uploadLabel = resolveText('statusDialog.deliveryProof.uploadLabel', 'Ảnh xác nhận giao hàng');
+    const preparingLabel = resolveText('statusDialog.deliveryProof.preparing', 'Đang tối ưu ảnh giao hàng...');
+    const chooseLabel = resolveText('statusDialog.deliveryProof.choose', 'Chọn tối đa 5 ảnh giao hàng');
+    const helperLabel = resolveText(
+        'statusDialog.deliveryProof.helper',
+        'JPEG, PNG, WEBP hoặc GIF. Mỗi ảnh tối đa 5MB. Ảnh sẽ được tối ưu nhẹ trước khi tải lên để giảm lag.',
+    );
+    const reviewTitleLabel = resolveText(
+        'statusDialog.deliveryProof.reviewTitle',
+        'Đã xem lại hình ảnh giao hàng',
+    );
+    const reviewDescriptionLabel = resolveText(
+        'statusDialog.deliveryProof.reviewDescription',
+        'Mình xác nhận ảnh tải lên là đúng đơn hàng và đủ để chứng minh đã giao.',
+    );
+    const reviewErrorLabel = resolveText(
+        'statusDialog.deliveryProof.reviewError',
+        'Vui lòng xác nhận đã xem lại hình ảnh giao hàng trước khi tiếp tục.',
+    );
     const isUploadingFiles = Object.values(uploadProgress).some(
         (item) => item.status === 'pending' || item.status === 'uploading',
     );
@@ -463,8 +528,8 @@ const DeliveryProofDialog: React.FC<DeliveryProofDialogProps> = ({
             icon={ImagePlus}
             iconWrapperClassName="rounded-xl border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
             iconClassName="text-emerald-400"
-            title="Xác nhận đã giao hàng"
-            subtitle="Tải lên ảnh xác nhận giao hàng và đánh dấu đã xem lại hình ảnh trước khi chuyển đơn sang trạng thái đã giao hàng."
+            title={titleLabel}
+            subtitle={subtitleLabel}
             onClose={handleClose}
             maxWidthClassName="max-w-2xl"
             panelClassName="shadow-2xl shadow-black/40"
@@ -476,12 +541,12 @@ const DeliveryProofDialog: React.FC<DeliveryProofDialogProps> = ({
                         disabled={loading || isPreparingFiles}
                         className="flex-1 py-2.5"
                     >
-                        Hủy bỏ
+                        {cancelLabel}
                     </AdminSecondaryButton>
                     <AdminPrimaryButton
                         onClick={() => {
                             if (!reviewed) {
-                                setReviewError('Vui lòng xác nhận đã xem lại hình ảnh giao hàng trước khi tiếp tục.');
+                                setReviewError(reviewErrorLabel);
                                 return;
                             }
 
@@ -491,7 +556,7 @@ const DeliveryProofDialog: React.FC<DeliveryProofDialogProps> = ({
                         className="flex-1 bg-emerald-600 py-2.5 shadow-md shadow-emerald-950/20 hover:bg-emerald-500"
                     >
                         {loading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                        {loading ? (isUploadingFiles ? 'Đang tải ảnh...' : 'Đang xử lý...') : 'Xác nhận đã giao'}
+                        {loading ? (isUploadingFiles ? uploadingLabel : processingLabel) : confirmLabel}
                     </AdminPrimaryButton>
                 </div>
             )}
@@ -499,7 +564,7 @@ const DeliveryProofDialog: React.FC<DeliveryProofDialogProps> = ({
 
                     <div className="space-y-3">
                         <label className="block text-[11px] font-bold uppercase tracking-widest text-white/40">
-                            Ảnh xác nhận giao hàng <span className="text-emerald-400 normal-case">*</span>
+                            {uploadLabel} <span className="text-emerald-400 normal-case">*</span>
                         </label>
                         <label className={`flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed px-5 py-8 text-center transition-colors duration-150 ${isPreparingFiles
                             ? 'cursor-wait border-emerald-400/25 bg-emerald-400/[0.05]'
@@ -508,10 +573,10 @@ const DeliveryProofDialog: React.FC<DeliveryProofDialogProps> = ({
                             <ImagePlus size={22} className="text-emerald-400" />
                             <div>
                                 <p className="text-sm font-semibold text-white">
-                                    {isPreparingFiles ? 'Đang tối ưu ảnh giao hàng...' : 'Chọn tối đa 5 ảnh giao hàng'}
+                                    {isPreparingFiles ? preparingLabel : chooseLabel}
                                 </p>
                                 <p className="text-xs text-white/40 mt-1">
-                                    JPEG, PNG, WEBP hoặc GIF. Mỗi ảnh tối đa 5MB. Ảnh sẽ được tối ưu nhẹ trước khi tải lên để giảm lag.
+                                    {helperLabel}
                                 </p>
                             </div>
                             <input
@@ -570,8 +635,8 @@ const DeliveryProofDialog: React.FC<DeliveryProofDialogProps> = ({
                     >
                         {reviewed ? <CheckSquare size={18} /> : <Square size={18} />}
                         <div>
-                            <p className="text-sm font-semibold">Đã xem lại hình ảnh giao hàng</p>
-                            <p className="text-xs opacity-70 mt-0.5">Mình xác nhận ảnh tải lên là đúng đơn hàng và đủ để chứng minh đã giao.</p>
+                            <p className="text-sm font-semibold">{reviewTitleLabel}</p>
+                            <p className="text-xs opacity-70 mt-0.5">{reviewDescriptionLabel}</p>
                         </div>
                     </button>
                     {reviewError && (
@@ -616,7 +681,7 @@ export const OrderActionPanel: React.FC<OrderActionPanelProps> = ({
     const [dialog, setDialog] = useState<DialogState>({ type: 'none' });
     const [uploadProgress, setUploadProgress] = useState<Record<string, DeliveryProofUploadProgress>>({});
 
-    const nextStatuses = getValidNextStatuses(currentStatus);
+    const nextStatuses = getNextStatusesForOrderAction(currentStatus);
 
     const closeDialog = () => {
         setDialog({ type: 'none' });

@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import { RETURN_REFUND_METHODS, RETURN_REQUEST_STATUSES } from '../return-request.types';
+
+const DUPLICATE_ORDER_ITEM_MESSAGE = 'Duplicate orderItemId in items';
+const positiveInt = z.number().int().positive();
+const positiveCoercedInt = z.coerce.number().int().positive();
+const sanitizeText = (value: string) => value.replace(/[<>]/g, '').trim();
+const sanitizedOptionalText = z.string().max(500).transform(sanitizeText).optional();
 
 export const ReturnReasonEnum = z.enum([
   'DEFECTIVE',
@@ -8,27 +15,19 @@ export const ReturnReasonEnum = z.enum([
   'OTHER',
 ]);
 
-export const RefundMethodEnum = z.enum(['ORIGINAL_PAYMENT', 'WALLET_CREDIT']);
+export const RefundMethodEnum = z.enum(RETURN_REFUND_METHODS);
 
-export const ReturnStatusEnum = z.enum([
-  'REQUESTED',
-  'APPROVED',
-  'REJECTED',
-  'RECEIVED',
-  'REFUNDED',
-]);
-
-const sanitizeText = (value: string) => value.replace(/[<>]/g, '').trim();
+export const ReturnStatusEnum = z.enum(RETURN_REQUEST_STATUSES);
 
 export const createReturnRequestSchema = z.object({
-  orderId: z.number().int().positive(),
+  orderId: positiveInt,
   reason: ReturnReasonEnum,
-  note: z.string().max(500).transform(sanitizeText).optional(),
+  note: sanitizedOptionalText,
   items: z
     .array(
       z.object({
-        orderItemId: z.number().int().positive(),
-        quantity: z.number().int().positive(),
+        orderItemId: positiveInt,
+        quantity: positiveInt,
         reason: ReturnReasonEnum.optional(),
       }),
     )
@@ -39,7 +38,7 @@ export const createReturnRequestSchema = z.object({
         if (ids.has(item.orderItemId)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'Duplicate orderItemId in items',
+            message: DUPLICATE_ORDER_ITEM_MESSAGE,
             path: [index, 'orderItemId'],
           });
         }
@@ -51,15 +50,15 @@ export const createReturnRequestSchema = z.object({
 
 export const listAdminReturnsSchema = z.object({
   status: ReturnStatusEnum.optional(),
-  orderId: z.coerce.number().int().positive().optional(),
-  customerId: z.coerce.number().int().positive().optional(),
+  orderId: positiveCoercedInt.optional(),
+  customerId: positiveCoercedInt.optional(),
   fromDate: z.coerce.date().optional(),
   toDate: z.coerce.date().optional(),
-  page: z.coerce.number().int().positive().default(1),
+  page: positiveCoercedInt.default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
 });
 
-export const idParamSchema = z.object({ id: z.coerce.number().int().positive() });
+export const idParamSchema = z.object({ id: positiveCoercedInt });
 
 export const rejectSchema = z.object({
   reason: z.string().min(1).max(500).transform(sanitizeText),

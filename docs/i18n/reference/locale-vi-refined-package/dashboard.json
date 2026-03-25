@@ -1,0 +1,19 @@
+{
+  "page": {
+    "label": "Admin Portal · v2.4",
+    "title": "Tổng quan kinh doanh"
+  },
+  "range": {
+    "today": "Hôm nay",
+    "week": "Tuần này",
+    "month": "Tháng này",
+    "year": "Năm nay"
+  },
+  "feedback": {
+    "loadError": "Không thể tải số liệu tổng quan."
+  },
+  "toast": {
+    "newOrderTitle": "Đơn hàng mới",
+    "newOrderMessage": "Có đơn hàng mới vừa được tạo."
+  }
+}

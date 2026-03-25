@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { reviewController } from './review.controller';
 import { authenticateToken } from '../../middlewares/auth.middleware';
 import { validate } from '../../middlewares/validate.middleware';
-import { createReviewSchema } from './review.validator';
+import { createReviewSchema } from '../../shared/validation/schemas/review';
 
 const router = Router();
 

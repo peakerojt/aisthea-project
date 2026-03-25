@@ -1,0 +1,64 @@
+{
+  "page": {
+    "title": "Khách hàng",
+    "userCount": "{{count}} người dùng",
+    "loading": "Đang tải..."
+  },
+  "filters": {
+    "searchPlaceholder": "Tìm theo tên, email, số điện thoại...",
+    "allRoles": "Tất cả vai trò",
+    "allStatuses": "Tất cả trạng thái",
+    "statusActive": "Hoạt động",
+    "statusBanned": "Đã khóa",
+    "statusPending": "Chờ xác nhận"
+  },
+  "table": {
+    "customer": "Khách hàng",
+    "contact": "Liên hệ",
+    "role": "Vai trò",
+    "status": "Trạng thái",
+    "orders": "Đơn hàng",
+    "joined": "Ngày tham gia",
+    "actions": "Thao tác",
+    "noRole": "Chưa phân quyền"
+  },
+  "status": {
+    "active": "Hoạt động",
+    "banned": "Đã khóa",
+    "pending": "Chờ xác nhận"
+  },
+  "ban": {
+    "titleBan": "Khóa tài khoản?",
+    "titleUnban": "Mở khóa tài khoản?",
+    "confirmBan": "Bạn có chắc chắn muốn khóa tài khoản <1>{{name}}</1>?",
+    "confirmUnban": "Bạn có chắc chắn muốn mở khóa tài khoản <1>{{name}}</1>?",
+    "warningBan": "Người dùng sẽ không thể đăng nhập cho đến khi được mở khóa.",
+    "actionBan": "Khóa tài khoản",
+    "actionUnban": "Mở khóa",
+    "processing": "Đang xử lý...",
+    "cancel": "Hủy"
+  },
+  "role": {
+    "title": "Phân quyền",
+    "saveRole": "Lưu thay đổi",
+    "saving": "Đang lưu...",
+    "cancel": "Hủy",
+    "labels": {
+      "admin": "Quản trị viên",
+      "customer": "Khách hàng",
+      "staff": "Nhân viên"
+    }
+  },
+  "feedback": {
+    "statusUpdated": "Đã cập nhật trạng thái thành công",
+    "statusError": "Cập nhật thất bại.",
+    "roleUpdated": "Đã cập nhật vai trò thành công",
+    "roleError": "Cập nhật vai trò thất bại.",
+    "loadError": "Không thể tải danh sách người dùng.",
+    "dataError": "Không thể tải danh sách khách hàng.",
+    "retry": "Thử lại",
+    "loadingList": "Đang tải danh sách người dùng...",
+    "notFound": "Không tìm thấy người dùng",
+    "changeFilter": "Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm"
+  }
+}

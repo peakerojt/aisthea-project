@@ -16,9 +16,25 @@ interface ReturnItem {
 
 export function ReturnItemsTable({ items }: { items: ReturnItem[] }) {
   const { t } = useTranslation('returns');
+  const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
+    template.replace(/\{\{(\w+)\}\}/g, (_, token) => String(options?.[token] ?? `{{${token}}}`));
+  const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+    const value = t(key, { ...options, defaultValue: fallback });
+    return value === key ? interpolateFallback(fallback, options) : value;
+  };
+  const emptyLabel = resolveText('itemsTable.empty', 'Không có sản phẩm.');
+  const productLabel = resolveText('itemsTable.columns.product', 'Sản phẩm');
+  const quantityLabel = resolveText('itemsTable.columns.quantity', 'SL trả');
+  const unitPriceLabel = resolveText('itemsTable.columns.unitPrice', 'Đơn giá');
+  const subtotalLabel = resolveText('itemsTable.columns.subtotal', 'Thành tiền');
+  const reasonLabel = resolveText('itemsTable.columns.reason', 'Lý do');
+  const totalLabel = resolveText('itemsTable.totalLabel', 'Tổng hoàn dự kiến:');
+  const resolveItemFallback = (orderItemId: number) =>
+    resolveText('itemsTable.itemFallback', 'Sản phẩm #{{id}}', { id: orderItemId });
+  const resolveReasonLabel = (reason: string) => resolveText(`reasons.${reason}`, reason);
 
   if (!items.length)
-    return <div className="text-sm italic text-gray-400 py-2">Không có sản phẩm.</div>;
+    return <div className="py-2 text-sm italic text-gray-400">{emptyLabel}</div>;
 
   const total = items.reduce(
     (sum, it) => sum + Number(it.unitPrice ?? it.orderItem?.unitPrice ?? 0) * it.quantity,
@@ -31,19 +47,19 @@ export function ReturnItemsTable({ items }: { items: ReturnItem[] }) {
         <thead className="bg-gray-50">
           <tr>
             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Sản phẩm
+              {productLabel}
             </th>
             <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              SL trả
+              {quantityLabel}
             </th>
             <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Đơn giá
+              {unitPriceLabel}
             </th>
             <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Thành tiền
+              {subtotalLabel}
             </th>
             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Lý do
+              {reasonLabel}
             </th>
           </tr>
         </thead>
@@ -55,7 +71,7 @@ export function ReturnItemsTable({ items }: { items: ReturnItem[] }) {
               <tr key={it.returnRequestItemId ?? idx} className="hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-3">
                   <div className="font-medium text-gray-900">
-                    {it.orderItem?.productName ?? `Item #${it.orderItemId}`}
+                    {it.orderItem?.productName ?? resolveItemFallback(it.orderItemId)}
                   </div>
                   {it.orderItem?.variantName && (
                     <div className="text-xs text-gray-500 mt-0.5">{it.orderItem.variantName}</div>
@@ -69,7 +85,7 @@ export function ReturnItemsTable({ items }: { items: ReturnItem[] }) {
                   {subtotal ? subtotal.toLocaleString('vi-VN') + 'đ' : '—'}
                 </td>
                 <td className="px-4 py-3 text-gray-600 text-xs">
-                  {it.reason ? t(`reasons.${it.reason}`, it.reason) : '—'}
+                  {it.reason ? resolveReasonLabel(it.reason) : '—'}
                 </td>
               </tr>
             );
@@ -78,7 +94,7 @@ export function ReturnItemsTable({ items }: { items: ReturnItem[] }) {
         <tfoot className="bg-gray-50">
           <tr>
             <td colSpan={3} className="px-4 py-3 text-right text-sm font-semibold text-gray-600">
-              Tổng hoàn dự kiến:
+              {totalLabel}
             </td>
             <td className="px-4 py-3 text-right text-base font-bold text-green-600">
               {total.toLocaleString('vi-VN')}đ

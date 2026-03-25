@@ -4,12 +4,15 @@ import { AuthLayout } from '@/common/layouts/AuthLayout';
 import Eye from 'lucide-react/dist/esm/icons/eye';
 import EyeOff from 'lucide-react/dist/esm/icons/eye-off';
 import { authService } from '@/common/services/auth.service';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm, useWatch, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AnimatePresence, motion } from 'framer-motion';
-import { passwordRequirements, calculatePasswordStrength } from '@/common/utils/validationUtils';
+import { passwordRequirements, calculatePasswordStrength } from '@/common/utils/passwordValidation';
 import { useTranslation } from 'react-i18next';
 import { SignupFormInput, signupFormSchema } from '@/common/validation/schemas';
+import type { input } from 'zod';
+
+type SignupFormValues = input<typeof signupFormSchema>;
 
 const ValidationItem = React.memo(({ met, text }: { met: boolean; text: string }) => (
   <div className={`flex items-center gap-2 text-[10px] transition-colors ${met ? 'text-green-500' : 'text-gray-500'}`}>
@@ -21,7 +24,13 @@ const ValidationItem = React.memo(({ met, text }: { met: boolean; text: string }
 ));
 
 const PasswordStrengthMeter = React.memo(
-  ({ control, t }: { control: any; t: (key: string, options?: any) => string }) => {
+  ({
+    control,
+    t,
+  }: {
+    control: Control<SignupFormValues>;
+    t: (key: string, options?: any) => string;
+  }) => {
     const passwordValue = useWatch({
       control,
       name: 'password',
@@ -74,7 +83,7 @@ export const Signup: React.FC = () => {
     handleSubmit,
     control,
     formState: { errors, isSubmitting },
-  } = useForm<SignupFormInput>({
+  } = useForm<SignupFormValues, unknown, SignupFormInput>({
     resolver: zodResolver(signupFormSchema),
     defaultValues: {
       email: '',

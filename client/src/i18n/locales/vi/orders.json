@@ -107,6 +107,38 @@
         "updateSuccess": "Đã cập nhật đơn hàng thành công",
         "cancelConfirm": "Bạn có chắc muốn hủy đơn hàng #{{id}} không?"
     },
+    "statusDialog": {
+        "common": {
+            "hint": "Tồn kho sẽ được hoàn lại tự động sau khi xác nhận.",
+            "keep": "Giữ lại",
+            "cancel": "Hủy bỏ",
+            "confirm": "Xác nhận",
+            "processing": "Đang xử lý...",
+            "reason": "Lý do",
+            "confirmPrefix": "Xác nhận chuyển sang trạng thái"
+        },
+        "cancelOrder": {
+            "title": "Hủy đơn hàng",
+            "placeholder": "Mô tả lý do hủy đơn hàng..."
+        },
+        "returned": {
+            "title": "Xác nhận trả hàng",
+            "placeholder": "Mô tả lý do trả hàng..."
+        },
+        "deliveryProof": {
+            "title": "Xác nhận đã giao hàng",
+            "subtitle": "Tải lên ảnh xác nhận giao hàng và đánh dấu đã xem lại hình ảnh trước khi chuyển đơn sang trạng thái đã giao hàng.",
+            "confirm": "Xác nhận đã giao",
+            "uploading": "Đang tải ảnh...",
+            "uploadLabel": "Ảnh xác nhận giao hàng",
+            "preparing": "Đang tối ưu ảnh giao hàng...",
+            "choose": "Chọn tối đa 5 ảnh giao hàng",
+            "helper": "JPEG, PNG, WEBP hoặc GIF. Mỗi ảnh tối đa 5MB. Ảnh sẽ được tối ưu nhẹ trước khi tải lên để giảm lag.",
+            "reviewTitle": "Đã xem lại hình ảnh giao hàng",
+            "reviewDescription": "Mình xác nhận ảnh tải lên là đúng đơn hàng và đủ để chứng minh đã giao.",
+            "reviewError": "Vui lòng xác nhận đã xem lại hình ảnh giao hàng trước khi tiếp tục."
+        }
+    },
     "refund": {
         "title": "Hoàn tiền",
         "orderRef": "Đơn hàng #{{id}}",

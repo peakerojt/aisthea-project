@@ -9,8 +9,7 @@ import { adminOrderService, AdminOrderDetail as OrderDetailType } from '@/common
 import { formatVND } from '@/admin/pages/Orders';
 import { OrderActionPanel } from '@/admin/components/OrderActionPanel';
 import { OrderTimeline } from '@/admin/components/OrderTimeline';
-import { OrderStatusBadge } from '@/admin/components/OrderStatusBadge';
-import { getStatusMeta, normalizeStatus } from '@/config/orderStatus.config';
+import { getOrderStatusDisplayMeta, OrderStatusBadge } from '@/admin/components/OrderStatusBadge';
 import { RefundDialog } from '@/admin/components/RefundDialog';
 import { OrderFinancials } from '@/admin/components/OrderFinancials';
 import { adminRefundService, RefundRecord } from '@/admin/services/refund.service';
@@ -32,7 +31,7 @@ import {
 // Font: Be Vietnam Pro | Status config now lives in orderStatus.config.ts
 // ─────────────────────────────────────────────────────────────────────────────
 
-const cfg = (s?: string | null) => getStatusMeta(normalizeStatus(s) ?? s ?? '');
+const cfg = (s?: string | null) => getOrderStatusDisplayMeta(s).meta;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
@@ -110,6 +109,13 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
     const [deliveryProofLightboxIndex, setDeliveryProofLightboxIndex] = useState<number | null>(null);
     const [isDeliveryProofLightboxVisible, setIsDeliveryProofLightboxVisible] = useState(false);
 
+    const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
+        template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, token: string) => String(options?.[token] ?? ''));
+    const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+        const value = t(key, { ...options, defaultValue: fallback });
+        return value === key ? interpolateFallback(fallback, options) : value;
+    };
+
     const loadRefunds = useCallback(async (oId: number) => {
         setRefundsLoading(true);
         try { setRefunds(await adminRefundService.list(oId)); }
@@ -126,23 +132,24 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
     const loadOrder = useCallback(async () => {
         const effectiveId = routeId ?? orderId;
-        if (!effectiveId) { setError(t('errors.missingOrderId')); setLoading(false); return; }
+        if (!effectiveId) { setError(resolveText('errors.missingOrderId', 'Thiếu mã đơn hàng.')); setLoading(false); return; }
         setLoading(true); setError(null);
         try {
             const o = await adminOrderService.getDetail(effectiveId);
             setOrder(o);
             loadRefunds(effectiveId);
         } catch (error) {
-            const e = error as Error | { message?: string; error?: string; data?: unknown }; setError(e.message || t('errors.loadFailed'));
+            const e = error as Error | { message?: string; error?: string; data?: unknown };
+            setError(e.message || resolveText('errors.loadFailed', 'Không thể tải chi tiết đơn hàng.'));
         }
         finally { setLoading(false); }
-    }, [orderId, routeId, loadRefunds, t]);
+    }, [orderId, routeId, loadRefunds]);
 
     useEffect(() => { loadOrder(); }, [loadOrder]);
 
     const fmt = (iso?: string) => iso
         ? new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
-        : t('common.emptyDate');
+        : resolveText('common.emptyDate', 'Chưa có ngày');
 
     const status = order?.status ?? 'PENDING';
     const c = cfg(status);
@@ -152,6 +159,33 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
     const activeDeliveryProofImage = deliveryProofLightboxIndex !== null
         ? deliveryProofImages[deliveryProofLightboxIndex] ?? null
         : null;
+    const loadingLabel = resolveText('states.loading', 'Đang tải chi tiết đơn hàng...');
+    const notFoundTitleLabel = resolveText('states.notFoundTitle', 'Không tìm thấy đơn hàng');
+    const backToListLabel = resolveText('actions.backToList', 'Quay lại danh sách');
+    const refundLabel = resolveText('actions.refund', 'Hoàn tiền');
+    const copiedLabel = resolveText('actions.copied', 'Đã sao chép');
+    const copyLabel = resolveText('actions.copy', 'Sao chép');
+    const breadcrumbOrdersLabel = resolveText('breadcrumb.orders', 'Đơn hàng');
+    const placedAtLabel = resolveText('meta.placedAt', 'Đặt lúc {{date}}', { date: fmt(order?.createdAt) });
+    const orderCodeLabel = resolveText('labels.orderCode', 'Mã vận đơn');
+    const productsSectionLabel = resolveText('sections.products', 'Sản phẩm ({{count}})', { count: order?.items.length ?? 0 });
+    const unitPriceLabel = resolveText('labels.unitPrice', 'Đơn giá');
+    const orderTotalLabel = resolveText('labels.orderTotal', 'Tổng đơn');
+    const orderNoteLabel = resolveText('labels.orderNote', 'Ghi chú đơn hàng');
+    const paymentDetailsSectionLabel = resolveText('sections.paymentDetails', 'Chi tiết thanh toán');
+    const customerSectionLabel = resolveText('sections.customer', 'Khách hàng');
+    const guestCustomerLabel = resolveText('labels.guestCustomer', 'Khách vãng lai');
+    const shippingAddressSectionLabel = resolveText('sections.shippingAddress', 'Địa chỉ giao hàng');
+    const paymentSectionLabel = resolveText('sections.payment', 'Thanh toán');
+    const paymentMethodLabel = resolveText('payment.method', 'Phương thức');
+    const paymentStatusLabel = resolveText('payment.status', 'Trạng thái');
+    const statusHistorySectionLabel = resolveText('sections.statusHistory', 'Lịch sử trạng thái');
+    const deliveryProofSectionLabel = resolveText('sections.deliveryProof', 'Bằng chứng giao hàng');
+    const deliveryProofReviewedLabel = resolveText('deliveryProof.reviewed', 'Đã duyệt bằng chứng');
+    const deliveryProofUnreviewedLabel = resolveText('deliveryProof.unreviewed', 'Chưa duyệt bằng chứng');
+    const deliveryProofLightboxLabel = resolveText('deliveryProof.lightboxLabel', 'Xem bằng chứng giao hàng');
+    const deliveryProofOpenOriginalLabel = resolveText('deliveryProof.openOriginal', 'Mở ảnh gốc');
+    const refundRequestedToastLabel = resolveText('toast.refundRequested', 'Đã tạo yêu cầu hoàn tiền');
 
     useEffect(() => {
         if (activeDeliveryProofImage) {
@@ -172,7 +206,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                     <div className="absolute inset-0 rounded-full border-4 border-white/[0.05]" />
                     <div className="absolute inset-0 rounded-full border-4 border-t-primary border-l-transparent border-r-transparent border-b-transparent animate-spin" />
                 </div>
-                <p className="text-sm text-white/40 font-medium">{t('states.loading')}</p>
+                <p className="text-sm text-white/40 font-medium">{loadingLabel}</p>
             </div>
         </AdminPageShell>
     );
@@ -184,11 +218,11 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                     <AlertCircle size={24} className="text-red-400" />
                 </div>
                 <div>
-                    <p className="text-base font-bold text-white mb-1">{t('states.notFoundTitle')}</p>
+                    <p className="text-base font-bold text-white mb-1">{notFoundTitleLabel}</p>
                     <p className="text-sm text-white/50">{error}</p>
                 </div>
                 <button onClick={() => navigate('/admin/orders')} className="text-xs text-primary font-bold uppercase tracking-widest hover:underline cursor-pointer">
-                    {t('actions.backToList')}
+                    {backToListLabel}
                 </button>
             </div>
         </AdminPageShell>
@@ -201,7 +235,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                     <div className="flex flex-wrap items-center gap-3">
                         <AdminSecondaryButton type="button" onClick={() => navigate('/admin/orders')}>
                             <ArrowLeft size={15} />
-                            {t('actions.backToList')}
+                            {backToListLabel}
                         </AdminSecondaryButton>
                         <StatusPill status={status} />
                         {paymentMeta.isPaidLike && (
@@ -211,7 +245,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                 className="border-cyan-500/25 bg-cyan-500/10 text-cyan-300 hover:border-cyan-500/35 hover:bg-cyan-500/18 hover:text-cyan-200"
                             >
                                 <RotateCcw size={14} />
-                                {t('actions.refund')}
+                                {refundLabel}
                             </AdminSecondaryButton>
                         )}
                         <OrderActionPanel
@@ -225,15 +259,15 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                     <AdminSectionCard bodyClassName="p-5 lg:p-6">
                         <AdminPageHeader
                             icon={Package}
-                            eyebrow={t('breadcrumb.orders')}
+                            eyebrow={breadcrumbOrdersLabel}
                             title={(
                                 <div className="flex flex-wrap items-center gap-3">
                                     <span className="font-mono">{order.orderNumber}</span>
-                                    <CopyButton text={order.orderNumber} copiedLabel={t('actions.copied')} copyLabel={t('actions.copy')} />
+                                    <CopyButton text={order.orderNumber} copiedLabel={copiedLabel} copyLabel={copyLabel} />
                                 </div>
                             )}
-                            subtitle={t('meta.placedAt', { date: fmt(order.createdAt) })}
-                            meta={order.trackingCode ? `${t('labels.orderCode')}: ${order.trackingCode}` : undefined}
+                            subtitle={placedAtLabel}
+                            meta={order.trackingCode ? `${orderCodeLabel}: ${order.trackingCode}` : undefined}
                         />
                     </AdminSectionCard>
                 </div>
@@ -241,11 +275,11 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                 <div className="space-y-6">
                     {/* Order metadata row */}
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-[11px] text-white/35 font-mono">
-                        <span>{t('meta.placedAt', { date: fmt(order.createdAt) })}</span>
+                        <span>{placedAtLabel}</span>
                         {order.trackingCode && (
                             <>
                                 <span className="text-white/15">·</span>
-                                <span>{t('labels.orderCode')}: <span className="text-white/60">{order.trackingCode}</span></span>
+                                <span>{orderCodeLabel}: <span className="text-white/60">{order.trackingCode}</span></span>
                             </>
                         )}
                         <span className="text-white/15">·</span>
@@ -260,7 +294,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
                             {/* ── Product Items Card ─────────────────────────────────── */}
                             <Card>
-                                <SectionTitle icon={ShoppingBag} title={t('sections.products', { count: order.items.length })} />
+                                <SectionTitle icon={ShoppingBag} title={productsSectionLabel} />
 
                                 <div className="divide-y divide-white/[0.04]">
                                     {order.items.map((item) => (
@@ -296,7 +330,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                                     </div>
                                                 </div>
                                                 <p className="text-[11px] text-white/35 mt-1">
-                                                    {t('labels.unitPrice')}: {formatVND(item.unitPrice)}
+                                                    {unitPriceLabel}: {formatVND(item.unitPrice)}
                                                 </p>
                                             </div>
 
@@ -311,7 +345,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                 {/* Order total */}
                                 <div className="px-5 py-4 border-t border-white/[0.06] bg-white/[0.015] rounded-b-2xl">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs text-white/40 font-medium uppercase tracking-wider">{t('labels.orderTotal')}</span>
+                                        <span className="text-xs text-white/40 font-medium uppercase tracking-wider">{orderTotalLabel}</span>
                                         <div className="text-right">
                                             <p className="text-2xl font-black text-white tracking-tight">{formatVND(order.totalAmount)}</p>
                                             <p className={`text-[11px] font-semibold mt-0.5 ${paymentMeta.textClass}`}>
@@ -328,7 +362,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                     <div className="px-5 py-4 flex items-start gap-3">
                                         <div className="w-1 h-full min-h-[40px] rounded-full bg-amber-500/50 shrink-0 mt-0.5" />
                                         <div>
-                                            <p className="text-[11px] font-bold text-amber-400/80 uppercase tracking-widest mb-1.5">{t('labels.orderNote')}</p>
+                                            <p className="text-[11px] font-bold text-amber-400/80 uppercase tracking-widest mb-1.5">{orderNoteLabel}</p>
                                             <p className="text-sm text-white/70 leading-relaxed">{order.note}</p>
                                         </div>
                                     </div>
@@ -338,7 +372,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                             {/* ── Payment details ────────────────────────────────────── */}
                             {order.payments && order.payments.length > 0 && (
                                 <Card>
-                                    <SectionTitle icon={CreditCard} title={t('sections.paymentDetails')} />
+                                    <SectionTitle icon={CreditCard} title={paymentDetailsSectionLabel} />
                                     <div className="p-5 space-y-3">
                                         {order.payments.map((p) => {
                                             return (
@@ -366,7 +400,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
                             {/* ── Customer card ─────────────────────────────────────── */}
                             <Card>
-                                <SectionTitle icon={User} title={t('sections.customer')} />
+                                <SectionTitle icon={User} title={customerSectionLabel} />
                                 <div className="p-5">
                                     {order.user ? (
                                         <div className="flex items-center gap-3">
@@ -388,7 +422,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                         <div>
                                             <p className="text-sm font-bold text-white">{order.shippingAddress.recipientName}</p>
                                             <p className="text-[11px] text-white/40 mt-0.5">{order.shippingAddress.phone}</p>
-                                            <p className="text-[11px] text-white/35 mt-0.5">{t('labels.guestCustomer')}</p>
+                                            <p className="text-[11px] text-white/35 mt-0.5">{guestCustomerLabel}</p>
                                         </div>
                                     )}
                                 </div>
@@ -396,7 +430,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
                             {/* ── Shipping address card ─────────────────────────────── */}
                             <Card>
-                                <SectionTitle icon={MapPin} title={t('sections.shippingAddress')} />
+                                <SectionTitle icon={MapPin} title={shippingAddressSectionLabel} />
                                 <div className="p-5 space-y-3">
                                     <div>
                                         <p className="text-sm font-bold text-white">{order.shippingAddress.recipientName}</p>
@@ -413,7 +447,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                         <div className="flex items-center gap-2 pt-1">
                                             <Truck size={12} className="text-cyan-400 shrink-0" />
                                             <div>
-                                                <p className="text-[10px] text-white/35 uppercase tracking-wider">{t('labels.orderCode')}</p>
+                                                <p className="text-[10px] text-white/35 uppercase tracking-wider">{orderCodeLabel}</p>
                                                 <p className="text-[12px] text-cyan-400 font-mono font-semibold">{order.trackingCode}</p>
                                             </div>
                                         </div>
@@ -423,11 +457,11 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
                             {/* ── Payment summary card ──────────────────────────────── */}
                             <Card>
-                                <SectionTitle icon={CreditCard} title={t('sections.payment')} />
+                                <SectionTitle icon={CreditCard} title={paymentSectionLabel} />
                                 <div className="p-5 space-y-3">
                                     {[
                                         {
-                                            label: t('payment.method'),
+                                            label: paymentMethodLabel,
                                             value: <PaymentMethodLabel paymentMethod={order.paymentMethod ?? 'COD'} />,
                                         },
                                     ].map(({ label, value }) => (
@@ -438,7 +472,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                     ))}
 
                                     <div className="flex items-center justify-between pt-1 border-t border-white/[0.05]">
-                                        <span className="text-[12px] text-white/40">{t('payment.status')}</span>
+                                        <span className="text-[12px] text-white/40">{paymentStatusLabel}</span>
                                         <PaymentStatusBadge paymentMethod={order.paymentMethod} paymentStatus={order.paymentStatus} size="xs" />
                                     </div>
                                 </div>
@@ -446,20 +480,20 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
 
                             {/* ── Status Timeline ───────────────────────────────────── */}
                             <Card>
-                                <SectionTitle icon={Clock} title={t('sections.statusHistory')} />
+                                <SectionTitle icon={Clock} title={statusHistorySectionLabel} />
                                 <OrderTimeline history={statusHistory} />
                             </Card>
 
                             {order.deliveryProof && deliveryProofImages.length > 0 && (
                                 <Card>
-                                    <SectionTitle icon={Truck} title={t('sections.deliveryProof')} />
+                                    <SectionTitle icon={Truck} title={deliveryProofSectionLabel} />
                                     <div className="p-5 space-y-4">
                                         <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold ${order.deliveryProof.reviewed
                                             ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
                                             : 'border-amber-500/25 bg-amber-500/10 text-amber-300'
                                             }`}>
                                             <Check size={14} />
-                                            {order.deliveryProof.reviewed ? t('deliveryProof.reviewed') : t('deliveryProof.unreviewed')}
+                                            {order.deliveryProof.reviewed ? deliveryProofReviewedLabel : deliveryProofUnreviewedLabel}
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
                                             {deliveryProofImages.map((imageUrl, index) => (
@@ -471,12 +505,12 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                                 >
                                                     <img
                                                         src={getImageUrl(imageUrl)}
-                                                        alt={t('deliveryProof.imageAlt', { index: index + 1 })}
+                                                        alt={resolveText('deliveryProof.imageAlt', 'Ảnh giao hàng {{index}}', { index: index + 1 })}
                                                         loading="lazy"
                                                         className="w-full h-36 object-cover group-hover:scale-[1.02] transition-transform"
                                                     />
                                                     <div className="absolute inset-x-0 bottom-0 px-3 py-2 bg-gradient-to-t from-black/80 via-black/20 to-transparent text-[11px] text-white/80 text-left">
-                                                        {t('deliveryProof.imageButton', { index: index + 1 })}
+                                                        {resolveText('deliveryProof.imageButton', 'Xem ảnh {{index}}', { index: index + 1 })}
                                                     </div>
                                                 </button>
                                             ))}
@@ -502,7 +536,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                         onClose={() => setShowRefundDialog(false)}
                         onSuccess={(newRefund) => {
                             setRefunds(prev => [newRefund, ...prev]);
-                            showToast(t('toast.refundRequested'), 'success');
+                            showToast(refundRequestedToastLabel, 'success');
                             loadOrder();
                         }}
                     />
@@ -513,7 +547,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                 <div
                     role="dialog"
                     aria-modal="true"
-                    aria-label={t('deliveryProof.lightboxLabel')}
+                    aria-label={deliveryProofLightboxLabel}
                     className={`fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/60 px-4 py-8 transition-all duration-200 ease-out ${
                         isDeliveryProofLightboxVisible ? 'opacity-100' : 'opacity-0'
                     }`}
@@ -551,14 +585,14 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                     >
                         <img
                             src={getImageUrl(activeDeliveryProofImage)}
-                            alt={t('deliveryProof.previewAlt', {
+                            alt={resolveText('deliveryProof.previewAlt', 'Xem trước ảnh giao hàng {{index}}', {
                                 index: deliveryProofLightboxIndex !== null ? deliveryProofLightboxIndex + 1 : 1,
                             })}
                             className="max-w-[92vw] max-h-[78vh] object-contain rounded-2xl shadow-2xl"
                         />
                         <div className="flex items-center justify-between text-sm text-white/70">
                             <span>
-                                {t('deliveryProof.imageCounter', {
+                                {resolveText('deliveryProof.imageCounter', '{{current}} / {{total}}', {
                                     current: deliveryProofLightboxIndex !== null ? deliveryProofLightboxIndex + 1 : 1,
                                     total: deliveryProofImages.length,
                                 })}
@@ -569,7 +603,7 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                                 rel="noreferrer"
                                 className="text-primary hover:text-primary/80 transition-colors"
                             >
-                                {t('deliveryProof.openOriginal')}
+                                {deliveryProofOpenOriginalLabel}
                             </a>
                         </div>
                     </div>

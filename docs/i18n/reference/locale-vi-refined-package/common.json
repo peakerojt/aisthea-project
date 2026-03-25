@@ -1,0 +1,90 @@
+{
+  "loading": "Đang tải…",
+  "actions": {
+    "save": "Lưu thay đổi",
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "add": "Thêm",
+    "edit": "Chỉnh sửa",
+    "search": "Tìm kiếm",
+    "confirm": "Xác nhận",
+    "close": "Đóng",
+    "back": "Quay lại",
+    "export": "Xuất file",
+    "import": "Nhập file",
+    "refresh": "Làm mới",
+    "filter": "Lọc",
+    "reset": "Đặt lại",
+    "view": "Xem",
+    "submit": "Gửi",
+    "create": "Tạo mới",
+    "update": "Cập nhật"
+  },
+  "status": {
+    "success": "Thành công",
+    "error": "Thất bại",
+    "loading": "Đang tải…",
+    "saving": "Đang lưu…",
+    "deleting": "Đang xóa…",
+    "processing": "Đang xử lý…",
+    "empty": "Không có dữ liệu"
+  },
+  "feedback": {
+    "saveSuccess": "Lưu thay đổi thành công",
+    "saveError": "Lưu thất bại. Vui lòng thử lại",
+    "deleteSuccess": "Xóa thành công",
+    "deleteError": "Xóa thất bại. Vui lòng thử lại",
+    "deleteConfirm": "Bạn có chắc muốn xóa mục này không? Hành động này không thể hoàn tác.",
+    "createSuccess": "Tạo mới thành công",
+    "updateSuccess": "Cập nhật thành công"
+  },
+  "table": {
+    "noResults": "Không tìm thấy kết quả",
+    "showing": "Hiển thị {{from}}–{{to}} trong {{total}} kết quả",
+    "perPage": "Số dòng mỗi trang"
+  },
+  "pagination": {
+    "previous": "Trước",
+    "next": "Tiếp theo",
+    "page": "Trang {{page}} / {{total}}"
+  },
+  "time": {
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua",
+    "thisWeek": "Tuần này",
+    "thisMonth": "Tháng này",
+    "dateRange": "Khoảng thời gian"
+  },
+  "footer": {
+    "support": "Hỗ trợ",
+    "quick_links": "Liên kết nhanh",
+    "about_desc": "AISTHEA - thương hiệu thời trang tối giản và hiện đại.",
+    "contact_newsletter": "Đăng ký để nhận tin mới và ưu đãi sớm nhất.",
+    "email_placeholder": "Nhập email của bạn",
+    "secure_payment": "Thanh toán bảo mật",
+    "copyright": "Bản quyền thuộc AISTHEA",
+    "quickLinks": {
+      "home": "Trang chủ",
+      "products": "Sản phẩm",
+      "collection": "Bộ sưu tập",
+      "stylist": "Tư vấn phong cách"
+    },
+    "supportLinks": {
+      "howToBuy": "Hướng dẫn mua hàng",
+      "returns": "Chính sách đổi trả",
+      "privacy": "Chính sách bảo mật",
+      "faq": "Câu hỏi thường gặp"
+    },
+    "social": {
+      "facebook": "Facebook",
+      "instagram": "Instagram"
+    },
+    "contact": {
+      "address": "Khu đô thị FPT City, Phường Hòa Hải, Quận Ngũ Hành Sơn, TP. Đà Nẵng"
+    },
+    "newsletter": {
+      "success": "Đăng ký thành công.",
+      "subscribeAria": "Đăng ký nhận tin"
+    }
+  }
+}

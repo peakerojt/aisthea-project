@@ -11,6 +11,61 @@ const OrderSuccess: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'orderSuccess' });
   const { t: pagesT } = useTranslation('pages');
   const navigate = useNavigate();
+  const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
+    template.replace(/\{\{(\w+)\}\}/g, (_, token) => String(options?.[token] ?? `{{${token}}}`));
+  const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+    const translated = t(key as any, { ...(options ?? {}), defaultValue: fallback } as any);
+    return translated !== key ? translated : interpolateFallback(fallback, options);
+  };
+  const resolvePagesText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+    const translated = pagesT(key as any, { ...(options ?? {}), defaultValue: fallback } as any);
+    return translated !== key ? translated : interpolateFallback(fallback, options);
+  };
+  const customerFallbackLabel = resolveText('fallback.customer', 'Khách hàng');
+  const unknownFallbackLabel = resolveText('fallback.unknown', 'Không rõ');
+  const metaKickerLabel = resolveText('meta.kicker', 'Bước 3 · Hoàn tất đơn hàng');
+  const metaTitleLabel = resolveText('meta.title', 'Xác nhận đơn hàng');
+  const metaSubtitleLabel = resolveText(
+    'meta.subtitle',
+    'Đơn của bạn đã được ghi nhận. Mọi cập nhật tiếp theo sẽ được gửi qua email và hiển thị trong lịch sử đơn hàng.',
+  );
+  const headerBadgeLabel = resolveText('header.badge', 'Đã xác nhận');
+  const headerTitleLabel = resolveText('header.title', 'Cảm ơn bạn đã đặt hàng!');
+  const headerDescriptionLabel = resolveText(
+    'header.description',
+    'Một email xác nhận đã được gửi tới địa chỉ của bạn. Xin vui lòng kiểm tra hộp thư đến (hoặc thư mục Spam) để theo dõi.',
+  );
+  const statusTitleLabel = resolveText('status.title', 'Trạng thái');
+  const statusValueLabel = resolveText('status.value', 'Đơn hàng đang chờ xác nhận');
+  const statusDescriptionLabel = resolveText(
+    'status.description',
+    'Chúng tôi sẽ xác nhận đơn, chuẩn bị sản phẩm và cập nhật vận chuyển trong mục đơn hàng của bạn.',
+  );
+  const customerInfoLabel = resolveText('sections.customerInfo', 'Thông tin mua hàng');
+  const paymentMethodLabel = resolveText('sections.paymentMethod', 'Phương thức thanh toán');
+  const shippingAddressLabel = resolveText('sections.shippingAddress', 'Địa chỉ nhận hàng');
+  const paymentVnpayLabel = resolveText('payment.vnpay', 'Thanh toán qua VNPAY-QR');
+  const paymentCodLabel = resolveText('payment.cod', 'Thanh toán khi giao hàng (COD)');
+  const shippingStandardLabel = resolveText('shipping.standard', 'Giao hàng tận nơi (Tiêu chuẩn)');
+  const shippingExpressLabel = resolveText('shipping.express', 'Giao hàng hỏa tốc');
+  const emailTitleLabel = resolveText('followUp.emailTitle', 'Email xác nhận đã được gửi');
+  const emailDescriptionLabel = resolveText(
+    'followUp.emailDescription',
+    'Nếu chưa thấy email, hãy kiểm tra thêm mục Spam hoặc Quảng cáo.',
+  );
+  const ordersTitleLabel = resolveText('followUp.ordersTitle', 'Theo dõi tiến độ trong đơn hàng');
+  const ordersDescriptionLabel = resolveText(
+    'followUp.ordersDescription',
+    'Bạn có thể xem trạng thái xử lý, vận chuyển và lịch sử cập nhật ngay trong tài khoản.',
+  );
+  const viewOrdersLabel = resolveText('actions.viewOrders', 'Xem đơn hàng');
+  const continueShoppingLabel = resolveText('actions.continueShopping', 'Tiếp tục mua hàng');
+  const summaryTitleLabel = resolveText('summary.title', 'Đơn hàng ({{count}} sản phẩm)', { count: 0 });
+  const summarySubtotalLabel = resolveText('summary.subtotal', 'Tạm tính');
+  const summaryShippingLabel = resolveText('summary.shipping', 'Vận chuyển');
+  const summaryFreeShippingLabel = resolveText('summary.freeShipping', 'Miễn phí');
+  const summaryDiscountLabel = resolveText('summary.discount', 'Giảm giá');
+  const summaryTotalLabel = resolveText('summary.total', 'Tổng cộng');
   const fallbackOrderData: LatestOrderData = {
     items: [],
     note: '',
@@ -18,11 +73,11 @@ const OrderSuccess: React.FC = () => {
     discountValue: 0,
     subtotal: 0,
     total: 0,
-    fullName: t('fallback.customer'),
-    email: t('fallback.unknown'),
-    phone: t('fallback.unknown'),
-    address: t('fallback.unknown'),
-    district: t('fallback.unknown'),
+    fullName: customerFallbackLabel,
+    email: unknownFallbackLabel,
+    phone: unknownFallbackLabel,
+    address: unknownFallbackLabel,
+    district: unknownFallbackLabel,
     city: '',
     ward: '',
     paymentMethod: 'COD',
@@ -33,18 +88,18 @@ const OrderSuccess: React.FC = () => {
   const progressSteps = [
     {
       key: 'cart',
-      label: pagesT('checkoutFlow.steps.cart.label'),
-      hint: pagesT('checkoutFlow.steps.cart.hint'),
+      label: resolvePagesText('checkoutFlow.steps.cart.label', 'Giỏ hàng'),
+      hint: resolvePagesText('checkoutFlow.steps.cart.hint', 'Kiểm tra sản phẩm và số lượng'),
     },
     {
       key: 'checkout',
-      label: pagesT('checkoutFlow.steps.checkout.label'),
-      hint: pagesT('checkoutFlow.steps.checkout.hint'),
+      label: resolvePagesText('checkoutFlow.steps.checkout.label', 'Thanh toán'),
+      hint: resolvePagesText('checkoutFlow.steps.checkout.hint', 'Điền thông tin và chọn phương thức'),
     },
     {
       key: 'success',
-      label: pagesT('checkoutFlow.steps.success.label'),
-      hint: pagesT('checkoutFlow.steps.success.hint'),
+      label: resolvePagesText('checkoutFlow.steps.success.label', 'Hoàn tất'),
+      hint: resolvePagesText('checkoutFlow.steps.success.hint', 'Xác nhận đơn và theo dõi trạng thái'),
     },
   ];
 
@@ -64,14 +119,14 @@ const OrderSuccess: React.FC = () => {
         <div className="relative z-10">
           <div className="mb-10">
             <p className="mb-3 text-[10px] font-black uppercase tracking-[0.28em] text-primary">
-              {t('meta.kicker')}
+              {metaKickerLabel}
             </p>
             <div className="mb-5 border-b border-border-dark pb-6">
               <h1 className="text-4xl font-black uppercase tracking-tighter md:text-5xl">
-                {t('meta.title')}
+                {metaTitleLabel}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-gray-400">
-                {t('meta.subtitle')}
+                {metaSubtitleLabel}
               </p>
             </div>
             <CheckoutProgress currentStep="success" steps={progressSteps} />
@@ -85,23 +140,23 @@ const OrderSuccess: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.28em] text-green-400">
-                    {t('header.badge')}
+                    {headerBadgeLabel}
                   </p>
-                  <h2 className="mt-2 text-2xl font-bold text-white">{t('header.title')}</h2>
-                  <p className="mt-2 max-w-xl text-sm leading-relaxed text-gray-400">{t('header.description')}</p>
+                  <h2 className="mt-2 text-2xl font-bold text-white">{headerTitleLabel}</h2>
+                  <p className="mt-2 max-w-xl text-sm leading-relaxed text-gray-400">{headerDescriptionLabel}</p>
                 </div>
               </div>
               <div className="rounded-sm border border-white/10 bg-white/[0.02] px-4 py-4 md:max-w-[260px]">
-                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/35">{t('status.title')}</p>
-                <p className="mt-2 text-sm font-bold text-white">{t('status.value')}</p>
-                <p className="mt-1 text-xs leading-relaxed text-gray-500">{t('status.description')}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/35">{statusTitleLabel}</p>
+                <p className="mt-2 text-sm font-bold text-white">{statusValueLabel}</p>
+                <p className="mt-1 text-xs leading-relaxed text-gray-500">{statusDescriptionLabel}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.05fr_0.95fr]">
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <section className="rounded-sm border border-border-dark bg-white/[0.02] p-5">
-                  <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-primary">{t('sections.customerInfo')}</h3>
+                  <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-primary">{customerInfoLabel}</h3>
                   <div className="space-y-1 text-sm text-gray-300">
                     <p className="font-medium text-white">{orderData.fullName}</p>
                     <p>{orderData.email}</p>
@@ -110,19 +165,19 @@ const OrderSuccess: React.FC = () => {
                 </section>
 
                 <section className="rounded-sm border border-border-dark bg-white/[0.02] p-5">
-                  <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-primary">{t('sections.paymentMethod')}</h3>
+                  <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-primary">{paymentMethodLabel}</h3>
                   <p className="text-sm text-gray-300">
-                    {orderData.paymentMethod === 'VNPAY' ? t('payment.vnpay') : t('payment.cod')}
+                    {orderData.paymentMethod === 'VNPAY' ? paymentVnpayLabel : paymentCodLabel}
                   </p>
                   {orderData.orderId && (
                     <p className="mt-3 text-xs uppercase tracking-[0.22em] text-white/35">
-                      {t('status.orderId', { orderId: orderData.orderId })}
+                      {resolveText('status.orderId', 'Mã đơn #{{orderId}}', { orderId: orderData.orderId })}
                     </p>
                   )}
                 </section>
 
                 <section className="rounded-sm border border-border-dark bg-white/[0.02] p-5 md:col-span-2">
-                  <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-primary">{t('sections.shippingAddress')}</h3>
+                  <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-primary">{shippingAddressLabel}</h3>
                   <div className="space-y-1 text-sm text-gray-300">
                     <p className="font-medium text-white">{orderData.fullName}</p>
                     <p>
@@ -139,24 +194,24 @@ const OrderSuccess: React.FC = () => {
               </div>
 
               <OrderSummaryRail
-                title={t('summary.title', { count: orderData.items.length })}
+                title={resolveText('summary.title', summaryTitleLabel, { count: orderData.items.length })}
                 items={orderData.items}
                 maxHeightClassName="max-h-[260px]"
               >
                 <div className="space-y-3 border-t border-border-dark pt-6 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-400">{t('summary.subtotal')}</span>
+                    <span className="text-gray-400">{summarySubtotalLabel}</span>
                     <span className="font-medium text-white">{formatCurrencyVND(orderData.subtotal)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-400">{t('summary.shipping')}</span>
+                    <span className="text-gray-400">{summaryShippingLabel}</span>
                     <span className={`font-medium ${orderData.shippingFee === 0 ? 'text-green-500' : 'text-white'}`}>
-                      {orderData.shippingFee === 0 ? t('summary.freeShipping') : formatCurrencyVND(orderData.shippingFee)}
+                      {orderData.shippingFee === 0 ? summaryFreeShippingLabel : formatCurrencyVND(orderData.shippingFee)}
                     </span>
                   </div>
                   {orderData.discountValue > 0 && (
                     <div className="flex items-center justify-between text-green-400">
-                      <span>{t('summary.discount')}</span>
+                      <span>{summaryDiscountLabel}</span>
                       <span>-{formatCurrencyVND(orderData.discountValue)}</span>
                     </div>
                   )}
@@ -165,9 +220,9 @@ const OrderSuccess: React.FC = () => {
                 <div className="mt-6 border-t border-border-dark pt-6">
                   <div className="mb-6 flex items-end justify-between">
                     <div>
-                      <p className="text-base font-bold uppercase tracking-tight">{t('summary.total')}</p>
+                      <p className="text-base font-bold uppercase tracking-tight">{summaryTotalLabel}</p>
                       <p className="mt-1 text-xs uppercase tracking-[0.18em] text-white/35">
-                        {orderData.shippingMethod === 'EXPRESS' ? t('shipping.express') : t('shipping.standard')}
+                        {orderData.shippingMethod === 'EXPRESS' ? shippingExpressLabel : shippingStandardLabel}
                       </p>
                     </div>
                     <span className="text-2xl font-black tracking-tight text-primary">{formatCurrencyVND(orderData.total)}</span>
@@ -175,12 +230,12 @@ const OrderSuccess: React.FC = () => {
 
                   <div className="space-y-4 border-t border-border-dark pt-5">
                     <div>
-                      <p className="text-sm font-bold text-white">{t('followUp.emailTitle')}</p>
-                      <p className="mt-1 text-sm text-gray-300">{t('followUp.emailDescription')}</p>
+                      <p className="text-sm font-bold text-white">{emailTitleLabel}</p>
+                      <p className="mt-1 text-sm text-gray-300">{emailDescriptionLabel}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-white">{t('followUp.ordersTitle')}</p>
-                      <p className="mt-1 text-sm text-gray-300">{t('followUp.ordersDescription')}</p>
+                      <p className="text-sm font-bold text-white">{ordersTitleLabel}</p>
+                      <p className="mt-1 text-sm text-gray-300">{ordersDescriptionLabel}</p>
                     </div>
                   </div>
 
@@ -189,13 +244,13 @@ const OrderSuccess: React.FC = () => {
                       onClick={() => navigate('/my-orders')}
                       className="h-12 w-full cursor-pointer bg-primary px-6 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-red-700"
                     >
-                      {t('actions.viewOrders')}
+                      {viewOrdersLabel}
                     </button>
                     <button
                       onClick={() => navigate('/collection')}
                       className="h-12 w-full cursor-pointer border border-border-dark px-6 text-xs font-bold uppercase tracking-widest text-gray-300 transition-colors hover:border-white hover:text-white"
                     >
-                      {t('actions.continueShopping')}
+                      {continueShoppingLabel}
                     </button>
                   </div>
                 </div>

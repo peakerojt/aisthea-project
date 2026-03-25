@@ -998,6 +998,44 @@
       "title": "Chi tiết đơn hàng",
       "subtitle": "Tất cả thông tin đơn hàng của bạn ở một nơi"
     },
+    "header": {
+      "orderDate": "Ngày đặt",
+      "total": "Tổng tiền",
+      "paymentMethod": "Phương thức"
+    },
+    "pricingSummary": {
+      "title": "Tổng kết",
+      "subtotal": "Tạm tính",
+      "shippingFee": "Phí vận chuyển",
+      "discount": "Giảm giá",
+      "tax": "Thuế",
+      "total": "Tổng cộng"
+    },
+    "items": {
+      "title": "Sản phẩm",
+      "count": "{{count}} món",
+      "sku": "SKU",
+      "reviewed": "Đã đánh giá",
+      "reviewAction": "Đánh giá"
+    },
+    "reviewModal": {
+      "title": "Đánh giá sản phẩm",
+      "ratingLabel": "Đánh giá của bạn",
+      "commentLabel": "Nhận xét",
+      "commentPlaceholder": "Chia sẻ cảm nhận của bạn về sản phẩm...",
+      "submitError": "Gửi đánh giá thất bại. Vui lòng thử lại.",
+      "submitting": "Đang gửi...",
+      "submit": "Gửi đánh giá",
+      "success": "Đánh giá của bạn đã được ghi nhận.",
+      "starLabel": "{{count}} sao",
+      "ratings": {
+        "1": "Rất tệ",
+        "2": "Tệ",
+        "3": "Bình thường",
+        "4": "Tốt",
+        "5": "Xuất sắc"
+      }
+    },
     "guest": {
       "message": "Vui lòng đăng nhập để xem chi tiết đơn hàng.",
       "login": "Đăng nhập"

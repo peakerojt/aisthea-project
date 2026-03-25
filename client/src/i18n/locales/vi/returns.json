@@ -9,10 +9,10 @@
   },
   "status": {
     "PENDING_APPROVAL": "Chờ duyệt",
-    "APPROVED": "Đã chấp nhận",
+    "APPROVED": "Đã duyệt",
     "REJECTED": "Đã từ chối",
     "COMPLETED": "Đã hoàn tiền",
-    "REQUESTED": "Yêu cầu",
+    "REQUESTED": "Chờ duyệt",
     "RECEIVED": "Đã nhận hàng",
     "REFUNDED": "Đã hoàn tiền"
   },
@@ -53,6 +53,7 @@
   "modal": {
     "title": "Xem xét yêu cầu trả hàng",
     "orderInfo": "Đơn hàng #{{orderNumber}} — {{customer}}",
+    "status": "Trạng thái",
     "customer": "Khách hàng",
     "requestDate": "Ngày yêu cầu",
     "orderValue": "Giá trị đơn",
@@ -88,14 +89,45 @@
     "approveSuccess": "Đã duyệt yêu cầu trả hàng",
     "approveError": "Không thể duyệt",
     "rejectSuccess": "Đã từ chối yêu cầu trả hàng",
+    "rejectReasonRequired": "Vui lòng nhập lý do từ chối.",
     "rejectError": "Không thể từ chối",
     "receivedSuccess": "Đã đánh dấu nhận hàng",
     "receivedError": "Không thể cập nhật",
     "refundSuccess": "Đã hoàn tiền thành công",
-    "refundError": "Không thể hoàn tiền"
+    "refundError": "Không thể hoàn tiền",
+    "refundRejected": "Yêu cầu đã bị từ chối, không thể hoàn tiền."
+  },
+  "create": {
+    "unknownError": "Lỗi không xác định",
+    "attachmentInvalidUrl": "URL ảnh không hợp lệ",
+    "quantityMin": "Số lượng tối thiểu là 1",
+    "selectItemError": "Chọn ít nhất 1 sản phẩm để trả",
+    "loginRequired": "Vui lòng đăng nhập.",
+    "loadingOrder": "Đang tải đơn hàng...",
+    "orderNotFound": "Không tìm thấy đơn hàng.",
+    "title": "Yêu cầu trả hàng",
+    "headerSubtitle": "Đơn #{{orderNumber}} · {{status}}",
+    "back": "Quay lại",
+    "reasonLabel": "Lý do trả hàng",
+    "itemsLabel": "Chọn sản phẩm trả",
+    "itemFallback": "Sản phẩm #{{id}}",
+    "purchasedQuantity": "Đã mua: {{quantity}}",
+    "quantityShort": "SL:",
+    "noteLabel": "Ghi chú (tùy chọn)",
+    "notePlaceholder": "Mô tả vấn đề chi tiết...",
+    "attachmentsLabel": "Ảnh minh chứng (tùy chọn, tối đa 5)",
+    "attachmentsHint": "Nhập URL ảnh cho mỗi ảnh bằng chứng hỏng/lỗi",
+    "attachmentsPlaceholder": "https://...",
+    "addAttachment": "+ Thêm",
+    "removeAttachment": "Xóa",
+    "attachmentAlt": "Ảnh minh chứng {{index}}",
+    "submit": "Gửi yêu cầu",
+    "submitting": "Đang gửi...",
+    "cancel": "Hủy"
   },
   "detail": {
     "notFound": "Không tìm thấy yêu cầu trả hàng #{{id}}.",
+    "retry": "Thử lại",
     "rejectModalTitle": "Từ chối yêu cầu",
     "rejectModalDesc": "Cung cấp lý do từ chối để thông báo cho khách hàng.",
     "rejectReasonPlaceholder": "Nhập lý do từ chối...",
@@ -114,12 +146,16 @@
     "backToList": "Quay lại danh sách",
     "infoTitle": "Thông tin yêu cầu",
     "infoReason": "Lý do",
+    "infoStatus": "Trạng thái",
     "infoExpectedRefund": "Hoàn tiền dự kiến",
+    "infoCreatedAt": "Ngày tạo",
     "infoNote": "Ghi chú",
     "customerTitle": "Khách hàng",
     "customerName": "Tên",
     "customerEmail": "Email",
     "itemsTitle": "Sản phẩm trả",
+    "attachmentsTitle": "Ảnh minh chứng",
+    "attachmentAlt": "Ảnh minh chứng {{index}}",
     "actionsTitle": "Hành động",
     "actionApprove": "Duyệt",
     "actionReject": "Từ chối",
@@ -128,7 +164,32 @@
     "rejectedNotice": "Yêu cầu này đã bị từ chối. Không thể thực hiện thêm hành động.",
     "refundedNotice": "Đã hoàn tiền hoàn tất. Không cần hành động thêm.",
     "timelineTitle": "Lịch sử trạng thái",
-    "transactionsTitle": "Giao dịch hoàn tiền"
+    "transactionsTitle": "Giao dịch hoàn tiền",
+    "refundOriginal": "Hoàn về phương thức gốc",
+    "refundWallet": "Ví điện tử"
+  },
+  "timeline": {
+    "empty": "Chưa có lịch sử trạng thái.",
+    "fromStatus": "từ {{status}}",
+    "changedBy": "bởi {{name}}",
+    "comments": {
+      "returnRequestSubmitted": "Yêu cầu trả hàng đã được gửi.",
+      "returnRequestApproved": "Yêu cầu trả hàng đã được duyệt.",
+      "returnRequestRejected": "Yêu cầu trả hàng đã bị từ chối.",
+      "refundConfirmedAndStockRestored": "Hoàn tiền thành công và nhập lại kho."
+    }
+  },
+  "itemsTable": {
+    "empty": "Không có sản phẩm.",
+    "itemFallback": "Sản phẩm #{{id}}",
+    "totalLabel": "Tổng hoàn dự kiến:",
+    "columns": {
+      "product": "Sản phẩm",
+      "quantity": "SL trả",
+      "unitPrice": "Đơn giá",
+      "subtotal": "Thành tiền",
+      "reason": "Lý do"
+    }
   },
   "reasons": {
     "DEFECTIVE": "Sản phẩm lỗi",

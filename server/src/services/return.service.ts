@@ -15,6 +15,24 @@ export class ReturnError extends Error {
 const RETURN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 const norm = (value: string | null | undefined) => (value ?? '').toLowerCase().trim();
+const parseProofImages = (value: string) => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return [];
+  }
+};
+
+const getPagination = (params?: { page?: number; pageSize?: number }) => {
+  const page = Math.max(1, params?.page ?? 1);
+  const pageSize = Math.min(50, Math.max(1, params?.pageSize ?? 20));
+
+  return {
+    page,
+    pageSize,
+    skip: (page - 1) * pageSize,
+  };
+};
 
 export async function requestReturn(
   orderId: number,
@@ -212,9 +230,7 @@ export async function listReturns(params?: {
   page?: number;
   pageSize?: number;
 }) {
-  const page = Math.max(1, params?.page ?? 1);
-  const pageSize = Math.min(50, Math.max(1, params?.pageSize ?? 20));
-  const skip = (page - 1) * pageSize;
+  const { page, pageSize, skip } = getPagination(params);
 
   const where: any = {};
   if (params?.status && params.status !== 'ALL') {
@@ -252,13 +268,7 @@ export async function listReturns(params?: {
   return {
     returns: returns.map((item: any) => ({
       ...item,
-      proofImages: (() => {
-        try {
-          return JSON.parse(item.proofImages);
-        } catch {
-          return [];
-        }
-      })(),
+      proofImages: parseProofImages(item.proofImages),
     })),
     pagination: {
       page,
@@ -278,12 +288,6 @@ export async function getReturnForOrder(orderId: number) {
 
   return {
     ...ret,
-    proofImages: (() => {
-      try {
-        return JSON.parse(ret.proofImages);
-      } catch {
-        return [];
-      }
-    })(),
+    proofImages: parseProofImages(ret.proofImages),
   };
 }

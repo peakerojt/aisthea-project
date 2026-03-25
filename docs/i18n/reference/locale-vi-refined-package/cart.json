@@ -1,0 +1,52 @@
+{
+  "_comment": "Namespace 'cart': tất cả chuỗi liên quan đến giỏ hàng.",
+  "title": "Giỏ hàng",
+  "empty": {
+    "title": "Giỏ hàng trống",
+    "subtitle": "Thêm sản phẩm vào giỏ để bắt đầu mua sắm."
+  },
+  "actions": {
+    "addToCart": "Thêm vào giỏ hàng",
+    "checkout": "Thanh toán",
+    "continueShopping": "Tiếp tục mua sắm",
+    "clearCart": "Xóa giỏ hàng",
+    "remove": "Xóa",
+    "update": "Cập nhật"
+  },
+  "stock": {
+    "outOfStock": "Hết hàng",
+    "lowStock": "Chỉ còn {{count}} sản phẩm",
+    "backInStock": "Đã có hàng",
+    "exceedsStock": "Số lượng vượt quá tồn kho hiện có (còn {{count}})"
+  },
+  "summary": {
+    "subtotal": "Tạm tính",
+    "total": "Tổng thanh toán",
+    "items_one": "{{count}} sản phẩm",
+    "items_other": "{{count}} sản phẩm",
+    "freeShipping": "Miễn phí vận chuyển"
+  },
+  "toast": {
+    "added": "Đã thêm vào giỏ hàng",
+    "removed": "Đã xóa khỏi giỏ hàng",
+    "updated": "Giỏ hàng đã được cập nhật",
+    "cleared": "Đã xóa toàn bộ sản phẩm trong giỏ",
+    "synced": "Giỏ hàng đã được đồng bộ",
+    "addError": "Không thể thêm vào giỏ hàng",
+    "insufficientStock": "Không đủ hàng trong kho",
+    "mergeError": "Không thể đồng bộ giỏ hàng"
+  },
+  "merge": {
+    "syncing": "Đang đồng bộ giỏ hàng...",
+    "success": "Giỏ hàng đã được đồng bộ."
+  },
+  "confirm": {
+    "clearTitle": "Xác nhận xóa giỏ hàng",
+    "clearMessage": "Bạn có chắc muốn xóa toàn bộ sản phẩm trong giỏ hàng?"
+  },
+  "item": {
+    "quantity": "Số lượng",
+    "price": "Đơn giá",
+    "total": "Thành tiền"
+  }
+}

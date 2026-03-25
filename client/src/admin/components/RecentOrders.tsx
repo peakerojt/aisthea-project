@@ -1,7 +1,9 @@
-﻿import React from 'react';
+import React from 'react';
 import { ExternalLink } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { RecentOrder, formatVND, STATUS_VI } from '@/common/services/dashboard.service';
+import { RecentOrder, RECENT_ORDER_STATUS_COLORS, formatVND } from '@/common/services/dashboard.service';
+import { translateOrderStatus } from '@/admin/components/OrderStatusBadge';
 
 interface RecentOrdersProps {
     orders: RecentOrder[];
@@ -19,20 +21,35 @@ const SkeletonRow: React.FC = () => (
 );
 
 export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading }) => {
+    const { t } = useTranslation(['dashboard', 'orders']);
     const navigate = useNavigate();
+    const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
+        template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, token: string) => String(options?.[token] ?? ''));
+    const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+        const value = t(key, { ...options, defaultValue: fallback });
+        return value === key ? interpolateFallback(fallback, options) : value;
+    };
+    const titleLabel = resolveText('recentOrders.title', 'Đơn hàng gần đây');
+    const viewAllLabel = resolveText('recentOrders.viewAll', 'Xem tất cả');
+    const emptyLabel = resolveText('recentOrders.empty', 'Chưa có đơn hàng nào');
+    const orderIdLabel = resolveText('orders:table.orderId', 'Mã đơn');
+    const customerLabel = resolveText('orders:table.customer', 'Khách hàng');
+    const totalLabel = resolveText('orders:table.total', 'Tổng tiền');
+    const statusHeaderLabel = resolveText('orders:table.status', 'Trạng thái');
+    const dateLabel = resolveText('orders:table.date', 'Ngày đặt');
 
     return (
         <div className="bg-surface-dark border border-white/5 rounded-lg overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
                 <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                    Đơn hàng gần đây
+                    {titleLabel}
                 </h3>
                 <button
                     onClick={() => navigate('/admin/orders')}
                     className="text-xs text-white/40 hover:text-primary transition-colors flex items-center gap-1 cursor-pointer"
                 >
-                    Xem tất cả
+                    {viewAllLabel}
                     <ExternalLink className="w-3 h-3" />
                 </button>
             </div>
@@ -42,19 +59,19 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading })
                     <thead>
                         <tr className="border-b border-white/5">
                             <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">
-                                Mã đơn
+                                {orderIdLabel}
                             </th>
                             <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">
-                                Khách hàng
+                                {customerLabel}
                             </th>
                             <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">
-                                Tổng tiền
+                                {totalLabel}
                             </th>
                             <th className="px-4 py-3 text-center font-semibold text-white/30 uppercase tracking-widest">
-                                Trạng thái
+                                {statusHeaderLabel}
                             </th>
                             <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">
-                                Ngày
+                                {dateLabel}
                             </th>
                         </tr>
                     </thead>
@@ -64,15 +81,23 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading })
                         ) : orders.length === 0 ? (
                             <tr>
                                 <td colSpan={5} className="px-4 py-12 text-center text-white/20">
-                                    Chưa có đơn hàng nào
+                                    {emptyLabel}
                                 </td>
                             </tr>
                         ) : (
                             orders.map((order) => {
                                 const rawStatus = order.status?.toUpperCase() ?? 'PENDING';
                                 const statusInfo =
-                                    STATUS_VI[rawStatus] ??
-                                    { label: order.status ?? 'Không rõ', color: 'text-white/40 bg-white/5 border-white/10' };
+                                    RECENT_ORDER_STATUS_COLORS[rawStatus] ??
+                                    { color: 'text-white/40 bg-white/5 border-white/10' };
+                                const fallbackStatusLabel =
+                                    translateOrderStatus(rawStatus) ||
+                                    order.status ||
+                                    resolveText('orders:status.other', 'Khác');
+                                const statusLabel = resolveText(
+                                    `orders:status.${rawStatus}`,
+                                    fallbackStatusLabel,
+                                );
                                 const dateStr = order.createdAt
                                     ? new Date(order.createdAt).toLocaleDateString('vi-VN', {
                                         day: '2-digit',
@@ -108,7 +133,7 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading })
                             ${statusInfo.color}
                           `}
                                                 >
-                                                    {statusInfo.label}
+                                                    {statusLabel}
                                                 </span>
                                             </div>
                                         </td>

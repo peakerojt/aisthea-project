@@ -3,7 +3,7 @@ import { RefreshCw, AlertCircle, X, Loader2 } from 'lucide-react';
 import { useReorderItems } from '@/common/hooks/useReorderItems';
 import { ItemList } from '@/common/components/ItemList';
 import { useTranslation } from 'react-i18next';
-import '@/pages/common/ItemsPage.css';
+import '@/common/styles/pages/ItemsPage.css';
 
 export default function ItemsPage() {
   const { t } = useTranslation('pages', { keyPrefix: 'itemsPage' });

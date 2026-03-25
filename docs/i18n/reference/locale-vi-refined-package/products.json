@@ -1,0 +1,259 @@
+{
+  "page": {
+    "title": "Sản phẩm",
+    "subtitle": "Quản lý danh mục sản phẩm",
+    "productCount": "{{count}} sản phẩm",
+    "create": "Thêm sản phẩm",
+    "edit": "Chỉnh sửa sản phẩm",
+    "detail": "Chi tiết sản phẩm"
+  },
+  "fields": {
+    "name": "Tên sản phẩm",
+    "sku": "Mã SKU",
+    "price": "Giá bán",
+    "stock": "Tồn kho",
+    "category": "Phân loại",
+    "description": "Mô tả",
+    "images": "Hình ảnh",
+    "variants": "Biến thể",
+    "color": "Màu sắc",
+    "size": "Kích thước",
+    "weight": "Trọng lượng"
+  },
+  "status": {
+    "inStock": "Còn hàng",
+    "lowStock": "Sắp hết hàng",
+    "outOfStock": "Hết hàng",
+    "allStatuses": "Tất cả trạng thái",
+    "allCategories": "Tất cả phân loại"
+  },
+  "table": {
+    "product": "Thông tin sản phẩm",
+    "sku": "SKU",
+    "category": "Phân loại",
+    "price": "Giá bán",
+    "inventory": "Tồn kho",
+    "status": "Trạng thái",
+    "actions": "Thao tác",
+    "inStockUnit": "{{count}} sản phẩm trong kho"
+  },
+  "tabs": {
+    "all": "Tất cả sản phẩm",
+    "published": "Đang bán",
+    "drafts": "Nháp"
+  },
+  "toolbar": {
+    "filter": "Lọc",
+    "export": "Xuất",
+    "selected": "Đã chọn {{count}}",
+    "cancel": "Hủy chọn",
+    "markInStock": "Đánh dấu còn hàng",
+    "deleteSelected": "Xóa mục đã chọn",
+    "resetFilters": "Đặt lại bộ lọc",
+    "searchPlaceholder": "Tìm theo tên, SKU…",
+    "importExport": "Nhập / Xuất"
+  },
+  "modal": {
+    "deleteTitle": "Xác nhận xóa sản phẩm?",
+    "deleteBody": "Hành động này <b>không thể hoàn tác</b>. Nếu sản phẩm đã có đơn hàng, hệ thống sẽ chỉ <b>ẩn sản phẩm</b> để bảo toàn lịch sử đơn hàng.",
+    "deleteWarning": "Hành động này <span class=\"text-white font-semibold\">không thể hoàn tác</span>. Nếu sản phẩm đã có đơn hàng, hệ thống sẽ chỉ <span class=\"text-yellow-400 font-semibold\">ẩn sản phẩm</span> để bảo toàn lịch sử đơn hàng.",
+    "deleting": "Đang xóa...",
+    "delete": "Xóa"
+  },
+  "categories": {
+    "coats": "Áo khoác",
+    "dresses": "Váy",
+    "accessories": "Phụ kiện",
+    "shoes": "Giày"
+  },
+  "empty": {
+    "noMatch": "Không có sản phẩm phù hợp với bộ lọc",
+    "clearFilters": "Xóa bộ lọc"
+  },
+  "pagination": {
+    "summary": "Trang {{page}} / {{totalPages}} · {{total}} sản phẩm"
+  },
+  "loading": "Đang tải sản phẩm...",
+  "errorTitle": "Không thể tải sản phẩm",
+  "feedback": {
+    "createSuccess": "Đã tạo sản phẩm thành công",
+    "updateSuccess": "Đã cập nhật sản phẩm thành công",
+    "deleteSuccess": "Đã xóa sản phẩm thành công",
+    "deleteConfirm": "Bạn có chắc muốn xóa sản phẩm «{{name}}» không?",
+    "deleteSelectedConfirm": "Bạn có chắc muốn xóa {{count}} mục đã chọn không?",
+    "deleteSelectedSuccess": "Đã xóa {{count}} sản phẩm thành công",
+    "markInStockSuccess": "Đã đánh dấu còn hàng thành công",
+    "priceUpdated": "Cập nhật giá thành công",
+    "stockUpdated": "Cập nhật tồn kho thành công",
+    "statusUpdated": "Cập nhật trạng thái thành công"
+  },
+  "lowStock": {
+    "alertTitle": "Cảnh báo tồn kho thấp",
+    "alertDescription": "Có {{count}} sản phẩm đang ở mức tồn kho thấp",
+    "restock": "Nhập thêm hàng"
+  },
+  "editor": {
+    "breadcrumbs": {
+      "home": "Trang chủ",
+      "products": "Sản phẩm",
+      "create": "Tạo mới",
+      "update": "Cập nhật"
+    },
+    "actions": {
+      "cancel": "Huỷ bỏ",
+      "saving": "Đang lưu...",
+      "publish": "Đăng bán",
+      "backToList": "Quay lại danh sách",
+      "saveChanges": "Lưu thay đổi",
+      "stayHere": "Ở lại chỉnh sửa",
+      "leavePage": "Rời trang"
+    },
+    "modal": {
+      "unsavedTitle": "Bạn chưa lưu thay đổi",
+      "unsavedSubtitle": "Rời khỏi trang này sẽ làm mất nội dung vừa chỉnh sửa"
+    },
+    "sections": {
+      "basicInfo": "Thông tin cơ bản",
+      "variants": "Phân loại hàng",
+      "images": "Hình ảnh",
+      "status": "Trạng thái",
+      "organization": "Phân loại",
+      "categoryAndBrand": "Danh mục & Thương hiệu",
+      "priceAndStock": "Giá & Kho",
+      "priceAndSku": "Giá & SKU",
+      "summary": "Tóm tắt"
+    },
+    "fields": {
+      "name": "Tên sản phẩm",
+      "namePlaceholder": "Ví dụ: Áo khoác Noir Trench Coat",
+      "slug": "Slug:",
+      "description": "Mô tả sản phẩm",
+      "descriptionPlaceholder": "Nhập mô tả sản phẩm, chất liệu, phom dáng và điểm nhấn nổi bật...",
+      "attrName": "Tên thuộc tính",
+      "attrNamePlaceholder": "VD: Màu sắc",
+      "attrValues": "Giá trị (nhấn Enter để thêm)",
+      "attrValuesPlaceholder": "VD: Đỏ, Xanh",
+      "createAttr": "Thêm thuộc tính",
+      "variantTable": "Danh sách biến thể ({{count}})",
+      "syncPrice": "Đồng bộ giá",
+      "regenSku": "Tạo lại SKU",
+      "variantName": "Tên biến thể",
+      "sku": "SKU",
+      "price": "Giá (₫)",
+      "stock": "Kho hàng",
+      "default": "Mặc định",
+      "visibility": "Hiển thị trên website",
+      "statusActive": "Đang bán",
+      "statusDraft": "Bản nháp",
+      "statusArchived": "Đã ẩn",
+      "category": "Danh mục",
+      "categorySelect": "— Chọn danh mục —",
+      "brand": "Thương hiệu",
+      "brandSelect": "— Không có —",
+      "basePrice": "Giá bán cơ bản (₫)",
+      "basePricePlaceholder": "0",
+      "baseSku": "SKU gốc (tuỳ chọn)",
+      "baseSkuPlaceholder": "VD: NOIR-TRENCH",
+      "baseSkuHint": "Dùng làm tiền tố để tạo SKU cho các biến thể",
+      "summaryVariants": "Số biến thể",
+      "summaryTotalStock": "Tổng tồn kho",
+      "summaryImages": "Số ảnh",
+      "groupNamePlaceholder": "Tên nhóm (ví dụ: Màu sắc, Kích cỡ)",
+      "enterValues": "Nhập giá trị rồi nhấn Enter",
+      "VariantNameEdit": "Ví dụ: Áo sơ mi Oxford tay dài",
+      "descPlaceholderEdit": "Mô tả chi tiết về chất liệu, phom dáng, xuất xứ...",
+      "statusActiveEdit": "Đang bán",
+      "statusDraftEdit": "Bản nháp",
+      "statusArchivedEdit": "Lưu trữ",
+      "baseSkuPlaceholderEdit": "Ví dụ: AISTHEA-AO",
+      "baseSkuHintEdit": "Dùng để tạo lại SKU cho các biến thể",
+      "summaryExistingVariants": "Biến thể hiện có",
+      "summaryNewVariants": "Biến thể mới",
+      "summaryImagesToDelete": "Ảnh sẽ xóa",
+      "summaryImagesToAdd": "Ảnh sẽ thêm"
+    },
+    "feedback": {
+      "noVariants": "Vui lòng thêm ít nhất một phân loại sản phẩm",
+      "invalidPrice": "Biến thể \"{{label}}\" chưa có giá hợp lệ",
+      "syncPriceSuccess": "Đã áp dụng giá {{price}}₫ cho tất cả biến thể",
+      "createSuccess": "Đã đăng bán \"{{name}}\" thành công ({{count}} biến thể)",
+      "createError": "Có lỗi xảy ra. Vui lòng thử lại.",
+      "updateSuccess": "Đã lưu thay đổi cho \"{{name}}\"",
+      "loadingVariants": "Đang tải phân loại...",
+      "loadingImages": "Đang tải hình ảnh...",
+      "unsavedChanges": "Bạn có thay đổi chưa lưu. Bạn có muốn rời khỏi trang không?",
+      "loadError": "Không thể tải sản phẩm"
+    },
+    "mediaManager": {
+      "title": "Quản lý hình ảnh",
+      "dropzone": "Kéo thả ảnh vào đây hoặc nhấn để tải lên (tối đa 5MB/ảnh)",
+      "primaryBadge": "Ảnh bìa",
+      "unassigned": "Ảnh chung",
+      "variantLink": "Gắn với biến thể (màu sắc)",
+      "toastPrimarySuccess": "Đã cập nhật ảnh bìa",
+      "toastUploadSuccess": "Đã tải lên {{count}} ảnh",
+      "deleteConfirm": "Xóa ảnh này?",
+      "uploading": "Đang tải lên...",
+      "errorFileTooLarge": "Ảnh vượt quá 5MB",
+      "errorInvalidType": "Định dạng không hợp lệ",
+      "reorderHint": "Kéo để sắp xếp thứ tự ảnh",
+      "hintPrimary": "Di chuột rồi nhấn \"Ảnh bìa\" để đặt làm ảnh đại diện",
+      "hintLink": "Di chuột rồi nhấn \"Gắn biến thể\" để liên kết ảnh với biến thể"
+    }
+  },
+  "variantSelector": {
+    "priceFrom": "Từ {{min}}đ đến {{max}}đ",
+    "onlyNLeft": "Chỉ còn {{count}} sản phẩm",
+    "inStock": "Còn hàng",
+    "pleaseSelect": "Vui lòng chọn biến thể",
+    "sizeGuide": "Hướng dẫn chọn size",
+    "outOfStockSubtitle": "Phân loại này hiện đã",
+    "outOfStockHighlight": "hết hàng",
+    "outOfStockDesc": ". Vui lòng chọn phân loại khác hoặc quay lại sau.",
+    "addToCart": "Thêm vào giỏ hàng",
+    "outOfStockBtn": "Hết hàng",
+    "unselectedBtn": "Chọn biến thể trước khi tiếp tục",
+    "outOfStockIcon": " — Hết hàng"
+  },
+  "pdp": {
+    "notFound": "Không tìm thấy sản phẩm.",
+    "back": "Quay lại",
+    "share": "Chia sẻ",
+    "defaultDesc": "Được chế tác từ những vật liệu cao cấp, sản phẩm này định nghĩa lại sự sang trọng hiện đại. Nổi bật với kiểu dáng được cắt may tỉ mỉ, phụ kiện tinh tế và thiết kế cấu trúc mang tính biểu tượng của Aisthea.",
+    "copyLinkSuccess": "Đã sao chép liên kết",
+    "copyLinkSubtitle": "Bạn có thể chia sẻ liên kết này với người khác.",
+    "stylist": {
+      "heading": "Cần tư vấn cách phối đồ?",
+      "subheading": "Stylist của AISTHEA sẵn sàng gợi ý set đồ phù hợp với bạn.",
+      "cta": "Trò chuyện cùng chuyên gia"
+    },
+    "accordion": {
+      "features": "Đặc điểm sản phẩm",
+      "material": "Chất liệu & Bảo quản",
+      "shipping": "Vận chuyển & Đổi trả",
+      "featuresBody": "Được thiết kế với sự chú ý tỉ mỉ đến từng chi tiết tại xưởng chính của chúng tôi.",
+      "materialBody": "100% Wool siêu nhẹ cao cấp. Chỉ giặt khô. Ủi ở nhiệt độ thấp nếu cần thiết.",
+      "shippingBody": "Miễn phí giao nhanh cho đơn từ 5.000.000đ. Hỗ trợ đổi trả trong 14 ngày kể từ khi nhận hàng."
+    },
+    "reviews": {
+      "title": "Đánh giá của khách hàng",
+      "empty": "Chưa có đánh giá nào."
+    },
+    "recentlyViewed": "Sản phẩm đã xem gần đây",
+    "youMightLike": {
+      "label": "Gợi ý cho bạn",
+      "title": "Có thể bạn sẽ thích",
+      "memberBadge": "Dành cho thành viên"
+    },
+    "viewLabels": [
+      "Mặt trước",
+      "Mặt cạnh",
+      "Mặt sau"
+    ],
+    "insufficientStock": "Không đủ hàng",
+    "insufficientStockSub": "Chỉ còn {{count}} sản phẩm trong kho.",
+    "addFailed": "Thêm thất bại",
+    "addFailedSub": "Vui lòng thử lại.",
+    "guestCartSubtitle": "Đăng nhập để lưu giỏ hàng và thanh toán nhanh hơn."
+  }
+}

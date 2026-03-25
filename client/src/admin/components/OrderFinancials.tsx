@@ -52,6 +52,35 @@ interface OrderFinancialsProps {
 
 export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loading }) => {
     const { t } = useTranslation(['orders']);
+    const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
+        template.replace(/\{\{(\w+)\}\}/g, (_, token) => String(options?.[token] ?? `{{${token}}}`));
+    const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+        const value = t(key, { ...options, defaultValue: fallback });
+        return value === key ? interpolateFallback(fallback, options) : value;
+    };
+    const financialsTitleLabel = resolveText('refund.financials.title', 'Lịch sử tài chính');
+    const transactionCountLabel = resolveText('refund.financials.transactionCount', '{{count}} giao dịch', {
+        count: refunds.length,
+    });
+    const noTransactionsLabel = resolveText('refund.financials.noTransactions', 'Chưa có giao dịch hoàn tiền nào');
+    const createdAtLabel = resolveText('refund.financials.table.createdAt', 'Ngày tạo');
+    const transactionIdLabel = resolveText('refund.financials.table.transactionId', 'Mã đối soát');
+    const amountHeaderLabel = resolveText('refund.financials.table.amount', 'Số tiền');
+    const methodHeaderLabel = resolveText('refund.financials.table.method', 'Phương thức');
+    const statusHeaderLabel = resolveText('refund.financials.table.status', 'Trạng thái');
+    const fullTypeLabel = resolveText('refund.financials.typeFull', '(Toàn bộ)');
+    const partialTypeLabel = resolveText('refund.financials.typePartial', '(Một phần)');
+    const refundMethodLabels: Record<RefundRecord['method'], string> = {
+        ORIGINAL_GATEWAY: resolveText('refund.method.ORIGINAL_GATEWAY', 'Hoàn qua cổng thanh toán gốc'),
+        BANK_TRANSFER: resolveText('refund.method.BANK_TRANSFER', 'Chuyển khoản thủ công'),
+        STORE_WALLET: resolveText('refund.method.STORE_WALLET', 'Ví AISTHEA'),
+    };
+    const refundStatusLabels: Record<RefundStatus, string> = {
+        PENDING: resolveText('refund.status.PENDING', 'Chờ xử lý'),
+        PROCESSING: resolveText('refund.status.PROCESSING', 'Đang xử lý'),
+        SUCCESS: resolveText('refund.status.SUCCESS', 'Thành công'),
+        FAILED: resolveText('refund.status.FAILED', 'Thất bại'),
+    };
 
     return (
         <div className="bg-[#111318] border border-white/[0.07] rounded-2xl overflow-hidden">
@@ -61,11 +90,11 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                     <Landmark size={13} className="text-primary" />
                 </div>
                 <span className="text-[11px] font-bold text-white/50 uppercase tracking-[0.12em]">
-                    {t('refund.financials.title')}
+                    {financialsTitleLabel}
                 </span>
                 {refunds.length > 0 && (
                     <span className="ml-auto text-[10px] text-white/30 font-mono">
-                        {t('refund.financials.transactionCount', { count: refunds.length })}
+                        {transactionCountLabel}
                     </span>
                 )}
             </div>
@@ -83,7 +112,7 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                     <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
                         <Landmark size={18} className="text-white/20" />
                     </div>
-                    <p className="text-[12px] text-white/30">{t('refund.financials.noTransactions')}</p>
+                    <p className="text-[12px] text-white/30">{noTransactionsLabel}</p>
                 </div>
             )}
 
@@ -94,11 +123,11 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                         <thead className={adminUiTokens.tableHeaderSurface}>
                             <tr>
                                 {[
-                                    t('refund.financials.table.createdAt'),
-                                    t('refund.financials.table.transactionId'),
-                                    t('refund.financials.table.amount'),
-                                    t('refund.financials.table.method'),
-                                    t('refund.financials.table.status')
+                                    createdAtLabel,
+                                    transactionIdLabel,
+                                    amountHeaderLabel,
+                                    methodHeaderLabel,
+                                    statusHeaderLabel,
                                 ].map((h) => (
                                     <th key={h} className={`whitespace-nowrap px-4 py-2.5 ${adminUiTokens.tableHeader}`}>
                                         {h}
@@ -124,15 +153,15 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                                     <td className="px-4 py-3 font-bold text-white whitespace-nowrap">
                                         {formatVND(r.amount)}
                                         <span className="ml-1.5 text-[10px] text-white/30">
-                                            {r.type === 'FULL' ? t('refund.financials.typeFull') : t('refund.financials.typePartial')}
+                                            {r.type === 'FULL' ? fullTypeLabel : partialTypeLabel}
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-white/55 whitespace-nowrap">
-                                        {t(`refund.method.${r.method}`)}
+                                        {refundMethodLabels[r.method]}
                                     </td>
                                     <td className="px-4 py-3">
                                         <div className="flex flex-col gap-1">
-                                            <StatusBadge status={r.status} label={t(`refund.status.${r.status}`)} />
+                                            <StatusBadge status={r.status} label={refundStatusLabels[r.status]} />
                                             {r.status === 'FAILED' && r.gatewayError && (
                                                 <span className="text-[10px] text-red-400/70 leading-tight">
                                                     {r.gatewayError}

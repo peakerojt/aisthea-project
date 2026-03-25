@@ -39,6 +39,8 @@
         "notFound": "Không tìm thấy thông tin vận chuyển cho đơn hàng này.",
         "orderNotFound": "Đơn hàng không tồn tại.",
         "forbidden": "Bạn không có quyền truy cập thông tin vận chuyển này.",
-        "invalidStatusTransition": "Chuyển đổi trạng thái không hợp lệ."
+        "invalidStatusTransition": "Chuyển đổi trạng thái không hợp lệ.",
+        "lookupRequired": "Vui lòng nhập mã đơn hàng và số điện thoại để tra cứu.",
+        "loadTracking": "Không thể tải dữ liệu theo dõi đơn hàng."
     }
 }

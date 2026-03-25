@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getOrderTracking, publicTracking } from '@/common/services/tracking.service';
-import { useTrackingStore } from '@/store/components/tracking.store';
+import { useTrackingStore } from '@/store/state/tracking.store';
 import { useOrderTrackingRealtime } from '@/common/hooks/useOrderTrackingRealtime';
 import {
   Package, Truck, CheckCircle2, Clock, MapPin, RefreshCw,
@@ -13,6 +13,7 @@ import { ORDER_STATUS } from '@/config/orderStatus.config';
 
 // ─── Status configuration ─────────────────────────────────────────────────────────
 type StepId = typeof ORDER_STATUS.PENDING | typeof ORDER_STATUS.PROCESSING | typeof ORDER_STATUS.SHIPPING | typeof ORDER_STATUS.DELIVERED;
+const TRACKING_RETURN_REQUESTED = 'RETURN_REQUESTED' as const;
 
 const toStatusKey = (status: string | null | undefined) =>
   (status ?? '').trim().replace(/[\s-]+/g, '_').toUpperCase();
@@ -37,7 +38,7 @@ const getCanonicalTrackingStatus = (status: string | null | undefined) => {
     case 'CANCELED':
       return ORDER_STATUS.CANCELLED;
     case 'RETURN_REQUESTED':
-      return 'Return_Requested';
+      return TRACKING_RETURN_REQUESTED;
     case 'RETURNED':
       return ORDER_STATUS.RETURNED;
     default:
@@ -54,13 +55,23 @@ const MAIN_STEPS: Array<{ id: StepId; label: string; icon: typeof Clock }> = [
   { id: ORDER_STATUS.DELIVERED, label: 'Đã giao hàng', icon: CheckCircle2 },
 ];
 
+const TRACKING_STATUS_FALLBACKS: Record<string, string> = {
+  [ORDER_STATUS.PENDING]: 'Chờ xác nhận',
+  [ORDER_STATUS.PROCESSING]: 'Đang xử lý',
+  [ORDER_STATUS.SHIPPING]: 'Đang giao hàng',
+  [ORDER_STATUS.DELIVERED]: 'Đã giao hàng',
+  [ORDER_STATUS.CANCELLED]: 'Đã hủy',
+  [TRACKING_RETURN_REQUESTED]: 'Yêu cầu trả hàng',
+  [ORDER_STATUS.RETURNED]: 'Đã trả hàng',
+};
+
 const STATUS_TO_STEP: Record<string, number> = {
   [ORDER_STATUS.PENDING]: 0,
   [ORDER_STATUS.PROCESSING]: 1,
   [ORDER_STATUS.SHIPPING]: 2,
   [ORDER_STATUS.DELIVERED]: 3,
   [ORDER_STATUS.CANCELLED]: -1,
-  Return_Requested: -1,
+  [TRACKING_RETURN_REQUESTED]: -1,
   [ORDER_STATUS.RETURNED]: -1,
 };
 
@@ -70,7 +81,7 @@ const STATUS_ICON: Record<string, typeof Clock> = {
   [ORDER_STATUS.SHIPPING]: Truck,
   [ORDER_STATUS.DELIVERED]: CheckCircle2,
   [ORDER_STATUS.CANCELLED]: AlertTriangle,
-  Return_Requested: RefreshCw,
+  [TRACKING_RETURN_REQUESTED]: RefreshCw,
   [ORDER_STATUS.RETURNED]: RefreshCw,
 };
 
@@ -80,7 +91,7 @@ const STATUS_COLOR: Record<string, string> = {
   [ORDER_STATUS.SHIPPING]: 'text-sky-400 bg-sky-400/10 border-sky-400/30',
   [ORDER_STATUS.DELIVERED]: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
   [ORDER_STATUS.CANCELLED]: 'text-red-400 bg-red-400/10 border-red-400/30',
-  Return_Requested: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
+  [TRACKING_RETURN_REQUESTED]: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
   [ORDER_STATUS.RETURNED]: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
 };
 
@@ -109,8 +120,13 @@ function formatDateShort(ts?: string | Date | null) {
   return new Date(ts).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+const getTrackingStatusFallbackLabel = (status: string | null | undefined) =>
+  TRACKING_STATUS_FALLBACKS[getCanonicalTrackingStatus(status)] ?? String(status ?? ORDER_STATUS.PENDING);
+
+type ResolveTrackingText = (key: string, fallback: string, options?: Record<string, unknown>) => string;
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
-function HorizontalStepper({ status, t }: { status: string; t: (k: string, opts?: { defaultValue?: string }) => string }) {
+function HorizontalStepper({ status, resolveText }: { status: string; resolveText: ResolveTrackingText }) {
   const canonicalStatus = getCanonicalTrackingStatus(status);
   const currentStep = STATUS_TO_STEP[canonicalStatus] ?? 0;
   const isCancelled = currentStep === -1;
@@ -138,7 +154,7 @@ function HorizontalStepper({ status, t }: { status: string; t: (k: string, opts?
               <span className={`text-xs font-medium text-center leading-tight max-w-[64px]
                 ${completed ? 'text-emerald-400' : active ? 'text-blue-400' : 'text-slate-500'}
               `}>
-                {t(`status.${getTrackingStatusKey(step.id)}`, { defaultValue: step.label })}
+                {resolveText(`status.${getTrackingStatusKey(step.id)}`, step.label)}
               </span>
             </div>
 
@@ -159,7 +175,15 @@ function HorizontalStepper({ status, t }: { status: string; t: (k: string, opts?
   );
 }
 
-function TimelineItem({ item, isFirst, t }: { item: { status: string; timestamp: string; location?: string; note?: string }; isFirst: boolean; t: (k: string, opts?: { defaultValue?: string }) => string }) {
+function TimelineItem({
+  item,
+  isFirst,
+  resolveText,
+}: {
+  item: { status: string; timestamp: string; location?: string; note?: string };
+  isFirst: boolean;
+  resolveText: ResolveTrackingText;
+}) {
   const canonicalStatus = getCanonicalTrackingStatus(item.status);
   const Icon = STATUS_ICON[canonicalStatus] ?? Package;
   const color = STATUS_COLOR[canonicalStatus] ?? 'text-slate-400 bg-slate-400/10 border-slate-400/30';
@@ -179,7 +203,7 @@ function TimelineItem({ item, isFirst, t }: { item: { status: string; timestamp:
       <div className="flex-1 pb-6">
         <div className="flex items-start justify-between gap-2 flex-wrap">
           <span className={`text-sm font-semibold ${color.split(' ')[0]}`}>
-            {item.status ? t(`status.${statusKey}`, { defaultValue: canonicalStatus }) : item.status}
+            {item.status ? resolveText(`status.${statusKey}`, getTrackingStatusFallbackLabel(item.status)) : item.status}
           </span>
           <time className="text-xs text-slate-400 flex-shrink-0" dateTime={item.timestamp}>
             {formatDate(item.timestamp, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
@@ -213,6 +237,12 @@ export function TrackingDetailPage() {
   const tracking = useTrackingStore((s) => s.tracking);
   const setTracking = useTrackingStore((s) => s.setTracking);
   const clearTracking = useTrackingStore((s) => s.clearTracking);
+  const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
+    template.replace(/\{\{(.*?)\}\}/g, (_match, token) => String(options?.[String(token).trim()] ?? ''));
+  const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+    const translated = t(key, { defaultValue: fallback, ...options });
+    return translated === key ? interpolateFallback(fallback, options) : translated;
+  };
 
   // Resolve public lookup from sessionStorage OR URL ?phone= param (for page reload)
   const publicLookup = useMemo(() => {
@@ -254,9 +284,11 @@ export function TrackingDetailPage() {
         const error = err as { response?: { status?: number }; message?: string };
         const status = error.response?.status;
         if (status === 401 || status === 403 || status === 404) {
-          navigate('/tracking', { state: { error: 'Vui lòng nhập mã đơn hàng và số điện thoại để tra cứu.' } });
+          navigate('/tracking', {
+            state: { error: resolveText('errors.lookupRequired', 'Vui lòng nhập mã đơn hàng và số điện thoại để tra cứu.') },
+          });
         } else {
-          setError(error.message || 'Không thể tải dữ liệu đơn hàng.');
+          setError(error.message || resolveText('errors.loadTracking', 'Không thể tải dữ liệu theo dõi đơn hàng.'));
         }
       } finally {
         if (mounted) setLoading(false);
@@ -279,7 +311,7 @@ export function TrackingDetailPage() {
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');`}</style>
         <div className="flex flex-col items-center gap-4">
           <div className="size-12 rounded-full border-4 border-blue-500/30 border-t-blue-500 animate-spin" />
-          <span className="text-slate-400 text-sm">{t('page.loadingOrder')}</span>
+          <span className="text-slate-400 text-sm">{resolveText('page.loadingOrder', 'Đang tải thông tin đơn hàng...')}</span>
         </div>
       </div>
     );
@@ -293,10 +325,10 @@ export function TrackingDetailPage() {
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');`}</style>
         <div className="bg-white/5 border border-red-500/20 rounded-2xl p-8 max-w-sm text-center">
           <AlertTriangle className="size-10 text-red-400 mx-auto mb-3" />
-          <p className="text-white font-semibold mb-2">{t('page.genericError')}</p>
+          <p className="text-white font-semibold mb-2">{resolveText('page.genericError', 'Có lỗi xảy ra')}</p>
           <p className="text-slate-400 text-sm mb-4">{error}</p>
           <button onClick={() => navigate('/tracking')} className="text-blue-400 text-sm hover:text-blue-300 transition-colors cursor-pointer">
-            ← {t('page.lookupAgain')}
+            ← {resolveText('page.lookupAgain', 'Tra cứu lại')}
           </button>
         </div>
       </div>
@@ -332,7 +364,7 @@ export function TrackingDetailPage() {
               className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors cursor-pointer group"
             >
               <ArrowLeft className="size-4 group-hover:-translate-x-0.5 transition-transform" />
-              {t('page.backToOrders')}
+              {resolveText('page.backToOrders', 'Quay lại đơn hàng')}
             </button>
 
             <span className="text-slate-700 text-xs">|</span>
@@ -343,7 +375,7 @@ export function TrackingDetailPage() {
               className="flex items-center gap-1.5 text-slate-400 hover:text-blue-400 text-sm transition-colors cursor-pointer"
             >
               <Search className="size-3.5" />
-              {t('page.newLookup')}
+              {resolveText('page.newLookup', 'Tra cứu mới')}
             </button>
           </div>
 
@@ -352,8 +384,8 @@ export function TrackingDetailPage() {
             ${connected ? 'text-emerald-400 border-emerald-400/30 bg-emerald-400/5' : 'text-slate-500 border-slate-600 bg-transparent'}
           `}>
             {connected
-              ? <><Wifi className="size-3" /><span>{t('page.live')}</span><span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" /></>
-              : <><WifiOff className="size-3" /><span>{t('page.offline')}</span></>
+              ? <><Wifi className="size-3" /><span>{resolveText('page.live', 'Theo dõi trực tiếp')}</span><span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" /></>
+              : <><WifiOff className="size-3" /><span>{resolveText('page.offline', 'Ngoại tuyến')}</span></>
             }
           </div>
         </div>
@@ -362,29 +394,39 @@ export function TrackingDetailPage() {
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-xl">
           <div className="flex items-start justify-between gap-3 mb-4">
             <div>
-              <p className="text-xs text-slate-400 mb-0.5">{t('page.order')}</p>
+              <p className="text-xs text-slate-400 mb-0.5">{resolveText('page.order', 'Đơn hàng')}</p>
               <h1 className="text-xl font-bold text-white">{tracking.orderCode}</h1>
             </div>
             {/* Status badge */}
             <span className={`flex-shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full border ${statusColor}`}>
-              {tracking.currentStatus ? t(`status.${statusKey}`, { defaultValue: canonicalStatus }) : tracking.currentStatus}
+              {tracking.currentStatus
+                ? resolveText(`status.${statusKey}`, getTrackingStatusFallbackLabel(tracking.currentStatus))
+                : tracking.currentStatus}
             </span>
           </div>
 
           {/* Order-first info row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
             <InfoChip
-              label={t('page.orderCode')}
+              label={resolveText('page.orderCode', 'Mã đơn hàng')}
               value={trackingCode}
               icon={<Package className="size-3.5 text-cyan-400" />}
             />
             <InfoChip
-              label={t('page.shippingMode')}
-              value={shippingMode === 'provider' ? t('page.shippingModeProvider') : t('page.shippingModeManual')}
+              label={resolveText('page.shippingMode', 'Hình thức giao hàng')}
+              value={
+                shippingMode === 'provider'
+                  ? resolveText('page.shippingModeProvider', 'Qua đối tác vận chuyển')
+                  : resolveText('page.shippingModeManual', 'Thủ công')
+              }
               icon={<Truck className="size-3.5 text-blue-400" />}
             />
             <InfoChip
-              label={provider ? t('page.providerOrderCode') : t('page.estimatedDelivery')}
+              label={
+                provider
+                  ? resolveText('page.providerOrderCode', 'Mã đơn trên đối tác')
+                  : resolveText('page.estimatedDelivery', 'Dự kiến giao hàng')
+              }
               value={provider ? (providerOrderCode ?? '—') : (eta ? formatDateShort(eta) ?? '—' : '—')}
               icon={provider ? <Truck className="size-3.5 text-sky-400" /> : <Clock className="size-3.5 text-amber-400" />}
             />
@@ -393,7 +435,7 @@ export function TrackingDetailPage() {
           {provider && (
             <div className="flex items-center gap-2 text-xs text-slate-400 bg-white/3 rounded-lg px-3 py-2 mb-4">
               <Truck className="size-3.5 text-sky-400 flex-shrink-0" />
-              <span>{t('page.provider')}: <span className="text-slate-200 uppercase">{provider}</span></span>
+              <span>{resolveText('page.provider', 'Đối tác vận chuyển')}: <span className="text-slate-200 uppercase">{provider}</span></span>
             </div>
           )}
 
@@ -401,12 +443,12 @@ export function TrackingDetailPage() {
           {location && (
             <div className="flex items-center gap-2 text-xs text-slate-400 bg-white/3 rounded-lg px-3 py-2 mb-4">
               <MapPin className="size-3.5 text-sky-400 flex-shrink-0" />
-              <span>{t('page.latestLocation')} <span className="text-slate-200">{location}</span></span>
+              <span>{resolveText('page.latestLocation', 'Vị trí gần nhất:')} <span className="text-slate-200">{location}</span></span>
             </div>
           )}
 
           {/* ── Horizontal stepper ──────────────────────────────────────── */}
-          <HorizontalStepper status={canonicalStatus} t={t} />
+          <HorizontalStepper status={canonicalStatus} resolveText={resolveText} />
         </div>
 
         {/* ── Product items ────────────────────────────────────────────── */}
@@ -414,7 +456,7 @@ export function TrackingDetailPage() {
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-xl">
             <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
               <Package className="size-4 text-slate-400" />
-              {t('page.orderItems', { count: tracking.items.length })}
+              {resolveText('page.orderItems', 'Sản phẩm trong đơn ({{count}})', { count: tracking.items.length })}
             </h2>
             <div className="space-y-3">
               {tracking.items.map((item) => (
@@ -436,16 +478,16 @@ export function TrackingDetailPage() {
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-xl">
           <h2 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
             <Clock className="size-4 text-slate-400" />
-            {t('page.history')}
+            {resolveText('page.history', 'Lịch sử đơn hàng')}
           </h2>
           {timeline.length === 0 ? (
-            <p className="text-slate-500 text-sm text-center py-4">{t('page.emptyHistory')}</p>
+            <p className="text-slate-500 text-sm text-center py-4">{resolveText('page.emptyHistory', 'Chưa có cập nhật trạng thái nào.')}</p>
           ) : (
             <div className="relative">
               {/* Vertical guide line */}
               <div className="absolute left-[18px] top-4 bottom-4 w-px bg-slate-700" />
               {timeline.map((item, idx) => (
-                <TimelineItem key={idx} item={item} isFirst={idx === 0} t={t} />
+                <TimelineItem key={idx} item={item} isFirst={idx === 0} resolveText={resolveText} />
               ))}
             </div>
           )}
@@ -453,7 +495,7 @@ export function TrackingDetailPage() {
 
         {/* Footer note */}
         <p className="text-center text-xs text-slate-600 pb-4">
-          {t('page.autoRefresh')}
+          {resolveText('page.autoRefresh', 'Thông tin được cập nhật tự động khi có thay đổi. Không cần tải lại trang.')}
         </p>
       </div>
     </div>

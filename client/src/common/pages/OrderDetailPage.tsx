@@ -42,11 +42,16 @@ const canConfirmReceiptStatus = (status: string | null | undefined) => {
 };
 
 const canTrackOrderStatus = (status: string | null | undefined) => {
+  if (status?.toUpperCase() === 'RETURN_REQUESTED') {
+    return true;
+  }
+
   const normalized = normalizeStatus(status);
   return (
     normalized === ORDER_STATUS.PROCESSING ||
     normalized === ORDER_STATUS.SHIPPING ||
-    normalized === ORDER_STATUS.DELIVERED
+    normalized === ORDER_STATUS.DELIVERED ||
+    normalized === ORDER_STATUS.RETURNED
   );
 };
 
@@ -54,12 +59,68 @@ const canTrackOrderStatus = (status: string | null | undefined) => {
 
 export const OrderDetailPage: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'orderDetail' });
+  const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
+    template.replace(/\{\{(\w+)\}\}/g, (_, token) => String(options?.[token] ?? `{{${token}}}`));
+  const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+    const translated = t(key as any, options as any);
+    return translated !== key ? translated : interpolateFallback(fallback, options);
+  };
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { role } = useAuth();
   const { addItemsBatch } = useCart();
   const { showToast } = useToast();
+  const heroTitle = resolveText('hero.title', 'Chi tiết đơn hàng');
+  const heroSubtitle = resolveText('hero.subtitle', 'Tất cả thông tin đơn hàng của bạn ở một nơi');
+  const guestMessage = resolveText('guest.message', 'Vui lòng đăng nhập để xem chi tiết đơn hàng.');
+  const guestLoginLabel = resolveText('guest.login', 'Đăng nhập');
+  const processingLabel = resolveText('common.processing', 'Đang xử lý...');
+  const addingToCartLabel = resolveText('common.addingToCart', 'Đang thêm vào giỏ...');
+  const noteLabel = resolveText('labels.note', 'Ghi chú');
+  const actionsLabel = resolveText('labels.actions', 'Hành động');
+  const backLabel = resolveText('actions.back', 'Quay lại');
+  const goHomeLabel = resolveText('actions.goHome', 'Về trang chủ');
+  const retryLabel = resolveText('actions.retry', 'Thử lại');
+  const trackOrderLabel = resolveText('actions.trackOrder', 'Theo dõi đơn hàng');
+  const confirmReceivedLabel = resolveText('actions.confirmReceived', 'Đã nhận được hàng');
+  const cancelOrderLabel = resolveText('actions.cancelOrder', 'Hủy đơn hàng');
+  const requestReturnLabel = resolveText('actions.requestReturn', 'Yêu cầu trả hàng');
+  const buyAgainLabel = resolveText('actions.buyAgain', 'Mua lại');
+  const confirmReceiptTitle = resolveText('confirmReceipt.title', 'Xác nhận đã nhận hàng?');
+  const confirmReceiptDescription = resolveText(
+    'confirmReceipt.description',
+    'Bạn xác nhận đã nhận được sản phẩm nguyên vẹn và không có vấn đề gì?',
+  );
+  const confirmReceiptNotYetLabel = resolveText('confirmReceipt.actions.notYet', 'Chưa nhận');
+  const confirmReceiptConfirmLabel = resolveText('confirmReceipt.actions.confirm', 'Đã nhận hàng');
+  const receiptSuccessLabel = resolveText(
+    'toast.receiptSuccess',
+    'Cảm ơn bạn đã mua sắm! Vui lòng đánh giá sản phẩm nhé.',
+  );
+  const notFoundTitle = resolveText('errors.notFoundTitle', 'Đơn hàng không tồn tại');
+  const notFoundDescription = resolveText(
+    'errors.notFoundDescription',
+    'Có thể mã đơn hàng bị sai hoặc đơn hàng đã bị xóa.',
+  );
+  const forbiddenTitle = resolveText('errors.forbiddenTitle', 'Không có quyền truy cập');
+  const forbiddenDescription = resolveText(
+    'errors.forbiddenDescription',
+    'Bạn không thể xem chi tiết đơn hàng này.',
+  );
+  const loadFailedLabel = resolveText('errors.loadFailed', 'Không thể tải chi tiết đơn hàng.');
+  const noItemsLabel = resolveText('errors.noItems', 'Không có sản phẩm trong đơn để mua lại.');
+  const cannotIdentifyItemsLabel = resolveText(
+    'errors.cannotIdentifyItems',
+    'Không thể xác định sản phẩm để thêm vào giỏ.',
+  );
+  const buyAgainFailedLabel = resolveText('errors.buyAgainFailed', 'Không thể thêm vào giỏ hàng.');
+  const hintPrefix = resolveText('hint.prefix', 'Chỉ có thể hủy đơn khi');
+  const hintPending = resolveText('hint.pending', 'chờ xác nhận');
+  const hintMiddle = resolveText('hint.middle', 'theo dõi/xác nhận nhận hàng khi');
+  const hintShipping = resolveText('hint.shipping', 'đang giao hàng');
+  const hintSuffix = resolveText('hint.suffix', 'hoặc hoàn đơn trong 7 ngày sau khi');
+  const hintDelivered = resolveText('hint.delivered', 'đã giao hàng');
 
   // Review modal state
   const [reviewItem, setReviewItem] = useState<OrderItem | null>(null);
@@ -114,7 +175,7 @@ export const OrderDetailPage: React.FC = () => {
     mutationFn: () => orderService.confirmReceipt(id || ''),
     onSuccess: () => {
       setConfirmReceiptDialog(false);
-      showToast({ type: 'success', title: t('toast.receiptSuccess') });
+      showToast({ type: 'success', title: receiptSuccessLabel });
       refetch();
     },
     onError: () => {
@@ -136,11 +197,11 @@ export const OrderDetailPage: React.FC = () => {
   // so that CartContext.dbItems stays in sync before navigating to Checkout.
   const buyAgainMutation = useMutation({
     mutationFn: async () => {
-      if (!order?.items?.length) throw new Error(t('errors.noItems'));
+      if (!order?.items?.length) throw new Error(noItemsLabel);
       // Filter only items that have a known variantId.
       const itemsWithVariant = order.items.filter((it) => it.variantId);
       if (itemsWithVariant.length === 0)
-        throw new Error(t('errors.cannotIdentifyItems'));
+        throw new Error(cannotIdentifyItemsLabel);
 
       await addItemsBatch(
         itemsWithVariant.map((item) => ({
@@ -153,7 +214,11 @@ export const OrderDetailPage: React.FC = () => {
       const count = order?.items?.filter((it) => it.variantId).length ?? 0;
       showToast({
         type: 'success',
-        title: t('toast.buyAgainSuccess', { count }),
+        title: resolveText(
+          'toast.buyAgainSuccess',
+          `Đã thêm ${count} sản phẩm vào giỏ hàng! Đang chuyển tới trang thanh toán...`,
+          { count },
+        ),
       });
       setTimeout(() => {
         navigate('/checkout');
@@ -162,7 +227,7 @@ export const OrderDetailPage: React.FC = () => {
     onError: (err: any) => {
       showToast({
         type: 'error',
-        title: err?.response?.data?.message ?? err?.message ?? t('errors.buyAgainFailed'),
+        title: err?.response?.data?.message ?? err?.message ?? buyAgainFailedLabel,
       });
     },
   });
@@ -202,12 +267,12 @@ export const OrderDetailPage: React.FC = () => {
     return (
       <div className="bg-bg-dark min-h-screen text-white flex items-center justify-center">
         <div className="text-center">
-          <p className="text-sm text-white/60 mb-4">{t('guest.message')}</p>
+          <p className="text-sm text-white/60 mb-4">{guestMessage}</p>
           <button
             onClick={() => navigate('/auth/login')}
             className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
           >
-            {t('guest.login')}
+            {guestLoginLabel}
           </button>
         </div>
       </div>
@@ -260,9 +325,9 @@ export const OrderDetailPage: React.FC = () => {
                 <PackageCheck size={20} className="text-emerald-400" />
               </div>
               <div>
-                <h3 id="confirm-receipt-title" className="text-sm font-bold text-white mb-1">{t('confirmReceipt.title')}</h3>
+                <h3 id="confirm-receipt-title" className="text-sm font-bold text-white mb-1">{confirmReceiptTitle}</h3>
                 <p className="text-xs text-white/60 leading-relaxed">
-                  {t('confirmReceipt.description')}
+                  {confirmReceiptDescription}
                 </p>
               </div>
             </div>
@@ -273,7 +338,7 @@ export const OrderDetailPage: React.FC = () => {
                 disabled={confirmReceiptMutation.isPending}
                 className="flex-1 py-2.5 rounded-xl border border-white/15 text-white/60 hover:text-white hover:border-white/30 text-xs font-semibold uppercase tracking-wider transition-all"
               >
-                {t('confirmReceipt.actions.notYet')}
+                {confirmReceiptNotYetLabel}
               </button>
               <button
                 onClick={() => confirmReceiptMutation.mutate()}
@@ -283,10 +348,10 @@ export const OrderDetailPage: React.FC = () => {
                 {confirmReceiptMutation.isPending ? (
                   <span className="flex items-center justify-center gap-1.5">
                     <Loader2 size={12} className="animate-spin" />
-                    {t('common.processing')}
+                    {processingLabel}
                   </span>
                 ) : (
-                  t('confirmReceipt.actions.confirm')
+                  confirmReceiptConfirmLabel
                 )}
               </button>
             </div>
@@ -305,9 +370,9 @@ export const OrderDetailPage: React.FC = () => {
       <div className="pt-32 px-6 md:px-12 max-w-6xl mx-auto pb-24">
         <div className="flex items-end justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-black uppercase tracking-tighter">{t('hero.title')}</h1>
+            <h1 className="text-4xl font-black uppercase tracking-tighter">{heroTitle}</h1>
             <p className="text-white/40 text-xs uppercase tracking-widest mt-2">
-              {t('hero.subtitle')}
+              {heroSubtitle}
             </p>
           </div>
           <button
@@ -315,7 +380,7 @@ export const OrderDetailPage: React.FC = () => {
             className="group flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-sm font-medium text-white/80 hover:text-white backdrop-blur-md"
           >
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            {t('actions.back')}
+            {backLabel}
           </button>
         </div>
 
@@ -344,40 +409,40 @@ export const OrderDetailPage: React.FC = () => {
           <div className="mt-4">
             {isNotFound ? (
               <div className="bg-surface-dark border border-white/10 rounded-sm p-6 text-center">
-                <h2 className="text-lg font-semibold text-white mb-2">{t('errors.notFoundTitle')}</h2>
+                <h2 className="text-lg font-semibold text-white mb-2">{notFoundTitle}</h2>
                 <p className="text-sm text-white/60 mb-4">
-                  {t('errors.notFoundDescription')}
+                  {notFoundDescription}
                 </p>
                 <button
                   onClick={() => navigate('/')}
                   className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
                 >
-                  {t('actions.goHome')}
+                  {goHomeLabel}
                 </button>
               </div>
             ) : isForbidden ? (
               <div className="bg-surface-dark border border-red-500/30 rounded-sm p-6 text-center">
-                <h2 className="text-lg font-semibold text-red-300 mb-2">{t('errors.forbiddenTitle')}</h2>
+                <h2 className="text-lg font-semibold text-red-300 mb-2">{forbiddenTitle}</h2>
                 <p className="text-sm text-red-200/80 mb-4">
-                  {t('errors.forbiddenDescription')}
+                  {forbiddenDescription}
                 </p>
                 <button
                   onClick={() => navigate('/')}
                   className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
                 >
-                  {t('actions.goHome')}
+                  {goHomeLabel}
                 </button>
               </div>
             ) : (
               <div className="bg-surface-dark border border-red-500/20 rounded-sm p-6">
                 <p className="text-sm text-red-200 mb-4">
-                  {t('errors.loadFailed')} {errorMessage}
+                  {loadFailedLabel} {errorMessage}
                 </p>
                 <button
                   onClick={() => refetch()}
                   className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
                 >
-                  {t('actions.retry')}
+                  {retryLabel}
                 </button>
               </div>
             )}
@@ -403,12 +468,12 @@ export const OrderDetailPage: React.FC = () => {
               <OrderTimeline history={(order.timeline ?? []).map((t) => ({ status: t.status, changedAt: t.at }))} />
               {order.note && (
                 <div className="bg-surface-dark border border-white/5 rounded-sm p-6">
-                  <div className="text-[10px] uppercase tracking-widest text-white/40">{t('labels.note')}</div>
+                  <div className="text-[10px] uppercase tracking-widest text-white/40">{noteLabel}</div>
                   <p className="mt-2 text-sm text-white/70 whitespace-pre-line">{order.note}</p>
                 </div>
               )}
               <div className="bg-surface-dark border border-white/5 rounded-sm p-6">
-                <div className="text-[10px] uppercase tracking-widest text-white/40">{t('labels.actions')}</div>
+                <div className="text-[10px] uppercase tracking-widest text-white/40">{actionsLabel}</div>
                 <div className="flex flex-col gap-3 mt-4">
 
                   {/* ── Track Order Button (from feature/order-tracking-PhamAnhHao) ── */}
@@ -418,7 +483,7 @@ export const OrderDetailPage: React.FC = () => {
                       className="group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.1)] hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]"
                     >
                       <MapPin size={15} className="group-hover:scale-110 transition-transform" />
-                      {t('actions.trackOrder')}
+                      {trackOrderLabel}
                     </button>
                   )}
 
@@ -429,7 +494,7 @@ export const OrderDetailPage: React.FC = () => {
                       className="group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 hover:border-emerald-500/50 text-emerald-400 hover:text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_25px_rgba(16,185,129,0.2)]"
                     >
                       <PackageCheck size={15} className="group-hover:scale-110 transition-transform" />
-                      {t('actions.confirmReceived')}
+                      {confirmReceivedLabel}
                     </button>
                   )}
 
@@ -447,7 +512,7 @@ export const OrderDetailPage: React.FC = () => {
                         size={15}
                         className={cancelMutation.isPending ? 'opacity-50' : 'group-hover:scale-110 transition-transform'}
                       />
-                      {cancelMutation.isPending ? t('common.processing') : t('actions.cancelOrder')}
+                      {cancelMutation.isPending ? processingLabel : cancelOrderLabel}
                     </button>
                   )}
 
@@ -464,7 +529,7 @@ export const OrderDetailPage: React.FC = () => {
                       className="group w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold uppercase tracking-widest transition-all bg-cyan-600/10 hover:bg-cyan-600/20 text-cyan-400 hover:text-cyan-300 border-cyan-500/30 hover:border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_20px_rgba(6,182,212,0.2)]"
                     >
                       <RotateCcw size={15} className="group-hover:-rotate-45 transition-transform" />
-                      {t('actions.requestReturn')}
+                      {requestReturnLabel}
                     </button>
                   )}
 
@@ -484,12 +549,12 @@ export const OrderDetailPage: React.FC = () => {
                         {buyAgainMutation.isPending ? (
                           <span className="flex items-center gap-1.5">
                             <Loader2 size={13} className="animate-spin" />
-                            {t('common.addingToCart')}
+                            {addingToCartLabel}
                           </span>
                         ) : (
                           <>
                             <ShoppingCart size={15} className="group-hover:scale-110 transition-transform" />
-                            {t('actions.buyAgain')}
+                            {buyAgainLabel}
                           </>
                         )}
                       </button>
@@ -501,9 +566,9 @@ export const OrderDetailPage: React.FC = () => {
                 {!canTrack && !canConfirmReceipt && !canCancel && !canReturn && (
                   <div className="mt-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.05]">
                     <p className="text-[11px] text-white/40 leading-relaxed">
-                      {t('hint.prefix')} <strong className="text-white/60">{t('hint.pending')}</strong>, {t('hint.middle')}{' '}
-                      <strong className="text-white/60">{t('hint.shipping')}</strong>, {t('hint.suffix')}{' '}
-                      <strong className="text-white/60">{t('hint.delivered')}</strong>.
+                      {hintPrefix} <strong className="text-white/60">{hintPending}</strong>, {hintMiddle}{' '}
+                      <strong className="text-white/60">{hintShipping}</strong>, {hintSuffix}{' '}
+                      <strong className="text-white/60">{hintDelivered}</strong>.
                     </p>
                   </div>
                 )}

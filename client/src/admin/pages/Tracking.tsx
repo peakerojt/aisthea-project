@@ -12,7 +12,31 @@ import {
 } from '@/admin/components/AdminUI';
 
 export const Tracking: React.FC = () => {
-  const { t } = useTranslation('pages', { keyPrefix: 'adminTracking' });
+  const { t: rawT } = useTranslation('pages', { keyPrefix: 'adminTracking' });
+  const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
+    template.replace(/\{\{(\w+)\}\}/g, (_, token) => String(options?.[token] ?? `{{${token}}}`));
+  const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+    const translated = rawT(key, {
+      ...(options ?? {}),
+      defaultValue: fallback,
+    });
+
+    return translated === key ? interpolateFallback(fallback, options) : translated;
+  };
+
+  const mapAltLabel = resolveText('mapAlt', 'Bản đồ');
+  const badgeLabel = resolveText('badge', 'Theo dõi trực tiếp');
+  const orderCodeLabel = resolveText('orderCode', 'Đơn #29384');
+  const productImageAltLabel = resolveText('productImageAlt', 'Sản phẩm');
+  const productNameLabel = resolveText('productName', 'Saint Laurent Medium Bag');
+  const productMetaLabel = resolveText('productMeta', 'Da đen • SL: 1');
+  const statusMessageLabel = resolveText('statusMessage', 'Đơn hàng đang di chuyển đến điểm tiếp theo');
+  const deliveryLabel = resolveText('deliveryLabel', 'Dự kiến giao');
+  const deliveryTimeLabel = resolveText('deliveryTime', 'Hôm nay, 18:00');
+  const dispatchedLabel = resolveText('progress.dispatched', 'Đã xuất kho');
+  const deliveredLabel = resolveText('progress.delivered', 'Đã giao hàng');
+  const supportLabel = resolveText('actions.support', 'Hỗ trợ');
+  const viewDetailsLabel = resolveText('actions.viewDetails', 'Xem chi tiết');
 
   return (
     <AdminPageShell className="relative min-h-full overflow-hidden">
@@ -20,7 +44,7 @@ export const Tracking: React.FC = () => {
         <img
           src="https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=2000&auto=format&fit=crop"
           className="w-full h-full object-cover opacity-30 grayscale mix-blend-overlay"
-          alt={t('mapAlt')}
+          alt={mapAltLabel}
         />
         <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
           <path d="M 200 600 Q 500 400 800 300" stroke="#E2241D" strokeWidth="2" fill="none" strokeDasharray="10" className="animate-pulse" />
@@ -32,11 +56,11 @@ export const Tracking: React.FC = () => {
       <div className="relative z-10 flex min-h-full flex-col gap-6">
         <AdminPageHeader
           icon={MapPinned}
-          eyebrow={t('badge')}
-          title={t('orderCode')}
-          subtitle={t('statusMessage')}
-          meta={`${t('deliveryLabel')}: ${t('deliveryTime')}`}
-          actions={<AdminBadge tone="success" dot>{t('badge')}</AdminBadge>}
+          eyebrow={badgeLabel}
+          title={orderCodeLabel}
+          subtitle={statusMessageLabel}
+          meta={`${deliveryLabel}: ${deliveryTimeLabel}`}
+          actions={<AdminBadge tone="success" dot>{badgeLabel}</AdminBadge>}
         />
 
         <div className="flex flex-1 items-start">
@@ -48,23 +72,23 @@ export const Tracking: React.FC = () => {
               <div className="h-16 w-16 overflow-hidden rounded-xl bg-white/10">
                 <img
                   src="https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=200"
-                  alt={t('productImageAlt')}
+                  alt={productImageAltLabel}
                   className="h-full w-full object-cover"
                 />
               </div>
               <div className="min-w-0 space-y-1">
-                <h3 className="truncate text-sm font-semibold text-white">{t('productName')}</h3>
-                <p className="text-xs text-white/42">{t('productMeta')}</p>
+                <h3 className="truncate text-sm font-semibold text-white">{productNameLabel}</h3>
+                <p className="text-xs text-white/42">{productMetaLabel}</p>
                 <div className="inline-flex">
-                  <AdminBadge tone="info" dot>{t('statusMessage')}</AdminBadge>
+                  <AdminBadge tone="info" dot>{statusMessageLabel}</AdminBadge>
                 </div>
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-end justify-between">
-                <span className="text-xs font-medium text-white/45">{t('deliveryLabel')}</span>
-                <span className="text-sm font-bold text-primary">{t('deliveryTime')}</span>
+                <span className="text-xs font-medium text-white/45">{deliveryLabel}</span>
+                <span className="text-sm font-bold text-primary">{deliveryTimeLabel}</span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                 <div className="relative h-full w-[75%] overflow-hidden rounded-full bg-primary">
@@ -72,8 +96,8 @@ export const Tracking: React.FC = () => {
                 </div>
               </div>
               <div className="mt-1 flex justify-between text-[10px] uppercase tracking-wide text-white/34">
-                <span>{t('progress.dispatched')}</span>
-                <span>{t('progress.delivered')}</span>
+                <span>{dispatchedLabel}</span>
+                <span>{deliveredLabel}</span>
               </div>
             </div>
 
@@ -83,8 +107,8 @@ export const Tracking: React.FC = () => {
                   <Truck size={16} className="text-primary" />
                 </div>
                 <div>
-                  <p className={adminUiTokens.labelText}>{t('deliveryLabel')}</p>
-                  <p className="mt-1 text-sm text-white/74">{t('statusMessage')}</p>
+                  <p className={adminUiTokens.labelText}>{deliveryLabel}</p>
+                  <p className="mt-1 text-sm text-white/74">{statusMessageLabel}</p>
                 </div>
               </div>
             </div>
@@ -92,11 +116,11 @@ export const Tracking: React.FC = () => {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <AdminSecondaryButton type="button" className="w-full">
                 <Headset size={15} />
-                {t('actions.support')}
+                {supportLabel}
               </AdminSecondaryButton>
               <AdminPrimaryButton type="button" className="w-full">
                 <Truck size={15} />
-                {t('actions.viewDetails')}
+                {viewDetailsLabel}
               </AdminPrimaryButton>
             </div>
           </AdminSectionCard>

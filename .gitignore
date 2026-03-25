@@ -32,7 +32,6 @@ Thumbs.db
 
 # Agent Skills
 .agent/
-docs/
 .claude/
 AGENTS.md
 CLAUDE.md

@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
 import { Item } from '@/common/services/items.service';
-import '@/components/items/items.css';
+import '@/common/styles/components/ItemRow.css';
 
 interface ItemRowProps {
     item: Item;

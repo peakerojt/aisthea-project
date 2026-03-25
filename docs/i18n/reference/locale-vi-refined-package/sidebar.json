@@ -1,0 +1,19 @@
+{
+  "sections": {
+    "mainMenu": "Menu chính"
+  },
+  "nav": {
+    "dashboard": "Tổng quan",
+    "products": "Sản phẩm",
+    "restock": "Nhập hàng",
+    "categories": "Danh mục",
+    "orders": "Đơn hàng",
+    "customers": "Khách hàng",
+    "analytics": "Báo cáo",
+    "coupons": "Mã giảm giá"
+  },
+  "user": {
+    "signOut": "Đăng xuất",
+    "hq": "AISTHEA HQ"
+  }
+}

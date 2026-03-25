@@ -1,23 +1,58 @@
 import { api } from '@/common/utils/api';
-import { OrderReturn, ReturnListResponse } from '@/common/services/return.service';
+import {
+    AdminReturnListPayload,
+    RefundMethod,
+    CreateReturnPayload,
+    MyReturnListResponse,
+    OrderReturn,
+    ReturnListResponse,
+    ReturnRequest,
+    ReturnRequestDetail,
+    ReturnServiceEnvelope,
+} from '@/common/services/return.service';
 
 export const returnApi = {
     // ---- User Endpoints ----
-    requestReturn: (orderId: number, data: { reason: string; proofImages: string[] }) => api.post<OrderReturn>(`/api/orders/${orderId}/return`, data),
+    requestReturn: (orderId: number, data: { reason: string; proofImages: string[] }) =>
+        api.post<ReturnServiceEnvelope<OrderReturn>>(`/api/orders/${orderId}/return`, data),
 
-    getReturnForOrder: (orderId: number) => api.get<{ success: boolean; data: OrderReturn | null }>(`/api/orders/${orderId}/return`),
+    createReturnRequest: (payload: CreateReturnPayload) =>
+        api.post<ReturnServiceEnvelope<ReturnRequest>>('/api/return-requests', payload),
 
-    getMyReturns: (page: number, limit: number) => api.get(`/api/returns/my?page=${page}&limit=${limit}`),
+    getReturnForOrder: (orderId: number) =>
+        api.get<ReturnServiceEnvelope<OrderReturn | null>>(`/api/orders/${orderId}/return`),
 
-    getUserReturnDetail: (returnId: number) => api.get(`/api/returns/${returnId}`),
+    getMyReturns: (page: number, limit: number) =>
+        api.get<ReturnServiceEnvelope<MyReturnListResponse>>(`/api/return-requests/my?page=${page}&limit=${limit}`),
+
+    getUserReturnDetail: (returnId: number) =>
+        api.get<ReturnServiceEnvelope<ReturnRequestDetail>>(`/api/return-requests/${returnId}`),
 
     // ---- Admin Endpoints ----
     getAdminReturns: (query: string) => api.get<ReturnListResponse>(`/api/returns${query}`),
+
+    getAdminReturnRequests: (query: string) =>
+        api.get<ReturnServiceEnvelope<AdminReturnListPayload>>(`/api/return-requests/admin/list${query}`),
 
     processReturn: (returnId: number, data: { action: 'APPROVE' | 'REJECT' | 'COMPLETE_REFUND'; note?: string }) =>
         api.patch<{ success: boolean; message: string; messageKey?: string; code?: string }>(`/api/returns/${returnId}/process`, data),
 
     getAdminReturnDetail: (returnId: number) => api.get(`/api/returns/${returnId}`),
+
+    getAdminReturnRequestDetail: (returnId: number) =>
+        api.get<ReturnServiceEnvelope<ReturnRequestDetail>>(`/api/return-requests/${returnId}`),
+
+    approveReturnRequest: (returnId: number) =>
+        api.patch<ReturnServiceEnvelope<ReturnRequest>>(`/api/return-requests/admin/${returnId}/approve`),
+
+    rejectReturnRequest: (returnId: number, data: { reason: string }) =>
+        api.patch<ReturnServiceEnvelope<ReturnRequest>>(`/api/return-requests/admin/${returnId}/reject`, data),
+
+    markReturnReceived: (returnId: number) =>
+        api.patch<ReturnServiceEnvelope<ReturnRequest>>(`/api/return-requests/admin/${returnId}/mark-received`),
+
+    refundReturnRequest: (returnId: number, data: { method: RefundMethod; idempotencyKey: string; amount?: number }) =>
+        api.patch<ReturnServiceEnvelope<unknown>>(`/api/return-requests/admin/${returnId}/refund`, data),
 
     markReceived: (returnId: number) => api.patch(`/api/returns/${returnId}/mark-received`)
 };

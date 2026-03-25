@@ -21,30 +21,104 @@ type VNPayReturnCache = {
 export const VNPayReturn: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'vnpayReturn' });
   const { t: pagesT } = useTranslation('pages');
+  const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
+    template.replace(/\{\{(\w+)\}\}/g, (_, token) => String(options?.[token] ?? `{{${token}}}`));
+  const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+    const value = t(key, { ...options, defaultValue: fallback });
+    return value === key ? interpolateFallback(fallback, options) : value;
+  };
+  const resolvePagesText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+    const value = pagesT(key, { ...(options ?? {}), defaultValue: fallback });
+    return value === key ? interpolateFallback(fallback, options) : value;
+  };
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const initialQueryRef = useRef(searchParams.toString());
   const hasVerifiedRef = useRef(false);
+  const loadingMessageLabel = resolveText('states.loadingMessage', 'Đang xác thực kết quả thanh toán...');
+  const successMessageLabel = resolveText('states.successMessage', 'Thanh toán VNPAY thành công!');
+  const failedMessageLabel = resolveText('states.failedMessage', 'Thanh toán thất bại hoặc đã bị hủy.');
+  const errorMessageLabel = resolveText('states.errorMessage', 'Lỗi khi xác thực thanh toán VNPAY.');
+  const metaKickerLabel = resolveText('meta.kicker', 'Hoàn tất xác thực thanh toán');
+  const metaTitleLabel = resolveText('meta.title', 'Kết quả thanh toán VNPAY');
+  const metaSubtitleLabel = resolveText(
+    'meta.subtitle',
+    'Chúng tôi đang đồng bộ trạng thái thanh toán với đơn hàng của bạn để đảm bảo thông tin hiển thị chính xác.',
+  );
+  const statusBadgeLoadingLabel = resolveText('status.badges.loading', 'Đang xác thực');
+  const statusBadgeSuccessLabel = resolveText('status.badges.success', 'Thanh toán thành công');
+  const statusBadgeFailedLabel = resolveText('status.badges.failed', 'Cần xử lý lại');
+  const orderLabel = resolveText('status.orderLabel', 'Mã đơn');
+  const orderHintLabel = resolveText('status.orderHint', 'Bạn có thể theo dõi tiếp trong mục đơn hàng.');
+  const successDescriptionLabel = resolveText(
+    'descriptions.success',
+    'Cảm ơn bạn đã sử dụng dịch vụ. Đơn hàng của bạn sẽ được xử lý trong thời gian sớm nhất.',
+  );
+  const failedDescriptionLabel = resolveText(
+    'descriptions.failed',
+    'Vui lòng thử lại hoặc chọn một phương thức thanh toán khác.',
+  );
+  const loadingDescriptionLabel = resolveText(
+    'descriptions.loading',
+    'Quá trình xác thực có thể mất vài giây. Vui lòng không đóng trình duyệt trong lúc hệ thống đồng bộ.',
+  );
+  const paymentStatusLabel = resolveText('sections.paymentStatus', 'Trạng thái thanh toán');
+  const paymentMethodLabel = resolveText('sections.paymentMethod', 'Phương thức thanh toán');
+  const nextStepTitleLabel = resolveText('sections.nextStepTitle', 'Tiếp theo');
+  const nextStepSuccessLabel = resolveText(
+    'sections.nextStepSuccess',
+    'Thanh toán đã được ghi nhận. Bạn có thể xem xác nhận đơn hàng hoặc theo dõi trạng thái xử lý trong tài khoản.',
+  );
+  const nextStepFailedLabel = resolveText(
+    'sections.nextStepFailed',
+    'Bạn có thể quay lại checkout để thử lại thanh toán hoặc chọn phương thức khác mà không cần xây lại giỏ hàng.',
+  );
+  const nextStepLoadingLabel = resolveText(
+    'sections.nextStepLoading',
+    'Chờ hệ thống xác nhận với VNPAY. Ngay khi hoàn tất, thông tin đơn hàng sẽ được cập nhật đầy đủ.',
+  );
+  const loadingStatusValueLabel = resolveText(
+    'sections.statusValues.loading',
+    'Đang chờ kết quả từ cổng thanh toán',
+  );
+  const successStatusValueLabel = resolveText(
+    'sections.statusValues.success',
+    'Thanh toán đã được xác nhận',
+  );
+  const failedStatusValueLabel = resolveText(
+    'sections.statusValues.failed',
+    'Thanh toán chưa hoàn tất',
+  );
+  const summaryTitleLabel = resolveText('summary.title', 'Đơn hàng ({{count}} sản phẩm)', { count: 0 });
+  const summarySubtotalLabel = resolveText('summary.subtotal', 'Tạm tính');
+  const summaryShippingLabel = resolveText('summary.shipping', 'Vận chuyển');
+  const summaryFreeShippingLabel = resolveText('summary.freeShipping', 'Miễn phí');
+  const summaryDiscountLabel = resolveText('summary.discount', 'Giảm giá');
+  const summaryTotalLabel = resolveText('summary.total', 'Tổng cộng');
+  const viewConfirmationLabel = resolveText('actions.viewConfirmation', 'Xem xác nhận đơn');
+  const retryCheckoutLabel = resolveText('actions.retryCheckout', 'Quay lại thanh toán');
+  const manageOrdersLabel = resolveText('actions.manageOrders', 'Quản lý đơn hàng');
+  const continueShoppingLabel = resolveText('actions.continueShopping', 'Tiếp tục mua hàng');
   const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
-  const [message, setMessage] = useState(t('states.loadingMessage'));
+  const [message, setMessage] = useState(loadingMessageLabel);
   const [paymentStatusCode, setPaymentStatusCode] = useState<string>('VERIFYING');
   const orderData = getLatestOrderData();
 
   const progressSteps = [
     {
       key: 'cart',
-      label: pagesT('checkoutFlow.steps.cart.label'),
-      hint: pagesT('checkoutFlow.steps.cart.hint'),
+      label: resolvePagesText('checkoutFlow.steps.cart.label', 'Giỏ hàng'),
+      hint: resolvePagesText('checkoutFlow.steps.cart.hint', 'Kiểm tra sản phẩm và số lượng'),
     },
     {
       key: 'checkout',
-      label: pagesT('checkoutFlow.steps.checkout.label'),
-      hint: pagesT('checkoutFlow.steps.checkout.hint'),
+      label: resolvePagesText('checkoutFlow.steps.checkout.label', 'Thanh toán'),
+      hint: resolvePagesText('checkoutFlow.steps.checkout.hint', 'Điền thông tin và chọn phương thức'),
     },
     {
       key: 'success',
-      label: pagesT('checkoutFlow.steps.success.label'),
-      hint: pagesT('checkoutFlow.steps.success.hint'),
+      label: resolvePagesText('checkoutFlow.steps.success.label', 'Hoàn tất'),
+      hint: resolvePagesText('checkoutFlow.steps.success.hint', 'Xác nhận đơn và theo dõi trạng thái'),
     },
   ];
 
@@ -59,7 +133,7 @@ export const VNPayReturn: React.FC = () => {
           const cachedRaw = sessionStorage.getItem(VNPAY_RETURN_CACHE_KEY);
           if (!cachedRaw) {
             setStatus('failed');
-            setMessage(t('states.errorMessage'));
+            setMessage(errorMessageLabel);
             setPaymentStatusCode('FAILED');
             return;
           }
@@ -70,7 +144,7 @@ export const VNPayReturn: React.FC = () => {
           if (isExpired) {
             sessionStorage.removeItem(VNPAY_RETURN_CACHE_KEY);
             setStatus('failed');
-            setMessage(t('states.errorMessage'));
+            setMessage(errorMessageLabel);
             setPaymentStatusCode('FAILED');
             return;
           }
@@ -80,7 +154,7 @@ export const VNPayReturn: React.FC = () => {
           setPaymentStatusCode(cached.paymentStatusCode);
         } catch {
           setStatus('failed');
-          setMessage(t('states.errorMessage'));
+          setMessage(errorMessageLabel);
           setPaymentStatusCode('FAILED');
         }
         return;
@@ -89,16 +163,16 @@ export const VNPayReturn: React.FC = () => {
       try {
         const data = await api.get<any>(`/api/vnpay/vnpay_return?${queryString}`);
         let nextStatus: 'loading' | 'success' | 'failed' = 'failed';
-        let nextMessage = t('states.failedMessage');
+        let nextMessage = failedMessageLabel;
         let nextPaymentStatus = data.paymentStatus || 'FAILED';
 
         if (data.paymentStatus === 'COMPLETED' && data.code === '00') {
           nextStatus = 'success';
-          nextMessage = t('states.successMessage');
+          nextMessage = successMessageLabel;
           nextPaymentStatus = 'COMPLETED';
         } else if (data.paymentStatus === 'PENDING' || data.code === 'PENDING') {
           nextStatus = 'loading';
-          nextMessage = t('states.loadingMessage');
+          nextMessage = loadingMessageLabel;
           nextPaymentStatus = data.paymentStatus || 'PENDING';
         }
 
@@ -116,11 +190,11 @@ export const VNPayReturn: React.FC = () => {
       } catch (error) {
         console.error('Verification error:', error);
         setStatus('failed');
-        setMessage(t('states.errorMessage'));
+        setMessage(errorMessageLabel);
         setPaymentStatusCode('FAILED');
         sessionStorage.setItem(VNPAY_RETURN_CACHE_KEY, JSON.stringify({
           status: 'failed',
-          message: t('states.errorMessage'),
+          message: errorMessageLabel,
           paymentStatusCode: 'FAILED',
           cachedAt: Date.now(),
         } satisfies VNPayReturnCache));
@@ -129,7 +203,7 @@ export const VNPayReturn: React.FC = () => {
     };
 
     verifyPayment();
-  }, [t]);
+  }, [errorMessageLabel, failedMessageLabel, loadingMessageLabel, successMessageLabel]);
 
   return (
     <div className="min-h-screen bg-bg-dark text-white overflow-hidden">
@@ -140,14 +214,14 @@ export const VNPayReturn: React.FC = () => {
         <div className="relative z-10">
           <div className="mb-10">
             <p className="mb-3 text-[10px] font-black uppercase tracking-[0.28em] text-primary">
-              {t('meta.kicker')}
+              {metaKickerLabel}
             </p>
             <div className="mb-5 border-b border-border-dark pb-6">
               <h1 className="text-4xl font-black uppercase tracking-tighter md:text-5xl">
-                {t('meta.title')}
+                {metaTitleLabel}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-gray-400">
-                {t('meta.subtitle')}
+                {metaSubtitleLabel}
               </p>
             </div>
             <CheckoutProgress currentStep="success" steps={progressSteps} />
@@ -175,63 +249,81 @@ export const VNPayReturn: React.FC = () => {
 
                   <div>
                     <p className={`text-[10px] font-black uppercase tracking-[0.28em] ${status === 'success' ? 'text-green-400' : status === 'failed' ? 'text-red-400' : 'text-blue-400'}`}>
-                      {status === 'success' ? t('status.badges.success') : status === 'failed' ? t('status.badges.failed') : t('status.badges.loading')}
+                      {status === 'success'
+                        ? statusBadgeSuccessLabel
+                        : status === 'failed'
+                          ? statusBadgeFailedLabel
+                          : statusBadgeLoadingLabel}
                     </p>
                     <h2 className="mt-2 text-2xl font-bold text-white">{message}</h2>
                     <p className="mt-2 max-w-xl text-sm leading-relaxed text-gray-400">
-                      {status === 'success' ? t('descriptions.success') : status === 'failed' ? t('descriptions.failed') : t('descriptions.loading')}
+                      {status === 'success'
+                        ? successDescriptionLabel
+                        : status === 'failed'
+                          ? failedDescriptionLabel
+                          : loadingDescriptionLabel}
                     </p>
                   </div>
                 </div>
 
                 {orderData?.orderId && (
                   <div className="rounded-sm border border-white/10 bg-white/[0.02] px-4 py-4 md:max-w-[240px]">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/35">{t('status.orderLabel')}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/35">{orderLabel}</p>
                     <p className="mt-2 text-sm font-bold text-white">#{orderData.orderId}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-gray-500">{t('status.orderHint')}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-gray-500">{orderHintLabel}</p>
                   </div>
                 )}
               </div>
 
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <div className="rounded-sm border border-border-dark bg-white/[0.02] p-5">
-                  <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-primary">{t('sections.paymentStatus')}</h3>
+                  <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-primary">{paymentStatusLabel}</h3>
                   <PaymentStatusBadge paymentMethod="VNPAY" paymentStatus={paymentStatusCode} uppercase />
-                  <p className="mt-3 text-sm text-gray-400">{t(`sections.statusValues.${status}`)}</p>
-                  <p className="mt-2 text-sm text-gray-400">{t('sections.paymentMethod')}</p>
+                  <p className="mt-3 text-sm text-gray-400">
+                    {status === 'success'
+                      ? successStatusValueLabel
+                      : status === 'failed'
+                        ? failedStatusValueLabel
+                        : loadingStatusValueLabel}
+                  </p>
+                  <p className="mt-2 text-sm text-gray-400">{paymentMethodLabel}</p>
                   <p className="mt-1 text-sm text-white">
                     <PaymentMethodLabel paymentMethod={orderData?.paymentMethod ?? 'VNPAY'} />
                   </p>
                 </div>
 
                 <div className="rounded-sm border border-border-dark bg-white/[0.02] p-5">
-                  <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-primary">{t('sections.nextStepTitle')}</h3>
+                  <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-primary">{nextStepTitleLabel}</h3>
                   <p className="text-sm text-gray-300">
-                    {status === 'success' ? t('sections.nextStepSuccess') : status === 'failed' ? t('sections.nextStepFailed') : t('sections.nextStepLoading')}
+                    {status === 'success'
+                      ? nextStepSuccessLabel
+                      : status === 'failed'
+                        ? nextStepFailedLabel
+                        : nextStepLoadingLabel}
                   </p>
                 </div>
               </div>
             </section>
 
             <OrderSummaryRail
-              title={t('summary.title', { count: orderData?.items.length ?? 0 })}
+              title={resolveText('summary.title', summaryTitleLabel, { count: orderData?.items.length ?? 0 })}
               items={orderData?.items ?? []}
               maxHeightClassName="max-h-[260px]"
             >
               <div className="space-y-3 border-t border-border-dark pt-6 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-400">{t('summary.subtotal')}</span>
+                  <span className="text-gray-400">{summarySubtotalLabel}</span>
                   <span className="font-medium text-white">{formatCurrencyVND(orderData?.subtotal ?? 0)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-400">{t('summary.shipping')}</span>
+                  <span className="text-gray-400">{summaryShippingLabel}</span>
                   <span className={`font-medium ${(orderData?.shippingFee ?? 0) === 0 ? 'text-green-500' : 'text-white'}`}>
-                    {(orderData?.shippingFee ?? 0) === 0 ? t('summary.freeShipping') : formatCurrencyVND(orderData?.shippingFee ?? 0)}
+                    {(orderData?.shippingFee ?? 0) === 0 ? summaryFreeShippingLabel : formatCurrencyVND(orderData?.shippingFee ?? 0)}
                   </span>
                 </div>
                 {(orderData?.discountValue ?? 0) > 0 && (
                   <div className="flex items-center justify-between text-green-400">
-                    <span>{t('summary.discount')}</span>
+                    <span>{summaryDiscountLabel}</span>
                     <span>-{formatCurrencyVND(orderData?.discountValue ?? 0)}</span>
                   </div>
                 )}
@@ -239,7 +331,7 @@ export const VNPayReturn: React.FC = () => {
 
               <div className="mt-6 border-t border-border-dark pt-6">
                 <div className="mb-6 flex items-end justify-between">
-                  <span className="text-base font-bold uppercase tracking-tight">{t('summary.total')}</span>
+                  <span className="text-base font-bold uppercase tracking-tight">{summaryTotalLabel}</span>
                   <span className={`text-2xl font-black tracking-tight ${status === 'failed' ? 'text-white' : 'text-primary'}`}>
                     {formatCurrencyVND(orderData?.total ?? 0)}
                   </span>
@@ -251,27 +343,27 @@ export const VNPayReturn: React.FC = () => {
                       onClick={() => navigate('/order-success')}
                       className="h-12 w-full cursor-pointer bg-primary px-6 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-red-700"
                     >
-                      {t('actions.viewConfirmation')}
+                      {viewConfirmationLabel}
                     </button>
                   ) : (
                     <button
                       onClick={() => navigate('/checkout')}
                       className="h-12 w-full cursor-pointer bg-primary px-6 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-red-700"
                     >
-                      {t('actions.retryCheckout')}
+                      {retryCheckoutLabel}
                     </button>
                   )}
                   <button
                     onClick={() => navigate('/my-orders')}
                     className="h-12 w-full cursor-pointer border border-border-dark px-6 text-xs font-bold uppercase tracking-widest text-gray-300 transition-colors hover:border-white hover:text-white"
                   >
-                    {t('actions.manageOrders')}
+                    {manageOrdersLabel}
                   </button>
                   <button
                     onClick={() => navigate('/collection')}
                     className="h-12 w-full cursor-pointer border border-border-dark px-6 text-xs font-bold uppercase tracking-widest text-gray-300 transition-colors hover:border-white hover:text-white"
                   >
-                    {t('actions.continueShopping')}
+                    {continueShoppingLabel}
                   </button>
                 </div>
               </div>

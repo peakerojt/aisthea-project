@@ -95,6 +95,18 @@ MOCK_AI=true
 - `npm run build`: Build for production
 - `npm run preview`: Preview the production build
 
+## 📚 Active Project Docs
+
+Use these files as the current source of truth before continuing cleanup or checklist work:
+
+- `README.md`: onboarding and local setup
+- `ARCHITECTURE.md`: current backend/frontend structural direction
+- `AUDIT_PROGRESS.md`: live migration and cleanup status
+- `AISTHEA_IMPLEMENTATION_CHECKLIST_EN.md`: active execution checklist
+- `docs/i18n/`: tracked i18n audits, merge notes, and reference packages kept outside runtime source folders
+- `docs/decisions/`: intentional architecture and migration boundary decisions
+- `docs/audits/`: focused mismatch and audit notes that should stay tracked in the repo
+
 ## 🔐 Hướng dẫn Cài đặt RBAC (Dành cho Team)
 
 Để chạy được chức năng Phân Quyền (RBAC) mới nhất, các thành viên cần thực hiện **3 bước** sau sau khi pull code về:

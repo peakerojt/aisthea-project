@@ -15,5 +15,16 @@
     "toast": {
         "newOrderTitle": "Đơn hàng mới",
         "newOrderMessage": "Có đơn hàng mới vừa được đặt!"
+    },
+    "recentOrders": {
+        "title": "Đơn hàng gần đây",
+        "viewAll": "Xem tất cả",
+        "empty": "Chưa có đơn hàng nào"
+    },
+    "topProducts": {
+        "title": "Sản phẩm bán chạy nhất",
+        "subtitle": "Top 5 trong kỳ",
+        "empty": "Chưa có dữ liệu",
+        "soldCount": "{{count}} đã bán"
     }
 }

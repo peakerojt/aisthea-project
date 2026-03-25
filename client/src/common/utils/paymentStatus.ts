@@ -95,7 +95,7 @@ export const getPaymentMethodMeta = (paymentMethod?: string | null): PaymentMeth
     case 'COD':
       return {
         labelKey: 'paymentMethod.COD',
-        defaultLabel: 'Thanh toan khi nhan hang',
+        defaultLabel: 'Thanh toán khi nhận hàng',
       };
     case 'VNPAY':
       return {
@@ -105,12 +105,12 @@ export const getPaymentMethodMeta = (paymentMethod?: string | null): PaymentMeth
     case 'BANK_TRANSFER':
       return {
         labelKey: 'paymentMethod.BANK_TRANSFER',
-        defaultLabel: 'Chuyen khoan ngan hang',
+        defaultLabel: 'Chuyển khoản ngân hàng',
       };
     case 'MOMO':
       return {
         labelKey: 'paymentMethod.MOMO',
-        defaultLabel: 'Vi MoMo',
+        defaultLabel: 'Ví MoMo',
       };
     case 'ZALOPAY':
       return {
@@ -120,7 +120,7 @@ export const getPaymentMethodMeta = (paymentMethod?: string | null): PaymentMeth
     default:
       return {
         labelKey: `paymentMethod.${method || 'COD'}`,
-        defaultLabel: paymentMethod || 'Thanh toan khi nhan hang',
+        defaultLabel: paymentMethod || 'Thanh toán khi nhận hàng',
       };
   }
 };
@@ -136,7 +136,7 @@ export const getPaymentStatusMeta = (
     return {
       canonicalStatus: 'PAID',
       labelKey: 'paymentStatus.PAID',
-      defaultLabel: 'Da thanh toan',
+      defaultLabel: 'Đã thanh toán',
       ...TONE_STYLES.success,
       isPaidLike: true,
     };
@@ -146,7 +146,7 @@ export const getPaymentStatusMeta = (
     return {
       canonicalStatus: 'REFUNDED',
       labelKey: 'paymentStatus.REFUNDED',
-      defaultLabel: 'Da hoan tien',
+      defaultLabel: 'Đã hoàn tiền',
       ...TONE_STYLES.info,
       isPaidLike: false,
     };
@@ -156,7 +156,7 @@ export const getPaymentStatusMeta = (
     return {
       canonicalStatus: 'PARTIALLY_REFUNDED',
       labelKey: 'paymentStatus.PARTIALLY_REFUNDED',
-      defaultLabel: 'Hoan tien mot phan',
+      defaultLabel: 'Hoàn tiền một phần',
       ...TONE_STYLES.info,
       isPaidLike: true,
     };
@@ -166,7 +166,7 @@ export const getPaymentStatusMeta = (
     return {
       canonicalStatus: 'FAILED',
       labelKey: 'paymentStatus.FAILED',
-      defaultLabel: 'Thanh toan that bai',
+      defaultLabel: 'Thanh toán thất bại',
       ...TONE_STYLES.danger,
       isPaidLike: false,
     };
@@ -176,7 +176,7 @@ export const getPaymentStatusMeta = (
     return {
       canonicalStatus: 'COD_PENDING',
       labelKey: 'paymentStatus.COD_PENDING',
-      defaultLabel: 'Cho thanh toan',
+      defaultLabel: 'Chờ thanh toán',
       ...TONE_STYLES.neutral,
       isPaidLike: false,
     };
@@ -186,7 +186,7 @@ export const getPaymentStatusMeta = (
     return {
       canonicalStatus: 'VERIFYING',
       labelKey: 'paymentStatus.VERIFYING',
-      defaultLabel: 'Dang xac nhan thanh toan',
+      defaultLabel: 'Đang xác nhận thanh toán',
       ...TONE_STYLES.info,
       isPaidLike: false,
     };
@@ -196,7 +196,7 @@ export const getPaymentStatusMeta = (
     return {
       canonicalStatus: 'PENDING',
       labelKey: 'paymentStatus.PENDING',
-      defaultLabel: 'Cho thanh toan',
+      defaultLabel: 'Chờ thanh toán',
       ...TONE_STYLES.warning,
       isPaidLike: false,
     };
@@ -205,7 +205,7 @@ export const getPaymentStatusMeta = (
   return {
     canonicalStatus: 'UNKNOWN',
     labelKey: 'paymentStatus.PENDING',
-    defaultLabel: paymentStatus || 'Cho thanh toan',
+    defaultLabel: paymentStatus || 'Chờ thanh toán',
     ...TONE_STYLES.warning,
     isPaidLike: false,
   };

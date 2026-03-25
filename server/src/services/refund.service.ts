@@ -22,6 +22,9 @@ export interface IPaymentGateway {
   processRefund(paymentId: string, amount: number): Promise<GatewayRefundResult>;
 }
 
+type RefundMethod = 'ORIGINAL_GATEWAY' | 'BANK_TRANSFER' | 'STORE_WALLET';
+const MANUAL_REFUND_METHODS: RefundMethod[] = ['BANK_TRANSFER', 'STORE_WALLET'];
+
 export class MockVNPayGateway implements IPaymentGateway {
   async processRefund(paymentId: string, amount: number): Promise<GatewayRefundResult> {
     await new Promise<void>((resolve) => setTimeout(resolve, 300));
@@ -52,8 +55,12 @@ export class MockStripeGateway implements IPaymentGateway {
   }
 }
 
-function selectGateway(method: string): IPaymentGateway {
-  if (method === 'BANK_TRANSFER' || method === 'STORE_WALLET') {
+function isManualRefundMethod(method: RefundMethod): boolean {
+  return MANUAL_REFUND_METHODS.includes(method);
+}
+
+function selectGateway(method: RefundMethod): IPaymentGateway {
+  if (isManualRefundMethod(method)) {
     return {
       async processRefund() {
         return { success: true, transactionId: `MANUAL-${Date.now()}` };
@@ -67,8 +74,18 @@ function selectGateway(method: string): IPaymentGateway {
 export interface CreateRefundPayload {
   amount: number;
   type: 'FULL' | 'PARTIAL';
-  method: 'ORIGINAL_GATEWAY' | 'BANK_TRANSFER' | 'STORE_WALLET';
+  method: RefundMethod;
   reason: string;
+}
+
+function calculateTotalRefunded(refunds: any[]): number {
+  return refunds
+    .filter((refund: any) => refund.status === 'SUCCESS')
+    .reduce((sum: number, refund: any) => sum + Number(refund.amount), 0);
+}
+
+function resolveGatewayPaymentRef(originalPayment: any, orderId: number): string {
+  return originalPayment?.transactionCode ?? String(originalPayment?.paymentId ?? orderId);
 }
 
 export async function initiateRefund(
@@ -97,9 +114,7 @@ export async function initiateRefund(
   }
 
   const orderTotal = Number(order.totalAmount);
-  const totalAlreadyRefunded = (order.refunds as any[])
-    .filter((refund: any) => refund.status === 'SUCCESS')
-    .reduce((sum: number, refund: any) => sum + Number(refund.amount), 0);
+  const totalAlreadyRefunded = calculateTotalRefunded(order.refunds as any[]);
 
   if (payload.amount <= 0) {
     throw new RefundError('INVALID_AMOUNT');
@@ -110,7 +125,7 @@ export async function initiateRefund(
   }
 
   const originalPayment = (order.payments as any[])[0] ?? null;
-  const gatewayPaymentRef = originalPayment?.transactionCode ?? String(originalPayment?.paymentId ?? orderId);
+  const gatewayPaymentRef = resolveGatewayPaymentRef(originalPayment, orderId);
   const gateway = selectGateway(payload.method);
 
   return prisma.$transaction(async (tx) => {

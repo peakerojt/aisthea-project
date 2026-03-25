@@ -2,8 +2,9 @@ import React from 'react';
 import { ShoppingBag, Package, Truck, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
 import { TrackingTimelineItem } from '@/types/tracking';
 import { StatusBadge } from '@/common/components/StatusBadge';
-import { getStatusMeta, normalizeStatus } from '@/config/orderStatus.config';
+import { getOrderStatusDisplayMeta } from '@/admin/components/OrderStatusBadge';
 import { formatVietnamTime } from '@/common/utils/formatDate';
+import { useTranslation } from 'react-i18next';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -53,10 +54,18 @@ const formatDateTime = (iso: string): string => {
  * Displays note and changedBy when available.
  */
 export const OrderTimeline: React.FC<OrderTimelineProps> = ({ history = [] }) => {
+  const { t } = useTranslation('orders');
+  const resolveText = (key: string, fallback: string) => {
+    const value = t(key, { defaultValue: fallback });
+    return value === key ? fallback : value;
+  };
+
   if (history.length === 0) {
     return (
       <div className="px-5 pb-5 pt-2" aria-label="order-timeline">
-        <p className="text-sm text-white/40 italic">Chưa có lịch sử trạng thái.</p>
+        <p className="text-sm text-white/40 italic">
+          {resolveText('timeline.empty', 'Chưa có lịch sử trạng thái.')}
+        </p>
       </div>
     );
   }
@@ -64,8 +73,7 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({ history = [] }) =>
   return (
     <div className="px-5 pb-5 pt-2 space-y-4" aria-label="order-timeline">
       {history.map((item, index) => {
-        const normalizedStatus = normalizeStatus(item.status);
-        const cfg = getStatusMeta(normalizedStatus);
+        const { meta: cfg } = getOrderStatusDisplayMeta(item.status);
         return (
           <div key={`${item.status}-${index}`} className="flex gap-3">
             <div className="flex flex-col items-center">
@@ -97,8 +105,18 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({ history = [] }) =>
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function TrackingTimeline({ timeline }: { timeline: TrackingTimelineItem[] }) {
+  const { t } = useTranslation('tracking');
+  const resolveText = (key: string, fallback: string) => {
+    const value = t(key, { defaultValue: fallback });
+    return value === key ? fallback : value;
+  };
+
   if (!timeline.length) {
-    return <div className="rounded-lg border border-dashed p-4 text-sm text-slate-500">Chưa có lịch sử vận chuyển.</div>;
+    return (
+      <div className="rounded-lg border border-dashed p-4 text-sm text-slate-500">
+        {resolveText('timeline.empty', 'Chưa có lịch sử vận chuyển.')}
+      </div>
+    );
   }
 
   return (

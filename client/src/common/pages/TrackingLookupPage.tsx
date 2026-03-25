@@ -7,6 +7,12 @@ import { trackingLookupClientSchema } from '@/common/validation/schemas';
 
 export function TrackingLookupPage() {
   const { t } = useTranslation('pages', { keyPrefix: 'trackingLookup' });
+  const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
+    template.replace(/\{\{(\w+)\}\}/g, (_, token) => String(options?.[token] ?? `{{${token}}}`));
+  const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+    const translated = t(key as any, { ...(options ?? {}), defaultValue: fallback } as any);
+    return translated !== key ? translated : interpolateFallback(fallback, options);
+  };
   const [orderCode, setOrderCode] = useState('');
   const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -15,14 +21,42 @@ export function TrackingLookupPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const backToOrdersLabel = resolveText('actions.backToOrders', 'Quay lại đơn hàng');
+  const heroBadgeLabel = resolveText('hero.badge', 'Theo dõi đơn hàng');
+  const heroTitlePrefix = resolveText('hero.titlePrefix', 'Tra cứu');
+  const heroTitleHighlight = resolveText('hero.titleHighlight', 'vận đơn');
+  const heroDescription = resolveText(
+    'hero.description',
+    'Nhập mã đơn và số điện thoại để xem trạng thái giao hàng mới nhất.',
+  );
+  const secureLookupLabel = resolveText('features.secureLookup', 'Tra cứu an toàn');
+  const realtimeUpdateLabel = resolveText('features.realtimeUpdate', 'Cập nhật thời gian thực');
+  const detailRouteLabel = resolveText('features.detailRoute', 'Lộ trình chi tiết');
+  const orderCodeLabel = resolveText('form.orderCodeLabel', 'Mã đơn hàng');
+  const orderCodeAria = resolveText('form.orderCodeAria', 'Nhập mã đơn hàng');
+  const orderCodePlaceholder = resolveText('form.orderCodePlaceholder', 'Ví dụ: ORD-2026-001');
+  const phoneLabel = resolveText('form.phoneLabel', 'Số điện thoại');
+  const phoneAria = resolveText('form.phoneAria', 'Nhập số điện thoại');
+  const phonePlaceholder = resolveText('form.phonePlaceholder', 'Ví dụ: 09xxxxxxxx');
+  const loadingLabel = resolveText('states.loading', 'Đang tra cứu...');
+  const lookupLabel = resolveText('actions.lookup', 'Xem trạng thái');
+  const enterOrderCodeLabel = resolveText('errors.enterOrderCode', 'Vui lòng nhập mã đơn hàng.');
+  const enterPhoneLabel = resolveText('errors.enterPhone', 'Vui lòng nhập số điện thoại.');
+  const orderCodeInvalidLabel = resolveText('errors.orderCodeInvalid', 'Mã đơn hàng phải có ít nhất 4 ký tự.');
+  const phoneInvalidLabel = resolveText('errors.phoneInvalid', 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0.');
+  const notFoundLabel = resolveText(
+    'errors.notFound',
+    'Không tìm thấy thông tin đơn hàng với dữ liệu đã nhập.',
+  );
+  const lookupFailedLabel = resolveText('errors.lookupFailed', 'Không thể tra cứu đơn hàng. Vui lòng thử lại.');
 
   const features = useMemo(
     () => [
-      { icon: ShieldCheck, color: 'text-emerald-400', label: t('features.secureLookup') },
-      { icon: Package, color: 'text-blue-400', label: t('features.realtimeUpdate') },
-      { icon: Search, color: 'text-cyan-400', label: t('features.detailRoute') },
+      { icon: ShieldCheck, color: 'text-emerald-400', label: secureLookupLabel },
+      { icon: Package, color: 'text-blue-400', label: realtimeUpdateLabel },
+      { icon: Search, color: 'text-cyan-400', label: detailRouteLabel },
     ],
-    [t],
+    [detailRouteLabel, realtimeUpdateLabel, secureLookupLabel],
   );
 
   useEffect(() => {
@@ -40,8 +74,8 @@ export function TrackingLookupPage() {
       const orderCodeIssue = parsed.error.issues.some((issue) => issue.path[0] === 'orderCode');
       const phoneIssue = parsed.error.issues.some((issue) => issue.path[0] === 'contact');
 
-      setOrderCodeError(orderCodeIssue ? (!trimmedOrderCode ? t('errors.enterOrderCode') : t('errors.orderCodeInvalid')) : '');
-      setPhoneError(phoneIssue ? (!trimmedPhone ? t('errors.enterPhone') : t('errors.phoneInvalid')) : '');
+      setOrderCodeError(orderCodeIssue ? (!trimmedOrderCode ? enterOrderCodeLabel : orderCodeInvalidLabel) : '');
+      setPhoneError(phoneIssue ? (!trimmedPhone ? enterPhoneLabel : phoneInvalidLabel) : '');
       setError(null);
       return;
     }
@@ -73,7 +107,7 @@ export function TrackingLookupPage() {
         }
       }
 
-      setError(requestError.code === 'TRACKING_NOT_FOUND' ? t('errors.notFound') : requestError.message || t('errors.lookupFailed'));
+      setError(requestError.code === 'TRACKING_NOT_FOUND' ? notFoundLabel : requestError.message || lookupFailedLabel);
     } finally {
       setLoading(false);
     }
@@ -91,25 +125,26 @@ export function TrackingLookupPage() {
           className="group flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-400 backdrop-blur-sm transition-colors hover:text-white"
         >
           <ArrowLeft className="size-4 group-hover:-translate-x-0.5 transition-transform" />
-          {t('actions.backToOrders')}
+          {backToOrdersLabel}
         </button>
       </div>
 
       <div className="mb-8 text-center">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-blue-400">
           <span className="size-1.5 rounded-full bg-blue-400 animate-pulse" />
-          {t('hero.badge')}
+          {heroBadgeLabel}
         </div>
         <h1 className="mb-3 text-4xl font-black uppercase leading-tight tracking-tighter text-white sm:text-5xl">
-          {t('hero.titlePrefix')}{' '}
-          <span className="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">{t('hero.titleHighlight')}</span>
+          {heroTitlePrefix}{' '}
+          <span className="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">{heroTitleHighlight}</span>
         </h1>
-        <p className="text-slate-400 text-base max-w-sm mx-auto">{t('hero.description')}</p>
+        <p className="text-slate-400 text-base max-w-sm mx-auto">{heroDescription}</p>
       </div>
 
       <div className="w-full max-w-md">
         <form
           onSubmit={onSubmit}
+          noValidate
           className="relative rounded-2xl border border-white/10 bg-black/30 p-6 shadow-[0_25px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-8"
           style={{
             background:
@@ -119,14 +154,14 @@ export function TrackingLookupPage() {
           <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/5 via-transparent to-emerald-500/5 pointer-events-none" />
 
           <div className="mb-4">
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-slate-300">{t('form.orderCodeLabel')}</label>
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-slate-300">{orderCodeLabel}</label>
             <div className="relative">
               <Package className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
               <input
                 id="order-code"
-                aria-label={t('form.orderCodeAria')}
+                aria-label={orderCodeAria}
                 type="text"
-                placeholder={t('form.orderCodePlaceholder')}
+                placeholder={orderCodePlaceholder}
                 value={orderCode}
                 onChange={(e) => {
                   setOrderCode(e.target.value);
@@ -141,14 +176,14 @@ export function TrackingLookupPage() {
           </div>
 
           <div className="mb-6">
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-slate-300">{t('form.phoneLabel')}</label>
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-slate-300">{phoneLabel}</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
               <input
                 id="phone"
-                aria-label={t('form.phoneAria')}
+                aria-label={phoneAria}
                 type="tel"
-                placeholder={t('form.phonePlaceholder')}
+                placeholder={phonePlaceholder}
                 value={phone}
                 onChange={(e) => {
                   setPhone(e.target.value);
@@ -177,12 +212,12 @@ export function TrackingLookupPage() {
             {loading ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                {t('states.loading')}
+                {loadingLabel}
               </>
             ) : (
               <>
                 <Search className="size-4" />
-                {t('actions.lookup')}
+                {lookupLabel}
                 <ChevronRight className="size-4" />
               </>
             )}

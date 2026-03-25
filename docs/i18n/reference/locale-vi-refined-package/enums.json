@@ -1,0 +1,44 @@
+{
+  "_comment": "Maps raw DB enum values to Vietnamese display strings. Keys match the exact values returned by the Backend.",
+  "orderStatus": {
+    "PENDING": "Chờ xác nhận",
+    "PROCESSING": "Đang chuẩn bị hàng",
+    "SHIPPING": "Đang giao hàng",
+    "DELIVERED": "Đã giao hàng",
+    "COMPLETED": "Hoàn thành",
+    "CANCELLED": "Đã hủy",
+    "RETURNED": "Hoàn trả",
+    "RETURN_REQUESTED": "Yêu cầu hoàn trả",
+    "REFUNDED": "Đã hoàn tiền",
+    "UNKNOWN": "Không xác định",
+    "SHIPPED": "Đang giao hàng",
+    "OUT_FOR_DELIVERY": "Đang giao hàng"
+  },
+  "paymentStatus": {
+    "PENDING": "Chờ thanh toán",
+    "UNPAID": "Chưa thanh toán",
+    "VERIFYING": "Đang xác nhận thanh toán",
+    "COD_PENDING": "Chờ thanh toán khi nhận hàng",
+    "PAID": "Đã thanh toán",
+    "REFUNDED": "Đã hoàn tiền",
+    "FAILED": "Thanh toán thất bại",
+    "PARTIAL_REFUND": "Hoàn tiền một phần",
+    "PARTIALLY_REFUNDED": "Hoàn tiền một phần"
+  },
+  "paymentMethod": {
+    "COD": "Thanh toán khi nhận hàng",
+    "BANK_TRANSFER": "Chuyển khoản ngân hàng",
+    "VNPAY": "VNPay",
+    "MOMO": "Ví MoMo",
+    "ZALOPAY": "ZaloPay"
+  },
+  "returnStatus": {
+    "PENDING": "Chờ xử lý",
+    "APPROVED": "Đã duyệt",
+    "REJECTED": "Đã từ chối",
+    "REFUNDED": "Đã hoàn tiền",
+    "REQUESTED": "Yêu cầu trả hàng",
+    "RECEIVED": "Đã nhận hàng trả về",
+    "COMPLETED": "Đã hoàn tiền"
+  }
+}

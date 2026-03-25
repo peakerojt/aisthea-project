@@ -13,6 +13,10 @@ const PaymentQR: React.FC = () => {
   const totalAmount = typeof stateTotal === 'number' ? stateTotal : cartTotal;
 
   const [timeLeft, setTimeLeft] = useState(15 * 60);
+  const resolveText = (key: string, fallback: string) => {
+    const value = t(key, { defaultValue: fallback });
+    return value === key ? fallback : value;
+  };
 
   useEffect(() => {
     if (timeLeft <= 0) return;
@@ -56,14 +60,16 @@ const PaymentQR: React.FC = () => {
             </div>
           </div>
           <div className="flex-1 px-4">
-            <h1 className="text-base md:text-lg font-bold text-gray-100 uppercase tracking-wide">{t('header.title')}</h1>
+            <h1 className="text-base md:text-lg font-bold text-gray-100 uppercase tracking-wide">
+              {resolveText('header.title', 'Thanh toán bằng mã QR')}
+            </h1>
           </div>
           <button
             onClick={() => navigate('/checkout')}
             className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors text-xs font-medium whitespace-nowrap px-3 py-1 border border-blue-500/30 rounded hover:bg-blue-500/10"
           >
             <ArrowLeft className="size-3.5" />
-            {t('header.changeMethod')}
+            {resolveText('header.changeMethod', 'Đổi phương thức')}
           </button>
         </div>
       </header>
@@ -71,7 +77,11 @@ const PaymentQR: React.FC = () => {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col lg:flex-row gap-8 lg:gap-16 justify-center items-center lg:items-start py-6 w-full animate-fade-in-up">
         <div className="flex-1 flex flex-col items-center w-full max-w-sm">
           <div className="w-56 h-56 bg-white shadow-[0_0_20px_rgba(0,0,0,0.5)] p-3 rounded-lg flex items-center justify-center mb-6 relative">
-            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=Aisthea_${totalAmount}`} alt={t('left.qrAlt')} className="w-full h-full object-contain" />
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=Aisthea_${totalAmount}`}
+              alt={resolveText('left.qrAlt', 'Mã QR thanh toán')}
+              className="w-full h-full object-contain"
+            />
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="w-10 h-10 bg-white rounded flex items-center justify-center shadow-md p-1 border border-gray-200">
                 <span className="font-serif font-black text-[9px] tracking-widest text-[#111]">A S T</span>
@@ -80,7 +90,9 @@ const PaymentQR: React.FC = () => {
           </div>
 
           <div className="text-center mb-6">
-            <p className="text-gray-400 mb-1 text-sm uppercase tracking-widest">{t('left.totalLabel')}</p>
+            <p className="text-gray-400 mb-1 text-sm uppercase tracking-widest">
+              {resolveText('left.totalLabel', 'Tổng thanh toán')}
+            </p>
             <p className="text-3xl font-black text-white tracking-tight">
               {new Intl.NumberFormat('vi-VN').format(totalAmount)}
               <span className="text-xl inline-block align-top underline underline-offset-2 ml-1">đ</span>
@@ -88,7 +100,9 @@ const PaymentQR: React.FC = () => {
           </div>
 
           <div className="bg-[#fff9e6] border border-[#ffe082] rounded py-3 px-5 w-full flex items-center justify-between shadow-lg shadow-yellow-900/10">
-            <span className="text-gray-800 font-medium text-sm">{t('left.expireLabel')}</span>
+            <span className="text-gray-800 font-medium text-sm">
+              {resolveText('left.expireLabel', 'Thời gian còn lại')}
+            </span>
             <div className="flex items-center gap-1 font-mono font-bold text-lg">
               <span className="bg-[#f59e0b] text-white px-1.5 py-0.5 rounded shadow-sm min-w-[32px] text-center">{minutes.toString().padStart(2, '0')}</span>
               <span className="font-black text-[#f59e0b]">:</span>
@@ -98,32 +112,39 @@ const PaymentQR: React.FC = () => {
         </div>
 
         <div className="flex-1 w-full max-w-md pt-2">
-          <h2 className="text-lg font-bold text-white mb-5 tracking-wide">{t('right.title')}</h2>
+          <h2 className="text-lg font-bold text-white mb-5 tracking-wide">
+            {resolveText('right.title', 'Hướng dẫn thanh toán')}
+          </h2>
 
           <ul className="space-y-4 text-gray-300 font-medium mb-8 text-sm">
             <li className="flex gap-4 items-start">
               <span className="text-gray-500 font-bold">1.</span>
               <p>
-                <button className="text-blue-400 hover:text-blue-300 transition-colors font-semibold">{t('right.steps.download')}</button> {t('right.steps.step1')}
+                <button className="text-blue-400 hover:text-blue-300 transition-colors font-semibold">
+                  {resolveText('right.steps.download', 'Tải ứng dụng')}
+                </button>{' '}
+                {resolveText('right.steps.step1', 'ngân hàng hoặc ví điện tử hỗ trợ VietQR.')}
               </p>
             </li>
             <li className="flex gap-4 items-start">
               <span className="text-gray-500 font-bold">2.</span>
-              <p>{t('right.steps.step2')}</p>
+              <p>{resolveText('right.steps.step2', 'Mở ứng dụng và chọn tính năng quét mã QR.')}</p>
             </li>
             <li className="flex gap-4 items-start">
               <span className="text-gray-500 font-bold">3.</span>
-              <p>{t('right.steps.step3')}</p>
+              <p>{resolveText('right.steps.step3', 'Quét mã và kiểm tra thông tin thanh toán.')}</p>
             </li>
             <li className="flex gap-4 items-start">
               <span className="text-gray-500 font-bold">4.</span>
-              <p>{t('right.steps.step4')}</p>
+              <p>{resolveText('right.steps.step4', 'Xác nhận giao dịch để hoàn tất đơn hàng.')}</p>
             </li>
           </ul>
 
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">{t('right.supportedBanks')}</h3>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                {resolveText('right.supportedBanks', 'Ngân hàng hỗ trợ')}
+              </h3>
             </div>
 
             <div className="bg-white rounded-lg p-4 shadow-xl grid grid-cols-4 gap-4 gap-y-5 border border-gray-200">
@@ -151,7 +172,7 @@ const PaymentQR: React.FC = () => {
               onClick={() => navigate('/order-success')}
               className="bg-blue-600 hover:bg-blue-500 text-white font-bold rounded px-6 py-3 text-xs uppercase tracking-widest transition-colors shadow-[0_0_15px_rgba(37,99,235,0.4)]"
             >
-              {t('actions.scannedContinue')}
+              {resolveText('actions.scannedContinue', 'Tôi đã quét xong')}
             </button>
           </div>
         </div>

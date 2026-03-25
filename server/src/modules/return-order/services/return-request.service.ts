@@ -3,11 +3,18 @@ import { prisma } from '../../../utils/prisma';
 import { ReturnRequestRepository } from '../repositories/return-request.repository';
 import { CreateReturnRequestDto } from '../validators/return-request.validator';
 import { notifyCustomer } from '../../../utils/notification.util';
+import { buildLegacyCreateReturnDraft } from '../../../shared/legacy-return-create.adapter';
+import {
+  RefundMethod,
+  RETURN_REQUEST_TRANSITIONS,
+  ReturnRequestStatus,
+} from '../return-request.types';
 
 const RETURN_WINDOW_DAYS = Number(process.env.RETURN_WINDOW_DAYS || 7);
+const DELIVERED_ORDER_STATUSES = ['delivered', 'đã giao', 'da giao', 'dagiao'] as const;
 
-type ReturnRequestStatus = 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'RECEIVED' | 'REFUNDED';
-type RefundMethod = 'ORIGINAL_PAYMENT' | 'WALLET_CREDIT';
+type ReturnOrder = any;
+type ReturnTx = any;
 
 export class ServiceError extends Error {
   constructor(public code: string, message: string, public status = 400) {
@@ -16,20 +23,21 @@ export class ServiceError extends Error {
   }
 }
 
-/** Valid state machine transitions */
-const TRANSITIONS: Record<ReturnRequestStatus, ReturnRequestStatus[]> = {
-  REQUESTED: ['APPROVED', 'REJECTED'],
-  APPROVED: ['RECEIVED'],
-  REJECTED: [],
-  RECEIVED: ['REFUNDED'],
-  REFUNDED: [],
-};
-
 export class ReturnRequestService {
   private readonly repo = new ReturnRequestRepository();
 
+  private readonly transitionNotifications = {
+    APPROVED: 'RETURN_APPROVED',
+    REJECTED: 'RETURN_REJECTED',
+    RECEIVED: 'RETURN_RECEIVED',
+  } as const;
+
+  private normalizeStatus(value: unknown): string {
+    return String(value ?? '').toLowerCase().trim();
+  }
+
   private assertTransition(current: string, next: ReturnRequestStatus): void {
-    const allowed = TRANSITIONS[current as ReturnRequestStatus] ?? [];
+    const allowed = RETURN_REQUEST_TRANSITIONS[current as ReturnRequestStatus] ?? [];
     if (!allowed.includes(next)) {
       throw new ServiceError(
         'INVALID_STATE_TRANSITION',
@@ -43,82 +51,136 @@ export class ReturnRequestService {
     return new Date(deliveredAt.getTime() + RETURN_WINDOW_DAYS * 24 * 60 * 60 * 1000);
   }
 
-  // ─── Customer: Create ──────────────────────────────────────────────────────
+  private ensureOrderCanBeReturned(order: ReturnOrder | null, userId: number): ReturnOrder {
+    if (!order) {
+      throw new ServiceError('ORDER_NOT_FOUND', 'Order not found', 404);
+    }
 
-  async createReturnRequest(userId: number, payload: CreateReturnRequestDto) {
-    const order: any = await this.repo.findOrderForReturn(payload.orderId);
-    if (!order) throw new ServiceError('ORDER_NOT_FOUND', 'Order not found', 404);
-    if (order.userId !== userId)
+    if (order.userId !== userId) {
       throw new ServiceError('FORBIDDEN', 'No permission to access this order', 403);
-    // DB lưu status tiếng Việt ("Đã giao") hoặc tiếng Anh ("DELIVERED")
-    const orderStatusLower = (order.status ?? '').toLowerCase().trim();
-    const isDelivered = orderStatusLower === 'delivered' || orderStatusLower === 'đã giao' || orderStatusLower === 'da giao';
-    if (!isDelivered)
+    }
+
+    if (!DELIVERED_ORDER_STATUSES.includes(this.normalizeStatus(order.status) as (typeof DELIVERED_ORDER_STATUSES)[number])) {
       throw new ServiceError('ORDER_NOT_DELIVERED', 'Only DELIVERED orders can be returned', 400);
+    }
 
-    // Tìm ngày giao hàng: status có thể là "Đã giao", "DELIVERED", "Da Giao"...
-    const DELIVERED_STATUSES = ['delivered', 'đã giao', 'da giao', 'dagiao'];
-    const deliveredHistory = order.statusHistory?.find((h: any) =>
-      DELIVERED_STATUSES.includes((h.status ?? '').toLowerCase().trim())
+    return order;
+  }
+
+  private resolveDeliveredAt(order: ReturnOrder): Date {
+    const deliveredHistory = order.statusHistory?.find((history: any) =>
+      DELIVERED_ORDER_STATUSES.includes(this.normalizeStatus(history.status) as (typeof DELIVERED_ORDER_STATUSES)[number]),
     );
-    // Fallback: dùng createdAt nếu không có history (đối với test data)
-    const deliveredAt: Date = deliveredHistory?.changedAt ?? order.createdAt ?? new Date();
 
-    if (new Date() > this.returnDeadline(deliveredAt))
+    return deliveredHistory?.changedAt ?? order.createdAt ?? new Date();
+  }
+
+  private assertReturnWindow(deliveredAt: Date): void {
+    if (new Date() > this.returnDeadline(deliveredAt)) {
       throw new ServiceError(
         'RETURN_WINDOW_EXPIRED',
         `Return window expired (${RETURN_WINDOW_DAYS} days since delivery)`,
         400,
       );
+    }
+  }
 
-    const itemMap = new Map<number, any>(
-      (order.items as any[]).map((i: any) => [i.orderItemId, i]),
-    );
+  private buildReturnItems(
+    order: ReturnOrder,
+    payload: CreateReturnRequestDto,
+    alreadyReturned: Record<number, number>,
+  ) {
+    const itemMap = new Map<number, any>((order.items as any[]).map((item: any) => [item.orderItemId, item]));
+    let totalRefundAmount = new Prisma.Decimal(0);
+    const returnItems: any[] = [];
 
-    const result = await prisma.$transaction(async (tx: any) => {
-      // Calculate already-returned quantities to enforce partial-return limits
-      let alreadyReturned: Record<number, number> = {};
-      try {
-        alreadyReturned = await this.repo.getAlreadyReturnedQtyByOrderItem(
-          payload.items.map((i) => i.orderItemId),
+    for (const item of payload.items) {
+      const orderItem: any = itemMap.get(item.orderItemId);
+      if (!orderItem) {
+        throw new ServiceError(
+          'ORDER_ITEM_NOT_FOUND',
+          `Order item #${item.orderItemId} does not belong to this order`,
+          400,
+        );
+      }
+
+      const returnedQty = alreadyReturned[item.orderItemId] ?? 0;
+      const maxQty = orderItem.quantity - returnedQty;
+      if (maxQty <= 0 || item.quantity > maxQty) {
+        throw new ServiceError(
+          'INVALID_RETURN_QUANTITY',
+          `Return quantity exceeds allowed limit for item #${item.orderItemId} (max ${maxQty})`,
+          400,
+        );
+      }
+
+      totalRefundAmount = totalRefundAmount.plus(
+        new Prisma.Decimal(orderItem.unitPrice).mul(item.quantity),
+      );
+
+      returnItems.push({
+        orderItem: { connect: { orderItemId: orderItem.orderItemId } },
+        quantity: item.quantity,
+        unitPrice: orderItem.unitPrice,
+        reason: item.reason ?? payload.reason,
+      });
+    }
+
+    return { returnItems, totalRefundAmount };
+  }
+
+  private async getAlreadyReturnedQuantities(payload: CreateReturnRequestDto, tx: ReturnTx) {
+    try {
+      return (
+        (await this.repo.getAlreadyReturnedQtyByOrderItem(
+          payload.items.map((item) => item.orderItemId),
           tx,
-        );
-      } catch {
-        alreadyReturned = {};
-      }
+        )) ?? {}
+      );
+    } catch {
+      return {};
+    }
+  }
 
-      let totalRefundAmount = new Prisma.Decimal(0);
-      const returnItems: any[] = [];
+  private async loadRefundableRequest(tx: ReturnTx, id: number) {
+    const request = await tx.returnRequest.findUnique({
+      where: { returnRequestId: id },
+    });
 
-      for (const item of payload.items) {
-        const orderItem: any = itemMap.get(item.orderItemId);
-        if (!orderItem)
-          throw new ServiceError(
-            'ORDER_ITEM_NOT_FOUND',
-            `Order item #${item.orderItemId} does not belong to this order`,
-            400,
-          );
+    if (!request) {
+      throw new ServiceError('RETURN_REQUEST_NOT_FOUND', 'Return request not found', 404);
+    }
 
-        const returnedQty = alreadyReturned[item.orderItemId] ?? 0;
-        const maxQty = orderItem.quantity - returnedQty;
-        if (maxQty <= 0 || item.quantity > maxQty)
-          throw new ServiceError(
-            'INVALID_RETURN_QUANTITY',
-            `Return quantity exceeds allowed limit for item #${item.orderItemId} (max ${maxQty})`,
-            400,
-          );
+    this.assertTransition(request.status, 'REFUNDED');
+    return request;
+  }
 
-        totalRefundAmount = totalRefundAmount.plus(
-          new Prisma.Decimal(orderItem.unitPrice).mul(item.quantity),
-        );
+  private resolveRefundAmount(request: { totalRefundAmount: Prisma.Decimal }, amount?: number) {
+    const refundAmount = new Prisma.Decimal(amount ?? request.totalRefundAmount.toNumber());
+    if (refundAmount.lte(0) || refundAmount.gt(request.totalRefundAmount)) {
+      throw new ServiceError('INVALID_REFUND_AMOUNT', 'Invalid refund amount (exceeds allowed limit)');
+    }
 
-        returnItems.push({
-          orderItem: { connect: { orderItemId: orderItem.orderItemId } },
-          quantity: item.quantity,
-          unitPrice: orderItem.unitPrice,
-          reason: item.reason ?? payload.reason,
-        });
-      }
+    return refundAmount;
+  }
+
+  // ─── Customer: Create ──────────────────────────────────────────────────────
+
+  async createReturnRequest(userId: number, payload: CreateReturnRequestDto) {
+    const order = this.ensureOrderCanBeReturned(
+      await this.repo.findOrderForReturn(payload.orderId),
+      userId,
+    );
+    const deliveredAt = this.resolveDeliveredAt(order);
+    this.assertReturnWindow(deliveredAt);
+
+    const result = await prisma.$transaction(async (tx: ReturnTx) => {
+      const alreadyReturned = await this.getAlreadyReturnedQuantities(payload, tx);
+      const { returnItems, totalRefundAmount } = this.buildReturnItems(
+        order,
+        payload,
+        alreadyReturned,
+      );
 
       return this.repo.createReturnRequest(
         {
@@ -155,37 +217,79 @@ export class ReturnRequestService {
     return result;
   }
 
+  async createLegacyCompatibleReturnRequest(
+    userId: number,
+    payload: { orderId: number; reason: string; proofImages: string[] },
+  ) {
+    const order = await this.repo.findOrderForReturn(payload.orderId);
+    if (!order) {
+      throw new ServiceError('ORDER_NOT_FOUND', 'Order not found', 404);
+    }
+
+    const orderItems = Array.isArray(order.items) ? order.items : [];
+    const alreadyReturned =
+      (await this.repo.getAlreadyReturnedQtyByOrderItem(
+        orderItems.map((item: { orderItemId: number }) => item.orderItemId),
+        prisma,
+      )) ?? {};
+    const legacyCompatibleItems = orderItems
+      .map((item: { orderItemId: number; quantity: number }) => ({
+        orderItemId: item.orderItemId,
+        quantity: item.quantity - (alreadyReturned[item.orderItemId] ?? 0),
+      }))
+      .filter(
+        (item: { orderItemId: number; quantity: number }) =>
+          Number.isFinite(item.orderItemId) &&
+          item.orderItemId > 0 &&
+          Number.isFinite(item.quantity) &&
+          item.quantity > 0,
+      );
+
+    const draft = buildLegacyCreateReturnDraft(
+      {
+        ...order,
+        items: legacyCompatibleItems,
+      },
+      payload.reason,
+      payload.proofImages,
+    );
+    if (!draft) {
+      throw new ServiceError(
+        'LEGACY_CREATE_REQUIRES_ITEM_SELECTION',
+        'Legacy create flow requires explicit item selection before migration',
+        409,
+      );
+    }
+
+    return this.createReturnRequest(userId, draft);
+  }
+
   // ─── Admin: Approve ────────────────────────────────────────────────────────
 
   async approveReturnRequest(id: number, actorId: number) {
-    const result = await this.transitionStatus(id, actorId, 'APPROVED', 'Approved by support/admin');
-    notifyCustomer('RETURN_APPROVED', { returnRequestId: id, orderId: result.orderId });
-    return result;
+    return this.transitionAndNotify(
+      id,
+      actorId,
+      'APPROVED',
+      'Approved by support/admin',
+    );
   }
 
   // ─── Admin: Reject ─────────────────────────────────────────────────────────
 
   async rejectReturnRequest(id: number, actorId: number, reason: string) {
-    const result = await this.transitionStatus(id, actorId, 'REJECTED', reason);
-    notifyCustomer('RETURN_REJECTED', {
-      returnRequestId: id,
-      orderId: result.orderId,
-      comment: reason,
-    });
-    return result;
+    return this.transitionAndNotify(id, actorId, 'REJECTED', reason, { comment: reason });
   }
 
   // ─── Admin: Mark Received ──────────────────────────────────────────────────
 
   async markReturnReceived(id: number, actorId: number) {
-    const result = await this.transitionStatus(
+    return this.transitionAndNotify(
       id,
       actorId,
       'RECEIVED',
       'Warehouse confirmed return package received',
     );
-    notifyCustomer('RETURN_RECEIVED', { returnRequestId: id, orderId: result.orderId });
-    return result;
   }
 
   // ─── Admin: Refund ─────────────────────────────────────────────────────────
@@ -195,24 +299,15 @@ export class ReturnRequestService {
     actorId: number,
     params: { method: RefundMethod; amount?: number; idempotencyKey: string },
   ) {
-    const refund = await prisma.$transaction(async (tx: any) => {
+    const refund = await prisma.$transaction(async (tx: ReturnTx) => {
       // Idempotency guard — return existing record if same key
       const existing = await tx.refundTransaction.findUnique({
         where: { idempotencyKey: params.idempotencyKey },
       });
       if (existing) return existing;
 
-      const request = await tx.returnRequest.findUnique({
-        where: { returnRequestId: id },
-      });
-      if (!request)
-        throw new ServiceError('RETURN_REQUEST_NOT_FOUND', 'Return request not found', 404);
-
-      this.assertTransition(request.status, 'REFUNDED');
-
-      const amount = new Prisma.Decimal(params.amount ?? request.totalRefundAmount.toNumber());
-      if (amount.lte(0) || amount.gt(request.totalRefundAmount))
-        throw new ServiceError('INVALID_REFUND_AMOUNT', 'Invalid refund amount (exceeds allowed limit)');
+      const request = await this.loadRefundableRequest(tx, id);
+      const amount = this.resolveRefundAmount(request, params.amount);
 
       const refundRecord = await tx.refundTransaction.create({
         data: {
@@ -257,13 +352,29 @@ export class ReturnRequestService {
 
   // ─── Shared: status transition ─────────────────────────────────────────────
 
+  private async transitionAndNotify(
+    id: number,
+    actorId: number,
+    nextStatus: Extract<ReturnRequestStatus, 'APPROVED' | 'REJECTED' | 'RECEIVED'>,
+    comment: string,
+    extraPayload?: Record<string, unknown>,
+  ) {
+    const result = await this.transitionStatus(id, actorId, nextStatus, comment);
+    notifyCustomer(this.transitionNotifications[nextStatus], {
+      returnRequestId: id,
+      orderId: result.orderId,
+      ...extraPayload,
+    });
+    return result;
+  }
+
   private async transitionStatus(
     id: number,
     actorId: number,
     nextStatus: ReturnRequestStatus,
     comment: string,
   ) {
-    return prisma.$transaction(async (tx: any) => {
+    return prisma.$transaction(async (tx: ReturnTx) => {
       const current = await tx.returnRequest.findUnique({
         where: { returnRequestId: id },
       });
@@ -299,6 +410,10 @@ export class ReturnRequestService {
 
   getReturnDetail(id: number) {
     return this.repo.findById(id);
+  }
+
+  getReturnDetailByOrderId(orderId: number) {
+    return this.repo.findByOrderId(orderId);
   }
 
   getAdminReturns(filters: Parameters<ReturnRequestRepository['findAllAdmin']>[0]) {

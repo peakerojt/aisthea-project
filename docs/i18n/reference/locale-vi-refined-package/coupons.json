@@ -1,0 +1,97 @@
+{
+  "page": {
+    "title": "Mã giảm giá",
+    "subtitle": "Quản lý mã khuyến mãi",
+    "create": "Tạo mã mới"
+  },
+  "status": {
+    "ACTIVE": "Đang hoạt động",
+    "EXPIRED": "Đã hết hạn",
+    "DEPLETED": "Hết lượt dùng",
+    "UPCOMING": "Sắp diễn ra",
+    "INACTIVE": "Vô hiệu hóa"
+  },
+  "stats": {
+    "total": "Tổng mã",
+    "active": "Đang hoạt động",
+    "expired": "Đã hết hạn",
+    "depleted": "Hết lượt dùng"
+  },
+  "filters": {
+    "searchPlaceholder": "Tìm theo mã giảm giá…",
+    "all": "Tất cả",
+    "active": "Hoạt động",
+    "upcoming": "Sắp tới",
+    "expired": "Hết hạn",
+    "depleted": "Hết lượt",
+    "inactive": "Vô hiệu",
+    "refresh": "Làm mới"
+  },
+  "table": {
+    "code": "Mã giảm giá",
+    "type": "Loại giảm giá",
+    "condition": "Điều kiện",
+    "period": "Thời gian",
+    "usage": "Lượt dùng",
+    "status": "Trạng thái",
+    "actions": "Thao tác",
+    "noData": "Chưa có mã giảm giá nào",
+    "noMatch": "Không tìm thấy mã phù hợp",
+    "clearFilter": "Xóa bộ lọc"
+  },
+  "type": {
+    "PERCENTAGE": "Giảm phần trăm",
+    "FIXED_AMOUNT": "Giảm số tiền",
+    "maxDiscount": "giảm tối đa"
+  },
+  "form": {
+    "titleCreate": "Tạo mã giảm giá mới",
+    "titleEdit": "Chỉnh sửa mã giảm giá",
+    "subtitleCreate": "Điền thông tin mã giảm giá bên dưới",
+    "subtitleEdit": "Đang chỉnh sửa mã {{code}}",
+    "labelCode": "Mã giảm giá *",
+    "codePlaceholder": "VD: SUMMER50 hoặc AISTHEA-X8K9",
+    "generateCode": "Tạo mã ngẫu nhiên",
+    "labelType": "Loại giảm giá *",
+    "typeFixed": "Giảm số tiền",
+    "typePercent": "Giảm phần trăm",
+    "labelValuePercent": "Phần trăm giảm (%) *",
+    "labelValueFixed": "Số tiền giảm (₫) *",
+    "labelMaxDiscount": "Giảm tối đa (₫) — Giới hạn khi tính theo %",
+    "maxDiscountNote": "Ví dụ: giảm 20% nhưng tối đa 50.000₫ để tránh giảm quá nhiều cho đơn giá trị cao.",
+    "labelMinOrder": "Đơn hàng tối thiểu (₫)",
+    "labelPerUser": "Lượt dùng mỗi khách",
+    "labelStartDate": "Ngày bắt đầu *",
+    "labelEndDate": "Ngày kết thúc *",
+    "labelLimit": "Tổng số lượng mã *",
+    "labelStatus": "Trạng thái",
+    "statusActive": "Kích hoạt",
+    "statusInactive": "Vô hiệu hóa",
+    "saving": "Đang lưu…",
+    "create": "Tạo mã",
+    "update": "Cập nhật"
+  },
+  "delete": {
+    "title": "Vô hiệu hóa mã giảm giá",
+    "subtitle": "Mã sẽ bị tắt nhưng không xóa khỏi lịch sử",
+    "confirm": "Bạn có chắc muốn vô hiệu hóa mã <1>{{code}}</1>? Khách hàng sẽ không thể tiếp tục sử dụng mã này.",
+    "action": "Vô hiệu hóa",
+    "processing": "Đang xử lý..."
+  },
+  "validation": {
+    "codeRequired": "Vui lòng nhập mã giảm giá.",
+    "valuePositive": "Giá trị phải lớn hơn 0.",
+    "valueMaxPercent": "Giảm phần trăm không quá 100%.",
+    "startRequired": "Vui lòng chọn ngày bắt đầu.",
+    "endRequired": "Vui lòng chọn ngày kết thúc.",
+    "endAfterStart": "Ngày kết thúc phải sau ngày bắt đầu.",
+    "limitMin": "Tổng số lượng phải >= 1."
+  },
+  "feedback": {
+    "createSuccess": "Tạo mã giảm giá thành công!",
+    "updateSuccess": "Cập nhật mã giảm giá thành công!",
+    "deleteSuccess": "Đã vô hiệu hóa mã \"{{code}}\"",
+    "loadError": "Không thể tải danh sách mã giảm giá.",
+    "retry": "Thử lại"
+  }
+}

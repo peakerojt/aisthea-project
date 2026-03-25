@@ -12,6 +12,12 @@ import { getStatusMeta, normalizeStatus } from '@/config/orderStatus.config';
 
 export const MyOrders: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'myOrders' });
+  const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
+    template.replace(/\{\{(\w+)\}\}/g, (_, token) => String(options?.[token] ?? `{{${token}}}`));
+  const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+    const translated = t(key as any, { ...(options ?? {}), defaultValue: fallback } as any);
+    return translated !== key ? translated : interpolateFallback(fallback, options);
+  };
   const { role } = useAuth();
   const navigate = useNavigate();
 
@@ -20,16 +26,35 @@ export const MyOrders: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
 
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const titleLabel = resolveText('title', 'Đơn hàng của tôi');
+  const subtitleLabel = resolveText('subtitle', 'Xem lịch sử và chi tiết đơn hàng');
+  const tabAllLabel = resolveText('tabs.all', 'Tất cả');
+  const tabPendingLabel = resolveText('tabs.pending', 'Chờ xác nhận');
+  const tabShippingLabel = resolveText('tabs.shipping', 'Đang giao hàng');
+  const tabDeliveredLabel = resolveText('tabs.delivered', 'Đã giao hàng');
+  const tabCancelledLabel = resolveText('tabs.cancelled', 'Đã hủy');
+  const trackOrderLabel = resolveText('actions.trackOrder', 'Tra cứu đơn hàng');
+  const backToAccountLabel = resolveText('actions.backToAccount', 'Quay lại tài khoản');
+  const refreshLabel = resolveText('actions.refresh', 'Làm mới');
+  const startShoppingLabel = resolveText('actions.startShopping', 'Bắt đầu mua sắm');
+  const viewLabel = resolveText('actions.view', 'Xem');
+  const loadingLabel = resolveText('states.loading', 'Đang tải đơn hàng...');
+  const emptyLabel = resolveText('states.empty', 'Không tìm thấy đơn hàng.');
+  const unknownLabel = resolveText('states.unknown', 'Không xác định');
+  const totalLabel = resolveText('labels.total', 'Tổng tiền');
+  const itemsLabel = resolveText('labels.items', 'Số món');
+  const orderCodeLabel = resolveText('labels.orderCode', 'Mã đơn hàng');
+  const loadOrdersErrorLabel = resolveText('errors.loadOrders', 'Không thể tải đơn hàng');
 
   const statusTabs = useMemo(
     () => [
-      { label: t('tabs.all'), value: '' },
-      { label: t('tabs.pending'), value: 'Pending' },
-      { label: t('tabs.shipping'), value: 'Shipping' },
-      { label: t('tabs.delivered'), value: 'Delivered' },
-      { label: t('tabs.cancelled'), value: 'Cancelled' }
+      { label: tabAllLabel, value: '' },
+      { label: tabPendingLabel, value: 'Pending' },
+      { label: tabShippingLabel, value: 'Shipping' },
+      { label: tabDeliveredLabel, value: 'Delivered' },
+      { label: tabCancelledLabel, value: 'Cancelled' }
     ],
-    [t]
+    [tabAllLabel, tabPendingLabel, tabShippingLabel, tabDeliveredLabel, tabCancelledLabel]
   );
 
   const loadOrders = async () => {
@@ -40,7 +65,7 @@ export const MyOrders: React.FC = () => {
       setOrders(res.orders || []);
     } catch (e: unknown) {
       const error = e as { message?: string };
-      setError(error?.message || t('errors.loadOrders'));
+      setError(error?.message || loadOrdersErrorLabel);
       setOrders([]);
     } finally {
       setIsLoading(false);
@@ -67,8 +92,8 @@ export const MyOrders: React.FC = () => {
       <div className="pt-32 px-6 md:px-12 max-w-5xl mx-auto">
         <div className="flex items-end justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-black uppercase tracking-tighter">{t('title')}</h1>
-            <p className="text-white/40 text-xs uppercase tracking-widest mt-2">{t('subtitle')}</p>
+            <h1 className="text-4xl font-black uppercase tracking-tighter">{titleLabel}</h1>
+            <p className="text-white/40 text-xs uppercase tracking-widest mt-2">{subtitleLabel}</p>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -76,12 +101,12 @@ export const MyOrders: React.FC = () => {
               className="flex items-center gap-2 px-4 py-3 border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 transition-colors text-xs font-bold uppercase tracking-widest rounded"
             >
               <Search size={13} />
-              {t('actions.trackOrder')}
+              {trackOrderLabel}
             </button>
             <button
               onClick={() => navigate('/profile')}
               className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
-            >{t('actions.backToAccount')}</button>
+            >{backToAccountLabel}</button>
           </div>
         </div>
 
@@ -103,7 +128,7 @@ export const MyOrders: React.FC = () => {
             <button
               onClick={loadOrders}
               className="text-xs font-bold uppercase tracking-widest px-3 py-2 rounded border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-colors"
-            >{t('actions.refresh')}</button>
+            >{refreshLabel}</button>
           </div>
 
           <div className="p-6">
@@ -114,15 +139,15 @@ export const MyOrders: React.FC = () => {
             )}
 
             {isLoading ? (
-              <div className="text-sm text-white/50">{t('states.loading')}</div>
+              <div className="text-sm text-white/50">{loadingLabel}</div>
             ) : orders.length === 0 ? (
               <div className="bg-black/20 rounded p-10 text-center border border-white/5">
                 <span className="material-symbols-outlined text-5xl text-white/20 mb-2">receipt_long</span>
-                <p className="text-gray-500 text-sm">{t('states.empty')}</p>
+                <p className="text-gray-500 text-sm">{emptyLabel}</p>
                 <button
                   onClick={() => navigate('/collection')}
                   className="mt-4 text-xs font-bold uppercase tracking-widest text-primary hover:text-white transition-colors"
-                >{t('actions.startShopping')}</button>
+                >{startShoppingLabel}</button>
               </div>
             ) : (
                 <div className="space-y-3">
@@ -143,18 +168,18 @@ export const MyOrders: React.FC = () => {
                                 : 'border-white/10 text-white/70'
                             }`}
                           >
-                            {statusMeta?.label || o.status || t('states.unknown')}
+                            {statusMeta?.label || o.status || unknownLabel}
                           </span>
                           <PaymentStatusBadge paymentMethod={o.paymentMethod} paymentStatus={o.paymentStatus} size="xs" uppercase className="tracking-widest" />
                         </div>
                         <div className="mt-2 text-sm text-white/70">
-                          {t('labels.total')}: <span className="text-white font-semibold">{formatCurrencyVND(Number(o.totalAmount ?? 0))}</span>
+                          {totalLabel}: <span className="text-white font-semibold">{formatCurrencyVND(Number(o.totalAmount ?? 0))}</span>
                           <span className="text-white/30 mx-2">•</span>
-                          {t('labels.items')}: <span className="text-white font-semibold">{o.itemCount}</span>
+                          {itemsLabel}: <span className="text-white font-semibold">{o.itemCount}</span>
                         </div>
                         {(o.orderCode || o.orderNumber) && (
                           <div className="mt-2 text-xs text-white/40">
-                            {t('labels.orderCode')}: {o.orderCode ?? o.orderNumber}
+                            {orderCodeLabel}: {o.orderCode ?? o.orderNumber}
                           </div>
                         )}
                       </div>
@@ -163,7 +188,7 @@ export const MyOrders: React.FC = () => {
                         <button
                           onClick={() => goToOrderDetailPage(o.orderId)}
                           className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors"
-                        >{t('actions.view')}</button>
+                        >{viewLabel}</button>
                       </div>
                     </div>
                   );

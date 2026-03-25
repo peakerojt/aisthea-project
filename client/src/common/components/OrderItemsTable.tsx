@@ -1,6 +1,7 @@
 import React from 'react';
 import { Star } from 'lucide-react';
 import { OrderDetail, OrderItem } from '@/common/services/order.service';
+import { useTranslation } from 'react-i18next';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -12,13 +13,25 @@ interface OrderItemsTableProps {
 }
 
 export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({ order, onReview, onProductClick }) => {
+  const { t } = useTranslation('pages', { keyPrefix: 'orderDetail.items' });
+  const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
+    template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, token: string) => String(options?.[token] ?? ''));
+  const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+    const value = t(key, { ...options, defaultValue: fallback });
+    return value === key ? interpolateFallback(fallback, options) : value;
+  };
+  const titleLabel = resolveText('title', 'Sản phẩm');
+  const countLabel = resolveText('count', '{{count}} món', { count: order.items.length });
+  const skuLabel = resolveText('sku', 'SKU');
+  const reviewedLabel = resolveText('reviewed', 'Đã đánh giá');
+  const reviewActionLabel = resolveText('reviewAction', 'Đánh giá');
   const isDelivered = (order.status ?? '').toLowerCase() === 'delivered';
 
   return (
     <div className="bg-surface-dark border border-white/5 rounded-sm p-6">
       <div className="flex items-center justify-between">
-        <div className="text-[10px] uppercase tracking-widest text-white/40">Sản phẩm</div>
-        <div className="text-[10px] uppercase tracking-widest text-white/40">{order.items.length} món</div>
+        <div className="text-[10px] uppercase tracking-widest text-white/40">{titleLabel}</div>
+        <div className="text-[10px] uppercase tracking-widest text-white/40">{countLabel}</div>
       </div>
 
       <div className="mt-4 space-y-3">
@@ -58,7 +71,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({ order, onRevie
                   {it.productName}
                 </button>
                 <div className="text-xs text-white/50 mt-1">{it.variantName ?? it.variant}</div>
-                <div className="text-xs text-white/40 font-mono mt-1">SKU: {it.sku}</div>
+                <div className="text-xs text-white/40 font-mono mt-1">{skuLabel}: {it.sku}</div>
               </div>
 
               {/* Price + Review action */}
@@ -75,9 +88,9 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({ order, onRevie
                   <div>
                     {it.isReviewed ? (
                       /* Already reviewed badge */
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30">
                         <Star size={10} fill="#FBBF24" stroke="#FBBF24" />
-                        Đã đánh giá
+                        {reviewedLabel}
                       </span>
                     ) : (
                       /* Write review button */
@@ -86,7 +99,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({ order, onRevie
                         className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/20 text-white/60 hover:text-white hover:border-white/40 hover:bg-white/5 text-[11px] font-semibold uppercase tracking-wider transition-all"
                       >
                         <Star size={11} className="group-hover:fill-amber-400 group-hover:stroke-amber-400 transition-colors" />
-                        Đánh giá
+                        {reviewActionLabel}
                       </button>
                     )}
                   </div>

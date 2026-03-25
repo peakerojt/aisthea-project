@@ -69,18 +69,18 @@ const getCompactStatusLabel = (
 ) => {
   switch ((status ?? '').toUpperCase()) {
     case 'PENDING':
-      return t('status.PENDING');
+      return t('status.PENDING', { defaultValue: 'Chờ xác nhận' });
     case 'PROCESSING':
-      return t('status.PROCESSING');
+      return t('status.PROCESSING', { defaultValue: 'Đang xử lý' });
     case 'SHIPPING':
-      return t('status.SHIPPING');
+      return t('status.SHIPPING', { defaultValue: 'Đang giao' });
     case 'DELIVERED':
     case 'COMPLETED':
-      return t('status.DELIVERED');
+      return t('status.DELIVERED', { defaultValue: 'Đã giao' });
     case 'CANCELLED':
-      return t('status.CANCELLED');
+      return t('status.CANCELLED', { defaultValue: 'Đã hủy' });
     default:
-      return status || t('status.other');
+      return status || t('status.other', { defaultValue: 'Khác' });
   }
 };
 
@@ -108,14 +108,14 @@ const getCompactPaymentLabel = (
   const normalizedMethod = (paymentMethod ?? '').toUpperCase();
 
   if (normalizedStatus === 'COMPLETED' || normalizedStatus === 'PAID' || normalizedStatus === 'SUCCESS') {
-    return t('paymentStatus.paid');
+    return t('paymentStatus.paid', { defaultValue: 'Đã thanh toán' });
   }
 
   if (normalizedMethod === 'COD') {
-    return t('paymentStatus.codPending');
+    return t('paymentStatus.codPending', { defaultValue: 'Chờ thanh toán' });
   }
 
-  return t('paymentStatus.pending');
+  return t('paymentStatus.pending', { defaultValue: 'Chờ thanh toán' });
 };
 
 const getCompactPaymentMethodLabel = (
@@ -126,11 +126,11 @@ const getCompactPaymentMethodLabel = (
 
   switch (normalizedMethod) {
     case 'COD':
-      return t('paymentMethod.COD');
+      return t('paymentMethod.COD', { defaultValue: 'Thanh toán khi nhận hàng' });
     case 'VNPAY':
-      return t('paymentMethod.VNPAY');
+      return t('paymentMethod.VNPAY', { defaultValue: 'VNPay' });
     default:
-      return paymentMethod || t('paymentMethod.OTHER');
+      return paymentMethod || t('paymentMethod.OTHER', { defaultValue: 'Khác' });
   }
 };
 
@@ -238,7 +238,12 @@ const OrderTableRow = React.memo(({
               <Copy size={12} />
             </button>
           </div>
-          <p className="text-[11px] text-white/50">{t('table.itemCount', { count: order.itemCount })}</p>
+          <p className="text-[11px] text-white/50">
+            {t('table.itemCount', {
+              count: order.itemCount,
+              defaultValue: '{{count}} sản phẩm',
+            })}
+          </p>
         </div>
       </td>
 
@@ -298,27 +303,34 @@ const OrderTableRow = React.memo(({
 export const Orders: React.FC = () => {
   const { t } = useTranslation(['orders']);
   const navigate = useNavigate();
+  const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
+    template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, token: string) => String(options?.[token] ?? ''));
+  const resolveText: OrdersTranslator = (key, options) => {
+    const fallback = typeof options?.defaultValue === 'string' ? options.defaultValue : key;
+    const value = t(key, options);
+    return value === key ? interpolateFallback(fallback, options) : value;
+  };
   const statusTabs = useMemo(
     () => ([
-      { key: 'ALL', label: t('filters.all') },
-      { key: 'Pending', label: t('status.PENDING') },
-      { key: 'Processing', label: t('status.PROCESSING') },
-      { key: 'Shipping', label: t('status.SHIPPING') },
-      { key: 'Delivered', label: t('status.DELIVERED') },
-      { key: 'Cancelled', label: t('status.CANCELLED') },
+      { key: 'ALL', label: resolveText('filters.all', { defaultValue: 'Tất cả' }) },
+      { key: 'Pending', label: resolveText('status.PENDING', { defaultValue: 'Chờ xác nhận' }) },
+      { key: 'Processing', label: resolveText('status.PROCESSING', { defaultValue: 'Đang xử lý' }) },
+      { key: 'Shipping', label: resolveText('status.SHIPPING', { defaultValue: 'Đang giao' }) },
+      { key: 'Delivered', label: resolveText('status.DELIVERED', { defaultValue: 'Đã giao' }) },
+      { key: 'Cancelled', label: resolveText('status.CANCELLED', { defaultValue: 'Đã hủy' }) },
     ] as const),
-    [t],
+    [resolveText],
   );
   const sortOptions = useMemo(
     () => ([
-      { value: 'createdAt_desc', label: t('sortOptions.createdAtDesc') },
-      { value: 'createdAt_asc', label: t('sortOptions.createdAtAsc') },
-      { value: 'totalAmount_desc', label: t('sortOptions.totalAmountDesc') },
-      { value: 'totalAmount_asc', label: t('sortOptions.totalAmountAsc') },
-      { value: 'status_asc', label: t('sortOptions.statusAsc') },
-      { value: 'paymentStatus_desc', label: t('sortOptions.paymentStatusDesc') },
+      { value: 'createdAt_desc', label: resolveText('sortOptions.createdAtDesc', { defaultValue: 'Mới nhất' }) },
+      { value: 'createdAt_asc', label: resolveText('sortOptions.createdAtAsc', { defaultValue: 'Cũ nhất' }) },
+      { value: 'totalAmount_desc', label: resolveText('sortOptions.totalAmountDesc', { defaultValue: 'Giá trị cao nhất' }) },
+      { value: 'totalAmount_asc', label: resolveText('sortOptions.totalAmountAsc', { defaultValue: 'Giá trị thấp nhất' }) },
+      { value: 'status_asc', label: resolveText('sortOptions.statusAsc', { defaultValue: 'Theo trạng thái' }) },
+      { value: 'paymentStatus_desc', label: resolveText('sortOptions.paymentStatusDesc', { defaultValue: 'Theo thanh toán' }) },
     ] as const),
-    [t],
+    [resolveText],
   );
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -373,13 +385,13 @@ export const Orders: React.FC = () => {
     } catch (e: unknown) {
       if (requestIdRef.current !== requestId) return;
       const requestError = e as { message?: string };
-      setError(requestError.message || t('page.loadError'));
+      setError(requestError.message || resolveText('page.loadError', { defaultValue: 'Không thể tải danh sách đơn hàng.' }));
     } finally {
       if (requestIdRef.current !== requestId) return;
       if (isFirstLoad) setLoading(false);
       else setIsRefreshing(false);
     }
-  }, [activeTab, endDate, page, pageSize, search, sort, startDate, t]);
+  }, [activeTab, endDate, page, pageSize, search, sort, startDate]);
 
   const loadTabCounts = useCallback(async () => {
     try {
@@ -473,8 +485,8 @@ export const Orders: React.FC = () => {
       <AdminSectionCard bodyClassName="space-y-5 p-5 lg:p-6">
         <AdminPageHeader
           icon={Package}
-          title={t('page.title')}
-          meta={t('page.orderCount', { count: total })}
+          title={resolveText('page.title', { defaultValue: 'Đơn hàng' })}
+          meta={resolveText('page.orderCount', { count: total, defaultValue: '{{count}} đơn hàng' })}
         />
 
         <AdminToolbar
@@ -482,12 +494,12 @@ export const Orders: React.FC = () => {
             <>
               <AdminSecondaryButton type="button" onClick={handleRefresh}>
                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                {t('actions.refresh')}
+                {resolveText('actions.refresh', { defaultValue: 'Làm mới' })}
               </AdminSecondaryButton>
               {hasFilters && (
                 <AdminSecondaryButton type="button" onClick={handleClearFilters}>
                   <FilterX size={14} />
-                  {t('actions.reset')}
+                  {resolveText('actions.reset', { defaultValue: 'Đặt lại' })}
                 </AdminSecondaryButton>
               )}
             </>
@@ -496,14 +508,14 @@ export const Orders: React.FC = () => {
           <div className="grid w-full gap-3 md:grid-cols-2 2xl:min-w-[960px] 2xl:grid-cols-[minmax(280px,1.4fr)_repeat(4,minmax(0,1fr))]">
               <label className="relative">
                 <span className={adminUiTokens.fieldLabel}>
-                  {t('filters.searchLabel')}
+                  {resolveText('filters.searchLabel', { defaultValue: 'Tìm kiếm' })}
                 </span>
                 <Search size={15} className="pointer-events-none absolute left-3 top-[38px] -translate-y-1/2 text-white/30" />
                 <input
                   type="text"
                   value={searchInput}
                   onChange={handleSearchChange}
-                  placeholder={t('filters.searchPlaceholderAdmin')}
+                  placeholder={resolveText('filters.searchPlaceholderAdmin', { defaultValue: 'Tìm theo mã đơn, tên khách hàng, số điện thoại...' })}
                   className={adminUiTokens.searchFieldControl}
                 />
               </label>
@@ -511,7 +523,7 @@ export const Orders: React.FC = () => {
               <label>
                 <span className={`${adminUiTokens.fieldLabel} flex items-center gap-1.5`}>
                   <Calendar size={12} />
-                  {t('filters.dateFrom')}
+                  {resolveText('filters.dateFrom', { defaultValue: 'Từ ngày' })}
                 </span>
                 <input
                   type="date"
@@ -527,7 +539,7 @@ export const Orders: React.FC = () => {
               <label>
                 <span className={`${adminUiTokens.fieldLabel} flex items-center gap-1.5`}>
                   <Calendar size={12} />
-                  {t('filters.dateTo')}
+                  {resolveText('filters.dateTo', { defaultValue: 'Đến ngày' })}
                 </span>
                 <input
                   type="date"
@@ -542,7 +554,7 @@ export const Orders: React.FC = () => {
 
               <label>
                 <span className={adminUiTokens.fieldLabel}>
-                  {t('filters.sortLabel')}
+                  {resolveText('filters.sortLabel', { defaultValue: 'Sắp xếp' })}
                 </span>
                 <select
                   value={sort}
@@ -563,7 +575,7 @@ export const Orders: React.FC = () => {
               <div>
                 <label>
                   <span className={adminUiTokens.fieldLabel}>
-                    {t('pagination.perPage')}
+                    {resolveText('pagination.perPage', { defaultValue: 'Mỗi trang' })}
                   </span>
                   <select
                     value={pageSize}
@@ -602,36 +614,41 @@ export const Orders: React.FC = () => {
         {isRefreshing && !loading && <div className="h-px w-full bg-primary/60" />}
         {loading ? (
           <div className="flex flex-1 items-center justify-center">
-            <div className="flex flex-col items-center gap-4">
-              <div className="h-10 w-10 rounded-full border-4 border-white/10 border-t-primary animate-spin" />
-              <p className="text-sm text-white/45">{t('page.loading')}</p>
+              <div className="flex flex-col items-center gap-4">
+                <div className="h-10 w-10 rounded-full border-4 border-white/10 border-t-primary animate-spin" />
+              <p className="text-sm text-white/45">{resolveText('page.loading', { defaultValue: 'Đang tải danh sách đơn hàng...' })}</p>
             </div>
           </div>
         ) : error ? (
           <div className="flex flex-1 items-center justify-center">
             <div className="max-w-sm text-center">
               <AlertCircle size={40} className="mx-auto text-red-400" />
-              <h3 className="mt-4 text-base font-bold text-white">{t('page.dataError')}</h3>
+              <h3 className="mt-4 text-base font-bold text-white">{resolveText('page.dataError', { defaultValue: 'Không thể hiển thị dữ liệu' })}</h3>
               <p className="mt-2 text-sm text-white/55">{error}</p>
               <button
                 type="button"
                 onClick={handleRefresh}
                 className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-primary hover:underline"
               >
-                {t('page.retry')}
+                {resolveText('page.retry', { defaultValue: 'Thử lại' })}
               </button>
             </div>
           </div>
         ) : orders.length === 0 ? (
           <AdminEmptyState
             icon={Package}
-            title={t('page.noOrders')}
-            description={t('page.changeFilter')}
+            title={resolveText('page.noOrders', { defaultValue: 'Chưa có đơn hàng nào' })}
+            description={resolveText('page.changeFilter', { defaultValue: 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.' })}
           />
         ) : (
           <>
             <div className="border-b border-white/[0.06] px-5 py-3 text-xs text-white/45 lg:px-6">
-              {t('pagination.rangeSummary', { start: rangeStart, end: rangeEnd, total })}
+              {resolveText('pagination.rangeSummary', {
+                start: rangeStart,
+                end: rangeEnd,
+                total,
+                defaultValue: 'Hiển thị {{start}}-{{end}} / {{total}} đơn',
+              })}
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto">
@@ -639,13 +656,13 @@ export const Orders: React.FC = () => {
                 <thead>
                   <tr className="border-b border-white/[0.06]">
                     {[
-                      t('table.orderId'),
-                      t('table.customer'),
-                      t('table.time'),
-                      t('table.total'),
-                      t('table.payment'),
-                      t('table.shipping'),
-                      t('table.actions'),
+                      resolveText('table.orderId', { defaultValue: 'Mã đơn' }),
+                      resolveText('table.customer', { defaultValue: 'Khách hàng' }),
+                      resolveText('table.time', { defaultValue: 'Thời gian' }),
+                      resolveText('table.total', { defaultValue: 'Tổng tiền' }),
+                      resolveText('table.payment', { defaultValue: 'Thanh toán' }),
+                      resolveText('table.shipping', { defaultValue: 'Trạng thái' }),
+                      resolveText('table.actions', { defaultValue: 'Thao tác' }),
                     ].map((label, index) => (
                       <th
                         key={label}
@@ -663,9 +680,9 @@ export const Orders: React.FC = () => {
                     <OrderTableRow
                       key={order.orderId}
                       order={order}
-                      t={t}
-                      copyOrderNumberTitle={t('actions.copyOrderNumber')}
-                      detailLabel={t('actions.viewDetail')}
+                      t={resolveText}
+                      copyOrderNumberTitle={resolveText('actions.copyOrderNumber', { defaultValue: 'Sao chép mã đơn' })}
+                      detailLabel={resolveText('actions.viewDetail', { defaultValue: 'Chi tiết' })}
                       onOpen={(orderId) => navigate(`/admin/orders/${orderId}`)}
                       onCopy={(orderNumber) => {
                         void handleCopyOrderNumber(orderNumber);
@@ -681,7 +698,12 @@ export const Orders: React.FC = () => {
         {!loading && !error && totalPages > 1 && (
           <div className="flex flex-col gap-3 border-t border-white/[0.06] px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
             <p className="text-xs text-white/42">
-              {t('pagination.summary', { page, totalPages, total })}
+              {resolveText('pagination.summary', {
+                page,
+                totalPages,
+                total,
+                defaultValue: 'Trang {{page}} / {{totalPages}} · {{total}} đơn',
+              })}
             </p>
 
             <div className="flex items-center gap-2">

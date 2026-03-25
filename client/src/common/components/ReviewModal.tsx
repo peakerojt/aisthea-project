@@ -3,6 +3,7 @@ import { Star, X, Loader2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createReview } from '@/common/services/review.service';
 import { OrderItem } from '@/common/services/order.service';
+import { useTranslation } from 'react-i18next';
 
 interface ReviewModalProps {
     open: boolean;
@@ -12,12 +13,35 @@ interface ReviewModalProps {
 }
 
 export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, orderId }) => {
+    const { t } = useTranslation('pages', { keyPrefix: 'orderDetail.reviewModal' });
+    const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
+        template.replace(/\{\{(\w+)\}\}/g, (_, token) => String(options?.[token] ?? `{{${token}}}`));
+    const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
+        const translated = t(key as any, options as any);
+        return translated !== key ? translated : interpolateFallback(fallback, options);
+    };
     const queryClient = useQueryClient();
     const [rating, setRating] = useState(0);
     const [hovered, setHovered] = useState(0);
     const [comment, setComment] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
     const [isVisible, setIsVisible] = useState(false);
+    const titleLabel = resolveText('title', 'Đánh giá sản phẩm');
+    const ratingLabel = resolveText('ratingLabel', 'Đánh giá của bạn');
+    const commentLabel = resolveText('commentLabel', 'Nhận xét');
+    const commentPlaceholder = resolveText('commentPlaceholder', 'Chia sẻ cảm nhận của bạn về sản phẩm...');
+    const submitErrorLabel = resolveText('submitError', 'Gửi đánh giá thất bại. Vui lòng thử lại.');
+    const submittingLabel = resolveText('submitting', 'Đang gửi...');
+    const submitLabel = resolveText('submit', 'Gửi đánh giá');
+    const successLabel = resolveText('success', 'Đánh giá của bạn đã được ghi nhận.');
+    const ratingDescriptions = [
+        '',
+        resolveText('ratings.1', 'Rất tệ'),
+        resolveText('ratings.2', 'Tệ'),
+        resolveText('ratings.3', 'Bình thường'),
+        resolveText('ratings.4', 'Tốt'),
+        resolveText('ratings.5', 'Xuất sắc'),
+    ];
 
     const mutation = useMutation({
         mutationFn: () =>
@@ -28,7 +52,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
                 comment: comment.trim() || undefined,
             }),
         onSuccess: () => {
-            setSuccessMsg('Đánh giá của bạn đã được ghi nhận.');
+            setSuccessMsg(successLabel);
             queryClient.invalidateQueries({ queryKey: ['order-detail', orderId] });
             // Notify ProductDetail to re-fetch reviews
             window.dispatchEvent(new CustomEvent('review-submitted', { detail: { productId: Number(item!.productId) } }));
@@ -76,7 +100,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-gray-200/10 px-6 pb-4 pt-5">
                     <h2 id="review-modal-title" className="text-sm font-bold uppercase tracking-widest text-white/80">
-                        Đánh giá sản phẩm
+                        {titleLabel}
                     </h2>
                     <button
                         onClick={onClose}
@@ -106,7 +130,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
 
                     {/* Star rating */}
                     <div>
-                        <p className="text-[11px] uppercase tracking-widest text-white/40 mb-2.5">Đánh giá của bạn</p>
+                        <p className="text-[11px] uppercase tracking-widest text-white/40 mb-2.5">{ratingLabel}</p>
                         <div className="flex gap-1.5" onMouseLeave={() => setHovered(0)}>
                             {[1, 2, 3, 4, 5].map((star) => (
                                 <button
@@ -114,7 +138,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
                                     onMouseEnter={() => setHovered(star)}
                                     onClick={() => setRating(star)}
                                     className="group transition-transform hover:scale-110 active:scale-95"
-                                    aria-label={`${star} sao`}
+                                    aria-label={resolveText('starLabel', `${star} sao`, { count: star })}
                                 >
                                     <Star
                                         size={30}
@@ -128,18 +152,18 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
                         </div>
                         {displayRating > 0 && (
                             <p className="text-xs text-amber-400/80 mt-1.5 font-medium">
-                                {['', 'Rất tệ', 'Tệ', 'Bình thường', 'Tốt', 'Xuất sắc'][displayRating]}
+                                {ratingDescriptions[displayRating]}
                             </p>
                         )}
                     </div>
 
                     {/* Comment textarea */}
                     <div>
-                        <p className="text-[11px] uppercase tracking-widest text-white/40 mb-2.5">Nhận xét</p>
+                        <p className="text-[11px] uppercase tracking-widest text-white/40 mb-2.5">{commentLabel}</p>
                         <textarea
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
-                            placeholder="Chia sẻ cảm nhận của bạn về sản phẩm..."
+                            placeholder={commentPlaceholder}
                             rows={4}
                             maxLength={1000}
                             className="w-full resize-none rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white placeholder:text-white/25 transition-all focus:border-white/30 focus:bg-black/40 focus:outline-none"
@@ -150,7 +174,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
                     {/* Error */}
                     {mutation.isError && (
                         <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-300">
-                            Gửi đánh giá thất bại. Vui lòng thử lại.
+                            {submitErrorLabel}
                         </div>
                     )}
 
@@ -173,10 +197,10 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ open, onClose, item, o
                         {mutation.isPending ? (
                             <span className="flex items-center justify-center gap-2">
                                 <Loader2 size={14} className="animate-spin" />
-                                Đang gửi...
+                                {submittingLabel}
                             </span>
                         ) : (
-                            'Gửi đánh giá'
+                            submitLabel
                         )}
                     </button>
                 </div>
