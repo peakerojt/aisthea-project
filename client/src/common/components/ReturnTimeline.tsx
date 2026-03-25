@@ -22,6 +22,7 @@ const ICONS: Record<string, string> = {
 
 // Map hardcoded English backend notes to i18n keys to retroactively translate old logs.
 const KNOWN_COMMENT_KEYS: Record<string, string> = {
+  'Customer created return request': 'timeline.comments.customerCreatedReturnRequest',
   'Return request submitted.': 'timeline.comments.returnRequestSubmitted',
   'Return request approved.': 'timeline.comments.returnRequestApproved',
   'Return request rejected.': 'timeline.comments.returnRequestRejected',
@@ -37,6 +38,7 @@ export function ReturnTimeline({ logs }: { logs: Log[] }) {
     return value === key ? interpolateFallback(fallback, options) : value;
   };
   const knownCommentFallbacks: Record<string, string> = {
+    'timeline.comments.customerCreatedReturnRequest': 'Khách hàng đã gửi yêu cầu trả hàng.',
     'timeline.comments.returnRequestSubmitted': 'Yêu cầu trả hàng đã được gửi.',
     'timeline.comments.returnRequestApproved': 'Yêu cầu trả hàng đã được duyệt.',
     'timeline.comments.returnRequestRejected': 'Yêu cầu trả hàng đã bị từ chối.',

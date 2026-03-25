@@ -5,10 +5,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const getAllMock = vi.hoisted(() => vi.fn());
 const navigateMock = vi.hoisted(() => vi.fn());
 const i18nMode = vi.hoisted(() => ({ rawKeys: false }));
+const interpolateMock = (template: string, options?: Record<string, unknown>) =>
+  template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, token: string) => String(options?.[token] ?? ''));
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => (i18nMode.rawKeys ? key : key),
+    t: (key: string, options?: Record<string, unknown>) => {
+      const fallback = typeof options?.defaultValue === 'string'
+        ? interpolateMock(options.defaultValue, options)
+        : key;
+
+      if (i18nMode.rawKeys) {
+        return fallback;
+      }
+
+      return fallback;
+    },
   }),
 }));
 
@@ -115,10 +127,112 @@ describe('Admin Orders page', () => {
     expect(screen.getByText('Mã đơn')).toBeInTheDocument();
     expect(screen.getByText('Thanh toán')).toBeInTheDocument();
     expect(screen.getByText('1 sản phẩm')).toBeInTheDocument();
-    expect(screen.getByText('Đã giao')).toBeInTheDocument();
+    expect(screen.getByText('Đã giao hàng')).toBeInTheDocument();
     expect(screen.getByText('Đã thanh toán')).toBeInTheDocument();
     expect(screen.getByText('VNPay')).toBeInTheDocument();
     expect(screen.getByText('Chi tiết')).toBeInTheDocument();
     expect(screen.getByText('Hiển thị 1-1 / 1 đơn')).toBeInTheDocument();
+  });
+
+  it('normalizes hyphenated return requested statuses before rendering compact labels', async () => {
+    getAllMock.mockResolvedValue({
+      orders: [
+        {
+          orderId: 102,
+          orderNumber: 'ORD-102',
+          customerName: 'Tran Thi B',
+          customerPhone: '0900111111',
+          status: 'return-requested',
+          statusLabel: 'return-requested',
+          paymentStatus: 'PENDING',
+          paymentMethod: 'COD',
+          totalAmount: '550000',
+          createdAt: '2026-03-25T10:00:00.000Z',
+          itemCount: 2,
+          user: null,
+        },
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 15,
+        total: 1,
+        totalPages: 1,
+      },
+    });
+
+    render(<Orders />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Yêu cầu trả hàng')).toBeInTheDocument();
+    });
+  });
+
+  it('normalizes canceled aliases before rendering compact labels', async () => {
+    getAllMock.mockResolvedValue({
+      orders: [
+        {
+          orderId: 104,
+          orderNumber: 'ORD-104',
+          customerName: 'Pham Thi D',
+          customerPhone: '0900333333',
+          status: ' canceled ',
+          statusLabel: ' canceled ',
+          paymentStatus: 'PENDING',
+          paymentMethod: 'COD',
+          totalAmount: '350000',
+          createdAt: '2026-03-25T10:00:00.000Z',
+          itemCount: 1,
+          user: null,
+        },
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 15,
+        total: 1,
+        totalPages: 1,
+      },
+    });
+
+    render(<Orders />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Đã hủy')).toBeInTheDocument();
+    });
+  });
+
+  it('uses shared payment mapping for refund-like statuses and methods', async () => {
+    i18nMode.rawKeys = true;
+    getAllMock.mockResolvedValue({
+      orders: [
+        {
+          orderId: 103,
+          orderNumber: 'ORD-103',
+          customerName: 'Le Thi C',
+          customerPhone: '0900222222',
+          status: 'DELIVERED',
+          statusLabel: 'DELIVERED',
+          paymentStatus: 'partially-refunded',
+          paymentMethod: 'bank-transfer',
+          totalAmount: '650000',
+          createdAt: '2026-03-25T10:00:00.000Z',
+          itemCount: 1,
+          user: null,
+        },
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 15,
+        total: 1,
+        totalPages: 1,
+      },
+    });
+
+    render(<Orders />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Hoàn tiền một phần')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Chuyển khoản ngân hàng')).toBeInTheDocument();
   });
 });

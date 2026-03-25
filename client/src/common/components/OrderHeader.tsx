@@ -3,10 +3,8 @@ import { OrderDetail } from '@/common/services/order.service';
 import { OrderStatusBadge } from '@/admin/components/OrderStatusBadge';
 import { PaymentMethodLabel, PaymentStatusBadge } from '@/common/components/PaymentStatusBadge';
 import { formatVietnamTime } from '@/common/utils/formatDate';
+import { formatCurrencyFullVND } from '@/common/utils/currency';
 import { useTranslation } from 'react-i18next';
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 
 const formatDateTime = (iso: string | null) => {
   return formatVietnamTime(iso);
@@ -37,7 +35,7 @@ export const OrderHeader: React.FC<{ order: OrderDetail }> = ({ order }) => {
 
         <div className="text-right">
           <div className="text-xs text-white/40 uppercase tracking-widest">{totalLabel}</div>
-          <div className="mt-1 text-2xl font-black">{formatCurrency(order.pricing.grandTotal)}</div>
+          <div className="mt-1 text-2xl font-black">{formatCurrencyFullVND(order.pricing.grandTotal)}</div>
           {order.paymentMethod && (
             <div className="mt-1 text-xs text-white/40">
               {paymentMethodLabel}: <PaymentMethodLabel paymentMethod={order.paymentMethod} />

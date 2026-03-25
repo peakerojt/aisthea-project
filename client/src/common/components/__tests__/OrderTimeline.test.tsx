@@ -56,6 +56,32 @@ describe('OrderTimeline', () => {
     expect(screen.getByText('Yêu cầu trả hàng')).toBeInTheDocument();
   });
 
+  it('normalizes canceled aliases in the shared order timeline', () => {
+    render(
+      <OrderTimeline
+        history={[
+          { status: ' canceled ', changedAt: new Date().toISOString() },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Đã hủy')).toBeInTheDocument();
+    expect(screen.queryByText(' canceled ')).not.toBeInTheDocument();
+  });
+
+  it('normalizes canceled aliases in the tracking timeline', () => {
+    render(
+      <TrackingTimeline
+        timeline={[
+          { status: 'cancelled' as any, timestamp: new Date().toISOString() },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Đã hủy')).toBeInTheDocument();
+    expect(screen.queryByText('cancelled')).not.toBeInTheDocument();
+  });
+
   it('keeps admin and tracking empty states readable when translations return raw keys', () => {
     i18nMode.rawKeys = true;
 

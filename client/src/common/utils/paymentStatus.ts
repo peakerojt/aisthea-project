@@ -1,6 +1,6 @@
 type PaymentTone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
-type PaymentDisplayStatus =
+export type PaymentDisplayStatus =
   | 'COD_PENDING'
   | 'PENDING'
   | 'VERIFYING'
@@ -10,7 +10,7 @@ type PaymentDisplayStatus =
   | 'PARTIALLY_REFUNDED'
   | 'UNKNOWN';
 
-interface PaymentStatusMeta {
+export interface PaymentStatusMeta {
   canonicalStatus: PaymentDisplayStatus;
   labelKey: string;
   defaultLabel: string;
@@ -53,7 +53,7 @@ const normalizeValue = (value?: string | null) =>
     .replace(/[\s-]+/g, '_')
     .toUpperCase();
 
-const normalizePaymentStatus = (status?: string | null) => {
+export const normalizePaymentStatus = (status?: string | null): PaymentDisplayStatus | string => {
   const normalized = normalizeValue(status);
 
   switch (normalized) {

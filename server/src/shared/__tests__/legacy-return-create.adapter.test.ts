@@ -46,6 +46,44 @@ describe('legacy-return-create.adapter', () => {
     expect(normalizeLegacyReturnReason('Need support to review this case')).toBe('OTHER');
   });
 
+  it('maps Vietnamese defect wording and trims the preserved note', () => {
+    const result = buildLegacyCreateReturnDraft(
+      {
+        orderId: 92,
+        items: [{ orderItemId: 205, quantity: 1 }],
+      },
+      '  Hàng bị hỏng khóa kéo  ',
+      ['https://example.com/proof-92b.jpg'],
+    );
+
+    expect(result).toEqual({
+      orderId: 92,
+      reason: 'DEFECTIVE',
+      note: 'Hàng bị hỏng khóa kéo',
+      items: [{ orderItemId: 205, quantity: 1 }],
+      attachments: ['https://example.com/proof-92b.jpg'],
+    });
+  });
+
+  it('drops blank attachments and note content when the legacy reason is empty', () => {
+    const result = buildLegacyCreateReturnDraft(
+      {
+        orderId: 94,
+        items: [{ orderItemId: 206, quantity: 1 }],
+      },
+      '   ',
+      ['   ', 'https://example.com/proof-94.jpg', ''],
+    );
+
+    expect(result).toEqual({
+      orderId: 94,
+      reason: 'OTHER',
+      note: undefined,
+      items: [{ orderItemId: 206, quantity: 1 }],
+      attachments: ['https://example.com/proof-94.jpg'],
+    });
+  });
+
   it('returns null when the legacy request cannot be mapped safely because the order has multiple items', () => {
     const result = buildLegacyCreateReturnDraft(
       {
@@ -60,5 +98,29 @@ describe('legacy-return-create.adapter', () => {
     );
 
     expect(result).toBeNull();
+  });
+
+  it('returns null when the single bridged item is invalid', () => {
+    expect(
+      buildLegacyCreateReturnDraft(
+        {
+          orderId: 95,
+          items: [{ orderItemId: 0, quantity: 1 }],
+        },
+        'Product damaged',
+        [],
+      ),
+    ).toBeNull();
+
+    expect(
+      buildLegacyCreateReturnDraft(
+        {
+          orderId: 96,
+          items: [{ orderItemId: 207, quantity: 0 }],
+        },
+        'Product damaged',
+        [],
+      ),
+    ).toBeNull();
   });
 });

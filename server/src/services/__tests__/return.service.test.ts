@@ -390,6 +390,44 @@ describe('return.service', () => {
     });
   });
 
+  it('treats the ALL sentinel like no legacy status filter', async () => {
+    prismaMock.orderReturn.findMany.mockResolvedValueOnce([]);
+    prismaMock.orderReturn.count.mockResolvedValueOnce(0);
+
+    const result = await listReturns({ status: 'ALL', page: 2, pageSize: 5 });
+
+    expect(prismaMock.orderReturn.findMany).toHaveBeenCalledWith({
+      where: {},
+      orderBy: { createdAt: 'desc' },
+      skip: 5,
+      take: 5,
+      include: {
+        order: {
+          select: {
+            orderNumber: true,
+            totalAmount: true,
+            customerName: true,
+            customerPhone: true,
+          },
+        },
+        user: {
+          select: {
+            userId: true,
+            fullName: true,
+            email: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+    expect(result.pagination).toEqual({
+      page: 2,
+      pageSize: 5,
+      total: 0,
+      totalPages: 0,
+    });
+  });
+
   it('clamps invalid pagination inputs and keeps the normalized read shape', async () => {
     prismaMock.orderReturn.findMany.mockResolvedValueOnce([
       { returnId: 20, proofImages: '[]' },
@@ -594,6 +632,20 @@ describe('return.service', () => {
     expect(await getReturnForOrder(92)).toEqual({
       returnId: 81,
       orderId: 92,
+      proofImages: [],
+    });
+  });
+
+  it('keeps empty-array proofImages stable for getReturnForOrder', async () => {
+    prismaMock.orderReturn.findUnique.mockResolvedValueOnce({
+      returnId: 82,
+      orderId: 93,
+      proofImages: '[]',
+    });
+
+    expect(await getReturnForOrder(93)).toEqual({
+      returnId: 82,
+      orderId: 93,
       proofImages: [],
     });
   });

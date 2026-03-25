@@ -308,6 +308,22 @@ describe('OrderDetailPage', () => {
     expect(await screen.findByRole('button', { name: /Theo dõi đơn hàng|actions\.trackOrder/ })).toBeInTheDocument();
   });
 
+  it('shows buy again action for returned statuses with spacing drift', async () => {
+    fetchOrderDetail.mockResolvedValueOnce(buildOrderDetail(' returned '));
+
+    renderPage('/orders/11');
+
+    expect(await screen.findByRole('button', { name: /Mua lại|actions\.buyAgain/ })).toBeInTheDocument();
+  });
+
+  it('shows buy again action for legacy completed statuses', async () => {
+    fetchOrderDetail.mockResolvedValueOnce(buildOrderDetail(' completed '));
+
+    renderPage('/orders/11');
+
+    expect(await screen.findByRole('button', { name: /Mua lại|actions\.buyAgain/ })).toBeInTheDocument();
+  });
+
   it('shows track order action for returned orders', async () => {
     fetchOrderDetail.mockResolvedValueOnce(buildOrderDetail('Returned'));
 

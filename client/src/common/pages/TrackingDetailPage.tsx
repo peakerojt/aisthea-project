@@ -32,6 +32,7 @@ const getCanonicalTrackingStatus = (status: string | null | undefined) => {
     case 'OUT_FOR_DELIVERY':
     case 'FAILED_DELIVERY':
       return ORDER_STATUS.SHIPPING;
+    case 'COMPLETED':
     case 'DELIVERED':
       return ORDER_STATUS.DELIVERED;
     case 'CANCELLED':

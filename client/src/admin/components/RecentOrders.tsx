@@ -2,8 +2,8 @@ import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { RecentOrder, RECENT_ORDER_STATUS_COLORS, formatVND } from '@/common/services/dashboard.service';
-import { translateOrderStatus } from '@/admin/components/OrderStatusBadge';
+import { RecentOrder, formatVND } from '@/common/services/dashboard.service';
+import { getOrderStatusDisplayMeta, toCompactStatusKey } from '@/common/utils/orderUiStatus';
 
 interface RecentOrdersProps {
     orders: RecentOrder[];
@@ -86,12 +86,12 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading })
                             </tr>
                         ) : (
                             orders.map((order) => {
-                                const rawStatus = order.status?.toUpperCase() ?? 'PENDING';
-                                const statusInfo =
-                                    RECENT_ORDER_STATUS_COLORS[rawStatus] ??
-                                    { color: 'text-white/40 bg-white/5 border-white/10' };
+                                const { canonical, meta } = getOrderStatusDisplayMeta(order.status);
+                                const rawStatus = canonical
+                                    ? canonical.toUpperCase()
+                                    : toCompactStatusKey(order.status) || 'PENDING';
                                 const fallbackStatusLabel =
-                                    translateOrderStatus(rawStatus) ||
+                                    meta.label ||
                                     order.status ||
                                     resolveText('orders:status.other', 'Khác');
                                 const statusLabel = resolveText(
@@ -130,7 +130,7 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading })
                                                     className={`
                             inline-flex items-center px-2.5 py-0.5 rounded-full
                             border text-[10px] font-bold uppercase tracking-wider
-                            ${statusInfo.color}
+                            ${meta.badgeClass}
                           `}
                                                 >
                                                     {statusLabel}

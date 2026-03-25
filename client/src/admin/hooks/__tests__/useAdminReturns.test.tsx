@@ -65,13 +65,14 @@ describe('useAdminReturns', () => {
   it('loads returns on mount and computes tab counts', async () => {
     listMock.mockResolvedValue({
       returns: [
-        makeReturn({ returnId: 1, status: 'REQUESTED' }),
-        makeReturn({ returnId: 2, status: 'APPROVED' }),
+        makeReturn({ returnId: 1, status: 'PENDING_APPROVAL' }),
+        makeReturn({ returnId: 2, status: 'COMPLETED' }),
+        makeReturn({ returnId: 3, status: 'APPROVED' }),
       ],
       pagination: {
         page: 1,
         pageSize: 15,
-        total: 2,
+        total: 3,
         totalPages: 4,
       },
     });
@@ -80,18 +81,18 @@ describe('useAdminReturns', () => {
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
-      expect(result.current.returns).toHaveLength(2);
+      expect(result.current.returns).toHaveLength(3);
     });
 
     expect(listMock).toHaveBeenCalledWith({ status: 'ALL', page: 1, pageSize: 15 });
     expect(result.current.pendingCount).toBe(1);
     expect(result.current.statusTabs).toEqual([
-      { key: 'ALL', label: 'Tất cả', count: 2 },
+      { key: 'ALL', label: 'Tất cả', count: 3 },
       { key: 'REQUESTED', label: 'Chờ duyệt', count: 1 },
       { key: 'APPROVED', label: 'Đã duyệt', count: 1 },
       { key: 'REJECTED', label: 'Đã từ chối', count: 0 },
       { key: 'RECEIVED', label: 'Đã nhận hàng', count: 0 },
-      { key: 'REFUNDED', label: 'Đã hoàn tiền', count: 0 },
+      { key: 'REFUNDED', label: 'Đã hoàn tiền', count: 1 },
     ]);
     expect(result.current.totalPages).toBe(4);
   });

@@ -79,17 +79,3 @@ export const formatVNDShort = (amount: number): string => {
     }
     return formatVND(amount);
 };
-
-export const RECENT_ORDER_STATUS_COLORS: Record<string, { color: string }> = {
-    PENDING: { color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
-    CONFIRMED: { color: 'text-blue-400 bg-blue-400/10 border-blue-400/20' },
-    PROCESSING: { color: 'text-teal-400 bg-teal-400/10 border-teal-400/20' },
-    SHIPPING: { color: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20' },
-    SHIPPED: { color: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20' },
-    COMPLETED: { color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
-    DELIVERED: { color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
-    CANCELLED: { color: 'text-red-400 bg-red-400/10 border-red-400/20' },
-    RETURN_REQUESTED: { color: 'text-orange-400 bg-orange-400/10 border-orange-400/20' },
-    RETURNED: { color: 'text-slate-400 bg-slate-400/10 border-slate-400/20' },
-    Pending: { color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
-};

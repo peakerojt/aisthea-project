@@ -224,6 +224,13 @@ describe('app route coexistence', () => {
     expect(response.body).toEqual({ route: 'refund-module-route' });
   });
 
+  it('keeps refund history module routes mounted under orders without being swallowed by order detail', async () => {
+    const response = await request(app).get('/api/orders/15/refunds');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ route: 'refund-history-route' });
+  });
+
   it('keeps order module detail route mounted after refund and return routes', async () => {
     const response = await request(app).get('/api/orders/15');
 
@@ -243,5 +250,12 @@ describe('app route coexistence', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ route: 'legacy-returns-my' });
+  });
+
+  it('keeps legacy returns detail mounted on /api/returns/:id', async () => {
+    const response = await request(app).get('/api/returns/15');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ route: 'legacy-returns-detail' });
   });
 });

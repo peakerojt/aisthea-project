@@ -188,6 +188,41 @@ describe('AdminReturnReviewModal', () => {
     });
   });
 
+  it('treats legacy pending approval status as requested for admin actions', async () => {
+    detailMock.mockResolvedValueOnce(createReturnItem({ status: 'PENDING_APPROVAL' as any }));
+
+    render(
+      <AdminReturnReviewModal
+        item={createReturnItem({ status: 'PENDING_APPROVAL' as any })}
+        onClose={vi.fn()}
+        onAction={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Từ chối yêu cầu' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Duyệt yêu cầu' })).toBeInTheDocument();
+  });
+
+  it('treats completed legacy status as terminal and hides action footer', async () => {
+    detailMock.mockResolvedValueOnce(createReturnItem({ status: 'COMPLETED' as any }));
+
+    render(
+      <AdminReturnReviewModal
+        item={createReturnItem({ status: 'COMPLETED' as any })}
+        onClose={vi.fn()}
+        onAction={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(detailMock).toHaveBeenCalledWith(12);
+    });
+
+    expect(screen.queryByRole('button', { name: 'Từ chối yêu cầu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Duyệt yêu cầu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Chấp nhận & Hoàn tiền' })).not.toBeInTheDocument();
+  });
+
   it('opens and closes the proof image lightbox', async () => {
     detailMock.mockResolvedValueOnce(
       createReturnItem({

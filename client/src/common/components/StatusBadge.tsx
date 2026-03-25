@@ -1,11 +1,18 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { normalizeReturnStatus } from '@/common/utils/returnStatus';
+import { toCompactStatusKey } from '@/common/utils/orderUiStatus';
 
 const STATUS_CONFIG: Record<
   string,
   { bg: string; text: string; ring: string; dot: string }
 > = {
+  RETURN_REQUESTED: {
+    bg: 'bg-orange-50',
+    text: 'text-orange-700',
+    ring: 'ring-orange-600/20',
+    dot: 'bg-orange-500',
+  },
   REQUESTED: {
     bg: 'bg-amber-50',
     text: 'text-amber-700',
@@ -36,6 +43,12 @@ const STATUS_CONFIG: Record<
     ring: 'ring-green-600/20',
     dot: 'bg-green-500',
   },
+  CANCELLED: {
+    bg: 'bg-red-50',
+    text: 'text-red-700',
+    ring: 'ring-red-600/20',
+    dot: 'bg-red-500',
+  },
 };
 
 export function StatusBadge({ status }: { status: string }) {
@@ -46,7 +59,12 @@ export function StatusBadge({ status }: { status: string }) {
     const value = t(key, { ...options, defaultValue: fallback });
     return value === key ? interpolateFallback(fallback, options) : value;
   };
-  const normalizedStatus = normalizeReturnStatus(status);
+  const normalizedReturnStatus = normalizeReturnStatus(status);
+  const compactStatus = toCompactStatusKey(status);
+  const normalizedStatus = (() => {
+    const candidate = normalizedReturnStatus || compactStatus;
+    return candidate === 'CANCELED' ? 'CANCELLED' : candidate;
+  })();
   const cfg = STATUS_CONFIG[normalizedStatus] ?? {
     bg: 'bg-gray-50',
     text: 'text-gray-700',
@@ -57,11 +75,13 @@ export function StatusBadge({ status }: { status: string }) {
     ? resolveText(
       `status.${normalizedStatus}`,
       ({
+        RETURN_REQUESTED: 'Yêu cầu trả hàng',
         REQUESTED: 'Chờ duyệt',
         APPROVED: 'Đã duyệt',
         REJECTED: 'Đã từ chối',
         RECEIVED: 'Đã nhận hàng',
         REFUNDED: 'Đã hoàn tiền',
+        CANCELLED: 'Đã hủy',
       } as Record<string, string>)[normalizedStatus] ?? normalizedStatus,
     )
     : status;

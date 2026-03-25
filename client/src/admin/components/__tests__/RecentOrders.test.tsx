@@ -27,6 +27,8 @@ vi.mock('react-i18next', async (importOriginal) => {
           'orders:table.status': 'Trạng thái',
           'orders:table.date': 'Ngày đặt',
           'orders:status.PENDING': 'Chờ xác nhận',
+          'orders:status.DELIVERED': 'Đã giao hàng',
+          'orders:status.CANCELLED': 'Đã hủy',
           'orders:status.RETURN_REQUESTED': 'Yêu cầu trả hàng',
           'orders:status.other': 'Khác',
         };
@@ -68,8 +70,72 @@ describe('RecentOrders', () => {
     );
 
     expect(screen.getByText('Đơn hàng gần đây')).toBeInTheDocument();
-    expect(screen.getByText('Yêu cầu trả hàng')).toBeInTheDocument();
+    expect(screen.getAllByText('Yêu cầu trả hàng').length).toBeGreaterThan(0);
     expect(screen.getByText('#OD-001')).toBeInTheDocument();
+  });
+
+  it('normalizes hyphenated return requested statuses before rendering labels', () => {
+    render(
+      <RecentOrders
+        isLoading={false}
+        orders={[
+          {
+            orderId: 3,
+            orderNumber: 'OD-003',
+            customerName: 'Le Thi C',
+            userFullName: 'Le Thi C',
+            totalAmount: 450000,
+            status: 'return-requested',
+            createdAt: '2026-03-25T10:00:00.000Z',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByText('Yêu cầu trả hàng').length).toBeGreaterThan(0);
+  });
+
+  it('normalizes canceled aliases before rendering labels', () => {
+    render(
+      <RecentOrders
+        isLoading={false}
+        orders={[
+          {
+            orderId: 4,
+            orderNumber: 'OD-004',
+            customerName: 'Pham Thi D',
+            userFullName: 'Pham Thi D',
+            totalAmount: 150000,
+            status: ' canceled ',
+            createdAt: '2026-03-25T10:00:00.000Z',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Đã hủy')).toBeInTheDocument();
+  });
+
+  it('normalizes completed aliases before rendering delivered labels', () => {
+    render(
+      <RecentOrders
+        isLoading={false}
+        orders={[
+          {
+            orderId: 5,
+            orderNumber: 'OD-005',
+            customerName: 'Hoang Van E',
+            userFullName: 'Hoang Van E',
+            totalAmount: 550000,
+            status: ' completed ',
+            createdAt: '2026-03-25T10:00:00.000Z',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Đã giao hàng')).toBeInTheDocument();
+    expect(screen.getByText('Đã giao hàng')).toHaveClass('bg-emerald-500/10', 'border-emerald-500/30');
   });
 
   it('keeps dashboard chrome and return labels readable when translations return raw keys', () => {
@@ -94,7 +160,7 @@ describe('RecentOrders', () => {
 
     expect(screen.getByText('Đơn hàng gần đây')).toBeInTheDocument();
     expect(screen.getByText('Mã đơn')).toBeInTheDocument();
-    expect(screen.getByText('Yêu cầu trả hàng')).toBeInTheDocument();
+    expect(screen.getAllByText('Yêu cầu trả hàng').length).toBeGreaterThan(0);
   });
 
   it('renders translated empty state and keeps view-all navigation', async () => {

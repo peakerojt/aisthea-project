@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { logger } from '../lib/logger';
+import { FULFILLED_ORDER_REPORTING_STATUSES } from '../config/orderReporting.config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Simple in-memory cache (TTL: 15 minutes)
@@ -47,8 +48,6 @@ function startOfMonth(d: Date): Date {
 function endOfDay(d: Date): Date {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 }
-
-const FULFILLED_ORDER_STATUSES = ['Delivered', 'COMPLETED', 'Completed'] as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/analytics/summary?startDate=&endDate=
@@ -190,11 +189,11 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
 
         const [currRev, prevRev] = await Promise.all([
             prisma.order.aggregate({
-                where: { status: { in: [...FULFILLED_ORDER_STATUSES] }, createdAt: { gte: start, lte: end } },
+                where: { status: { in: [...FULFILLED_ORDER_REPORTING_STATUSES] }, createdAt: { gte: start, lte: end } },
                 _sum: { totalAmount: true },
             }),
             prisma.order.aggregate({
-                where: { status: { in: [...FULFILLED_ORDER_STATUSES] }, createdAt: { gte: prevStart, lte: prevEnd } },
+                where: { status: { in: [...FULFILLED_ORDER_REPORTING_STATUSES] }, createdAt: { gte: prevStart, lte: prevEnd } },
                 _sum: { totalAmount: true },
             }),
         ]);

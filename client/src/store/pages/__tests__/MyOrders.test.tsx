@@ -67,4 +67,88 @@ describe('MyOrders', () => {
     expect(screen.getByText('Không tìm thấy đơn hàng.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Bắt đầu mua sắm' })).toBeInTheDocument();
   });
+
+  it('renders canonical cancelled label for drifted canceled statuses', async () => {
+    getMyOrders.mockResolvedValueOnce({
+      orders: [
+        {
+          orderId: 10,
+          orderNumber: 'ORD-10',
+          orderCode: 'OD20260010',
+          status: ' canceled ',
+          paymentMethod: 'cod',
+          paymentStatus: 'pending',
+          totalAmount: '199000',
+          itemCount: 1,
+          createdAt: '2026-02-24T08:00:00.000Z',
+        },
+      ],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    });
+
+    render(
+      <MemoryRouter>
+        <MyOrders />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Đã hủy')).toBeInTheDocument();
+    expect(screen.queryByText(' canceled ')).not.toBeInTheDocument();
+  });
+
+  it('renders canonical return requested label for drifted return-requested statuses', async () => {
+    getMyOrders.mockResolvedValueOnce({
+      orders: [
+        {
+          orderId: 11,
+          orderNumber: 'ORD-11',
+          orderCode: 'OD20260011',
+          status: ' return-requested ',
+          paymentMethod: 'cod',
+          paymentStatus: 'pending',
+          totalAmount: '299000',
+          itemCount: 1,
+          createdAt: '2026-02-24T08:00:00.000Z',
+        },
+      ],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    });
+
+    render(
+      <MemoryRouter>
+        <MyOrders />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Yêu cầu trả hàng')).toBeInTheDocument();
+    expect(screen.queryByText(' return-requested ')).not.toBeInTheDocument();
+  });
+
+  it('renders canonical delivered label for legacy completed statuses', async () => {
+    getMyOrders.mockResolvedValueOnce({
+      orders: [
+        {
+          orderId: 12,
+          orderNumber: 'ORD-12',
+          orderCode: 'OD20260012',
+          status: ' completed ',
+          paymentMethod: 'cod',
+          paymentStatus: 'pending',
+          totalAmount: '399000',
+          itemCount: 1,
+          createdAt: '2026-02-24T08:00:00.000Z',
+        },
+      ],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    });
+
+    render(
+      <MemoryRouter>
+        <MyOrders />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Đã giao hàng')).toBeInTheDocument();
+    expect(screen.queryByText(' completed ')).not.toBeInTheDocument();
+  });
 });

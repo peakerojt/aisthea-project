@@ -32,4 +32,18 @@ describe('StatusBadge', () => {
 
     expect(screen.getByText('SHIPPING')).toBeInTheDocument();
   });
+
+  it('normalizes canceled aliases before rendering the label', () => {
+    render(<StatusBadge status=" canceled " />);
+
+    expect(screen.getByText('Đã hủy')).toBeInTheDocument();
+    expect(screen.queryByText(' canceled ')).not.toBeInTheDocument();
+  });
+
+  it('renders return requested tracking labels canonically', () => {
+    render(<StatusBadge status="return-requested" />);
+
+    expect(screen.getByText('Yêu cầu trả hàng')).toBeInTheDocument();
+    expect(screen.queryByText('return-requested')).not.toBeInTheDocument();
+  });
 });

@@ -152,8 +152,12 @@ export function getStatusMeta(status: string | null | undefined): StatusMeta {
  */
 export function normalizeStatus(raw: string | null | undefined): OrderStatusValue | null {
     if (!raw) return null;
+    const normalized = raw.trim().replace(/[\s-]+/g, '_').toUpperCase();
+    if (!normalized) return null;
+    if (normalized === 'CANCELED') return ORDER_STATUS.CANCELLED;
+    if (normalized === 'COMPLETED') return ORDER_STATUS.DELIVERED;
     const found = Object.values(ORDER_STATUS).find(
-        (v) => v.toLowerCase() === raw.toLowerCase()
+        (v) => v.replace(/[\s-]+/g, '_').toUpperCase() === normalized
     );
     return (found as OrderStatusValue) ?? null;
 }

@@ -65,6 +65,9 @@ vi.mock('@/admin/components/OrderTimeline', () => ({
 
 vi.mock('@/admin/components/OrderStatusBadge', () => ({
   OrderStatusBadge: ({ status }: { status: string }) => <div data-testid="status-pill">{status}</div>,
+}));
+
+vi.mock('@/common/utils/orderUiStatus', () => ({
   getOrderStatusDisplayMeta: (status: string) => ({
     meta: {
       label: status === 'RETURN_REQUESTED' ? 'Yêu cầu trả hàng' : status,

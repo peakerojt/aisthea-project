@@ -29,16 +29,15 @@ import {
 } from '@/admin/components/AdminUI';
 import {
     adminRefundService,
+    normalizeRefundStatus,
     RefundMethod,
     RefundRecord,
     RefundRequestSchema,
     REFUND_METHODS,
 } from '@/admin/services/refund.service';
+import { formatCurrencyFullVND } from '@/common/utils/currency';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const formatVND = (n: number): string =>
-    new Intl.NumberFormat('vi-VN').format(n) + ' ₫';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -116,7 +115,7 @@ export const RefundDialog: React.FC<AdminRefundDialogProps> = ({
 
     // ── Derived financial state ───────────────────────────────────────────────
     const totalRefunded = existingRefunds
-        .filter(r => r.status === 'SUCCESS')
+        .filter(r => normalizeRefundStatus(r.status) === 'SUCCESS')
         .reduce((sum, r) => sum + Number(r.amount), 0);
     const maxRefundable = Math.max(0, totalPaid - totalRefunded);
 
@@ -204,7 +203,7 @@ export const RefundDialog: React.FC<AdminRefundDialogProps> = ({
 
     const confirmAmount = refundType === 'FULL' ? maxRefundable : Number(amountInput);
     const submitLabel = resolveText('refund.form.submit', 'Xác nhận hoàn tiền {{amount}}', {
-        amount: formatVND(confirmAmount),
+        amount: formatCurrencyFullVND(confirmAmount),
     });
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -235,7 +234,7 @@ export const RefundDialog: React.FC<AdminRefundDialogProps> = ({
                             {submitting ? (
                                 <><Loader2 size={13} className="animate-spin" />{submittingLabel}</>
                             ) : (
-                                resolveText('refund.form.submit', submitLabel, { amount: formatVND(confirmAmount) })
+                                resolveText('refund.form.submit', submitLabel, { amount: formatCurrencyFullVND(confirmAmount) })
                             )}
                         </AdminPrimaryButton>
                     )}
@@ -246,9 +245,9 @@ export const RefundDialog: React.FC<AdminRefundDialogProps> = ({
                     {/* ── Financial stats ──────────────────────────────────────── */}
                     <div className="grid grid-cols-3 gap-3">
                         {[
-                            { label: totalPaidLabel, value: formatVND(totalPaid), color: 'text-white' },
-                            { label: totalRefundedLabel, value: formatVND(totalRefunded), color: 'text-amber-400' },
-                            { label: maxRefundableLabel, value: formatVND(maxRefundable), color: 'text-emerald-400' },
+                            { label: totalPaidLabel, value: formatCurrencyFullVND(totalPaid), color: 'text-white' },
+                            { label: totalRefundedLabel, value: formatCurrencyFullVND(totalRefunded), color: 'text-amber-400' },
+                            { label: maxRefundableLabel, value: formatCurrencyFullVND(maxRefundable), color: 'text-emerald-400' },
                         ].map(({ label, value, color }) => (
                             <div key={label} className="bg-white/[0.03] border border-white/[0.06] rounded-sm p-3 text-center">
                                 <p className="text-[9px] uppercase tracking-wider text-white/35 mb-1">{label}</p>
@@ -312,7 +311,7 @@ export const RefundDialog: React.FC<AdminRefundDialogProps> = ({
                                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 text-[11px] font-bold">₫</span>
                                     </div>
                                     {Number(amountInput) > 0 && (
-                                        <p className="text-[11px] text-white/35 pl-1">{formatVND(Number(amountInput))}</p>
+                                        <p className="text-[11px] text-white/35 pl-1">{formatCurrencyFullVND(Number(amountInput))}</p>
                                     )}
                                     {errors.amount && <p className="text-[11px] text-red-400">{errors.amount}</p>}
                                 </div>

@@ -75,6 +75,11 @@ export const REFUND_STATUSES: RefundStatus[] = [
     'FAILED',
 ];
 
+export const normalizeRefundStatus = (status: string | null | undefined): RefundStatus => {
+    const normalized = (status ?? '').trim().replace(/[\s-]+/g, '_').toUpperCase();
+    return (REFUND_STATUSES.find((candidate) => candidate === normalized) ?? 'PENDING') as RefundStatus;
+};
+
 // ─── Admin Refund Service ─────────────────────────────────────────────────────
 
 export const adminRefundService = {

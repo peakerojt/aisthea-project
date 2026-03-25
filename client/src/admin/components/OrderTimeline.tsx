@@ -2,7 +2,7 @@ import React from 'react';
 import { ShoppingBag, Package, Truck, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
 import { TrackingTimelineItem } from '@/types/tracking';
 import { StatusBadge } from '@/common/components/StatusBadge';
-import { getOrderStatusDisplayMeta } from '@/admin/components/OrderStatusBadge';
+import { getOrderStatusDisplayMeta } from '@/common/utils/orderUiStatus';
 import { formatVietnamTime } from '@/common/utils/formatDate';
 import { useTranslation } from 'react-i18next';
 

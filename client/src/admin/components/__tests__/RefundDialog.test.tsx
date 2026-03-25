@@ -15,6 +15,8 @@ vi.mock('@/admin/services/refund.service', () => ({
     create: vi.fn(),
   },
   REFUND_METHODS: ['ORIGINAL_GATEWAY', 'BANK_TRANSFER', 'STORE_WALLET'],
+  normalizeRefundStatus: (status: string | null | undefined) =>
+    (status ?? '').trim().replace(/[\s-]+/g, '_').toUpperCase() || 'PENDING',
   RefundRequestSchema: z.object({
     type: z.enum(['FULL', 'PARTIAL']),
     method: z.enum(['ORIGINAL_GATEWAY', 'BANK_TRANSFER', 'STORE_WALLET']),
@@ -76,7 +78,38 @@ describe('RefundDialog', () => {
     expect(screen.getByText('Lý do hoàn tiền')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Mô tả lý do hoàn tiền...')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Hủy' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Xác nhận hoàn tiền 100.000 ₫' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Xác nhận hoàn tiền 100\.000\s₫/ })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Hoàn qua cổng thanh toán gốc' })).toBeInTheDocument();
+  });
+
+  it('counts lowercase success refunds toward the refundable maximum', () => {
+    render(
+      <RefundDialog
+        orderId={42}
+        totalPaid={100000}
+        existingRefunds={[
+          {
+            refundId: 1,
+            orderId: 42,
+            amount: '25000',
+            type: 'PARTIAL',
+            method: 'BANK_TRANSFER',
+            status: 'success' as any,
+            gatewayTransactionId: null,
+            reason: 'partial',
+            gatewayError: null,
+            createdBy: null,
+            createdAt: '2026-03-25T10:00:00.000Z',
+            updatedAt: '2026-03-25T10:00:00.000Z',
+          },
+        ]}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/25\.000\s₫/)).toBeInTheDocument();
+    expect(screen.getAllByText(/75\.000\s₫/).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /Xác nhận hoàn tiền 75\.000\s₫/ })).toBeInTheDocument();
   });
 });

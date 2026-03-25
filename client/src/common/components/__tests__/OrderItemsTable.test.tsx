@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const i18nMode = vi.hoisted(() => ({ rawKeys: false }));
 
@@ -17,6 +17,10 @@ describe('OrderItemsTable', () => {
     i18nMode.rawKeys = false;
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   it('keeps item chrome and review labels readable when translations return raw keys', () => {
     i18nMode.rawKeys = true;
 
@@ -25,7 +29,7 @@ describe('OrderItemsTable', () => {
         order={{
           orderId: 1,
           orderNumber: 'ORD-1',
-          status: 'Delivered',
+          status: ' Delivered ',
           paymentStatus: 'paid',
           totalAmount: '199000',
           createdAt: '2026-02-24T08:00:00.000Z',
@@ -67,5 +71,52 @@ describe('OrderItemsTable', () => {
     expect(screen.getByText('1 món')).toBeInTheDocument();
     expect(screen.getByText(/SKU:/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Đánh giá' })).toBeInTheDocument();
+  });
+
+  it('shows the review action for legacy completed statuses', () => {
+    render(
+      <OrderItemsTable
+        order={{
+          orderId: 2,
+          orderNumber: 'ORD-2',
+          status: ' completed ',
+          paymentStatus: 'paid',
+          totalAmount: '219000',
+          createdAt: '2026-02-24T08:00:00.000Z',
+          shippingAddress: {
+            recipientName: 'B',
+            phone: '091',
+            city: 'Ho Chi Minh',
+            addressDetail: '456 Street',
+          },
+          pricing: {
+            itemsTotal: 219000,
+            shippingFee: 0,
+            discount: 0,
+            tax: 0,
+            grandTotal: 219000,
+          },
+          items: [
+            {
+              orderItemId: 2,
+              productId: '20',
+              productName: 'Quan jeans',
+              sku: 'SKU-BLUE-L',
+              variantName: 'Xanh / L',
+              unitPrice: '219000',
+              price: 219000,
+              quantity: 1,
+              lineTotal: '219000',
+              subtotal: 219000,
+              isReviewed: false,
+            },
+          ],
+          timeline: [],
+        }}
+        onReview={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByRole('button', { name: 'Đánh giá' }).length).toBeGreaterThan(0);
   });
 });

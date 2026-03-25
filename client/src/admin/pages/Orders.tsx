@@ -6,6 +6,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { adminOrderService, AdminOrder } from '@/common/services/order.service';
+import { getPaymentMethodMeta, getPaymentStatusMeta } from '@/common/utils/paymentStatus';
+import { getOrderStatusDisplayMeta } from '@/common/utils/orderUiStatus';
+import { formatCurrencyFullVND } from '@/common/utils/currency';
 import {
   AdminEmptyState,
   AdminPageHeader,
@@ -22,81 +25,11 @@ type StatusTabKey = 'ALL' | 'Pending' | 'Processing' | 'Shipping' | 'Delivered' 
 type OrdersTranslator = (key: string, options?: Record<string, unknown>) => string;
 
 export const formatVND = (amount: string | number): string => {
-  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-  if (isNaN(num)) return '0 ₫';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
-};
-
-export const getOrderStatusColor = (status: string | null | undefined) => {
-  switch ((status ?? '').toUpperCase()) {
-    case 'PENDING':
-      return {
-        badge: 'bg-amber-500/12 text-amber-300 border-amber-400/20',
-        dot: 'bg-amber-300',
-      };
-    case 'PROCESSING':
-      return {
-        badge: 'bg-sky-500/12 text-sky-300 border-sky-400/20',
-        dot: 'bg-sky-300',
-      };
-    case 'SHIPPING':
-      return {
-        badge: 'bg-cyan-500/12 text-cyan-300 border-cyan-400/20',
-        dot: 'bg-cyan-300',
-      };
-    case 'DELIVERED':
-    case 'COMPLETED':
-      return {
-        badge: 'bg-emerald-500/12 text-emerald-300 border-emerald-400/20',
-        dot: 'bg-emerald-300',
-      };
-    case 'CANCELLED':
-      return {
-        badge: 'bg-red-500/12 text-red-300 border-red-400/20',
-        dot: 'bg-red-300',
-      };
-    default:
-      return {
-        badge: 'bg-white/[0.04] text-white/55 border-white/10',
-        dot: 'bg-white/40',
-      };
-  }
-};
-
-const getCompactStatusLabel = (
-  status: string | null | undefined,
-  t: OrdersTranslator,
-) => {
-  switch ((status ?? '').toUpperCase()) {
-    case 'PENDING':
-      return t('status.PENDING', { defaultValue: 'Chờ xác nhận' });
-    case 'PROCESSING':
-      return t('status.PROCESSING', { defaultValue: 'Đang xử lý' });
-    case 'SHIPPING':
-      return t('status.SHIPPING', { defaultValue: 'Đang giao' });
-    case 'DELIVERED':
-    case 'COMPLETED':
-      return t('status.DELIVERED', { defaultValue: 'Đã giao' });
-    case 'CANCELLED':
-      return t('status.CANCELLED', { defaultValue: 'Đã hủy' });
-    default:
-      return status || t('status.other', { defaultValue: 'Khác' });
-  }
+  return formatCurrencyFullVND(amount);
 };
 
 const getPaymentBadgeTone = (paymentStatus: string | null | undefined, paymentMethod?: string) => {
-  const normalizedStatus = (paymentStatus ?? '').toUpperCase();
-  const normalizedMethod = (paymentMethod ?? '').toUpperCase();
-
-  if (normalizedStatus === 'COMPLETED' || normalizedStatus === 'PAID' || normalizedStatus === 'SUCCESS') {
-    return 'bg-emerald-500/12 text-emerald-300 border-emerald-400/20';
-  }
-
-  if (normalizedMethod === 'COD') {
-    return 'bg-amber-500/12 text-amber-300 border-amber-400/20';
-  }
-
-  return 'bg-white/[0.04] text-white/65 border-white/10';
+  return getPaymentStatusMeta(paymentMethod, paymentStatus).badgeClass;
 };
 
 const getCompactPaymentLabel = (
@@ -104,34 +37,18 @@ const getCompactPaymentLabel = (
   paymentMethod: string | undefined,
   t: OrdersTranslator,
 ) => {
-  const normalizedStatus = (paymentStatus ?? '').toUpperCase();
-  const normalizedMethod = (paymentMethod ?? '').toUpperCase();
-
-  if (normalizedStatus === 'COMPLETED' || normalizedStatus === 'PAID' || normalizedStatus === 'SUCCESS') {
-    return t('paymentStatus.paid', { defaultValue: 'Đã thanh toán' });
-  }
-
-  if (normalizedMethod === 'COD') {
-    return t('paymentStatus.codPending', { defaultValue: 'Chờ thanh toán' });
-  }
-
-  return t('paymentStatus.pending', { defaultValue: 'Chờ thanh toán' });
+  const meta = getPaymentStatusMeta(paymentMethod, paymentStatus);
+  const label = t(meta.labelKey, { defaultValue: meta.defaultLabel });
+  return label === meta.labelKey ? meta.defaultLabel : label;
 };
 
 const getCompactPaymentMethodLabel = (
   paymentMethod: string | undefined,
   t: OrdersTranslator,
 ) => {
-  const normalizedMethod = (paymentMethod ?? '').toUpperCase();
-
-  switch (normalizedMethod) {
-    case 'COD':
-      return t('paymentMethod.COD', { defaultValue: 'Thanh toán khi nhận hàng' });
-    case 'VNPAY':
-      return t('paymentMethod.VNPAY', { defaultValue: 'VNPay' });
-    default:
-      return paymentMethod || t('paymentMethod.OTHER', { defaultValue: 'Khác' });
-  }
+  const meta = getPaymentMethodMeta(paymentMethod);
+  const label = t(meta.labelKey, { defaultValue: meta.defaultLabel });
+  return label === meta.labelKey ? meta.defaultLabel : label;
 };
 
 const shortenOrderNumber = (value: string) => {
@@ -168,11 +85,17 @@ const getVisiblePages = (page: number, totalPages: number) => {
 };
 
 const StatusBadge: React.FC<{ status: string; t: OrdersTranslator }> = ({ status, t }) => {
-  const { badge, dot } = getOrderStatusColor(status);
+  const { canonical, meta } = getOrderStatusDisplayMeta(status);
+  const translationKey = canonical ? `status.${canonical.toUpperCase()}` : 'status.other';
+  const translated = t(translationKey, {
+    defaultValue: canonical ? meta.label : status || 'Khác',
+  });
+  const label = translated === translationKey ? (canonical ? meta.label : status || 'Khác') : translated;
+
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badge}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
-      {getCompactStatusLabel(status, t)}
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${meta.badgeClass} ${meta.textClass}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${meta.dotClass}`} />
+      {label}
     </span>
   );
 };

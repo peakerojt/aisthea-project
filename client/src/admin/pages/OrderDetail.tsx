@@ -9,11 +9,12 @@ import { adminOrderService, AdminOrderDetail as OrderDetailType } from '@/common
 import { formatVND } from '@/admin/pages/Orders';
 import { OrderActionPanel } from '@/admin/components/OrderActionPanel';
 import { OrderTimeline } from '@/admin/components/OrderTimeline';
-import { getOrderStatusDisplayMeta, OrderStatusBadge } from '@/admin/components/OrderStatusBadge';
+import { OrderStatusBadge } from '@/admin/components/OrderStatusBadge';
 import { RefundDialog } from '@/admin/components/RefundDialog';
 import { OrderFinancials } from '@/admin/components/OrderFinancials';
 import { adminRefundService, RefundRecord } from '@/admin/services/refund.service';
 import { getImageUrl } from '@/common/utils/cloudinary';
+import { getOrderStatusDisplayMeta } from '@/common/utils/orderUiStatus';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/common/contexts/ToastContext';
 import { getPaymentStatusMeta } from '@/common/utils/paymentStatus';

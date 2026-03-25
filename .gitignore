@@ -45,3 +45,6 @@ CLAUDE.md
 *.postman_collection.json
 /nbproject/private/
 nul
+
+# Local docs workspace
+docs/

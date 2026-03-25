@@ -1,5 +1,5 @@
-import { getStatusMeta, normalizeStatus } from '@/config/orderStatus.config';
 import { useTranslation } from 'react-i18next';
+import { getOrderStatusDisplayMeta } from '@/common/utils/orderUiStatus';
 
 interface OrderStatusBadgeProps {
   status: string | null | undefined;

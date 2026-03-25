@@ -8,7 +8,7 @@ import { formatVietnamTime } from '@/common/utils/formatDate';
 import { formatCurrencyVND } from '@/common/utils/currency';
 import { useTranslation } from 'react-i18next';
 import { PaymentStatusBadge } from '@/common/components/PaymentStatusBadge';
-import { getStatusMeta, normalizeStatus } from '@/config/orderStatus.config';
+import { getCustomerOrderStatusMeta } from '@/store/utils/orderStatusDisplay';
 
 export const MyOrders: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'myOrders' });
@@ -152,8 +152,7 @@ export const MyOrders: React.FC = () => {
             ) : (
                 <div className="space-y-3">
                 {orders.map((o) => {
-                  const normalizedStatus = normalizeStatus(o.status);
-                  const statusMeta = normalizedStatus ? getStatusMeta(normalizedStatus) : null;
+                  const statusMeta = getCustomerOrderStatusMeta(o.status);
 
                   return (
                     <div key={o.orderId} className="p-5 border border-white/10 bg-black/20 rounded-sm flex flex-col md:flex-row md:items-center gap-4">

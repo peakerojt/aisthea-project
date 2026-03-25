@@ -4,6 +4,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { VNPayReturn } from '@/common/pages/VNPayReturn';
 
 const navigate = vi.fn();
+const apiGetMock = vi.hoisted(() => vi.fn());
+const searchParamMode = vi.hoisted(() => ({ value: '' }));
 
 vi.mock('react-i18next', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-i18next')>();
@@ -18,7 +20,13 @@ vi.mock('react-i18next', async (importOriginal) => {
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => navigate,
-  useSearchParams: () => [new URLSearchParams('')],
+  useSearchParams: () => [new URLSearchParams(searchParamMode.value)],
+}));
+
+vi.mock('@/common/utils/api', () => ({
+  api: {
+    get: (...args: unknown[]) => apiGetMock(...args),
+  },
 }));
 
 vi.mock('@/store/components/Header', () => ({
@@ -41,7 +49,7 @@ vi.mock('@/common/components/OrderSummaryRail', () => ({
 }));
 
 vi.mock('@/common/components/PaymentStatusBadge', () => ({
-  PaymentStatusBadge: () => <span>Đang xác nhận thanh toán</span>,
+  PaymentStatusBadge: ({ paymentStatus }: { paymentStatus: string }) => <span data-testid="payment-status-badge">{paymentStatus}</span>,
   PaymentMethodLabel: () => <span>VNPay</span>,
 }));
 
@@ -55,6 +63,7 @@ describe('VNPayReturn', () => {
     sessionStorage.clear();
     vi.clearAllMocks();
     vi.useRealTimers();
+    searchParamMode.value = '';
   });
 
   it('renders translated payment-return chrome with fallback-safe labels', async () => {
@@ -69,5 +78,19 @@ describe('VNPayReturn', () => {
     expect(screen.getByText('Đơn hàng (0 sản phẩm)')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Quản lý đơn hàng' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Tiếp tục mua hàng' })).toBeInTheDocument();
+  });
+
+  it('normalizes lowercase completed payment responses before showing success state', async () => {
+    searchParamMode.value = 'vnp_TransactionStatus=00';
+    apiGetMock.mockResolvedValue({
+      paymentStatus: 'completed',
+      code: '00',
+    });
+
+    render(<VNPayReturn />);
+
+    expect(await screen.findByText('Thanh toán VNPAY thành công!')).toBeInTheDocument();
+    expect(screen.getByTestId('payment-status-badge')).toHaveTextContent('PAID');
+    expect(screen.getByRole('button', { name: 'Xem xác nhận đơn' })).toBeInTheDocument();
   });
 });

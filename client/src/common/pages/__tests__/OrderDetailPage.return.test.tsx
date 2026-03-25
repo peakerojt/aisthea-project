@@ -74,4 +74,36 @@ describe('OrderDetailPage return CTA', () => {
     expect(pushSpy).toHaveBeenCalled();
     expect(await screen.findByTestId('return-create-page')).toBeInTheDocument();
   });
+
+  it('keeps the tracking CTA for return requested statuses with spacing drift', async () => {
+    fetchOrderDetail.mockResolvedValueOnce({
+      id: '11',
+      orderCode: 'OD20260011',
+      status: ' return-requested ',
+      paymentMethod: 'cod',
+      paymentStatus: 'paid',
+      createdAt: '2026-02-24T08:00:00.000Z',
+      customer: { name: 'A', phone: '090', email: 'a@gmail.com' },
+      shippingAddress: {
+        recipientName: 'A', recipientPhone: '090', addressLine: '123', ward: 'W', district: 'D', city: 'C',
+      },
+      items: [],
+      pricing: { itemsTotal: 1, shippingFee: 0, discount: 0, tax: 0, grandTotal: 1 },
+      timeline: [{ status: 'returned', at: '2026-02-24T08:00:00.000Z' }],
+      note: null,
+    });
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/orders/11']}>
+          <Routes>
+            <Route path="/orders/:id" element={<OrderDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Theo dõi đơn hàng' })).toBeInTheDocument();
+  });
 });

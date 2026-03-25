@@ -9,7 +9,10 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('@/admin/services/refund.service', () => ({}));
+vi.mock('@/admin/services/refund.service', () => ({
+  normalizeRefundStatus: (status: string | null | undefined) =>
+    (status ?? '').trim().replace(/[\s-]+/g, '_').toUpperCase() || 'PENDING',
+}));
 
 describe('OrderFinancials', () => {
   afterEach(() => {
@@ -52,5 +55,29 @@ describe('OrderFinancials', () => {
     render(<OrderFinancials loading={false} refunds={[]} />);
 
     expect(screen.getByText('Chưa có giao dịch hoàn tiền nào')).toBeInTheDocument();
+  });
+
+  it('normalizes lowercase failed statuses before rendering error details', () => {
+    render(
+      <OrderFinancials
+        loading={false}
+        refunds={[
+          {
+            refundId: 2,
+            orderId: 42,
+            amount: 50000,
+            type: 'PARTIAL',
+            method: 'BANK_TRANSFER',
+            status: 'failed' as any,
+            gatewayTransactionId: null,
+            gatewayError: 'Gateway timeout',
+            createdAt: '2026-03-20T08:30:00.000Z',
+          },
+        ] as any}
+      />,
+    );
+
+    expect(screen.getByText('Thất bại')).toBeInTheDocument();
+    expect(screen.getByText('Gateway timeout')).toBeInTheDocument();
   });
 });

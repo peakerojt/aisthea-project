@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { adminReturnService, OrderReturn } from '@/common/services/return.service';
 import { useToast } from '@/common/contexts/ToastContext';
+import { normalizeReturnStatus } from '@/common/utils/returnStatus';
 
 export type ReturnStatusFilter = 'ALL' | 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'RECEIVED' | 'REFUNDED';
 export type AdminReturnAction = 'APPROVE' | 'REJECT' | 'COMPLETE_REFUND';
@@ -109,7 +110,7 @@ export const useAdminReturns = () => {
   }, [load, resolveText, showToast, t]);
 
   const pendingCount = useMemo(
-    () => returns.filter((item) => item.status === 'REQUESTED').length,
+    () => returns.filter((item) => normalizeReturnStatus(item.status) === 'REQUESTED').length,
     [returns],
   );
 
@@ -118,7 +119,7 @@ export const useAdminReturns = () => {
     label: filter.label,
     count: filter.value === 'ALL'
       ? returns.length
-      : returns.filter((item) => item.status === filter.value).length,
+      : returns.filter((item) => normalizeReturnStatus(item.status) === filter.value).length,
   })), [returns, statusFilters]);
 
   const changeStatusFilter = useCallback((nextFilter: ReturnStatusFilter) => {

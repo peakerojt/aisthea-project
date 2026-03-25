@@ -17,6 +17,7 @@ import {
 import { AdminReturnAction } from '@/admin/hooks/useAdminReturns';
 import { ReasonLabel } from '@/common/components/ReasonLabel';
 import { adminReturnService, OrderReturn } from '@/common/services/return.service';
+import { normalizeReturnStatus } from '@/common/utils/returnStatus';
 
 export interface AdminReturnReviewModalProps {
     item: OrderReturn;
@@ -86,9 +87,10 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
     }, [lightboxImg]);
 
     const activeItem = detailItem ?? item;
+    const normalizedStatus = normalizeReturnStatus(activeItem.status);
     const isTerminal =
-        activeItem.status === 'REFUNDED' ||
-        activeItem.status === 'REJECTED';
+        normalizedStatus === 'REFUNDED' ||
+        normalizedStatus === 'REJECTED';
     const guestLabel = resolveText('table.guest', 'Khách vãng lai');
     const titleLabel = resolveText('modal.title', 'Xem xét yêu cầu trả hàng');
     const orderInfoLabel = resolveText('modal.orderInfo', 'Đơn hàng #{{orderNumber}} - {{customer}}', {
@@ -162,7 +164,7 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
                 footer={!isTerminal ? (
                     !showRejectForm ? (
                         <div className="flex flex-wrap gap-3">
-                            {activeItem.status === 'REQUESTED' && (
+                            {normalizedStatus === 'REQUESTED' && (
                                 <AdminActionButton
                                     onClick={() => setShowRejectForm(true)}
                                     disabled={processing}
@@ -173,7 +175,7 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
                                     {actionRejectLabel}
                                 </AdminActionButton>
                             )}
-                            {activeItem.status === 'REQUESTED' && (
+                            {normalizedStatus === 'REQUESTED' && (
                                 <AdminActionButton
                                     onClick={() => handleAction('APPROVE')}
                                     disabled={processing}

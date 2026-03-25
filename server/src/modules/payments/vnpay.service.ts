@@ -1,9 +1,8 @@
 import moment from 'moment';
+import { isSettledPaymentStatus } from '../../config/paymentStatus.config';
 import { logger } from '../../lib/logger';
 import { prisma } from '../../utils/prisma';
 import { buildSignedVnpUrl, createVnpSecureHash, extractSignedVnpQuery, type VnpParamRecord } from './vnpay.utils';
-
-const SUCCESSFUL_PAYMENT_STATUSES = ['COMPLETED', 'PAID', 'REFUNDED', 'PARTIALLY_REFUNDED'] as const;
 
 type PaymentSnapshot = {
   paymentId: number;
@@ -30,11 +29,7 @@ type VnpayIpnBody = {
 };
 
 const hasCompletedPayment = (payments: PaymentSnapshot[]) =>
-  payments.some((payment) =>
-    SUCCESSFUL_PAYMENT_STATUSES.includes(
-      (payment.status ?? '').toUpperCase() as (typeof SUCCESSFUL_PAYMENT_STATUSES)[number],
-    ),
-  );
+  payments.some((payment) => isSettledPaymentStatus(payment.status));
 
 const parsePositiveInt = (value: unknown) => {
   const parsed = Number.parseInt(String(value ?? ''), 10);

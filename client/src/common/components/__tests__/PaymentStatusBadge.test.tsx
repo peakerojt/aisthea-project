@@ -12,6 +12,7 @@ vi.mock('react-i18next', () => ({
 
       const translations: Record<string, string> = {
         'paymentStatus.REFUNDED': 'Đã hoàn tiền',
+        'paymentStatus.PARTIALLY_REFUNDED': 'Hoàn tiền một phần',
         'paymentMethod.BANK_TRANSFER': 'Chuyển khoản ngân hàng',
       };
 
@@ -54,6 +55,18 @@ describe('PaymentStatusBadge', () => {
     );
 
     expect(screen.getByText('Đã hoàn tiền')).toBeInTheDocument();
+    expect(screen.getByText('Chuyển khoản ngân hàng')).toBeInTheDocument();
+  });
+
+  it('normalizes drifted refund status and payment method values before rendering', () => {
+    render(
+      <>
+        <PaymentStatusBadge paymentMethod="bank-transfer" paymentStatus="partially-refunded" />
+        <PaymentMethodLabel paymentMethod="bank-transfer" />
+      </>,
+    );
+
+    expect(screen.getByText('Hoàn tiền một phần')).toBeInTheDocument();
     expect(screen.getByText('Chuyển khoản ngân hàng')).toBeInTheDocument();
   });
 });

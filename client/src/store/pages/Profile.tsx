@@ -23,12 +23,13 @@ import { useToast } from '@/common/contexts/ToastContext';
 import { userService, UserProfile, Address, RecentOrder } from '@/store/services/user.service';
 import { getImageUrl } from '@/common/utils/cloudinary';
 import { formatCurrencyVND } from '@/common/utils/currency';
-import { getStatusMeta, normalizeStatus, ORDER_STATUS } from '@/config/orderStatus.config';
+import { ORDER_STATUS } from '@/config/orderStatus.config';
 import { useTranslation } from 'react-i18next';
 import { type FieldErrorMap, firstFieldError, mapZodFieldErrors } from '@/common/validation/errors';
 import { profileAddressClientSchema, profileUpdateClientSchema } from '@/common/validation/schemas';
 import { fetchVNDistricts, fetchVNProvinces, fetchVNWards, resolveVNLocationSelection, type VNLocationOption } from '@/common/utils/vnLocation';
 import { ZodError } from 'zod';
+import { getCustomerOrderStatusMeta, normalizeCustomerOrderStatus } from '@/store/utils/orderStatusDisplay';
 
 const surfaceClassName = 'rounded-sm border border-white/5 bg-surface-dark';
 const mutedSurfaceClassName = 'rounded-sm border border-white/10 bg-black/20';
@@ -662,7 +663,7 @@ export const Profile: React.FC = () => {
     { id: 'pending', label: t('filters.pending') },
   ];
   const filteredOrders = recentOrders.filter((order) => {
-    const normalizedStatus = normalizeStatus(order.status);
+    const normalizedStatus = normalizeCustomerOrderStatus(order.status);
     if (orderFilter === 'all') return true;
     if (orderFilter === 'shipping') return normalizedStatus === ORDER_STATUS.SHIPPING;
     if (orderFilter === 'delivered') return normalizedStatus === ORDER_STATUS.DELIVERED;
@@ -729,8 +730,7 @@ export const Profile: React.FC = () => {
     recentOrdersContent = (
       <div className="space-y-3">
         {filteredOrders.map((order) => {
-          const normalizedStatus = normalizeStatus(order.status);
-          const statusMeta = normalizedStatus ? getStatusMeta(normalizedStatus) : null;
+          const statusMeta = getCustomerOrderStatusMeta(order.status);
 
           return (
             <div

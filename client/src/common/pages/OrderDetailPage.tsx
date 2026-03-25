@@ -15,6 +15,7 @@ import { useCart } from '@/common/contexts/CartContext';
 import { useToast } from '@/common/contexts/ToastContext';
 import { useTranslation } from 'react-i18next';
 import { normalizeStatus, ORDER_STATUS } from '@/config/orderStatus.config';
+import { getOrderUiCanonicalStatus } from '@/common/utils/orderUiStatus';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -42,17 +43,22 @@ const canConfirmReceiptStatus = (status: string | null | undefined) => {
 };
 
 const canTrackOrderStatus = (status: string | null | undefined) => {
-  if (status?.toUpperCase() === 'RETURN_REQUESTED') {
+  const canonicalStatus = getOrderUiCanonicalStatus(status);
+  if (canonicalStatus === 'RETURN_REQUESTED') {
     return true;
   }
 
-  const normalized = normalizeStatus(status);
   return (
-    normalized === ORDER_STATUS.PROCESSING ||
-    normalized === ORDER_STATUS.SHIPPING ||
-    normalized === ORDER_STATUS.DELIVERED ||
-    normalized === ORDER_STATUS.RETURNED
+    canonicalStatus === ORDER_STATUS.PROCESSING ||
+    canonicalStatus === ORDER_STATUS.SHIPPING ||
+    canonicalStatus === ORDER_STATUS.DELIVERED ||
+    canonicalStatus === ORDER_STATUS.RETURNED
   );
+};
+
+const normalizeOrderActionStatus = (status: string | null | undefined) => {
+  const canonicalStatus = getOrderUiCanonicalStatus(status);
+  return canonicalStatus === 'RETURN_REQUESTED' ? null : canonicalStatus;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -252,6 +258,16 @@ export const OrderDetailPage: React.FC = () => {
   const canTrack = useMemo(() => {
     if (!order) return false;
     return canTrackOrderStatus(order.status);
+  }, [order]);
+
+  const canBuyAgain = useMemo(() => {
+    if (!order) return false;
+    const normalizedStatus = normalizeOrderActionStatus(order.status);
+    return (
+      normalizedStatus === ORDER_STATUS.DELIVERED ||
+      normalizedStatus === ORDER_STATUS.CANCELLED ||
+      normalizedStatus === ORDER_STATUS.RETURNED
+    );
   }, [order]);
 
   // ── Guest guard ──
@@ -535,9 +551,7 @@ export const OrderDetailPage: React.FC = () => {
 
                   {/* ── Mua Lại (Buy Again) Button ── */}
                   {/* Shown for delivered/cancelled/returned orders so customer can re-purchase */}
-                  {['delivered', 'cancelled', 'canceled', 'returned'].includes(
-                    (order.status || '').toLowerCase(),
-                  ) && (
+                  {canBuyAgain && (
                       <button
                         onClick={() => buyAgainMutation.mutate()}
                         disabled={buyAgainMutation.isPending}

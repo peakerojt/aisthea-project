@@ -2,9 +2,8 @@ import React from 'react';
 import { Star } from 'lucide-react';
 import { OrderDetail, OrderItem } from '@/common/services/order.service';
 import { useTranslation } from 'react-i18next';
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+import { normalizeStatus, ORDER_STATUS } from '@/config/orderStatus.config';
+import { formatCurrencyFullVND } from '@/common/utils/currency';
 
 interface OrderItemsTableProps {
   order: OrderDetail;
@@ -25,7 +24,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({ order, onRevie
   const skuLabel = resolveText('sku', 'SKU');
   const reviewedLabel = resolveText('reviewed', 'Đã đánh giá');
   const reviewActionLabel = resolveText('reviewAction', 'Đánh giá');
-  const isDelivered = (order.status ?? '').toLowerCase() === 'delivered';
+  const isDelivered = normalizeStatus(order.status?.trim()) === ORDER_STATUS.DELIVERED;
 
   return (
     <div className="bg-surface-dark border border-white/5 rounded-sm p-6">
@@ -78,9 +77,9 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({ order, onRevie
               <div className="flex flex-col items-end justify-between gap-2 shrink-0">
                 <div className="text-right">
                   <div className="text-xs text-white/60">
-                    {it.quantity} × {formatCurrency(it.price)}
+                    {it.quantity} × {formatCurrencyFullVND(it.price)}
                   </div>
-                  <div className="text-white font-semibold mt-1">{formatCurrency(it.subtotal)}</div>
+                  <div className="text-white font-semibold mt-1">{formatCurrencyFullVND(it.subtotal)}</div>
                 </div>
 
                 {/* Review button — only visible on Delivered orders */}

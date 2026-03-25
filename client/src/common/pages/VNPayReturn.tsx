@@ -8,15 +8,19 @@ import { OrderSummaryRail } from '@/common/components/OrderSummaryRail';
 import { PaymentMethodLabel, PaymentStatusBadge } from '@/common/components/PaymentStatusBadge';
 import { formatCurrencyVND } from '@/common/utils/currency';
 import { getLatestOrderData } from '@/common/utils/orderSnapshot';
+import { getPaymentStatusMeta, type PaymentDisplayStatus } from '@/common/utils/paymentStatus';
 
 const VNPAY_RETURN_CACHE_KEY = 'aisthea:vnpay-return-status';
 
 type VNPayReturnCache = {
   status: 'loading' | 'success' | 'failed';
   message: string;
-  paymentStatusCode: string;
+  paymentStatusCode: PaymentDisplayStatus;
   cachedAt: number;
 };
+
+const normalizeGatewayCode = (value: string | null | undefined) =>
+  value?.trim().replace(/[\s-]+/g, '_').toUpperCase() ?? '';
 
 export const VNPayReturn: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'vnpayReturn' });
@@ -101,7 +105,7 @@ export const VNPayReturn: React.FC = () => {
   const continueShoppingLabel = resolveText('actions.continueShopping', 'Tiếp tục mua hàng');
   const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
   const [message, setMessage] = useState(loadingMessageLabel);
-  const [paymentStatusCode, setPaymentStatusCode] = useState<string>('VERIFYING');
+  const [paymentStatusCode, setPaymentStatusCode] = useState<PaymentDisplayStatus>('VERIFYING');
   const orderData = getLatestOrderData();
 
   const progressSteps = [
@@ -151,7 +155,7 @@ export const VNPayReturn: React.FC = () => {
 
           setStatus(cached.status);
           setMessage(cached.message);
-          setPaymentStatusCode(cached.paymentStatusCode);
+          setPaymentStatusCode(getPaymentStatusMeta('VNPAY', cached.paymentStatusCode).canonicalStatus);
         } catch {
           setStatus('failed');
           setMessage(errorMessageLabel);
@@ -162,18 +166,20 @@ export const VNPayReturn: React.FC = () => {
 
       try {
         const data = await api.get<any>(`/api/vnpay/vnpay_return?${queryString}`);
+        const canonicalPaymentStatus = getPaymentStatusMeta('VNPAY', data.paymentStatus).canonicalStatus;
+        const normalizedCode = normalizeGatewayCode(data.code);
         let nextStatus: 'loading' | 'success' | 'failed' = 'failed';
         let nextMessage = failedMessageLabel;
-        let nextPaymentStatus = data.paymentStatus || 'FAILED';
+        let nextPaymentStatus: PaymentDisplayStatus = canonicalPaymentStatus === 'UNKNOWN' ? 'FAILED' : canonicalPaymentStatus;
 
-        if (data.paymentStatus === 'COMPLETED' && data.code === '00') {
+        if (canonicalPaymentStatus === 'PAID' && normalizedCode === '00') {
           nextStatus = 'success';
           nextMessage = successMessageLabel;
-          nextPaymentStatus = 'COMPLETED';
-        } else if (data.paymentStatus === 'PENDING' || data.code === 'PENDING') {
+          nextPaymentStatus = 'PAID';
+        } else if (canonicalPaymentStatus === 'PENDING' || canonicalPaymentStatus === 'VERIFYING' || normalizedCode === 'PENDING') {
           nextStatus = 'loading';
           nextMessage = loadingMessageLabel;
-          nextPaymentStatus = data.paymentStatus || 'PENDING';
+          nextPaymentStatus = canonicalPaymentStatus === 'UNKNOWN' ? 'PENDING' : canonicalPaymentStatus;
         }
 
         setStatus(nextStatus);

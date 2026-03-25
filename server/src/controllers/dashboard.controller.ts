@@ -1,13 +1,13 @@
 import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { logger } from '../lib/logger';
+import { FULFILLED_ORDER_REPORTING_STATUSES } from '../config/orderReporting.config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
 type DateRange = 'today' | 'week' | 'month' | 'year';
-const REVENUE_ORDER_STATUSES = ['DELIVERED', 'Delivered', 'COMPLETED', 'Completed'] as const;
 
 function getDateRange(range: DateRange): { start: Date; end: Date } {
     const now = new Date();
@@ -53,7 +53,7 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
         // Execute independent dashboard queries in parallel to reduce wait time.
         const revenuePromise = prisma.order.aggregate({
             where: {
-                status: { in: [...REVENUE_ORDER_STATUSES] },
+                status: { in: [...FULFILLED_ORDER_REPORTING_STATUSES] },
                 createdAt: { gte: start, lte: end },
             },
             _sum: { totalAmount: true },

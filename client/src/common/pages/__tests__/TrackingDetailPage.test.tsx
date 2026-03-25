@@ -178,4 +178,73 @@ describe('TrackingDetailPage', () => {
     expect(screen.getByText('Sản phẩm trong đơn (1)')).toBeInTheDocument();
     expect(screen.getByText('Thông tin được cập nhật tự động khi có thay đổi. Không cần tải lại trang.')).toBeInTheDocument();
   });
+
+  it('normalizes hyphenated return requested statuses before rendering labels', async () => {
+    getOrderTrackingMock.mockResolvedValueOnce(
+      makeTracking({
+        currentStatus: 'return-requested' as TrackingData['currentStatus'],
+        timeline: [
+          {
+            status: 'return requested' as TrackingData['timeline'][number]['status'],
+            timestamp: '2026-03-25T10:00:00.000Z',
+            note: 'Khach yeu cau tra hang',
+          },
+        ],
+      }),
+    );
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(getOrderTrackingMock).toHaveBeenCalledWith(42);
+    });
+
+    expect(await screen.findAllByText('Yêu cầu trả hàng')).toHaveLength(2);
+  });
+
+  it('normalizes canceled aliases before rendering labels', async () => {
+    getOrderTrackingMock.mockResolvedValueOnce(
+      makeTracking({
+        currentStatus: ' canceled ' as TrackingData['currentStatus'],
+        timeline: [
+          {
+            status: 'cancelled' as TrackingData['timeline'][number]['status'],
+            timestamp: '2026-03-25T10:00:00.000Z',
+            note: 'Da huy don',
+          },
+        ],
+      }),
+    );
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(getOrderTrackingMock).toHaveBeenCalledWith(42);
+    });
+
+    expect(await screen.findAllByText('Đã hủy')).toHaveLength(2);
+  });
+
+  it('normalizes completed aliases before rendering delivered labels', async () => {
+    getOrderTrackingMock.mockResolvedValueOnce(
+      makeTracking({
+        currentStatus: ' completed ' as TrackingData['currentStatus'],
+        timeline: [
+          {
+            status: 'COMPLETED' as TrackingData['timeline'][number]['status'],
+            timestamp: '2026-03-25T10:00:00.000Z',
+            note: 'Da giao hang',
+          },
+        ],
+      }),
+    );
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(getOrderTrackingMock).toHaveBeenCalledWith(42);
+    });
+
+    expect(await screen.findAllByText('Đã giao hàng')).toHaveLength(3);
+  });
 });

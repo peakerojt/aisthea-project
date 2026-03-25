@@ -10,15 +10,13 @@
  */
 
 import React from 'react';
-import { RefundRecord, RefundStatus } from '@/admin/services/refund.service';
+import { normalizeRefundStatus, RefundRecord, RefundStatus } from '@/admin/services/refund.service';
 import { Landmark } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { adminUiTokens } from '@/admin/components/AdminUI';
+import { formatCurrencyFullVND } from '@/common/utils/currency';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const formatVND = (amount: string | number) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(amount));
 
 const formatDate = (iso: string) =>
     new Intl.DateTimeFormat('vi-VN', {
@@ -136,7 +134,9 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                             </tr>
                         </thead>
                         <tbody className={adminUiTokens.tableBody}>
-                            {refunds.map((r) => (
+                            {refunds.map((r) => {
+                                const normalizedStatus = normalizeRefundStatus(r.status);
+                                return (
                                 <tr key={r.refundId} className={adminUiTokens.tableRowSoft}>
                                     <td className="px-4 py-3 text-white/50 font-mono whitespace-nowrap">
                                         {formatDate(r.createdAt)}
@@ -151,7 +151,7 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                                         )}
                                     </td>
                                     <td className="px-4 py-3 font-bold text-white whitespace-nowrap">
-                                        {formatVND(r.amount)}
+                                        {formatCurrencyFullVND(r.amount)}
                                         <span className="ml-1.5 text-[10px] text-white/30">
                                             {r.type === 'FULL' ? fullTypeLabel : partialTypeLabel}
                                         </span>
@@ -161,8 +161,8 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                                     </td>
                                     <td className="px-4 py-3">
                                         <div className="flex flex-col gap-1">
-                                            <StatusBadge status={r.status} label={refundStatusLabels[r.status]} />
-                                            {r.status === 'FAILED' && r.gatewayError && (
+                                            <StatusBadge status={normalizedStatus} label={refundStatusLabels[normalizedStatus]} />
+                                            {normalizedStatus === 'FAILED' && r.gatewayError && (
                                                 <span className="text-[10px] text-red-400/70 leading-tight">
                                                     {r.gatewayError}
                                                 </span>
@@ -170,7 +170,8 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
