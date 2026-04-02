@@ -8,7 +8,8 @@ import { Profile } from '@/store/pages/Profile';
 
 const getProfile = vi.fn();
 const getAddresses = vi.fn();
-const getRecentOrders = vi.fn();
+const getMyOrders = vi.fn();
+const getMyReturnSummaries = vi.fn();
 
 vi.mock('react-i18next', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-i18next')>();
@@ -51,7 +52,6 @@ vi.mock('@/store/services/user.service', async () => {
       ...actual.userService,
       getProfile: (...args: any[]) => getProfile(...args),
       getAddresses: (...args: any[]) => getAddresses(...args),
-      getRecentOrders: (...args: any[]) => getRecentOrders(...args),
       updateProfile: vi.fn(),
       uploadAvatar: vi.fn(),
       deleteAvatar: vi.fn(),
@@ -59,6 +59,28 @@ vi.mock('@/store/services/user.service', async () => {
       updateAddress: vi.fn(),
       deleteAddress: vi.fn(),
       setDefaultAddress: vi.fn(),
+    },
+  };
+});
+
+vi.mock('@/common/services/order.service', async () => {
+  const actual = await vi.importActual<any>('@/common/services/order.service');
+  return {
+    ...actual,
+    orderService: {
+      ...actual.orderService,
+      getMyOrders: (...args: any[]) => getMyOrders(...args),
+    },
+  };
+});
+
+vi.mock('@/common/services/return.summary.service', async () => {
+  const actual = await vi.importActual<any>('@/common/services/return.summary.service');
+  return {
+    ...actual,
+    returnSummaryService: {
+      ...actual.returnSummaryService,
+      myReturnSummaries: (...args: any[]) => getMyReturnSummaries(...args),
     },
   };
 });
@@ -95,18 +117,30 @@ describe('Profile recent orders', () => {
       completeness: 100,
     });
     getAddresses.mockResolvedValue([]);
+    getMyOrders.mockResolvedValue({
+      orders: [],
+      pagination: { page: 1, pageSize: 5, total: 0, totalPages: 0 },
+    });
+    getMyReturnSummaries.mockResolvedValue([]);
   });
 
   it('renders canonical cancelled labels for drifted canceled recent-order statuses', async () => {
-    getRecentOrders.mockResolvedValue([
-      {
-        orderId: 10,
-        orderNumber: 'ORD-10',
-        totalAmount: 199000,
-        status: ' canceled ',
-        createdAt: '2026-02-24T08:00:00.000Z',
-      },
-    ]);
+    getMyOrders.mockResolvedValue({
+      orders: [
+        {
+          orderId: 10,
+          orderNumber: 'ORD-10',
+          orderCode: 'OD20260010',
+          totalAmount: '199000',
+          itemCount: 1,
+          status: ' canceled ',
+          paymentMethod: 'cod',
+          paymentStatus: 'PENDING_COD',
+          createdAt: '2026-02-24T08:00:00.000Z',
+        },
+      ],
+      pagination: { page: 1, pageSize: 5, total: 1, totalPages: 1 },
+    });
 
     render(
       <MemoryRouter>
@@ -117,20 +151,27 @@ describe('Profile recent orders', () => {
     const orderButtons = await screen.findAllByRole('button', { name: 'sidebar.orders' });
     await userEvent.click(orderButtons[0]);
 
-    expect(await screen.findByText('Đã hủy')).toBeInTheDocument();
+    expect((await screen.findAllByText('Đã hủy')).length).toBeGreaterThan(0);
     expect(screen.queryByText(' canceled ')).not.toBeInTheDocument();
   });
 
   it('renders canonical return requested labels for drifted recent-order statuses', async () => {
-    getRecentOrders.mockResolvedValue([
-      {
-        orderId: 11,
-        orderNumber: 'ORD-11',
-        totalAmount: 299000,
-        status: ' return-requested ',
-        createdAt: '2026-02-24T08:00:00.000Z',
-      },
-    ]);
+    getMyOrders.mockResolvedValue({
+      orders: [
+        {
+          orderId: 11,
+          orderNumber: 'ORD-11',
+          orderCode: 'OD20260011',
+          totalAmount: '299000',
+          itemCount: 1,
+          status: ' return-requested ',
+          paymentMethod: 'cod',
+          paymentStatus: 'PENDING_COD',
+          createdAt: '2026-02-24T08:00:00.000Z',
+        },
+      ],
+      pagination: { page: 1, pageSize: 5, total: 1, totalPages: 1 },
+    });
 
     render(
       <MemoryRouter>
@@ -146,15 +187,22 @@ describe('Profile recent orders', () => {
   });
 
   it('renders canonical delivered labels for legacy completed recent-order statuses', async () => {
-    getRecentOrders.mockResolvedValue([
-      {
-        orderId: 12,
-        orderNumber: 'ORD-12',
-        totalAmount: 399000,
-        status: ' completed ',
-        createdAt: '2026-02-24T08:00:00.000Z',
-      },
-    ]);
+    getMyOrders.mockResolvedValue({
+      orders: [
+        {
+          orderId: 12,
+          orderNumber: 'ORD-12',
+          orderCode: 'OD20260012',
+          totalAmount: '399000',
+          itemCount: 1,
+          status: ' completed ',
+          paymentMethod: 'cod',
+          paymentStatus: 'PENDING_COD',
+          createdAt: '2026-02-24T08:00:00.000Z',
+        },
+      ],
+      pagination: { page: 1, pageSize: 5, total: 1, totalPages: 1 },
+    });
 
     render(
       <MemoryRouter>
@@ -165,25 +213,79 @@ describe('Profile recent orders', () => {
     const orderButtons = await screen.findAllByRole('button', { name: 'sidebar.orders' });
     await userEvent.click(orderButtons[0]);
 
-    expect(await screen.findByText('Đã giao hàng')).toBeInTheDocument();
+    expect((await screen.findAllByText('Đã giao hàng')).length).toBeGreaterThan(0);
     expect(screen.queryByText(' completed ')).not.toBeInTheDocument();
   });
 
-  it('includes legacy completed statuses in the delivered recent-order filter', async () => {
-    getRecentOrders.mockResolvedValue([
+  it('uses the same shared delivered filter labels as my orders', async () => {
+    getMyOrders.mockResolvedValue({
+      orders: [
+        {
+          orderId: 13,
+          orderNumber: 'ORD-13',
+          orderCode: 'OD20260013',
+          totalAmount: '499000',
+          itemCount: 1,
+          status: ' completed ',
+          paymentMethod: 'cod',
+          paymentStatus: 'PENDING_COD',
+          createdAt: '2026-02-24T08:00:00.000Z',
+        },
+        {
+          orderId: 14,
+          orderNumber: 'ORD-14',
+          orderCode: 'OD20260014',
+          totalAmount: '599000',
+          itemCount: 1,
+          status: ' pending ',
+          paymentMethod: 'cod',
+          paymentStatus: 'PENDING_COD',
+          createdAt: '2026-02-24T08:00:00.000Z',
+        },
+      ],
+      pagination: { page: 1, pageSize: 5, total: 2, totalPages: 1 },
+    });
+
+    render(
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>,
+    );
+
+    const orderButtons = await screen.findAllByRole('button', { name: 'sidebar.orders' });
+    await userEvent.click(orderButtons[0]);
+    await userEvent.click(screen.getByRole('button', { name: 'Đã giao hàng' }));
+
+    expect(screen.getByText(/OD20260013/)).toBeInTheDocument();
+    expect(screen.queryByText(/OD20260014/)).not.toBeInTheDocument();
+  });
+
+  it('renders linked return summary in the profile orders section through the shared disclosure card', async () => {
+    getMyOrders.mockResolvedValue({
+      orders: [
+        {
+          orderId: 22,
+          orderNumber: 'ORD-22',
+          orderCode: 'OD20260022',
+          totalAmount: '499000',
+          itemCount: 2,
+          status: ' delivered ',
+          paymentMethod: 'vnpay',
+          paymentStatus: 'paid',
+          createdAt: '2026-02-24T08:00:00.000Z',
+        },
+      ],
+      pagination: { page: 1, pageSize: 5, total: 1, totalPages: 1 },
+    });
+    getMyReturnSummaries.mockResolvedValue([
       {
-        orderId: 13,
-        orderNumber: 'ORD-13',
-        totalAmount: 499000,
-        status: ' completed ',
-        createdAt: '2026-02-24T08:00:00.000Z',
-      },
-      {
-        orderId: 14,
-        orderNumber: 'ORD-14',
-        totalAmount: 599000,
-        status: ' pending ',
-        createdAt: '2026-02-24T08:00:00.000Z',
+        returnRequestId: 301,
+        orderId: 22,
+        workflowStatus: 'ACCEPTED_FOR_REFUND',
+        refundStatus: 'FAILED',
+        refundableCapAmount: '80000',
+        totalRefundAmount: '100000',
+        financeNote: 'Đang đối soát lại giao dịch hoàn tiền.',
       },
     ]);
 
@@ -195,10 +297,12 @@ describe('Profile recent orders', () => {
 
     const orderButtons = await screen.findAllByRole('button', { name: 'sidebar.orders' });
     await userEvent.click(orderButtons[0]);
-    await userEvent.click(screen.getByRole('button', { name: 'filters.delivered' }));
 
-    expect(await screen.findByText('Đã giao hàng')).toBeInTheDocument();
-    expect(screen.getByText('recentOrders.orderNumber:ORD-13')).toBeInTheDocument();
-    expect(screen.queryByText('recentOrders.orderNumber:ORD-14')).not.toBeInTheDocument();
+    expect(await screen.findByText('Đã chấp nhận hoàn tiền')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Xem thông tin hoàn hàng' }));
+    expect(await screen.findByText('Trạng thái hoàn tiền')).toBeInTheDocument();
+    expect(screen.getByText('Hoàn tiền thất bại')).toBeInTheDocument();
+    expect(screen.getByText('80.000đ')).toBeInTheDocument();
+    expect(screen.getByText('Đang đối soát lại giao dịch hoàn tiền.')).toBeInTheDocument();
   });
 });

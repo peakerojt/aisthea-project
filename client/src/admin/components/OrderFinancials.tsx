@@ -10,10 +10,21 @@
  */
 
 import React from 'react';
-import { normalizeRefundStatus, RefundRecord, RefundStatus } from '@/admin/services/refund.service';
+import {
+    getRefundProcessingState,
+    getRemainingRefundableAmount,
+    getSuccessfulRefundedAmount,
+    getTotalCollectedAmount,
+    normalizeRefundStatus,
+    RefundFinancialSummary,
+    RefundablePaymentLike,
+    RefundRecord,
+    RefundStatus,
+} from '@/admin/services/refund.service';
 import { Landmark } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { adminUiTokens } from '@/admin/components/AdminUI';
+import { RefundProcessingNotice } from '@/admin/components/RefundProcessingNotice';
 import { formatCurrencyFullVND } from '@/common/utils/currency';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -43,12 +54,14 @@ const StatusBadge: React.FC<{ status: RefundStatus; label: string }> = ({ status
 
 interface OrderFinancialsProps {
     refunds: RefundRecord[];
+    payments?: RefundablePaymentLike[];
+    summary?: RefundFinancialSummary;
     loading?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loading }) => {
+export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, payments = [], summary, loading }) => {
     const { t } = useTranslation(['orders']);
     const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
         template.replace(/\{\{(\w+)\}\}/g, (_, token) => String(options?.[token] ?? `{{${token}}}`));
@@ -79,6 +92,22 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
         SUCCESS: resolveText('refund.status.SUCCESS', 'Thành công'),
         FAILED: resolveText('refund.status.FAILED', 'Thất bại'),
     };
+    const processingRefundLockedLabel = resolveText(
+        'refund.warnings.processingLocked',
+        'Đơn hàng này đang có một yêu cầu hoàn tiền khác đang được xử lý. Hãy chờ cổng thanh toán phản hồi hoặc cập nhật giao dịch hiện tại trước khi tạo yêu cầu mới.',
+    );
+    const processingRefundGatewayHintTemplate = 'Tín hiệu gần nhất từ cổng: {{message}}';
+    const { processingRefund } = getRefundProcessingState(refunds);
+    const totalCollectedLabel = resolveText('refund.financials.summary.totalCollected', 'Đã thu');
+    const totalRefundedLabel = resolveText('refund.financials.summary.totalRefunded', 'Đã hoàn');
+    const remainingRefundableLabel = resolveText('refund.financials.summary.remainingRefundable', 'Còn có thể hoàn');
+    const fullyRefundedLabel = resolveText(
+        'refund.financials.summary.fullyRefunded',
+        'Đơn hàng này đã hoàn hết số tiền đã thu. Không còn số dư để tạo thêm giao dịch hoàn tiền.',
+    );
+    const totalCollected = summary?.totalCollected ?? getTotalCollectedAmount(payments);
+    const totalRefunded = summary?.totalRefunded ?? getSuccessfulRefundedAmount(refunds);
+    const remainingRefundable = summary?.remainingRefundable ?? getRemainingRefundableAmount(payments, refunds);
 
     return (
         <div className="bg-[#111318] border border-white/[0.07] rounded-2xl overflow-hidden">
@@ -96,6 +125,45 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                     </span>
                 )}
             </div>
+
+            {processingRefund && (
+                <div className="border-b border-amber-500/15 px-5 py-3">
+                    <RefundProcessingNotice
+                        compact
+                        message={processingRefundLockedLabel}
+                        gatewayMessage={
+                            processingRefund.gatewayError
+                                ? resolveText('refund.warnings.processingGatewayHint', processingRefundGatewayHintTemplate, {
+                                    message: processingRefund.gatewayError,
+                                })
+                                : undefined
+                        }
+                        className="border-0 bg-transparent px-0 py-0"
+                    />
+                </div>
+            )}
+
+            {!loading && totalCollected > 0 && (
+                <div className="border-b border-white/[0.06] px-5 py-4">
+                    <div className="grid grid-cols-3 gap-3">
+                        {[
+                            { label: totalCollectedLabel, value: formatCurrencyFullVND(totalCollected), valueClassName: 'text-white' },
+                            { label: totalRefundedLabel, value: formatCurrencyFullVND(totalRefunded), valueClassName: 'text-amber-400' },
+                            { label: remainingRefundableLabel, value: formatCurrencyFullVND(remainingRefundable), valueClassName: 'text-emerald-400' },
+                        ].map(({ label, value, valueClassName }) => (
+                            <div key={label} className="rounded-sm border border-white/[0.06] bg-white/[0.03] p-3 text-center">
+                                <p className="mb-1 text-[9px] uppercase tracking-wider text-white/35">{label}</p>
+                                <p className={`text-[13px] font-bold ${valueClassName}`}>{value}</p>
+                            </div>
+                        ))}
+                    </div>
+                    {remainingRefundable === 0 && (
+                        <div className="mt-3 rounded-xl border border-emerald-500/15 bg-emerald-500/10 px-4 py-3">
+                            <p className="text-[12px] text-emerald-200">{fullyRefundedLabel}</p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Loading */}
             {loading && (
@@ -162,8 +230,14 @@ export const OrderFinancials: React.FC<OrderFinancialsProps> = ({ refunds, loadi
                                     <td className="px-4 py-3">
                                         <div className="flex flex-col gap-1">
                                             <StatusBadge status={normalizedStatus} label={refundStatusLabels[normalizedStatus]} />
-                                            {normalizedStatus === 'FAILED' && r.gatewayError && (
-                                                <span className="text-[10px] text-red-400/70 leading-tight">
+                                            {(normalizedStatus === 'FAILED' || normalizedStatus === 'PROCESSING') && r.gatewayError && (
+                                                <span
+                                                    className={`text-[10px] leading-tight ${
+                                                        normalizedStatus === 'FAILED'
+                                                            ? 'text-red-400/70'
+                                                            : 'text-amber-300/80'
+                                                    }`}
+                                                >
                                                     {r.gatewayError}
                                                 </span>
                                             )}

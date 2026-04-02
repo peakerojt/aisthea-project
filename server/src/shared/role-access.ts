@@ -9,6 +9,10 @@ export type RoleCarrier =
 
 export const SUPPORT_ACCESS_ROLES = ['admin', 'support'] as const;
 export const RETURN_REQUEST_CREATOR_ROLES = ['customer', ...SUPPORT_ACCESS_ROLES] as const;
+export const RETURN_REQUEST_ADMIN_LIST_ROLES = [...SUPPORT_ACCESS_ROLES] as const;
+export const RETURN_REQUEST_REVIEW_ROLES = [...SUPPORT_ACCESS_ROLES] as const;
+export const RETURN_REQUEST_WAREHOUSE_ROLES = [...SUPPORT_ACCESS_ROLES] as const;
+export const RETURN_REQUEST_FINANCE_ROLES = ['admin'] as const;
 
 const normalizeRoleList = (roles: Array<string | null | undefined>): string[] =>
   roles

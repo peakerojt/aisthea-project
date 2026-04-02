@@ -6,6 +6,7 @@ import {
   emailField,
   fullNameField,
   noteField,
+  normalizeOptionalTextInput,
   optionalCouponCodeField,
   phoneField,
   positiveIntField,
@@ -53,6 +54,14 @@ export const myOrderIdParamSchema = z.object({
   orderId: z.coerce.number().int('Mã đơn hàng phải là số nguyên').positive('Mã đơn hàng phải lớn hơn 0'),
 });
 
+export const cancelOrderBodySchema = z.object({
+  reason: z.preprocess(
+    normalizeOptionalTextInput,
+    z.string().max(120, 'Lý do hủy không được vượt quá 120 ký tự').optional(),
+  ),
+  note: noteField,
+}).strict();
+
 export const updateOrderStatusSchema = z.object({
   status: z.string().trim().min(1, 'Vui lòng nhập trạng thái'),
   note: noteField,
@@ -66,3 +75,4 @@ export const updateOrderStatusSchema = z.object({
 export type OrderIdParams = z.infer<typeof orderIdParamSchema>;
 export type QuoteOrderInput = z.infer<typeof quoteOrderSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
+export type CancelOrderBodyInput = z.infer<typeof cancelOrderBodySchema>;

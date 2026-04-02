@@ -426,6 +426,9 @@ BEGIN
         VariantName NVARCHAR(200) NOT NULL,
         UnitPrice   DECIMAL(18,2) NOT NULL,
         Quantity    INT           NOT NULL,
+        GrossItemAmount         DECIMAL(18,2) NOT NULL DEFAULT 0,
+        AllocatedDiscountAmount DECIMAL(18,2) NOT NULL DEFAULT 0,
+        NetItemPaidAmount       DECIMAL(18,2) NOT NULL DEFAULT 0,
         CONSTRAINT FK_OrderItems_Orders   FOREIGN KEY (OrderId)   REFERENCES Orders(OrderId) ON DELETE CASCADE,
         CONSTRAINT FK_OrderItems_Variants FOREIGN KEY (VariantId) REFERENCES ProductVariants(VariantId) ON DELETE SET NULL
     );
@@ -502,6 +505,119 @@ BEGIN
     CREATE NONCLUSTERED INDEX IX_OrderReturns_Status  ON OrderReturns(Status);
     CREATE NONCLUSTERED INDEX IX_OrderReturns_UserId  ON OrderReturns(UserId) WHERE UserId IS NOT NULL;
     PRINT 'OK: OrderReturns';
+END
+GO
+
+-- ReturnRequests
+-- Status examples: REQUESTED | PENDING_PAYMENT_CONFIRMATION | PENDING_ADMIN_REVIEW | APPROVED | IN_RETURN_TRANSIT | RECEIVED_AND_INSPECTING | ACCEPTED_FOR_REFUND | REJECTED | CLOSED
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ReturnRequests')
+BEGIN
+    CREATE TABLE ReturnRequests (
+        ReturnRequestId   INT            IDENTITY(1,1) PRIMARY KEY,
+        OrderId           INT            NOT NULL,
+        UserId            INT            NOT NULL,
+        Reason            NVARCHAR(500)  NOT NULL,
+        Note              NVARCHAR(1000) NULL,
+        DeliveredAt       DATETIME2      NULL,
+        TotalRefundAmount DECIMAL(18,2)  NOT NULL DEFAULT 0,
+        Status            NVARCHAR(50)   NOT NULL DEFAULT 'REQUESTED',
+        RefundStatus      NVARCHAR(50)   NOT NULL DEFAULT 'NOT_APPLICABLE',
+        FinanceNote       NVARCHAR(1000) NULL,
+        CreatedAt         DATETIME2      NOT NULL DEFAULT GETDATE(),
+        UpdatedAt         DATETIME2      NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_ReturnRequests_Orders FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) ON DELETE CASCADE,
+        CONSTRAINT FK_ReturnRequests_Users  FOREIGN KEY (UserId) REFERENCES Users(UserId)
+    );
+    CREATE NONCLUSTERED INDEX IX_ReturnRequests_OrderId   ON ReturnRequests(OrderId);
+    CREATE NONCLUSTERED INDEX IX_ReturnRequests_Status    ON ReturnRequests(Status);
+    CREATE NONCLUSTERED INDEX IX_ReturnRequests_UserId    ON ReturnRequests(UserId);
+    CREATE NONCLUSTERED INDEX IX_ReturnRequests_CreatedAt ON ReturnRequests(CreatedAt);
+    PRINT 'OK: ReturnRequests';
+END
+GO
+
+-- ReturnRequestItems
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ReturnRequestItems')
+BEGIN
+    CREATE TABLE ReturnRequestItems (
+        ReturnRequestItemId INT            IDENTITY(1,1) PRIMARY KEY,
+        ReturnRequestId     INT            NOT NULL,
+        OrderItemId         INT            NOT NULL,
+        Quantity            INT            NOT NULL CHECK (Quantity > 0),
+        UnitPrice           DECIMAL(18,2)  NOT NULL,
+        Reason              NVARCHAR(500)  NOT NULL,
+        ReasonText          NVARCHAR(200)  NULL,
+        CreatedAt           DATETIME2      NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_ReturnRequestItems_ReturnRequests FOREIGN KEY (ReturnRequestId) REFERENCES ReturnRequests(ReturnRequestId) ON DELETE CASCADE,
+        CONSTRAINT FK_ReturnRequestItems_OrderItems     FOREIGN KEY (OrderItemId) REFERENCES OrderItems(OrderItemId)
+    );
+    CREATE NONCLUSTERED INDEX IX_ReturnRequestItems_ReturnRequestId ON ReturnRequestItems(ReturnRequestId);
+    CREATE NONCLUSTERED INDEX IX_ReturnRequestItems_OrderItemId     ON ReturnRequestItems(OrderItemId);
+    PRINT 'OK: ReturnRequestItems';
+END
+GO
+
+-- ReturnRequestAttachments
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ReturnRequestAttachments')
+BEGIN
+    CREATE TABLE ReturnRequestAttachments (
+        AttachmentId        INT            IDENTITY(1,1) PRIMARY KEY,
+        ReturnRequestId     INT            NOT NULL,
+        ReturnRequestItemId INT            NULL,
+        FileUrl             NVARCHAR(1000) NOT NULL,
+        CreatedAt           DATETIME2      NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_ReturnRequestAttachments_ReturnRequests FOREIGN KEY (ReturnRequestId) REFERENCES ReturnRequests(ReturnRequestId) ON DELETE CASCADE,
+        CONSTRAINT FK_ReturnRequestAttachments_ReturnRequestItems FOREIGN KEY (ReturnRequestItemId) REFERENCES ReturnRequestItems(ReturnRequestItemId)
+    );
+    CREATE NONCLUSTERED INDEX IX_ReturnRequestAttachments_ReturnRequestId ON ReturnRequestAttachments(ReturnRequestId);
+    CREATE NONCLUSTERED INDEX IX_ReturnRequestAttachments_ReturnRequestItemId ON ReturnRequestAttachments(ReturnRequestItemId);
+    PRINT 'OK: ReturnRequestAttachments';
+END
+GO
+
+-- ReturnRequestStatusLogs
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ReturnRequestStatusLogs')
+BEGIN
+    CREATE TABLE ReturnRequestStatusLogs (
+        ReturnRequestStatusLogId INT            IDENTITY(1,1) PRIMARY KEY,
+        ReturnRequestId          INT            NOT NULL,
+        FromStatus               NVARCHAR(50)   NULL,
+        ToStatus                 NVARCHAR(50)   NOT NULL,
+        ChangedBy                INT            NULL,
+        Comment                  NVARCHAR(1000) NULL,
+        CreatedAt                DATETIME2      NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_ReturnRequestStatusLogs_ReturnRequests FOREIGN KEY (ReturnRequestId) REFERENCES ReturnRequests(ReturnRequestId) ON DELETE CASCADE,
+        CONSTRAINT FK_ReturnRequestStatusLogs_Users          FOREIGN KEY (ChangedBy) REFERENCES Users(UserId) ON DELETE SET NULL
+    );
+    CREATE NONCLUSTERED INDEX IX_ReturnRequestStatusLogs_ReturnRequestId ON ReturnRequestStatusLogs(ReturnRequestId);
+    CREATE NONCLUSTERED INDEX IX_ReturnRequestStatusLogs_ChangedBy       ON ReturnRequestStatusLogs(ChangedBy) WHERE ChangedBy IS NOT NULL;
+    CREATE NONCLUSTERED INDEX IX_ReturnRequestStatusLogs_CreatedAt       ON ReturnRequestStatusLogs(CreatedAt);
+    PRINT 'OK: ReturnRequestStatusLogs';
+END
+GO
+
+-- RefundTransactions
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'RefundTransactions')
+BEGIN
+    CREATE TABLE RefundTransactions (
+        RefundTransactionId INT            IDENTITY(1,1) PRIMARY KEY,
+        ReturnRequestId     INT            NOT NULL,
+        Amount              DECIMAL(18,2)  NOT NULL,
+        Method              NVARCHAR(30)   NOT NULL,
+        Status              NVARCHAR(30)   NOT NULL DEFAULT 'PENDING',
+        IdempotencyKey      NVARCHAR(100)  NOT NULL,
+        TransactionRef      NVARCHAR(100)  NULL,
+        ProcessedBy         INT            NULL,
+        CreatedAt           DATETIME2      NOT NULL DEFAULT GETDATE(),
+        UpdatedAt           DATETIME2      NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT FK_RefundTransactions_ReturnRequests FOREIGN KEY (ReturnRequestId) REFERENCES ReturnRequests(ReturnRequestId) ON DELETE CASCADE,
+        CONSTRAINT FK_RefundTransactions_Users          FOREIGN KEY (ProcessedBy) REFERENCES Users(UserId) ON DELETE SET NULL,
+        CONSTRAINT UQ_RefundTransactions_IdempotencyKey UNIQUE (IdempotencyKey)
+    );
+    CREATE NONCLUSTERED INDEX IX_RefundTransactions_ReturnRequestId ON RefundTransactions(ReturnRequestId);
+    CREATE NONCLUSTERED INDEX IX_RefundTransactions_Status          ON RefundTransactions(Status);
+    CREATE NONCLUSTERED INDEX IX_RefundTransactions_ProcessedBy     ON RefundTransactions(ProcessedBy) WHERE ProcessedBy IS NOT NULL;
+    PRINT 'OK: RefundTransactions';
 END
 GO
 

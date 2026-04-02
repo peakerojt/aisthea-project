@@ -247,8 +247,14 @@ export const AdminTabs: React.FC<{
         <button
           key={item.key}
           type="button"
-          onClick={() => onChange(item.key)}
-          className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ${
+          aria-pressed={isActive}
+          data-admin-tab-active={isActive ? 'true' : 'false'}
+          onClick={() => {
+            if (!isActive) {
+              onChange(item.key);
+            }
+          }}
+          className={`ui-stable-click shrink-0 inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2.5 text-sm font-semibold transition-[background-color,border-color,color,box-shadow,opacity] duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20 ${
             isActive
               ? 'border-primary/30 bg-primary/12 text-white'
               : 'border-white/10 bg-white/[0.03] text-white/60 hover:border-white/20 hover:text-white'
@@ -339,7 +345,7 @@ export const AdminPrimaryButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonE
 }) => (
   <button
     {...props}
-    className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${adminUiTokens.buttonPrimary} ${className}`}
+    className={`ui-stable-click inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-[background-color,border-color,color,box-shadow,opacity] duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-40 ${adminUiTokens.buttonPrimary} ${className}`}
   >
     {children}
   </button>
@@ -352,7 +358,7 @@ export const AdminSecondaryButton: React.FC<React.ButtonHTMLAttributes<HTMLButto
 }) => (
   <button
     {...props}
-    className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${adminUiTokens.buttonSecondary} ${className}`}
+    className={`ui-stable-click inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-[background-color,border-color,color,box-shadow,opacity] duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20 disabled:cursor-not-allowed disabled:opacity-40 ${adminUiTokens.buttonSecondary} ${className}`}
   >
     {children}
   </button>
@@ -365,7 +371,7 @@ export const AdminIconButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElem
 }) => (
   <button
     {...props}
-    className={`inline-flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${adminUiTokens.buttonSecondary} ${className}`}
+    className={`ui-stable-click inline-flex h-10 w-10 items-center justify-center rounded-xl transition-[background-color,border-color,color,box-shadow,opacity] duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20 disabled:cursor-not-allowed disabled:opacity-40 ${adminUiTokens.buttonSecondary} ${className}`}
   >
     {children}
   </button>
@@ -390,7 +396,7 @@ export const AdminRowIconButton: React.FC<
   return (
     <button
       {...props}
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent bg-transparent transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${toneMap[tone]} ${className}`}
+      className={`ui-stable-click inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent bg-transparent transition-[background-color,border-color,color,box-shadow,opacity] duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20 disabled:cursor-not-allowed disabled:opacity-40 ${toneMap[tone]} ${className}`}
     >
       {children}
     </button>
@@ -442,7 +448,7 @@ export const AdminActionButton: React.FC<
   return (
     <button
       {...props}
-      className={`inline-flex items-center justify-center gap-1.5 border transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${sizeMap[size]} ${toneMap[variant][tone]} ${className}`}
+      className={`ui-stable-click inline-flex items-center justify-center gap-1.5 border transition-[background-color,border-color,color,box-shadow,opacity] duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20 disabled:cursor-not-allowed disabled:opacity-40 ${sizeMap[size]} ${toneMap[variant][tone]} ${className}`}
     >
       {children}
     </button>
@@ -511,7 +517,7 @@ export const AdminModalShell: React.FC<AdminModalShellProps> = ({
     <>
       <div
         aria-hidden="true"
-        className={`fixed inset-0 z-40 transition-all duration-200 ease-out ${backdropClassName} ${
+        className={`fixed inset-0 z-40 transition-opacity duration-150 ease-out ${backdropClassName} ${
           isVisible ? 'opacity-100' : 'opacity-0'
         }`}
         onClick={closeOnOverlayClick && onClose ? onClose : undefined}
@@ -523,8 +529,8 @@ export const AdminModalShell: React.FC<AdminModalShellProps> = ({
             aria-modal="true"
             aria-labelledby={title ? titleId : undefined}
             aria-describedby={subtitle ? subtitleId : undefined}
-            className={`flex max-h-[calc(100vh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl border border-gray-200/10 dark:border-gray-700 bg-[#0B0B0C] shadow-2xl shadow-black/40 transform-gpu transition-all duration-200 ease-out will-change-transform md:max-h-[calc(100vh-2rem)] ${
-              isVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'
+            className={`flex max-h-[calc(100vh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl border border-gray-200/10 dark:border-gray-700 bg-[#0B0B0C] shadow-2xl shadow-black/40 transform-gpu transition-[transform,opacity] duration-150 ease-out will-change-[transform,opacity] md:max-h-[calc(100vh-2rem)] ${
+              isVisible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
             } ${maxWidthClassName} ${panelClassName}`}
           >
             {(title || subtitle || Icon || onClose || headerActions) && (

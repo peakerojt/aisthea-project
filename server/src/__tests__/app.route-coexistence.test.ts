@@ -7,11 +7,19 @@ const buildRouter = (register?: (router: any) => void) => {
   return router;
 };
 
-const createJsonHandler = (route: string) =>
-  jest.fn((_req, res) => res.json({ route }));
+const createJsonHandler = (
+  route: string,
+  options?: { status?: number; body?: Record<string, unknown> },
+) =>
+  jest.fn((_req, res) => {
+    if (options?.status) {
+      res.status(options.status);
+    }
+
+    return res.json(options?.body ?? { route });
+  });
 
 const returnController = {
-  postReturnRequest: createJsonHandler('legacy-post-return-request'),
   getOrderReturn: createJsonHandler('legacy-get-order-return'),
 };
 
@@ -29,6 +37,8 @@ jest.mock('../middlewares/security.middleware', () => ({
   applyCsrfProtection: jest.fn(() => (_req: unknown, _res: unknown, next: () => void) => next()),
   applyHelmet: (_req: unknown, _res: unknown, next: () => void) => next(),
   applyPermissionsPolicy: (_req: unknown, _res: unknown, next: () => void) => next(),
+  attachRateLimitIdentity: (_req: unknown, _res: unknown, next: () => void) => next(),
+  createAdminRateLimiters: jest.fn(() => [(_req: unknown, _res: unknown, next: () => void) => next()]),
   globalRateLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 jest.mock('../middlewares/locale.middleware', () => ({
@@ -140,7 +150,7 @@ jest.mock('../routes/permission.routes', () => ({
   __esModule: true,
   default: buildRouter(),
 }));
-jest.mock('../controllers/return.controller', () => returnController);
+jest.mock('../controllers/legacy-returns.controller', () => returnController);
 jest.mock('../modules/tracking/tracking.controller', () => ({
   trackingController,
 }));
@@ -149,7 +159,6 @@ jest.mock('../modules/payments/payment.routes', () => ({
     router.get('/vnpay_return', (_req: unknown, res: { json: (body: unknown) => unknown }) => res.json({ route: 'vnpay-return-route' }));
   }),
   refundModuleRoutes: buildRouter((router) => {
-    router.post('/:id/refunds', (_req: unknown, res: { json: (body: unknown) => unknown }) => res.json({ route: 'refund-module-route' }));
     router.get('/:id/refunds', (_req: unknown, res: { json: (body: unknown) => unknown }) => res.json({ route: 'refund-history-route' }));
   }),
 }));
@@ -160,7 +169,7 @@ jest.mock('../modules/order/order.route', () => ({
     router.patch('/:id/cancel', (_req: unknown, res: { json: (body: unknown) => unknown }) => res.json({ route: 'order-module-cancel' }));
   }),
 }));
-jest.mock('../modules/return-order/routes/return-request.routes', () => ({
+jest.mock('../modules/return-order/routes/routes', () => ({
   __esModule: true,
   default: buildRouter((router) => {
     router.post('/', (_req: unknown, res: { json: (body: unknown) => unknown }) =>
@@ -168,13 +177,6 @@ jest.mock('../modules/return-order/routes/return-request.routes', () => ({
     );
     router.get('/admin/list', (_req: unknown, res: { json: (body: unknown) => unknown }) => res.json({ route: 'return-request-admin-list' }));
     router.get('/:id', (_req: unknown, res: { json: (body: unknown) => unknown }) => res.json({ route: 'return-request-detail' }));
-  }),
-}));
-jest.mock('../routes/return.routes', () => ({
-  __esModule: true,
-  default: buildRouter((router) => {
-    router.get('/my', (_req: unknown, res: { json: (body: unknown) => unknown }) => res.json({ route: 'legacy-returns-my' }));
-    router.get('/:id', (_req: unknown, res: { json: (body: unknown) => unknown }) => res.json({ route: 'legacy-returns-detail' }));
   }),
 }));
 jest.mock('../routes/order.routes', () => ({
@@ -193,12 +195,11 @@ describe('app route coexistence', () => {
     jest.clearAllMocks();
   });
 
-  it('keeps legacy order return creation mounted before order module catch-all', async () => {
+  it('unmounts legacy order return creation so write callers now receive a 404', async () => {
     const response = await request(app).post('/api/orders/15/return');
 
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({ route: 'legacy-post-return-request' });
-    expect(returnController.postReturnRequest).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ route: 'not-found' });
   });
 
   it('keeps modern return-request creation mounted separately from legacy order-scoped creation', async () => {
@@ -206,7 +207,7 @@ describe('app route coexistence', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ route: 'return-request-create' });
-    expect(returnController.postReturnRequest).not.toHaveBeenCalled();
+    expect(response.headers.deprecation).toBeUndefined();
   });
 
   it('keeps legacy order return detail mounted before order module catch-all', async () => {
@@ -214,14 +215,15 @@ describe('app route coexistence', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ route: 'legacy-get-order-return' });
+    expect(response.headers['x-aisthea-compatibility-surface']).toBe('legacy-order-return');
     expect(returnController.getOrderReturn).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps refund module routes mounted under orders without being swallowed by order detail', async () => {
+  it('unmounts legacy refund creation so write callers now receive a 404', async () => {
     const response = await request(app).post('/api/orders/15/refunds');
 
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({ route: 'refund-module-route' });
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ route: 'not-found' });
   });
 
   it('keeps refund history module routes mounted under orders without being swallowed by order detail', async () => {
@@ -229,6 +231,7 @@ describe('app route coexistence', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ route: 'refund-history-route' });
+    expect(response.headers['x-aisthea-compatibility-surface']).toBe('legacy-order-refunds');
   });
 
   it('keeps order module detail route mounted after refund and return routes', async () => {
@@ -245,17 +248,31 @@ describe('app route coexistence', () => {
     expect(response.body).toEqual({ route: 'return-request-admin-list' });
   });
 
-  it('keeps legacy returns module mounted on /api/returns', async () => {
+  it('unmounts legacy customer returns routes under /api/returns', async () => {
     const response = await request(app).get('/api/returns/my');
 
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({ route: 'legacy-returns-my' });
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ route: 'not-found' });
   });
 
-  it('keeps legacy returns detail mounted on /api/returns/:id', async () => {
+  it('unmounts legacy admin returns routes under /api/returns', async () => {
+    const response = await request(app).get('/api/returns');
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ route: 'not-found' });
+  });
+
+  it('unmounts legacy returns detail under /api/returns/:id', async () => {
     const response = await request(app).get('/api/returns/15');
 
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({ route: 'legacy-returns-detail' });
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ route: 'not-found' });
+  });
+
+  it('unmounts legacy return process under /api/returns/:id/process', async () => {
+    const response = await request(app).patch('/api/returns/15/process');
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ route: 'not-found' });
   });
 });

@@ -1,6 +1,6 @@
 import { NextFunction, Response } from 'express';
 import { AuthRequest } from '../../middlewares/auth.middleware';
-import { orderIdParamSchema } from './order.validator';
+import { cancelOrderBodySchema, orderIdParamSchema } from './order.validator';
 import { AppError } from '../../middlewares/error.middleware';
 import { cancelOrderForUser, getOrderDetailForUser } from './order.service';
 
@@ -35,6 +35,7 @@ export const getOrderById = async (req: AuthRequest, res: Response, next: NextFu
 export const cancelOrder = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = orderIdParamSchema.parse(req.params);
+    const payload = cancelOrderBodySchema.parse(req.body ?? {});
     const user = req.user;
 
     if (!user || typeof user.userId !== 'number' || !Array.isArray(user.roles)) {
@@ -44,7 +45,7 @@ export const cancelOrder = async (req: AuthRequest, res: Response, next: NextFun
     const data = await cancelOrderForUser(id, {
       userId: user.userId,
       roles: user.roles,
-    });
+    }, payload);
 
     return res.json({
       success: true,

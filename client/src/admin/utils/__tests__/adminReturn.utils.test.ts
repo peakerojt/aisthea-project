@@ -1,34 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-import {
-  getAdminReturnStatusBadgeTone,
-  getAdminReturnStatusLabel,
-} from '@/admin/utils/adminReturn.utils';
-import { normalizeReturnStatus } from '@/common/utils/returnStatus';
+vi.unmock('@/admin/utils/adminReturn.utils');
+vi.unmock('@/admin/utils/returns.utils');
 
-describe('adminReturn.utils', () => {
-  const t = (key: string) => `translated:${key}`;
+let legacyUtils: typeof import('@/admin/utils/adminReturn.utils');
+let canonicalUtils: typeof import('@/admin/utils/returns.utils');
 
-  it('normalizes legacy aliases into canonical statuses', () => {
-    expect(normalizeReturnStatus('PENDING_APPROVAL')).toBe('REQUESTED');
-    expect(normalizeReturnStatus('COMPLETED')).toBe('REFUNDED');
-    expect(normalizeReturnStatus('APPROVED')).toBe('APPROVED');
+describe('adminReturn.utils compatibility', () => {
+  beforeAll(async () => {
+    legacyUtils = await import('@/admin/utils/adminReturn.utils');
+    canonicalUtils = await import('@/admin/utils/returns.utils');
   });
 
-  it('renders canonical labels for legacy aliases', () => {
-    expect(getAdminReturnStatusLabel('PENDING_APPROVAL', t)).toBe('translated:status.REQUESTED');
-    expect(getAdminReturnStatusLabel('COMPLETED', t)).toBe('translated:status.REFUNDED');
-  });
-
-  it('falls back to readable canonical labels when translations are unavailable', () => {
-    const rawKeyT = (key: string) => key;
-
-    expect(getAdminReturnStatusLabel('PENDING_APPROVAL', rawKeyT)).toBe('Chờ duyệt');
-    expect(getAdminReturnStatusLabel('COMPLETED', rawKeyT)).toBe('Đã hoàn tiền');
-  });
-
-  it('uses canonical tones for legacy aliases', () => {
-    expect(getAdminReturnStatusBadgeTone('PENDING_APPROVAL')).toBe('warning');
-    expect(getAdminReturnStatusBadgeTone('COMPLETED')).toBe('success');
+  it('re-exports canonical admin return utilities from the legacy path', () => {
+    expect(legacyUtils.getAdminReturnStatusLabel).toBe(canonicalUtils.getAdminReturnStatusLabel);
+    expect(legacyUtils.getAdminRefundStatusLabel).toBe(canonicalUtils.getAdminRefundStatusLabel);
+    expect(legacyUtils.formatAdminReturnDateTime).toBe(canonicalUtils.formatAdminReturnDateTime);
   });
 });

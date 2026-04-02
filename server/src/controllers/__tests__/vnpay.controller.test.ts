@@ -15,7 +15,7 @@ jest.mock('../../utils/prisma', () => ({
   prisma: prismaMock,
 }));
 
-import { createPaymentUrl, vnpayIpn, vnpayReturn } from '../vnpay.controller';
+import { createPaymentUrl, vnpayIpn, vnpayQuery, vnpayReturn } from '../vnpay.controller';
 
 const createResponse = () => {
   const res: any = {};
@@ -95,6 +95,16 @@ describe('vnpay.controller', () => {
     const payload = res.json.mock.calls[0][0];
     const url = new URL(payload.data.vnpUrl);
 
+    expect(prismaMock.payment.create).toHaveBeenCalledWith({
+      data: {
+        orderId: 88,
+        paymentMethod: 'VNPAY',
+        amount: 1188000,
+        status: 'PENDING',
+        transactionCode: null,
+        note: 'Awaiting VNPay reconciliation',
+      },
+    });
     expect(url.searchParams.get('vnp_TxnRef')).toBe('88');
     expect(url.searchParams.get('vnp_Amount')).toBe('118800000');
   });
@@ -178,7 +188,53 @@ describe('vnpay.controller', () => {
       message: 'Success',
       code: '00',
       orderId: 19,
-      paymentStatus: 'COMPLETED',
+      paymentStatus: 'PAID',
+    });
+  });
+
+  it('keeps payment pending and flags needs review from the VNPay query fallback endpoint', async () => {
+    prismaMock.order.findUnique.mockResolvedValue({
+      orderId: 22,
+      totalAmount: 326000,
+      payments: [
+        {
+          paymentId: 18,
+          paymentMethod: 'VNPAY',
+          status: 'PENDING',
+          transactionCode: null,
+        },
+      ],
+    });
+
+    const req: any = {
+      query: signVnpParams({
+        vnp_Amount: '32600000',
+        vnp_ResponseCode: '91',
+        vnp_TransactionStatus: '05',
+        vnp_TransactionNo: 'TXN-QUERY-22',
+        vnp_TxnRef: '22',
+      }),
+    };
+    const res = createResponse();
+
+    await vnpayQuery(req, res);
+
+    expect(prismaMock.payment.update).toHaveBeenCalledWith({
+      where: { paymentId: 18 },
+      data: {
+        amount: 326000,
+        status: 'PENDING',
+        transactionCode: 'TXN-QUERY-22',
+        note: 'VNPay query fallback inconclusive. Response code 91, transaction status 05.',
+      },
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'Needs review',
+      code: '91',
+      orderId: 22,
+      paymentStatus: 'NEEDS_REVIEW',
+      queryStatus: '05',
     });
   });
 });

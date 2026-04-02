@@ -6,6 +6,15 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { OrderDetailPage } from '@/common/pages/OrderDetailPage';
+import { RETURN_ACTIVE_SYNC_POLL_INTERVAL_MS } from '@/common/utils/returnRefresh';
+
+vi.mock('@/common/utils/returnRefresh', async () => {
+  const actual = await vi.importActual<any>('@/common/utils/returnRefresh');
+  return {
+    ...actual,
+    RETURN_ACTIVE_SYNC_POLL_INTERVAL_MS: 10,
+  };
+});
 
 vi.mock('@/common/contexts/AuthContext', () => ({
   useAuth: () => ({ role: 'customer' }),
@@ -20,6 +29,8 @@ const cancelOrder = vi.fn();
 const confirmReceipt = vi.fn();
 const addItemsBatch = vi.fn();
 const showToast = vi.fn();
+const getReturnForOrder = vi.fn();
+const getReturnDetail = vi.fn();
 
 vi.mock('@/common/contexts/CartContext', () => ({
   useCart: () => ({
@@ -48,6 +59,18 @@ vi.mock('@/common/services/order.service', async () => {
   };
 });
 
+vi.mock('@/common/services/return.order-read.service', () => ({
+  returnOrderReadService: {
+    getForOrder: (...args: any[]) => getReturnForOrder(...args),
+  },
+}));
+
+vi.mock('@/common/services/return.detail-read.service', () => ({
+  returnDetailReadService: {
+    detail: (...args: any[]) => getReturnDetail(...args),
+  },
+}));
+
 const renderPage = (initialEntry: string) => {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -69,6 +92,8 @@ const renderPage = (initialEntry: string) => {
 describe('OrderDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getReturnForOrder.mockResolvedValue(null);
+    getReturnDetail.mockResolvedValue(null);
   });
 
   const buildOrderDetail = (status: string) => ({
@@ -76,7 +101,7 @@ describe('OrderDetailPage', () => {
     orderCode: 'ORD-20260011',
     status,
     paymentMethod: 'cod',
-    paymentStatus: 'COD_PENDING',
+    paymentStatus: 'PENDING_COD',
     createdAt: '2026-02-24T08:00:00.000Z',
     shippingAddress: {
       recipientName: 'A',
@@ -209,10 +234,174 @@ describe('OrderDetailPage', () => {
     expect(cancelBtn).toBeEnabled();
 
     await userEvent.click(cancelBtn);
+    expect(await screen.findByText('Xác nhận hủy đơn?')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Khác' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Xác nhận hủy' }));
 
-    // Optimistic update should disable button immediately
     await waitFor(() => {
-      expect(cancelOrder).toHaveBeenCalledTimes(1);
+      expect(cancelOrder).toHaveBeenCalledWith('10', {
+        note: 'Khách hàng hủy đơn trước khi xử lý. Chưa chọn lý do hủy.',
+        reason: undefined,
+      });
+    });
+  });
+
+  it('shows cancel-and-refund action for paid pending orders', async () => {
+    fetchOrderDetail.mockResolvedValueOnce({
+      ...buildOrderDetail('pending'),
+      paymentMethod: 'VNPAY',
+      paymentStatus: 'PAID',
+      customer: { name: 'A', phone: '090', email: 'a@gmail.com' },
+    });
+
+    renderPage('/orders/11');
+
+    expect(await screen.findByRole('button', { name: 'Hủy đơn và yêu cầu hoàn tiền' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Hủy đơn hàng' })).not.toBeInTheDocument();
+  });
+
+  it('shows cancel-and-refund action for paid processing orders', async () => {
+    fetchOrderDetail.mockResolvedValueOnce({
+      ...buildOrderDetail('Processing'),
+      paymentMethod: 'VNPAY',
+      paymentStatus: 'PAID',
+      customer: { name: 'A', phone: '090', email: 'a@gmail.com' },
+    });
+
+    renderPage('/orders/11');
+
+    expect(await screen.findByRole('button', { name: 'Hủy đơn và yêu cầu hoàn tiền' })).toBeInTheDocument();
+  });
+
+  it('refetches linked refund-review data after cancelling a paid VNPay order', async () => {
+    const pendingRefundSummary = {
+      returnId: 211,
+      orderId: 11,
+      reason: 'PRE_DELIVERY_CANCELLATION',
+      status: 'REQUESTED',
+      workflowStatus: 'PENDING_ADMIN_REVIEW',
+      refundStatus: 'PENDING',
+      proofImages: [],
+      adminNote: null,
+      createdAt: '2026-04-01T08:10:00.000Z',
+      updatedAt: '2026-04-01T08:12:00.000Z',
+    };
+    fetchOrderDetail.mockResolvedValueOnce({
+      ...buildOrderDetail('pending'),
+      paymentMethod: 'VNPAY',
+      paymentStatus: 'PAID',
+      customer: { name: 'A', phone: '090', email: 'a@gmail.com' },
+    });
+    getReturnForOrder
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue(pendingRefundSummary);
+    getReturnDetail.mockResolvedValue({
+      returnRequestId: 211,
+      orderId: 11,
+      reason: 'PRE_DELIVERY_CANCELLATION',
+      status: 'REQUESTED',
+      workflowStatus: 'PENDING_ADMIN_REVIEW',
+      refundStatus: 'PENDING',
+      totalRefundAmount: '100000',
+      createdAt: '2026-04-01T08:10:00.000Z',
+      items: [],
+      attachments: [],
+      statusLogs: [],
+      refundTransactions: [],
+    });
+    cancelOrder.mockResolvedValueOnce({
+      ...buildOrderDetail('cancelled'),
+      paymentMethod: 'VNPAY',
+      paymentStatus: 'PAID',
+      customer: { name: 'A', phone: '090', email: 'a@gmail.com' },
+    });
+
+    renderPage('/orders/11');
+
+    const cancelBtn = await screen.findByRole('button', {
+      name: 'Hủy đơn và yêu cầu hoàn tiền',
+    });
+    await userEvent.click(cancelBtn);
+    expect(await screen.findByText('Xác nhận hủy đơn?')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Khác' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Xác nhận hủy' }));
+
+    await waitFor(() => {
+      expect(cancelOrder).toHaveBeenCalledWith('11', {
+        note: 'Khách hàng hủy đơn và yêu cầu hoàn tiền trước khi xử lý. Chưa chọn lý do hủy.',
+        reason: undefined,
+      });
+    });
+    await waitFor(() => {
+      expect(getReturnForOrder.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+    expect(await screen.findByText('Tiến trình hoàn trả')).toBeInTheDocument();
+    expect(screen.getByText('Chờ hoàn tiền')).toBeInTheDocument();
+  });
+
+  it('sends the selected cancel reason and generated note for paid refund-review orders', async () => {
+    fetchOrderDetail.mockResolvedValueOnce({
+      ...buildOrderDetail('pending'),
+      paymentMethod: 'VNPAY',
+      paymentStatus: 'PAID',
+      customer: { name: 'A', phone: '090', email: 'a@gmail.com' },
+    });
+    cancelOrder.mockResolvedValueOnce({
+      ...buildOrderDetail('cancelled'),
+      paymentMethod: 'VNPAY',
+      paymentStatus: 'PAID',
+      customer: { name: 'A', phone: '090', email: 'a@gmail.com' },
+    });
+
+    renderPage('/orders/11');
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Hủy đơn và yêu cầu hoàn tiền' }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Đổi ý, không còn nhu cầu' }),
+    );
+    expect(screen.getByRole('textbox', { name: 'Khác' })).toHaveValue('');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Xác nhận hủy' }));
+
+    await waitFor(() => {
+      expect(cancelOrder).toHaveBeenCalledWith('11', {
+        reason: 'CHANGED_MIND',
+        note: 'Khách hàng hủy đơn và yêu cầu hoàn tiền trước khi xử lý. Lý do: Đổi ý, không còn nhu cầu.',
+      });
+    });
+  });
+
+  it('prefers the custom "Khác" reason when the customer types one manually', async () => {
+    fetchOrderDetail.mockResolvedValueOnce({
+      ...buildOrderDetail('pending'),
+      paymentMethod: 'VNPAY',
+      paymentStatus: 'PAID',
+      customer: { name: 'A', phone: '090', email: 'a@gmail.com' },
+    });
+    cancelOrder.mockResolvedValueOnce({
+      ...buildOrderDetail('cancelled'),
+      paymentMethod: 'VNPAY',
+      paymentStatus: 'PAID',
+      customer: { name: 'A', phone: '090', email: 'a@gmail.com' },
+    });
+
+    renderPage('/orders/11');
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Hủy đơn và yêu cầu hoàn tiền' }),
+    );
+    const otherReasonInput = screen.getByRole('textbox', { name: 'Khác' });
+    await userEvent.type(otherReasonInput, 'Cần đổi sang đơn khác');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Xác nhận hủy' }));
+
+    await waitFor(() => {
+      expect(cancelOrder).toHaveBeenCalledWith('11', {
+        reason: undefined,
+        note: 'Khách hàng hủy đơn và yêu cầu hoàn tiền trước khi xử lý. Lý do: Cần đổi sang đơn khác.',
+      });
     });
   });
 
@@ -292,6 +481,243 @@ describe('OrderDetailPage', () => {
     );
   });
 
+  it('refetches linked return data after confirming receipt', async () => {
+    fetchOrderDetail.mockResolvedValue({
+      id: '14',
+      orderCode: 'OD20260014',
+      status: 'shipping',
+      paymentMethod: 'cod',
+      paymentStatus: 'PENDING_COD',
+      createdAt: '2026-02-24T08:00:00.000Z',
+      customer: { name: 'A', phone: '090', email: 'a@gmail.com' },
+      shippingAddress: {
+        recipientName: 'A',
+        recipientPhone: '090',
+        addressLine: '123',
+        ward: 'W',
+        district: 'D',
+        city: 'C',
+      },
+      items: [],
+      pricing: {
+        itemsTotal: 398000,
+        shippingFee: 0,
+        discount: 0,
+        tax: 0,
+        grandTotal: 398000,
+      },
+      timeline: [{ status: 'shipping', at: '2026-02-24T08:00:00.000Z' }],
+      note: null,
+    });
+    getReturnForOrder.mockResolvedValue({
+      returnId: 140,
+      orderId: 14,
+      reason: 'DEFECTIVE',
+      status: 'PENDING_PAYMENT_CONFIRMATION',
+      workflowStatus: 'PENDING_PAYMENT_CONFIRMATION',
+      refundStatus: 'LOCKED_UNTIL_PAYMENT_CONFIRMED',
+      proofImages: [],
+      adminNote: null,
+      createdAt: '2026-02-24T08:00:00.000Z',
+      updatedAt: '2026-02-24T08:00:00.000Z',
+    });
+    getReturnDetail.mockResolvedValue({
+      returnRequestId: 140,
+      orderId: 14,
+      reason: 'DEFECTIVE',
+      status: 'PENDING_PAYMENT_CONFIRMATION',
+      workflowStatus: 'PENDING_PAYMENT_CONFIRMATION',
+      refundStatus: 'LOCKED_UNTIL_PAYMENT_CONFIRMED',
+      totalRefundAmount: '398000',
+      createdAt: '2026-02-24T08:00:00.000Z',
+      items: [],
+      attachments: [],
+      statusLogs: [],
+      refundTransactions: [],
+    });
+    confirmReceipt.mockResolvedValueOnce({ success: true, orderId: 14, newStatus: 'Delivered' });
+
+    renderPage('/orders/14');
+
+    expect(await screen.findByRole('button', { name: 'Đã nhận được hàng' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Đã nhận được hàng' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Đã nhận hàng' }));
+
+    await waitFor(() => {
+      expect(confirmReceipt).toHaveBeenCalledWith('14');
+    });
+    await waitFor(() => {
+      expect(getReturnForOrder.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(getReturnDetail.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  it('shows a receipt-confirmation hint when COD refund is still locked', async () => {
+    fetchOrderDetail.mockResolvedValueOnce({
+      id: '15',
+      orderCode: 'OD20260015',
+      status: 'shipping',
+      paymentMethod: 'cod',
+      paymentStatus: 'PENDING_COD',
+      createdAt: '2026-02-24T08:00:00.000Z',
+      customer: { name: 'A', phone: '090', email: 'a@gmail.com' },
+      shippingAddress: {
+        recipientName: 'A',
+        recipientPhone: '090',
+        addressLine: '123',
+        ward: 'W',
+        district: 'D',
+        city: 'C',
+      },
+      items: [],
+      pricing: {
+        itemsTotal: 398000,
+        shippingFee: 0,
+        discount: 0,
+        tax: 0,
+        grandTotal: 398000,
+      },
+      timeline: [{ status: 'shipping', at: '2026-02-24T08:00:00.000Z' }],
+      note: null,
+    });
+    getReturnForOrder.mockResolvedValue({
+      returnId: 150,
+      orderId: 15,
+      reason: 'DEFECTIVE',
+      status: 'PENDING_PAYMENT_CONFIRMATION',
+      workflowStatus: 'PENDING_PAYMENT_CONFIRMATION',
+      refundStatus: 'LOCKED_UNTIL_PAYMENT_CONFIRMED',
+      proofImages: [],
+      adminNote: null,
+      createdAt: '2026-02-24T08:00:00.000Z',
+      updatedAt: '2026-02-24T08:00:00.000Z',
+    });
+    getReturnDetail.mockResolvedValue({
+      returnRequestId: 150,
+      orderId: 15,
+      reason: 'DEFECTIVE',
+      status: 'PENDING_PAYMENT_CONFIRMATION',
+      workflowStatus: 'PENDING_PAYMENT_CONFIRMATION',
+      refundStatus: 'LOCKED_UNTIL_PAYMENT_CONFIRMED',
+      totalRefundAmount: '398000',
+      createdAt: '2026-02-24T08:00:00.000Z',
+      items: [],
+      attachments: [],
+      statusLogs: [],
+      refundTransactions: [],
+    });
+
+    renderPage('/orders/15');
+
+    expect(
+      await screen.findByText('Hoàn tiền đang bị khóa cho tới khi đơn hàng được xác nhận thanh toán.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Xác nhận đã nhận hàng ở phần hành động để mở khóa bước hoàn tiền.'),
+    ).toBeInTheDocument();
+  });
+
+  it('polls locked COD linked returns until payment confirmation unlocks them', async () => {
+    fetchOrderDetail.mockResolvedValueOnce({
+      id: '16',
+      orderCode: 'OD20260016',
+      status: 'shipping',
+      paymentMethod: 'cod',
+      paymentStatus: 'PENDING_COD',
+      createdAt: '2026-02-24T08:00:00.000Z',
+      customer: { name: 'A', phone: '090', email: 'a@gmail.com' },
+      shippingAddress: {
+        recipientName: 'A',
+        recipientPhone: '090',
+        addressLine: '123',
+        ward: 'W',
+        district: 'D',
+        city: 'C',
+      },
+      items: [],
+      pricing: {
+        itemsTotal: 398000,
+        shippingFee: 0,
+        discount: 0,
+        tax: 0,
+        grandTotal: 398000,
+      },
+      timeline: [{ status: 'shipping', at: '2026-02-24T08:00:00.000Z' }],
+      note: null,
+    });
+    getReturnForOrder
+      .mockResolvedValueOnce({
+        returnId: 160,
+        orderId: 16,
+        reason: 'DEFECTIVE',
+        status: 'PENDING_PAYMENT_CONFIRMATION',
+        workflowStatus: 'PENDING_PAYMENT_CONFIRMATION',
+        refundStatus: 'LOCKED_UNTIL_PAYMENT_CONFIRMED',
+        proofImages: [],
+        adminNote: null,
+        createdAt: '2026-02-24T08:00:00.000Z',
+        updatedAt: '2026-02-24T08:00:00.000Z',
+      })
+      .mockResolvedValueOnce({
+        returnId: 160,
+        orderId: 16,
+        reason: 'DEFECTIVE',
+        status: 'PENDING_ADMIN_REVIEW',
+        workflowStatus: 'PENDING_ADMIN_REVIEW',
+        refundStatus: 'NOT_APPLICABLE',
+        proofImages: [],
+        adminNote: null,
+        createdAt: '2026-02-24T08:00:00.000Z',
+        updatedAt: '2026-02-24T08:05:00.000Z',
+      });
+    getReturnDetail
+      .mockResolvedValueOnce({
+        returnRequestId: 160,
+        orderId: 16,
+        reason: 'DEFECTIVE',
+        status: 'PENDING_PAYMENT_CONFIRMATION',
+        workflowStatus: 'PENDING_PAYMENT_CONFIRMATION',
+        refundStatus: 'LOCKED_UNTIL_PAYMENT_CONFIRMED',
+        totalRefundAmount: '398000',
+        createdAt: '2026-02-24T08:00:00.000Z',
+        items: [],
+        attachments: [],
+        statusLogs: [],
+        refundTransactions: [],
+      })
+      .mockResolvedValueOnce({
+        returnRequestId: 160,
+        orderId: 16,
+        reason: 'DEFECTIVE',
+        status: 'PENDING_ADMIN_REVIEW',
+        workflowStatus: 'PENDING_ADMIN_REVIEW',
+        refundStatus: 'NOT_APPLICABLE',
+        totalRefundAmount: '398000',
+        createdAt: '2026-02-24T08:00:00.000Z',
+        items: [],
+        attachments: [],
+        statusLogs: [],
+        refundTransactions: [],
+      });
+
+    renderPage('/orders/16');
+
+    expect(
+      await screen.findByText('Hoàn tiền đang bị khóa cho tới khi đơn hàng được xác nhận thanh toán.'),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(getReturnForOrder).toHaveBeenCalledTimes(2);
+      expect(getReturnDetail).toHaveBeenCalledTimes(2);
+    }, { timeout: RETURN_ACTIVE_SYNC_POLL_INTERVAL_MS * 20 });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Hoàn tiền đang bị khóa cho tới khi đơn hàng được xác nhận thanh toán.'),
+      ).not.toBeInTheDocument();
+    });
+  });
+
   it('shows track order action for processing orders', async () => {
     fetchOrderDetail.mockResolvedValueOnce(buildOrderDetail('Processing'));
 
@@ -330,6 +756,68 @@ describe('OrderDetailPage', () => {
     renderPage('/orders/11');
 
     expect(await screen.findByRole('button', { name: /Theo dõi đơn hàng|actions\.trackOrder/ })).toBeInTheDocument();
+  });
+
+  it('shows return summary when the order already has a return request', async () => {
+    fetchOrderDetail.mockResolvedValueOnce(buildOrderDetail('RETURN_REQUESTED'));
+    getReturnForOrder.mockResolvedValueOnce({
+      returnId: 44,
+      orderId: 11,
+      reason: 'DEFECTIVE',
+      status: 'REQUESTED',
+      workflowStatus: 'ACCEPTED_FOR_REFUND',
+      refundStatus: 'PENDING',
+      proofImages: [],
+      adminNote: null,
+      createdAt: '2026-02-24T08:00:00.000Z',
+      updatedAt: '2026-02-24T08:00:00.000Z',
+    });
+    getReturnDetail.mockResolvedValueOnce({
+      returnRequestId: 44,
+      orderId: 11,
+      reason: 'DEFECTIVE',
+      status: 'RECEIVED',
+      workflowStatus: 'ACCEPTED_FOR_REFUND',
+      refundStatus: 'PENDING',
+      totalRefundAmount: '50000',
+      createdAt: '2026-02-24T08:00:00.000Z',
+      items: [],
+      attachments: [],
+      statusLogs: [],
+      refundTransactions: [],
+    });
+
+    renderPage('/orders/11');
+
+    expect(await screen.findByText('Tiến trình hoàn trả')).toBeInTheDocument();
+    expect(screen.getByText('Chờ hoàn tiền')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Xem chi tiết hoàn trả' })).toBeInTheDocument();
+  });
+
+  it('renders canonical cancelled payment labels on the customer order detail page', async () => {
+    fetchOrderDetail.mockResolvedValueOnce({
+      ...buildOrderDetail('PROCESSING'),
+      paymentMethod: 'VNPAY',
+      paymentStatus: 'canceled',
+    });
+
+    renderPage('/orders/11');
+
+    expect(await screen.findByText('Đã hủy thanh toán')).toBeInTheDocument();
+    expect(screen.queryByText('Thanh toán thất bại')).not.toBeInTheDocument();
+  });
+
+  it('renders canonical needs-review payment labels on the customer order detail page', async () => {
+    fetchOrderDetail.mockResolvedValueOnce({
+      ...buildOrderDetail('PROCESSING'),
+      paymentMethod: 'VNPAY',
+      paymentStatus: 'needs_review',
+    });
+
+    renderPage('/orders/11');
+
+    expect(await screen.findByText('Cần kiểm tra thanh toán')).toBeInTheDocument();
+    expect(screen.queryByText('Thanh toán thất bại')).not.toBeInTheDocument();
   });
 });
 

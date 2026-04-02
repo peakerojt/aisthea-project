@@ -1,10 +1,14 @@
 type PaymentTone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 export type PaymentDisplayStatus =
-  | 'COD_PENDING'
+  | 'PENDING_COD'
+  | 'PENDING_VNPAY'
   | 'PENDING'
+  | 'UNPAID'
   | 'VERIFYING'
   | 'PAID'
+  | 'CANCELLED'
+  | 'NEEDS_REVIEW'
   | 'FAILED'
   | 'REFUNDED'
   | 'PARTIALLY_REFUNDED'
@@ -47,16 +51,39 @@ const TONE_STYLES: Record<PaymentTone, { badgeClass: string; textClass: string }
   },
 };
 
+const buildPendingStatusMeta = (
+  canonicalStatus: 'PENDING_COD' | 'PENDING_VNPAY' | 'PENDING' | 'UNPAID',
+  tone: PaymentTone,
+): PaymentStatusMeta => ({
+  canonicalStatus,
+  labelKey:
+    canonicalStatus === 'PENDING_COD'
+      ? 'paymentStatus.PENDING_COD'
+      : canonicalStatus === 'PENDING_VNPAY'
+        ? 'paymentStatus.PENDING_VNPAY'
+        : 'paymentStatus.PENDING',
+  defaultLabel: 'Chờ thanh toán',
+  ...TONE_STYLES[tone],
+  isPaidLike: false,
+});
+
 const normalizeValue = (value?: string | null) =>
   (value ?? '')
     .trim()
     .replace(/[\s-]+/g, '_')
     .toUpperCase();
 
+const COLLECTED_PAYMENT_STATUSES = ['PAID', 'REFUNDED', 'PARTIALLY_REFUNDED'] as const;
+
 export const normalizePaymentStatus = (status?: string | null): PaymentDisplayStatus | string => {
   const normalized = normalizeValue(status);
 
   switch (normalized) {
+    case 'COD_PENDING':
+    case 'PENDING_COD':
+      return 'PENDING_COD';
+    case 'PENDING_VNPAY':
+      return 'PENDING_VNPAY';
     case 'PAID':
     case 'COMPLETED':
     case 'SUCCESS':
@@ -66,11 +93,14 @@ export const normalizePaymentStatus = (status?: string | null): PaymentDisplaySt
     case 'PARTIALLY_REFUNDED':
     case 'PARTIAL_REFUND':
       return 'PARTIALLY_REFUNDED';
-    case 'FAILED':
+    case 'NEEDS_REVIEW':
+      return 'NEEDS_REVIEW';
     case 'CANCELLED':
     case 'CANCELED':
     case 'DECLINED':
     case 'EXPIRED':
+      return 'CANCELLED';
+    case 'FAILED':
       return 'FAILED';
     case 'VERIFYING':
     case 'PROCESSING':
@@ -85,6 +115,11 @@ export const normalizePaymentStatus = (status?: string | null): PaymentDisplaySt
       return normalized;
   }
 };
+
+export const isCollectedPaymentStatus = (status?: string | null): boolean =>
+  COLLECTED_PAYMENT_STATUSES.includes(
+    normalizePaymentStatus(status) as (typeof COLLECTED_PAYMENT_STATUSES)[number],
+  );
 
 const normalizePaymentMethod = (method?: string | null) => normalizeValue(method);
 
@@ -172,14 +207,36 @@ export const getPaymentStatusMeta = (
     };
   }
 
-  if (method === 'COD') {
+  if (status === 'CANCELLED') {
     return {
-      canonicalStatus: 'COD_PENDING',
-      labelKey: 'paymentStatus.COD_PENDING',
-      defaultLabel: 'Chờ thanh toán',
-      ...TONE_STYLES.neutral,
+      canonicalStatus: 'CANCELLED',
+      labelKey: 'paymentStatus.CANCELLED',
+      defaultLabel: 'Đã hủy thanh toán',
+      ...TONE_STYLES.danger,
       isPaidLike: false,
     };
+  }
+
+  if (status === 'NEEDS_REVIEW') {
+    return {
+      canonicalStatus: 'NEEDS_REVIEW',
+      labelKey: 'paymentStatus.NEEDS_REVIEW',
+      defaultLabel: 'Cần kiểm tra thanh toán',
+      ...TONE_STYLES.warning,
+      isPaidLike: false,
+    };
+  }
+
+  if (status === 'PENDING_COD') {
+    return buildPendingStatusMeta('PENDING_COD', 'neutral');
+  }
+
+  if (method === 'COD') {
+    return buildPendingStatusMeta('PENDING_COD', 'neutral');
+  }
+
+  if (status === 'PENDING_VNPAY') {
+    return buildPendingStatusMeta('PENDING_VNPAY', 'warning');
   }
 
   if (status === 'VERIFYING') {
@@ -193,13 +250,11 @@ export const getPaymentStatusMeta = (
   }
 
   if (status === 'PENDING' || status === 'UNPAID') {
-    return {
-      canonicalStatus: 'PENDING',
-      labelKey: 'paymentStatus.PENDING',
-      defaultLabel: 'Chờ thanh toán',
-      ...TONE_STYLES.warning,
-      isPaidLike: false,
-    };
+    if (method === 'VNPAY') {
+      return buildPendingStatusMeta('PENDING_VNPAY', 'warning');
+    }
+
+    return buildPendingStatusMeta(status, 'warning');
   }
 
   return {

@@ -1,5 +1,5 @@
-import React from 'react';
-import { ClipboardList } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronDown, ClipboardList, ImageIcon } from 'lucide-react';
 import {
     AdminActionButton,
     AdminBadge,
@@ -12,20 +12,65 @@ import {
 import { AdminReturnReviewModal } from '@/admin/components/AdminReturnReviewModal';
 import {
     formatAdminReturnDateTime,
+    getAdminRefundStatusBadgeTone,
+    getAdminRefundStatusLabel,
     getAdminReturnStatusBadgeTone,
     getAdminReturnStatusLabel,
-} from '@/admin/utils/adminReturn.utils';
-import { ReturnStatusFilter, useAdminReturns } from '@/admin/hooks/useAdminReturns';
+} from '@/admin/utils/returns.utils';
+import { ReturnStatusFilter, useAdminReturns } from '@/admin/hooks/useReturns';
 import { ReasonLabel } from '@/common/components/ReasonLabel';
+import { resolveExpectedRefundEconomics } from '@/common/utils/returnEconomics';
+import { translateLegacyReturnCopy } from '@/common/utils/returnCopy';
+
+const returnsDesktopGridClassName =
+    'xl:grid-cols-[minmax(220px,1.28fr)_minmax(162px,0.94fr)_minmax(116px,0.68fr)_minmax(184px,0.96fr)_minmax(122px,0.72fr)_116px]';
+
+const refundToneCardClasses: Record<
+    string,
+    { shell: string; eyebrow: string; dot: string; value: string }
+> = {
+    info: {
+        shell: 'border-sky-400/20 bg-sky-500/12',
+        eyebrow: 'text-sky-100/58',
+        dot: 'bg-sky-300',
+        value: 'text-sky-50',
+    },
+    warning: {
+        shell: 'border-amber-400/20 bg-amber-500/12',
+        eyebrow: 'text-amber-100/58',
+        dot: 'bg-amber-300',
+        value: 'text-amber-50',
+    },
+    success: {
+        shell: 'border-emerald-400/20 bg-emerald-500/12',
+        eyebrow: 'text-emerald-100/58',
+        dot: 'bg-emerald-300',
+        value: 'text-emerald-50',
+    },
+    danger: {
+        shell: 'border-rose-400/20 bg-rose-500/12',
+        eyebrow: 'text-rose-100/58',
+        dot: 'bg-rose-300',
+        value: 'text-rose-50',
+    },
+    default: {
+        shell: 'border-white/[0.08] bg-white/[0.04]',
+        eyebrow: 'text-white/38',
+        dot: 'bg-white/55',
+        value: 'text-white',
+    },
+};
 
 export const Returns: React.FC = () => {
+    const [expandedReturnIds, setExpandedReturnIds] = useState<Set<number>>(new Set());
     const {
+        canManageFinanceActions,
         changeStatusFilter,
-        handleAction,
         isRefreshing,
         loading,
         page,
         pendingCount,
+        reviewActions,
         returns,
         selectedReturn,
         setPage,
@@ -45,18 +90,58 @@ export const Returns: React.FC = () => {
     const subtitleLabel = resolveText('page.subtitle', 'Xem xét và xử lý các yêu cầu trả hàng, hoàn tiền');
     const pendingBadgeLabel = resolveText('page.pendingBadge', '{{count}} chờ duyệt', { count: pendingCount });
     const emptyLabel = resolveText('table.empty', 'Không có yêu cầu trả hàng nào.');
-    const rowNumberLabel = resolveText('table.rowNumber', '#');
     const orderCustomerLabel = resolveText('table.orderCustomer', 'Mã đơn / Khách hàng');
     const reasonLabel = resolveText('table.reason', 'Lý do');
     const requestDateLabel = resolveText('table.requestDate', 'Ngày yêu cầu');
     const statusLabel = resolveText('table.status', 'Trạng thái');
+    const refundAmountLabel = resolveText('table.expectedRefund', 'Hoàn tiền dự kiến');
     const actionsLabel = resolveText('table.actions', 'Thao tác');
+    const financeNoteLabel = resolveText('table.financeNote', 'Ghi chú tài chính');
+    const financeNoteMetaLabel = (date: string, actor: string) =>
+        resolveText('table.financeNoteMeta', 'Cập nhật {{date}} · {{actor}}', { date, actor });
     const guestLabel = resolveText('table.guest', 'Khách vãng lai');
     const proofImagesLabel = (count: number) => resolveText('table.proofImages', '{{count}} ảnh', { count });
     const viewDetailLabel = resolveText('table.viewDetail', 'Xem chi tiết');
+    const showMoreLabel = resolveText('table.showMore', 'Xem thêm thông tin hoàn trả');
+    const hideMoreLabel = resolveText('table.hideMore', 'Ẩn thông tin hoàn trả');
     const previousLabel = resolveText('pagination.previous', 'Trước');
     const nextLabel = resolveText('pagination.next', 'Sau');
     const pageLabel = resolveText('pagination.page', 'Trang {{page}} / {{total}}', { page, total: totalPages });
+    const refundStatusDetailLabel = resolveText('table.refundStatusDetail', 'Trạng thái hoàn tiền');
+    const formatDateParts = (iso?: string | null) => {
+        if (!iso) {
+            return { time: '—', date: '—' };
+        }
+
+        try {
+            const date = new Date(iso);
+            return {
+                time: new Intl.DateTimeFormat('vi-VN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                }).format(date),
+                date: new Intl.DateTimeFormat('vi-VN', {
+                    day: 'numeric',
+                    month: 'numeric',
+                    year: 'numeric',
+                }).format(date),
+            };
+        } catch {
+            return { time: String(iso), date: '—' };
+        }
+    };
+    const toggleExpandedReturn = (returnId: number) => {
+        setExpandedReturnIds((current) => {
+            const next = new Set(current);
+            if (next.has(returnId)) {
+                next.delete(returnId);
+            } else {
+                next.add(returnId);
+            }
+            return next;
+        });
+    };
 
     const pageControls = (
         <div className="space-y-5 border-b border-white/[0.06] p-5 lg:p-6">
@@ -65,7 +150,7 @@ export const Returns: React.FC = () => {
                 title={titleLabel}
                 subtitle={subtitleLabel}
                 actions={pendingCount > 0 ? (
-                    <AdminBadge tone="warning" dot className="px-3 py-2 text-xs uppercase tracking-[0.14em]">
+                    <AdminBadge tone="warning" dot className="px-4 py-2 text-sm uppercase tracking-[0.14em]">
                         {pendingBadgeLabel}
                     </AdminBadge>
                 ) : undefined}
@@ -75,6 +160,7 @@ export const Returns: React.FC = () => {
                 items={statusTabs}
                 activeKey={statusFilter}
                 onChange={(key) => changeStatusFilter(key as ReturnStatusFilter)}
+                className="gap-2.5 [&_button]:px-4 [&_button]:py-2 [&_button]:text-[15px] [&_button]:font-semibold [&_button]:text-white/58 [&_button]:shadow-none [&_button>span:last-child]:px-1.5 [&_button>span:last-child]:py-0.5 [&_button>span:last-child]:text-[10px] [&_[data-admin-tab-active='true']]:border-primary/35 [&_[data-admin-tab-active='true']]:bg-primary/10 [&_[data-admin-tab-active='true']]:text-white [&_[data-admin-tab-active='false']]:border-white/[0.08] [&_[data-admin-tab-active='false']]:bg-white/[0.025]"
             />
         </div>
     );
@@ -98,91 +184,191 @@ export const Returns: React.FC = () => {
                     />
                 ) : (
                     <>
-                        <div className="grid grid-cols-[auto_1fr_1fr_auto_auto_auto] gap-4 px-6 py-3 border-b border-white/5 bg-white/[0.02]">
-                            <div className="text-[10px] uppercase tracking-widest text-white/30">
-                                {rowNumberLabel}
-                            </div>
-                            <div className="text-[10px] uppercase tracking-widest text-white/30">
-                                {orderCustomerLabel}
-                            </div>
-                            <div className="text-[10px] uppercase tracking-widest text-white/30 hidden md:block">
-                                {reasonLabel}
-                            </div>
-                            <div className="text-[10px] uppercase tracking-widest text-white/30">
-                                {requestDateLabel}
-                            </div>
-                            <div className="text-[10px] uppercase tracking-widest text-white/30">
-                                {statusLabel}
-                            </div>
-                            <div className="text-[10px] uppercase tracking-widest text-white/30">
-                                {actionsLabel}
-                            </div>
-                        </div>
-
-                        <div className="divide-y divide-white/[0.03]">
-                            {returns.map((ret, index) => (
-                                <div
-                                    key={ret.returnId}
-                                    className="grid grid-cols-[auto_1fr_1fr_auto_auto_auto] gap-4 px-6 py-4 items-center hover:bg-white/[0.02] transition-colors"
-                                >
-                                    <div className="text-xs text-white/30 font-mono w-8">
-                                        {(page - 1) * 15 + index + 1}
-                                    </div>
-
-                                    <div className="min-w-0">
-                                        <div className="text-sm font-semibold text-white font-mono">
-                                            #{ret.order?.orderNumber ?? `RET-${ret.returnId}`}
-                                        </div>
-                                        <div className="text-xs text-white/50 mt-1 truncate">
-                                            {ret.user?.fullName ?? guestLabel}
-                                        </div>
-                                        <div className="text-[10px] text-white/30 mt-0.5">
-                                            {ret.user?.email ?? '—'}
-                                        </div>
-                                    </div>
-
-                                    <div className="hidden md:block min-w-0">
-                                        <p className="text-xs text-white/60 line-clamp-2 leading-relaxed">
-                                            <ReasonLabel reason={ret.reason} />
-                                        </p>
-                                        {ret.proofImages.length > 0 && (
-                                            <span className="inline-flex items-center gap-1 mt-1 text-[10px] text-white/30">
-                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        strokeWidth={1.5}
-                                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                                    />
-                                                </svg>
-                                                {proofImagesLabel(ret.proofImages.length)}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <div className="text-xs text-white/50 whitespace-nowrap">
-                                        {formatAdminReturnDateTime(ret.createdAt)}
-                                    </div>
-
-                                    <div>
-                                        <AdminBadge
-                                            tone={getAdminReturnStatusBadgeTone(ret.status)}
-                                            className="rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap"
-                                        >
-                                            {getAdminReturnStatusLabel(ret.status, t)}
-                                        </AdminBadge>
-                                    </div>
-
-                                    <div>
-                                        <AdminActionButton
-                                            onClick={() => setSelectedReturn(ret)}
-                                            className="cursor-pointer whitespace-nowrap px-3 py-2 text-[10px] font-bold uppercase tracking-widest"
-                                        >
-                                            {viewDetailLabel}
-                                        </AdminActionButton>
-                                    </div>
+                        <div data-testid="admin-returns-table-scroll">
+                            <div className={`hidden xl:grid ${returnsDesktopGridClassName} xl:gap-3 xl:px-[40px] py-3 border-b border-white/5 bg-white/[0.02]`}>
+                                <div className="text-[10px] uppercase tracking-widest text-white/30">
+                                    {orderCustomerLabel}
                                 </div>
-                            ))}
+                                <div className="text-[10px] uppercase tracking-widest text-white/30 hidden md:block">
+                                    {reasonLabel}
+                                </div>
+                                <div className="text-[10px] uppercase tracking-widest text-white/30">
+                                    {requestDateLabel}
+                                </div>
+                                <div className="text-[10px] uppercase tracking-widest text-white/30">
+                                    {statusLabel}
+                                </div>
+                                <div className="text-[10px] uppercase tracking-widest text-white/30">
+                                    {refundAmountLabel}
+                                </div>
+                                <div className="text-[10px] uppercase tracking-widest text-white/30 text-right">
+                                    {actionsLabel}
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 px-4 py-4 lg:px-5 lg:py-5">
+                                {returns.map((ret) => {
+                                    const displayStatus = ret.workflowStatus ?? ret.status;
+                                    const financeNoteCopy = translateLegacyReturnCopy(ret.financeNote, resolveText);
+                                    const { expectedRefundAmount } = resolveExpectedRefundEconomics(ret);
+                                    const requestedAt = formatDateParts(ret.createdAt);
+                                    const hasRefundStatus =
+                                        Boolean(ret.refundStatus) && ret.refundStatus !== 'NOT_APPLICABLE';
+                                    const hasFinanceNote = Boolean(ret.financeNote);
+                                    const isExpanded = expandedReturnIds.has(ret.returnId);
+                                    const refundStatusTone = hasRefundStatus && ret.refundStatus
+                                        ? getAdminRefundStatusBadgeTone(ret.refundStatus)
+                                        : 'default';
+                                    const refundStatusCardClass =
+                                        refundToneCardClasses[refundStatusTone] ?? refundToneCardClasses.default;
+
+                                    return (
+                                        <div
+                                            key={ret.returnId}
+                                            className="rounded-[26px] border border-white/[0.06] bg-white/[0.02] px-5 py-4 transition-colors hover:border-white/10 hover:bg-white/[0.03]"
+                                        >
+                                            <div className={`grid gap-4 xl:items-start xl:gap-3 ${returnsDesktopGridClassName}`}>
+                                                <div className="min-w-0 xl:flex xl:h-[62px] xl:flex-col xl:justify-center">
+                                                    <div className="text-sm font-semibold text-white font-mono truncate">
+                                                        #{ret.order?.orderNumber ?? `RET-${ret.returnId}`}
+                                                    </div>
+                                                    <div className="mt-1 text-xs text-white/58 truncate">
+                                                        {ret.user?.fullName ?? guestLabel}
+                                                    </div>
+                                                    <div className="mt-0.5 text-[10px] text-white/30 truncate">
+                                                        {ret.user?.email ?? '—'}
+                                                    </div>
+                                                </div>
+
+                                                <div className="min-w-0 xl:grid xl:h-[62px] xl:grid-rows-[44px_18px] xl:content-start xl:justify-self-start">
+                                                    <div className="flex h-[44px] items-start overflow-hidden">
+                                                        <p className="text-sm text-white/78 line-clamp-2 leading-snug">
+                                                            <ReasonLabel reason={ret.reason} />
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex h-[18px] items-center">
+                                                        {ret.proofImages.length > 0 && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] text-white/36">
+                                                                <ImageIcon className="h-3 w-3" />
+                                                                {proofImagesLabel(ret.proofImages.length)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="xl:grid xl:h-[62px] xl:grid-rows-[44px_18px] xl:content-start xl:justify-self-start">
+                                                    <div className="flex h-[44px] flex-col justify-start overflow-hidden">
+                                                        <div className="text-sm font-medium text-white/88 whitespace-nowrap">
+                                                            {requestedAt.time}
+                                                        </div>
+                                                        <div className="mt-1 text-[11px] text-white/46 whitespace-nowrap xl:hidden">
+                                                            {requestedAt.date}
+                                                        </div>
+                                                    </div>
+                                                    <div className="hidden h-[18px] items-center text-[11px] text-white/46 whitespace-nowrap xl:flex">
+                                                        {requestedAt.date}
+                                                    </div>
+                                                </div>
+
+                                                <div className="min-w-0 xl:grid xl:h-[62px] xl:grid-rows-[44px_18px] xl:content-start xl:justify-self-start">
+                                                    <div className="flex h-[44px] items-center">
+                                                        <div className="xl:hidden text-[10px] uppercase tracking-widest text-white/28">
+                                                            {statusLabel}
+                                                        </div>
+                                                        <AdminBadge
+                                                            tone={getAdminReturnStatusBadgeTone(displayStatus)}
+                                                            className="max-w-full justify-center rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] leading-none text-center whitespace-nowrap"
+                                                        >
+                                                            {getAdminReturnStatusLabel(displayStatus, t)}
+                                                        </AdminBadge>
+                                                    </div>
+                                                    <div className="hidden h-[18px] xl:block" />
+                                                </div>
+
+                                                <div className="xl:grid xl:h-[62px] xl:grid-rows-[44px_18px] xl:content-start xl:justify-self-start">
+                                                    <div className="flex h-[44px] flex-col justify-start overflow-hidden">
+                                                        <div className="xl:hidden text-[10px] uppercase tracking-widest text-white/28">
+                                                            {refundAmountLabel}
+                                                        </div>
+                                                        <div className="text-sm font-bold text-emerald-200 whitespace-nowrap">
+                                                            {expectedRefundAmount > 0
+                                                                ? `${expectedRefundAmount.toLocaleString('vi-VN')}đ`
+                                                                : '—'}
+                                                        </div>
+                                                    </div>
+                                                    <div className="hidden h-[18px] xl:block" />
+                                                </div>
+
+                                                <div className="xl:grid xl:h-[62px] xl:grid-rows-[44px_18px] xl:content-start xl:justify-self-end">
+                                                    <div className="flex h-[44px] items-center justify-end gap-2">
+                                                        <AdminActionButton
+                                                            onClick={() => setSelectedReturn(ret)}
+                                                            className="cursor-pointer whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white/70 transition-colors duration-150 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+                                                        >
+                                                            {viewDetailLabel}
+                                                        </AdminActionButton>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleExpandedReturn(ret.returnId)}
+                                                            aria-expanded={isExpanded}
+                                                            aria-controls={`admin-return-panel-${ret.returnId}`}
+                                                            aria-label={isExpanded ? hideMoreLabel : showMoreLabel}
+                                                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/58 transition-colors hover:border-white/18 hover:bg-white/[0.06] hover:text-white"
+                                                        >
+                                                            <ChevronDown size={16} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                                        </button>
+                                                    </div>
+                                                    <div className="hidden h-[18px] xl:block" />
+                                                </div>
+                                            </div>
+
+                                            {isExpanded && (
+                                                <div
+                                                    id={`admin-return-panel-${ret.returnId}`}
+                                                    className={`mt-4 flex gap-3 ${hasFinanceNote ? 'w-full flex-col xl:flex-row xl:items-stretch' : 'flex-col items-start'}`}
+                                                >
+                                                    {hasRefundStatus && ret.refundStatus && (
+                                                        <div className={`inline-flex max-w-full flex-col rounded-2xl border px-4 py-3 text-xs text-white ${hasFinanceNote ? 'xl:min-w-[18rem] xl:max-w-[22rem]' : 'w-fit'} ${refundStatusCardClass.shell}`}>
+                                                            <span className={`text-[10px] uppercase tracking-[0.16em] ${refundStatusCardClass.eyebrow}`}>
+                                                                {refundStatusDetailLabel}
+                                                            </span>
+                                                            <div className="mt-2 flex flex-wrap items-center gap-2.5">
+                                                                <span className={`h-2.5 w-2.5 rounded-full ${refundStatusCardClass.dot}`} />
+                                                                <span className={`text-sm font-semibold ${refundStatusCardClass.value}`}>
+                                                                    {getAdminRefundStatusLabel(ret.refundStatus, t)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {hasFinanceNote && (
+                                                        <div
+                                                            className="inline-flex min-w-0 max-w-full flex-1 flex-col rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-xs leading-relaxed text-white/70"
+                                                            title={`${financeNoteLabel}: ${financeNoteCopy ?? ret.financeNote}`}
+                                                        >
+                                                            <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-white/38">
+                                                                <span>{financeNoteLabel}</span>
+                                                                {(ret.financeNoteUpdatedAt || ret.financeNoteUpdatedBy?.fullName) && (
+                                                                    <span className="inline-flex rounded-full border border-white/[0.08] bg-black/20 px-2 py-1 text-[10px] normal-case tracking-normal text-white/42">
+                                                                        {financeNoteMetaLabel(
+                                                                            ret.financeNoteUpdatedAt
+                                                                                ? formatAdminReturnDateTime(ret.financeNoteUpdatedAt)
+                                                                                : '—',
+                                                                            ret.financeNoteUpdatedBy?.fullName ?? '—',
+                                                                        )}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="mt-2 text-sm leading-relaxed text-white/80">
+                                                                {financeNoteCopy ?? ret.financeNote}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </>
                 )}
@@ -214,9 +400,10 @@ export const Returns: React.FC = () => {
 
             {selectedReturn && (
                 <AdminReturnReviewModal
+                    actions={reviewActions}
+                    canManageFinanceActions={canManageFinanceActions}
                     item={selectedReturn}
                     onClose={() => setSelectedReturn(null)}
-                    onAction={handleAction}
                 />
             )}
         </AdminPageShell>

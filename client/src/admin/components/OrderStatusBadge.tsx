@@ -7,34 +7,6 @@ interface OrderStatusBadgeProps {
   showDot?: boolean;
 }
 
-const RETURN_REQUESTED_META = {
-  label: 'Yêu cầu trả hàng',
-  icon: 'RotateCcw',
-  badgeClass: 'border-orange-500/30 bg-orange-500/10',
-  textClass: 'text-orange-400',
-  dotClass: 'bg-orange-400',
-  glowClass: 'shadow-orange-500/20',
-  actionClass: 'bg-orange-600 hover:bg-orange-500 shadow-orange-900/30',
-  isTerminal: false,
-  requiresNote: true,
-} as const;
-
-export const getOrderStatusDisplayMeta = (status: string | null | undefined) => {
-  const raw = status?.trim() ?? '';
-  if (raw.toUpperCase() === 'RETURN_REQUESTED') {
-    return {
-      canonical: 'RETURN_REQUESTED',
-      meta: RETURN_REQUESTED_META,
-    };
-  }
-
-  const canonical = normalizeStatus(status) ?? status ?? '';
-  return {
-    canonical,
-    meta: getStatusMeta(canonical),
-  };
-};
-
 /**
  * Order status badge fully driven by the FSM config.
  * No more magic strings — all colors, labels, and dots come from ORDER_STATUS_META.

@@ -7,7 +7,7 @@ const normalizeTextInput = (value: unknown) => {
   return collapseWhitespace(value);
 };
 
-const normalizeOptionalTextInput = (value: unknown) => {
+export const normalizeOptionalTextInput = (value: unknown) => {
   if (typeof value !== 'string') return value;
   const normalized = collapseWhitespace(value);
   return normalized.length > 0 ? normalized : undefined;

@@ -49,15 +49,15 @@ export const NotificationBell: React.FC = () => {
             {/* Dropdown */}
             {open && (
                 <AdminSectionCard
-                    className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl animate-fade-in"
+                    className="absolute right-0 top-full z-50 mt-2 w-[24rem] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl animate-fade-in"
                     bodyClassName="p-0"
                     title={(
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 whitespace-nowrap">
                             <AlertTriangle size={14} className="text-amber-400" />
                             <span>Cảnh báo tồn kho</span>
                         </div>
                     )}
-                    actions={totalLowStock > 0 ? <AdminBadge tone="danger">{totalLowStock} sản phẩm</AdminBadge> : undefined}
+                    actions={totalLowStock > 0 ? <AdminBadge tone="danger" className="whitespace-nowrap">{totalLowStock} sản phẩm</AdminBadge> : undefined}
                     headerClassName="bg-white/[0.02]"
                 >
 

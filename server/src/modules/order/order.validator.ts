@@ -1,4 +1,5 @@
 export {
+  cancelOrderBodySchema,
   createOrderSchema,
   myOrderIdParamSchema,
   orderIdParamSchema,
@@ -7,6 +8,7 @@ export {
 } from '../../shared/validation/schemas/order';
 
 export type {
+  CancelOrderBodyInput,
   CreateOrderInput,
   OrderIdParams,
   QuoteOrderInput,

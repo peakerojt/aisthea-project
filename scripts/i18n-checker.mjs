@@ -181,6 +181,7 @@ const extractHardcodedStringsFromRoute = (filePath) => {
     if (!/[A-Za-zÀ-ỹ]/u.test(normalized)) return;
     if (/[{};]/.test(normalized)) return;
     if (normalized.includes('=>') || normalized.includes('return (') || normalized.includes('navigate(')) return;
+    if (/(?:\?\s)|(?:&&)|(?:\|\|)|(?:===)|(?:!==)|(?:\)\s*:)|(?:\.length)|(?:\.mode)/.test(normalized)) return;
     if (/^[\d\s:()[\],.+\-/*%&|=!<>]+$/.test(normalized)) return;
     findings.add(`${path.relative(ROOT, filePath)}::${kind}::${normalized}`);
   };
@@ -253,12 +254,14 @@ const extractClientUsedKeys = () => {
       }
     }
 
-    const fallbackPattern = /\bt\(\s*(['"`])([^'"`\r\n]+)\1/g;
-    for (const match of content.matchAll(fallbackPattern)) {
-      const rawKey = match[2];
-      if (rawKey.includes('${')) continue;
-      if (processed.has(`${match.index}:${rawKey}`)) continue;
-      used.add(resolveClientTranslationKey(rawKey, bindings.get('t')));
+    if (bindings.has('t')) {
+      const fallbackPattern = /\bt\(\s*(['"`])([^'"`\r\n]+)\1/g;
+      for (const match of content.matchAll(fallbackPattern)) {
+        const rawKey = match[2];
+        if (rawKey.includes('${')) continue;
+        if (processed.has(`${match.index}:${rawKey}`)) continue;
+        used.add(resolveClientTranslationKey(rawKey, bindings.get('t')));
+      }
     }
   }
   return used;

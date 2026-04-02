@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useProductsPageAPI, useUpdateProductStatusMutation } from '@/common/hooks/useProducts';
 import { fetchCategories, type CategoryOption } from '@/common/services/product.service';
 import { useToast } from '@/common/contexts/ToastContext';
-import { EyeOff, Edit2, AlertCircle, Loader2, UploadCloud, ChevronLeft, ChevronRight, Search, Package, Download, Filter } from 'lucide-react';
+import { Eye, EyeOff, Edit2, AlertCircle, Loader2, UploadCloud, ChevronLeft, ChevronRight, Search, Package, Download, Filter } from 'lucide-react';
 import {
   AdminActionButton,
   AdminIconButton,
@@ -72,7 +72,7 @@ export const Products: React.FC = () => {
 
   const updateProductStatusMutation = useUpdateProductStatusMutation();
 
-  const [deleteModal, setDeleteModal] = useState<{ open: boolean; id: string; name: string } | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; id: string; name: string; mode: 'hide' | 'restore' } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showImportExport, setShowImportExport] = useState(false);
   const initialLoading = loading && !qProducts;
@@ -182,25 +182,36 @@ export const Products: React.FC = () => {
     );
   };
 
-  const handleDeleteRow = (id: string, name: string) => {
-    setDeleteModal({ open: true, id, name });
+  const handleDeleteRow = (id: string, name: string, mode: 'hide' | 'restore') => {
+    setDeleteModal({ open: true, id, name, mode });
   };
 
   const confirmDelete = async () => {
     if (!deleteModal) return;
     setDeleting(true);
     try {
+      const nextStatus = deleteModal.mode === 'restore' ? 'Active' : 'Archived';
       await updateProductStatusMutation.mutateAsync({
         id: Number(deleteModal.id),
-        status: 'Archived',
+        status: nextStatus,
       });
       setDeleteModal(null);
       await refreshProducts();
-      showToast(t('products:feedback.hideSuccess'));
+      showToast(
+        deleteModal.mode === 'restore'
+          ? t('products:feedback.restoreSuccess', { defaultValue: 'Hiện sản phẩm thành công' })
+          : t('products:feedback.hideSuccess'),
+      );
     } catch (error) {
       const err = error as Error | { message?: string; error?: string; data?: unknown };
       setDeleteModal(null);
-      showToast(err.message || t('products:feedback.hideSuccess'), 'error');
+      showToast(
+        err.message ||
+          (deleteModal.mode === 'restore'
+            ? t('products:feedback.restoreSuccess', { defaultValue: 'Hiện sản phẩm thành công' })
+            : t('products:feedback.hideSuccess')),
+        'error',
+      );
     } finally {
       setDeleting(false);
     }
@@ -273,10 +284,14 @@ export const Products: React.FC = () => {
       {/* ── Xác nhận xóa ──── */}
       {deleteModal?.open && (
         <AdminModalShell
-          icon={EyeOff}
-          iconWrapperClassName="border-amber-500/20 bg-amber-500/10 text-amber-400 rounded-full"
-          iconClassName="text-amber-400"
-          title={t('products:modal.deleteTitle')}
+          icon={deleteModal.mode === 'restore' ? Eye : EyeOff}
+          iconWrapperClassName={`${deleteModal.mode === 'restore' ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' : 'border-amber-500/20 bg-amber-500/10 text-amber-400'} rounded-full`}
+          iconClassName={deleteModal.mode === 'restore' ? 'text-emerald-400' : 'text-amber-400'}
+          title={
+            deleteModal.mode === 'restore'
+              ? t('products:modal.restoreTitle', { defaultValue: 'Xác nhận hiện lại sản phẩm?' })
+              : t('products:modal.deleteTitle')
+          }
           subtitle={deleteModal.name}
           onClose={() => !deleting && setDeleteModal(null)}
           maxWidthClassName="max-w-md"
@@ -295,17 +310,34 @@ export const Products: React.FC = () => {
                 type="button"
                 onClick={confirmDelete}
                 disabled={deleting}
-                className="bg-amber-600 px-5 py-2.5 shadow-lg shadow-amber-900/20 hover:bg-amber-500"
+                className={`${deleteModal.mode === 'restore' ? 'bg-emerald-600 shadow-lg shadow-emerald-900/20 hover:bg-emerald-500' : 'bg-amber-600 shadow-lg shadow-amber-900/20 hover:bg-amber-500'} px-5 py-2.5`}
               >
-                {deleting ? <Loader2 size={14} className="animate-spin" /> : <EyeOff size={14} />}
-                {deleting ? t('products:modal.deleting') : t('products:modal.delete')}
+                {deleting ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : deleteModal.mode === 'restore' ? (
+                  <Eye size={14} />
+                ) : (
+                  <EyeOff size={14} />
+                )}
+                {deleting
+                  ? deleteModal.mode === 'restore'
+                    ? t('products:modal.restoring', { defaultValue: 'Đang hiện...' })
+                    : t('products:modal.deleting')
+                  : deleteModal.mode === 'restore'
+                    ? t('products:modal.restore', { defaultValue: 'Hiện lại' })
+                    : t('products:modal.delete')}
               </AdminPrimaryButton>
             </div>
           )}
         >
             <p
               className="text-sm text-white/60 bg-white/[0.03] border border-white/5 rounded-lg px-4 py-3 leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: t('products:modal.deleteWarning') }}
+              dangerouslySetInnerHTML={{
+                __html:
+                  deleteModal.mode === 'restore'
+                    ? t('products:modal.restoreWarning')
+                    : t('products:modal.deleteWarning'),
+              }}
             />
         </AdminModalShell>
       )}
@@ -548,6 +580,7 @@ export const Products: React.FC = () => {
               <tbody className="text-sm divide-y divide-white/5">
                 {filteredProducts.map((p) => {
                   const isSelected = selectedIds.includes(p.id);
+                  const isHidden = p.status === 'Hidden';
 
                   return (
                     <tr key={p.id} className={`group transition-colors ${isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-white/[0.02]'}`}>
@@ -591,7 +624,13 @@ export const Products: React.FC = () => {
                           title={p.status === 'Out of Stock' ? t('products:status.inStock') : t('products:status.outOfStock')}
                         >
                           <span
-                            className={`w-10 h-5 rounded-full p-1 transition-colors relative flex items-center ${p.status === 'Out of Stock' ? 'bg-gray-700' : 'bg-emerald-500/80'}`}
+                            className={`w-10 h-5 rounded-full p-1 transition-colors relative flex items-center ${
+                              p.status === 'Out of Stock'
+                                ? 'bg-gray-700'
+                                : p.status === 'Hidden'
+                                  ? 'bg-amber-500/80'
+                                  : 'bg-emerald-500/80'
+                            }`}
                           >
                             <span className={`w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${p.status === 'Out of Stock' ? 'translate-x-0' : 'translate-x-4'}`}></span>
                           </span>
@@ -615,11 +654,15 @@ export const Products: React.FC = () => {
                             <Edit2 size={16} />
                           </AdminRowIconButton>
                           <AdminRowIconButton
-                            onClick={() => handleDeleteRow(p.id, p.name)}
-                            tone="default"
-                            title={t('products:modal.delete')}
+                            onClick={() => handleDeleteRow(p.id, p.name, isHidden ? 'restore' : 'hide')}
+                            tone={isHidden ? 'primary' : 'default'}
+                            title={
+                              isHidden
+                                ? t('products:modal.restore', { defaultValue: 'Hiện lại' })
+                                : t('products:modal.delete')
+                            }
                           >
-                            <EyeOff size={18} />
+                            {isHidden ? <Eye size={18} /> : <EyeOff size={18} />}
                           </AdminRowIconButton>
                         </div>
                       </td>

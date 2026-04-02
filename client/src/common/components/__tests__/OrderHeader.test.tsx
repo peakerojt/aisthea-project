@@ -55,4 +55,74 @@ describe('OrderHeader', () => {
     expect(screen.getByText('Tổng tiền')).toBeInTheDocument();
     expect(screen.getByText(/Phương thức:/)).toBeInTheDocument();
   });
+
+  it('renders canonical cancelled payment labels without falling back to failed wording', () => {
+    render(
+      <OrderHeader
+        order={{
+          orderId: 2,
+          orderNumber: 'ORD-2',
+          orderCode: 'ORD-2',
+          status: 'PROCESSING',
+          paymentStatus: 'canceled',
+          paymentMethod: 'VNPAY',
+          totalAmount: '259000',
+          createdAt: '2026-02-24T08:00:00.000Z',
+          shippingAddress: {
+            recipientName: 'A',
+            phone: '090',
+            city: 'Da Nang',
+            addressDetail: '123 Street',
+          },
+          pricing: {
+            itemsTotal: 259000,
+            shippingFee: 0,
+            discount: 0,
+            tax: 0,
+            grandTotal: 259000,
+          },
+          items: [],
+          timeline: [],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Đã hủy thanh toán')).toBeInTheDocument();
+    expect(screen.queryByText('Thanh toán thất bại')).not.toBeInTheDocument();
+  });
+
+  it('renders canonical needs-review payment labels without collapsing to failed wording', () => {
+    render(
+      <OrderHeader
+        order={{
+          orderId: 3,
+          orderNumber: 'ORD-3',
+          orderCode: 'ORD-3',
+          status: 'PROCESSING',
+          paymentStatus: 'needs_review',
+          paymentMethod: 'VNPAY',
+          totalAmount: '359000',
+          createdAt: '2026-02-24T08:00:00.000Z',
+          shippingAddress: {
+            recipientName: 'A',
+            phone: '090',
+            city: 'Da Nang',
+            addressDetail: '123 Street',
+          },
+          pricing: {
+            itemsTotal: 359000,
+            shippingFee: 0,
+            discount: 0,
+            tax: 0,
+            grandTotal: 359000,
+          },
+          items: [],
+          timeline: [],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Cần kiểm tra thanh toán')).toBeInTheDocument();
+    expect(screen.queryByText('Thanh toán thất bại')).not.toBeInTheDocument();
+  });
 });

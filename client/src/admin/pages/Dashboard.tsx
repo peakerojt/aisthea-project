@@ -144,26 +144,40 @@ export const Dashboard: React.FC = () => {
 
   return (
     <AdminPageShell>
-      <AdminPageHeader
-        eyebrow={t('page.label')}
-        title={t('page.title')}
-        actions={
-          <>
-            <AdminTabs
-              items={rangeTabs}
-              activeKey={range}
-              onChange={(key) => setRange(key as DashboardRange)}
-            />
-            <NotificationBell />
-          </>
-        }
-      />
+      <div className="relative pb-3">
+        <AdminPageHeader
+          eyebrow={t('page.label')}
+          title={t('page.title')}
+          actions={
+            <>
+              <AdminTabs
+                items={rangeTabs}
+                activeKey={range}
+                onChange={(key) => setRange(key as DashboardRange)}
+              />
+              <NotificationBell />
+            </>
+          }
+        />
 
-      {isRefreshing && (
-        <div className="h-1 overflow-hidden rounded-full bg-white/[0.04]">
-          <div className="h-full w-1/3 animate-pulse rounded-full bg-primary/80" />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-full"
+        >
+          <div
+            className={`absolute inset-0 rounded-full bg-white/[0.04] transition-opacity duration-150 ${
+              isRefreshing ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+          <div
+            data-dashboard-refresh-rail="true"
+            data-refreshing={isRefreshing ? 'true' : 'false'}
+            className={`absolute inset-y-0 left-0 w-1/3 rounded-full bg-primary/80 transition-[opacity,transform] duration-200 ${
+              isRefreshing ? 'animate-pulse opacity-100 translate-x-0' : 'opacity-0 -translate-y-1'
+            }`}
+          />
         </div>
-      )}
+      </div>
 
       {error && (
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">

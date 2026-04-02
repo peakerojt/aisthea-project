@@ -3,13 +3,11 @@ import { prisma } from '../utils/prisma';
 import { findManyOrders } from '../modules/order/order.repository';
 import { updateOrderStatusAdmin, createOrder as createOrderService } from '../modules/order/order.service';
 import { quoteOrderPricing, ShippingMethod } from '../modules/order/order-pricing.service';
+import { reconcileCodReturnUnlockAfterDeliveryConfirmation } from '../modules/order/cod-return-reconciliation';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { emitNewOrder, emitOrderStatusUpdated } from '../socket';
 import {
   ORDER_STATUS,
-  isValidTransition,
-  INVENTORY_RESTORE_STATUSES,
-  getValidNextStatuses,
 } from '../config/orderStatus.config';
 import { ERROR_CODES, SUCCESS_MESSAGES } from '../utils/constants/responseKeys';
 import { logger } from '../lib/logger';
@@ -22,6 +20,7 @@ import {
 } from '../shared/order-contract';
 import { fileToBase64 } from '../middlewares/upload.middleware';
 import { cloudinaryService } from '../services/cloudinary.service';
+import { getRefundsForOrder } from '../services/refund.service';
 import type { CreateOrderInput, QuoteOrderInput } from '../modules/order/order.validator';
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
@@ -194,7 +193,16 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
 
     if (!order) return res.status(404).json({ success: false, errorCode: 'ORDER_NOT_FOUND' });
 
-    const variantFallbackBySku = await loadVariantFallbacksBySku(order.items);
+    const [variantFallbackBySku, refundHistory] = await Promise.all([
+      loadVariantFallbacksBySku(order.items),
+      getRefundsForOrder(orderId).catch((error: any) => {
+        logger.warn('[getAdminOrderDetail] Refund summary bootstrap failed', {
+          message: error?.message,
+          orderId,
+        });
+        return null;
+      }),
+    ]);
     const shipping = getOrderTrackingSummary(order.orderNumber, order.shipment);
     const paymentStatus = deriveCanonicalPaymentStatus(order.payments, order.paymentMethod);
     const timeline = buildCanonicalTimeline(order.statusHistory, order.createdAt);
@@ -257,6 +265,7 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
         status: p.status,
         paidAt: p.paymentDate?.toISOString(),
       })),
+      refundSummary: refundHistory?.summary ?? null,
       statusHistory: timeline.map((entry) => ({
         status: entry.status,
         oldStatus: entry.oldStatus,
@@ -611,6 +620,74 @@ export const uploadDeliveryProofImages = async (req: AuthRequest, res: Response)
   }
 };
 
+// ─── USER: Upload Return Proof Images | POST /api/orders/:id/return-proof-images ────────────
+
+export const uploadReturnProofImages = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ errorCode: 'UNAUTHORIZED' });
+
+    const orderId = parseIdParam(req.params.id);
+    if (orderId === null) return res.status(400).json({ errorCode: 'INVALID_ORDER_ID' });
+
+    const order = await prisma.order.findUnique({
+      where: { orderId },
+      select: {
+        orderId: true,
+        userId: true,
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ success: false, errorCode: 'ORDER_NOT_FOUND' });
+    }
+
+    if (order.userId !== userId) {
+      return res.status(403).json({ success: false, errorCode: 'NOT_ORDER_OWNER' });
+    }
+
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (files.length === 0) {
+      return res.status(400).json({ success: false, errorCode: 'RETURN_PROOF_REQUIRED' });
+    }
+
+    const uploaded = await Promise.all(
+      files.map(async (file) => {
+        const result = await cloudinaryService.uploadBase64(fileToBase64(file), {
+          folder: `orders/return-proof/${orderId}/${userId}`,
+          transformation: {
+            width: 1600,
+            height: 1600,
+            crop: 'limit',
+            quality: 'auto:good',
+          },
+        });
+
+        return {
+          url: result.secureUrl,
+          width: result.width,
+          height: result.height,
+        };
+      }),
+    );
+
+    return res.status(201).json({
+      success: true,
+      code: 'RETURN_PROOF_UPLOADED',
+      data: {
+        images: uploaded,
+      },
+    });
+  } catch (error: any) {
+    logger.error('[uploadReturnProofImages] Failed', {
+      message: error?.message,
+      orderId: req.params.id,
+      userId: req.user?.userId,
+    });
+    return res.status(500).json({ success: false, errorCode: 'RETURN_PROOF_UPLOAD_FAILED' });
+  }
+};
+
 // ─── USER: Confirm Receipt | PATCH /api/orders/:id/confirm-receipt ────────────
 
 export const confirmReceipt = async (req: AuthRequest, res: Response) => {
@@ -638,8 +715,6 @@ export const confirmReceipt = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ errorCode: ERROR_CODES.ORDER_NOT_SHIPPING, currentStatus: order.status });
     }
 
-    const isCodOrder = (order.paymentMethod ?? '').toUpperCase() === 'COD';
-
     await prisma.$transaction(async (tx) => {
       await tx.order.update({ where: { orderId }, data: { status: ORDER_STATUS.DELIVERED } });
       await tx.orderStatusHistory.create({
@@ -652,40 +727,13 @@ export const confirmReceipt = async (req: AuthRequest, res: Response) => {
         },
       });
 
-      if (isCodOrder) {
-        const latestCodPayment = await tx.payment.findFirst({
-          where: { orderId, paymentMethod: 'COD' },
-          orderBy: { paymentId: 'desc' },
-        });
-
-        const paymentAlreadySettled = ['COMPLETED', 'PAID', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes(
-          (latestCodPayment?.status ?? '').toUpperCase(),
-        );
-
-        if (!paymentAlreadySettled && latestCodPayment) {
-          await tx.payment.update({
-            where: { paymentId: latestCodPayment.paymentId },
-            data: {
-              status: 'COMPLETED',
-              paymentDate: new Date(),
-              note: 'Customer confirmed receipt. COD payment marked as paid.',
-            },
-          });
-        }
-
-        if (!paymentAlreadySettled && !latestCodPayment) {
-          await tx.payment.create({
-            data: {
-              orderId,
-              paymentMethod: 'COD',
-              amount: order.totalAmount,
-              status: 'COMPLETED',
-              paymentDate: new Date(),
-              note: 'Customer confirmed receipt. COD payment marked as paid.',
-            },
-          });
-        }
-      }
+      await reconcileCodReturnUnlockAfterDeliveryConfirmation(tx as any, {
+        orderId,
+        paymentMethod: order.paymentMethod,
+        totalAmount: order.totalAmount,
+        actorId: userId,
+        paymentNote: 'Khách hàng đã xác nhận nhận hàng. Thanh toán COD được đánh dấu là đã thu.',
+      });
     });
 
     return res.json({ success: true, code: SUCCESS_MESSAGES.RECEIPT_CONFIRMED, orderId, newStatus: ORDER_STATUS.DELIVERED });

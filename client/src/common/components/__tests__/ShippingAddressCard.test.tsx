@@ -27,7 +27,7 @@ describe('ShippingAddressCard', () => {
           orderCode: 'ORD-20260011',
           status: 'RETURN_REQUESTED',
           paymentMethod: 'cod',
-          paymentStatus: 'COD_PENDING',
+          paymentStatus: 'PENDING_COD',
           createdAt: '2026-02-24T08:00:00.000Z',
           shippingAddress: {
             recipientName: 'Nguyen Van A',

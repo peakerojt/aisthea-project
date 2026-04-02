@@ -134,8 +134,9 @@ describe('RecentOrders', () => {
       />,
     );
 
-    expect(screen.getByText('Đã giao hàng')).toBeInTheDocument();
-    expect(screen.getByText('Đã giao hàng')).toHaveClass('bg-emerald-500/10', 'border-emerald-500/30');
+    const deliveredBadge = screen.getByText('Đã giao hàng');
+    expect(deliveredBadge).toBeInTheDocument();
+    expect(deliveredBadge).toHaveClass('bg-emerald-500/10', 'border-emerald-500/30', 'text-emerald-400');
   });
 
   it('keeps dashboard chrome and return labels readable when translations return raw keys', () => {

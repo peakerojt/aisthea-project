@@ -48,12 +48,8 @@ const getActionTone = (targetStatus: OrderStatusValue) => {
 };
 
 const getNextStatusesForOrderAction = (currentStatus: string) => {
-    const normalized = currentStatus.trim().toUpperCase();
-    if (normalized === 'RETURN_REQUESTED') {
-        return [ORDER_STATUS.RETURNED];
-    }
-
-    return getValidNextStatuses(currentStatus);
+    return getValidNextStatuses(currentStatus)
+        .filter((status) => status !== ORDER_STATUS.RETURNED);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

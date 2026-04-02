@@ -136,13 +136,13 @@ describe('Tracking i18n — Integration Tests', () => {
       expect(res.body.message).toContain('tra cứu');
     });
 
-    it('[VALIDATION] validation error returns 400 with structured details', async () => {
+    it('[VALIDATION] validation error returns 422 with structured details', async () => {
       const res = await request(app)
         .post('/api/tracking/public')
         .set('x-lang', 'en')
         .send({ orderCode: 'ab' }); // too short, missing contact
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(422);
       expect(res.body.errorCode).toBe('VALIDATION_ERROR');
       expect(res.body.messageKey).toBe('common:errors.validation');
       expect(res.body.details).toBeDefined();

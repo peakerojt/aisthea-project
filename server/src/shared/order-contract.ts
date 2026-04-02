@@ -1,3 +1,4 @@
+import { isSettledPaymentStatus, normalizePaymentStatusKey } from '../config/paymentStatus.config';
 import { deriveOrderPaymentStatus, getOrderTrackingSummary, PaymentStatusLike, ShipmentLike } from './order-state';
 
 type StatusHistoryLike = {
@@ -73,27 +74,35 @@ export function deriveCanonicalPaymentStatus(
   paymentMethod?: string | null,
 ): string {
   const normalizedStatuses = (payments ?? [])
-    .map((payment) => normalizeKey(payment.status))
+    .map((payment) => normalizePaymentStatusKey(payment.status))
     .filter(Boolean);
 
   if (normalizedStatuses.some((status) => status === 'REFUNDED')) return 'REFUNDED';
   if (normalizedStatuses.some((status) => status === 'PARTIALLY_REFUNDED')) return 'PARTIALLY_REFUNDED';
-  if (normalizedStatuses.some((status) => status === 'COMPLETED' || status === 'PAID' || status === 'SUCCESS')) return 'PAID';
-  if (normalizedStatuses.some((status) => status === 'FAILED' || status === 'CANCELLED' || status === 'CANCELED' || status === 'DECLINED' || status === 'EXPIRED')) return 'FAILED';
+  if (normalizedStatuses.some((status) => isSettledPaymentStatus(status))) return 'PAID';
+  if (normalizedStatuses.some((status) => status === 'NEEDS_REVIEW')) return 'NEEDS_REVIEW';
+  if (normalizedStatuses.some((status) => status === 'FAILED' || status === 'CANCELLED' || status === 'DECLINED' || status === 'EXPIRED')) {
+    return 'CANCELLED';
+  }
 
   const method = normalizeKey(paymentMethod);
-  if (method === 'COD') return 'COD_PENDING';
+  if (normalizedStatuses.some((status) => status === 'PENDING_COD')) return 'PENDING_COD';
+  if (normalizedStatuses.some((status) => status === 'PENDING_VNPAY')) return 'PENDING_VNPAY';
+  if (method === 'COD') return 'PENDING_COD';
 
   if (normalizedStatuses.some((status) => status === 'PROCESSING' || status === 'VERIFYING')) return 'VERIFYING';
-  if (normalizedStatuses.some((status) => status === 'PENDING')) return 'PENDING';
+  if (normalizedStatuses.some((status) => status === 'PENDING')) {
+    return method === 'VNPAY' ? 'PENDING_VNPAY' : 'PENDING';
+  }
 
-  const derived = normalizeKey(deriveOrderPaymentStatus(payments));
+  const derived = normalizePaymentStatusKey(deriveOrderPaymentStatus(payments));
   if (derived === 'REFUNDED') return 'REFUNDED';
   if (derived === 'PARTIALLY_REFUNDED') return 'PARTIALLY_REFUNDED';
-  if (derived === 'PAID' || derived === 'COMPLETED') return 'PAID';
-  if (derived === 'FAILED') return 'FAILED';
+  if (isSettledPaymentStatus(derived)) return 'PAID';
+  if (derived === 'NEEDS_REVIEW') return 'NEEDS_REVIEW';
+  if (derived === 'FAILED' || derived === 'CANCELLED') return 'CANCELLED';
 
-  return 'PENDING';
+  return method === 'VNPAY' ? 'PENDING_VNPAY' : 'PENDING';
 }
 
 export function buildCanonicalTimeline(

@@ -63,6 +63,7 @@ const envSchema = z.object({
     CLOUDFLARE_ACCOUNT_ID: z.string().optional().default(''),
     CLOUDFLARE_API_TOKEN: z.string().optional().default(''),
     CLOUDFLARE_AI_MODEL: z.string().optional().default('@cf/meta/llama-3-8b-instruct'),
+    SECURITY_RATE_LIMIT_MONITOR_ONLY: z.string().optional().default('false'),
 });
 
 const _parsedEnv = envSchema.safeParse(process.env);
@@ -111,4 +112,5 @@ export const env = {
     cloudflareAccountId: _parsedEnv.data.CLOUDFLARE_ACCOUNT_ID,
     cloudflareApiToken: _parsedEnv.data.CLOUDFLARE_API_TOKEN,
     cloudflareAiModel: _parsedEnv.data.CLOUDFLARE_AI_MODEL,
+    securityRateLimitMonitorOnly: _parsedEnv.data.SECURITY_RATE_LIMIT_MONITOR_ONLY === 'true',
 } as const;

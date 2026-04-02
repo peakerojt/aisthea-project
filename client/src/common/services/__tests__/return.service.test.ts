@@ -3,206 +3,26 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.unmock('@/common/services/return.service');
 
 const returnApiMock = vi.hoisted(() => ({
-  approveReturnRequest: vi.fn(),
   createReturnRequest: vi.fn(),
-  getAdminReturnRequestDetail: vi.fn(),
-  getAdminReturnRequests: vi.fn(),
   getMyReturns: vi.fn(),
   getReturnForOrder: vi.fn(),
   getUserReturnDetail: vi.fn(),
-  markReturnReceived: vi.fn(),
-  refundReturnRequest: vi.fn(),
-  rejectReturnRequest: vi.fn(),
-  requestReturn: vi.fn(),
 }));
 
 vi.mock('@/common/api/return.api', () => ({
   returnApi: returnApiMock,
 }));
 
-let adminReturnService: typeof import('@/common/services/return.service').adminReturnService;
 let returnService: typeof import('@/common/services/return.service').returnService;
+let ReturnCustomerWriteError: typeof import('@/common/services/return.service').ReturnCustomerWriteError;
 
-describe('adminReturnService', () => {
+describe('returnService', () => {
   beforeAll(async () => {
-    ({ adminReturnService, returnService } = await import('@/common/services/return.service'));
+    ({ returnService, ReturnCustomerWriteError } = await import('@/common/services/return.service'));
   });
 
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it('maps admin return list payload into legacy page shape', async () => {
-    returnApiMock.getAdminReturnRequests.mockResolvedValueOnce({
-      data: {
-        data: [
-          {
-            returnRequestId: 77,
-            orderId: 1001,
-            userId: 9,
-            reason: 'DEFECTIVE',
-            status: 'PENDING_APPROVAL',
-            note: 'Original note',
-            totalRefundAmount: '250000',
-            createdAt: '2026-03-01T10:00:00.000Z',
-            updatedAt: '2026-03-01T10:05:00.000Z',
-            attachments: [
-              { fileUrl: 'https://cdn.example.com/proof-1.jpg' },
-              { fileUrl: 'https://cdn.example.com/proof-2.jpg' },
-            ],
-            statusLogs: [
-              {
-                logId: 1,
-                toStatus: 'REQUESTED',
-                comment: 'Customer created return request',
-                createdAt: '2026-03-01T10:00:00.000Z',
-              },
-              {
-                logId: 2,
-                fromStatus: 'REQUESTED',
-                toStatus: 'PENDING_APPROVAL',
-                comment: 'Reviewed by admin',
-                createdAt: '2026-03-01T10:05:00.000Z',
-              },
-            ],
-            order: {
-              orderId: 1001,
-              orderNumber: 'OD1001',
-              totalAmount: '250000',
-              customerName: 'Nguyen Van A',
-              customerPhone: '0900000000',
-            },
-            user: {
-              userId: 9,
-              fullName: 'Nguyen Van A',
-              email: 'a@example.com',
-              avatarUrl: null,
-            },
-          },
-        ],
-        total: 1,
-        page: 2,
-        limit: 15,
-        totalPages: 3,
-      },
-    });
-
-    const result = await adminReturnService.list({
-      status: 'REQUESTED',
-      page: 2,
-      pageSize: 15,
-    });
-
-    expect(returnApiMock.getAdminReturnRequests).toHaveBeenCalledWith('?status=REQUESTED&page=2&limit=15');
-    expect(result.pagination).toEqual({
-      page: 2,
-      pageSize: 15,
-      total: 1,
-      totalPages: 3,
-    });
-    expect(result.returns).toEqual([
-      expect.objectContaining({
-        returnId: 77,
-        orderId: 1001,
-        status: 'REQUESTED',
-        proofImages: [
-          'https://cdn.example.com/proof-1.jpg',
-          'https://cdn.example.com/proof-2.jpg',
-        ],
-        adminNote: 'Reviewed by admin',
-        order: expect.objectContaining({
-          orderNumber: 'OD1001',
-          totalAmount: '250000',
-        }),
-        user: expect.objectContaining({
-          fullName: 'Nguyen Van A',
-          email: 'a@example.com',
-        }),
-      }),
-    ]);
-  });
-
-  it('chains approve, receive, and refund when completing refund from requested state', async () => {
-    returnApiMock.getAdminReturnRequestDetail.mockResolvedValueOnce({
-      data: {
-        returnRequestId: 88,
-        orderId: 2002,
-        userId: 4,
-        reason: 'WRONG_ITEM',
-        status: 'REQUESTED',
-        note: null,
-        totalRefundAmount: '99000',
-        createdAt: '2026-03-10T08:00:00.000Z',
-        attachments: [],
-        statusLogs: [],
-      },
-    });
-
-    const result = await adminReturnService.process(88, 'COMPLETE_REFUND');
-
-    expect(returnApiMock.approveReturnRequest).toHaveBeenCalledWith(88);
-    expect(returnApiMock.markReturnReceived).toHaveBeenCalledWith(88);
-    expect(returnApiMock.refundReturnRequest).toHaveBeenCalledTimes(1);
-    expect(returnApiMock.refundReturnRequest).toHaveBeenCalledWith(
-      88,
-      expect.objectContaining({
-        method: 'ORIGINAL_PAYMENT',
-        idempotencyKey: expect.stringMatching(/^admin-return-88-\d+$/),
-      }),
-    );
-    expect(result).toEqual({
-      success: true,
-      messageKey: 'feedback.refundSuccess',
-    });
-  });
-
-  it('requires a rejection note before rejecting a return', async () => {
-    await expect(adminReturnService.process(41, 'REJECT')).rejects.toMatchObject({
-      message: 'Vui lòng nhập lý do từ chối.',
-      messageKey: 'feedback.rejectReasonRequired',
-      code: 'RETURN_REJECT_REASON_REQUIRED',
-    });
-
-    expect(returnApiMock.rejectReturnRequest).not.toHaveBeenCalled();
-  });
-
-  it('trims the rejection note before sending the reject request', async () => {
-    const result = await adminReturnService.process(42, 'REJECT', '  Không đạt điều kiện hoàn tiền  ');
-
-    expect(returnApiMock.rejectReturnRequest).toHaveBeenCalledWith(42, {
-      reason: 'Không đạt điều kiện hoàn tiền',
-    });
-    expect(result).toEqual({
-      success: true,
-      messageKey: 'feedback.rejectSuccess',
-    });
-  });
-
-  it('rejects complete refund when current return is already rejected', async () => {
-    returnApiMock.getAdminReturnRequestDetail.mockResolvedValueOnce({
-      data: {
-        returnRequestId: 99,
-        orderId: 3003,
-        userId: 2,
-        reason: 'OTHER',
-        status: 'REJECTED',
-        note: 'Rejected already',
-        totalRefundAmount: '10000',
-        createdAt: '2026-03-12T09:00:00.000Z',
-        attachments: [],
-        statusLogs: [],
-      },
-    });
-
-    await expect(adminReturnService.process(99, 'COMPLETE_REFUND')).rejects.toMatchObject({
-      message: 'Yêu cầu đã bị từ chối, không thể hoàn tiền.',
-      messageKey: 'feedback.refundRejected',
-      code: 'RETURN_ALREADY_REJECTED',
-    });
-
-    expect(returnApiMock.approveReturnRequest).not.toHaveBeenCalled();
-    expect(returnApiMock.markReturnReceived).not.toHaveBeenCalled();
-    expect(returnApiMock.refundReturnRequest).not.toHaveBeenCalled();
   });
 
   it('normalizes legacy requested and completed statuses in customer return queries', async () => {
@@ -237,32 +57,12 @@ describe('adminReturnService', () => {
 
     const result = await returnService.myReturns();
 
-    expect(result.data.map((item) => item.status)).toEqual(['REQUESTED', 'REFUNDED']);
-  });
-
-  it('normalizes legacy statuses in direct request payloads', async () => {
-    returnApiMock.requestReturn.mockResolvedValueOnce({
-      data: {
-        returnId: 13,
-        orderId: 203,
-        userId: 5,
-        reason: 'DEFECTIVE',
-        proofImages: ['https://cdn.example.com/proof-1.jpg'],
-        status: ' pending approval ',
-        adminNote: null,
-        createdAt: '2026-03-03T09:00:00.000Z',
-        updatedAt: '2026-03-03T09:10:00.000Z',
-      },
-    });
-
-    const result = await returnService.request(203, 'DEFECTIVE', ['https://cdn.example.com/proof-1.jpg']);
-
-    expect(result).toEqual(
-      expect.objectContaining({
-        returnId: 13,
-        status: 'REQUESTED',
-      }),
-    );
+    expect(result.data.map((item) => item.status)).toEqual(['PENDING_APPROVAL', 'COMPLETED']);
+    expect(result.data.map((item) => item.workflowStatus)).toEqual([
+      'PENDING_ADMIN_REVIEW',
+      'CLOSED',
+    ]);
+    expect(result.data.map((item) => item.statusBucket)).toEqual(['REQUESTED', 'REFUNDED']);
   });
 
   it('normalizes legacy statuses in modern create payload responses', async () => {
@@ -289,9 +89,148 @@ describe('adminReturnService', () => {
     expect(result).toEqual(
       expect.objectContaining({
         returnRequestId: 15,
-        status: 'REFUNDED',
+        status: 'COMPLETED',
+        workflowStatus: 'CLOSED',
+        statusBucket: 'REFUNDED',
       }),
     );
+  });
+
+  it('derives REFUNDED from refundableCapAmount in modern create payload responses', async () => {
+    returnApiMock.createReturnRequest.mockResolvedValueOnce({
+      data: {
+        returnRequestId: 16,
+        orderId: 206,
+        userId: 5,
+        reason: 'DAMAGED',
+        status: 'completed',
+        totalRefundAmount: '150000',
+        refundableCapAmount: '80000',
+        refundTransactions: [
+          {
+            amount: 80000,
+            status: 'COMPLETED',
+          },
+        ],
+        createdAt: '2026-03-06T10:00:00.000Z',
+        items: [],
+      },
+    });
+
+    const result = await returnService.create({
+      orderId: 206,
+      reason: 'DAMAGED',
+      items: [{ orderItemId: 2, quantity: 1 }],
+      attachments: [],
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        returnRequestId: 16,
+        refundStatus: 'REFUNDED',
+      }),
+    );
+  });
+
+  it('re-exports structured duplicate-create errors through the compatibility facade', async () => {
+    returnApiMock.createReturnRequest.mockRejectedValueOnce({
+      response: {
+        data: {
+          error: {
+            code: 'RETURN_ALREADY_EXISTS',
+            message: 'This order already has an active return request',
+            details: {
+              returnRequestId: 901,
+            },
+          },
+        },
+      },
+    });
+
+    await expect(
+      returnService.create({
+        orderId: 207,
+        reason: 'OTHER',
+        items: [{ orderItemId: 3, quantity: 1 }],
+        attachments: [],
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        name: 'ReturnCustomerWriteError',
+        code: 'RETURN_ALREADY_EXISTS',
+        existingReturnId: 901,
+      }),
+    );
+    expect(ReturnCustomerWriteError).toBeDefined();
+  });
+
+  it('re-exports structured item-selection errors through the compatibility facade', async () => {
+    returnApiMock.createReturnRequest.mockRejectedValueOnce({
+      response: {
+        data: {
+          error: {
+            code: 'ITEM_SELECTION_REQUIRED',
+            message: 'Select at least one order item to return',
+          },
+        },
+      },
+    });
+
+    await expect(
+      returnService.create({
+        orderId: 208,
+        reason: 'OTHER',
+        items: [{ orderItemId: 3, quantity: 1 }],
+        attachments: [],
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        name: 'ReturnCustomerWriteError',
+        code: 'ITEM_SELECTION_REQUIRED',
+        existingReturnId: undefined,
+        message: 'Select at least one order item to return',
+      }),
+    );
+  });
+
+  it('normalizes refund transaction method aliases in customer return queries', async () => {
+    returnApiMock.getMyReturns.mockResolvedValueOnce({
+      data: {
+        data: [
+          {
+            returnRequestId: 3,
+            orderId: 103,
+            userId: 5,
+            reason: 'OTHER',
+            status: 'ACCEPTED_FOR_REFUND',
+            refundTransactions: [
+              {
+                amount: 80000,
+                status: 'PROCESSING',
+                method: 'store_wallet',
+                transactionRef: 'RF-103',
+              },
+            ],
+            createdAt: '2026-03-03T10:00:00.000Z',
+          },
+        ],
+        total: 1,
+        page: 1,
+        limit: 8,
+        totalPages: 1,
+      },
+    });
+
+    const result = await returnService.myReturns();
+
+    expect(result.data[0].refundTransactions).toEqual([
+      expect.objectContaining({
+        amount: 80000,
+        status: 'PROCESSING',
+        method: 'WALLET_CREDIT',
+        transactionRef: 'RF-103',
+      }),
+    ]);
   });
 
   it('normalizes legacy statuses in get-for-order payloads', async () => {
@@ -303,6 +242,8 @@ describe('adminReturnService', () => {
         reason: 'OTHER',
         proofImages: [],
         status: ' completed ',
+        workflowStatus: 'ACCEPTED_FOR_REFUND',
+        refundStatus: 'PENDING',
         adminNote: null,
         createdAt: '2026-03-04T10:00:00.000Z',
         updatedAt: '2026-03-04T10:10:00.000Z',
@@ -314,9 +255,47 @@ describe('adminReturnService', () => {
     expect(result).toEqual(
       expect.objectContaining({
         returnId: 14,
-        status: 'REFUNDED',
+        status: 'COMPLETED',
+        statusBucket: 'RECEIVED',
+        workflowStatus: 'ACCEPTED_FOR_REFUND',
+        refundStatus: 'PENDING',
       }),
     );
+  });
+
+  it('normalizes refund transaction method aliases in get-for-order payloads', async () => {
+    returnApiMock.getReturnForOrder.mockResolvedValueOnce({
+      data: {
+        returnId: 16,
+        orderId: 206,
+        userId: 5,
+        reason: 'OTHER',
+        proofImages: [],
+        status: 'ACCEPTED_FOR_REFUND',
+        refundTransactions: [
+          {
+            amount: 80000,
+            status: 'PROCESSING',
+            method: 'original_gateway',
+            transactionRef: 'RF-206',
+          },
+        ],
+        adminNote: null,
+        createdAt: '2026-03-04T10:00:00.000Z',
+        updatedAt: '2026-03-04T10:10:00.000Z',
+      },
+    });
+
+    const result = await returnService.getForOrder(206);
+
+    expect(result?.refundTransactions).toEqual([
+      expect.objectContaining({
+        amount: 80000,
+        status: 'PROCESSING',
+        method: 'ORIGINAL_PAYMENT',
+        transactionRef: 'RF-206',
+      }),
+    ]);
   });
 
   it('normalizes legacy statuses in customer return detail payloads', async () => {
@@ -327,14 +306,19 @@ describe('adminReturnService', () => {
         userId: 5,
         reason: 'WRONG_ITEM',
         status: ' pending approval ',
+        workflowStatus: 'PENDING_ADMIN_REVIEW',
+        refundStatus: 'MANUAL_REVIEW',
         totalRefundAmount: '5000',
         createdAt: '2026-03-03T10:00:00.000Z',
         attachments: [],
+        refundTransactions: [],
         statusLogs: [
           {
             logId: 1,
             fromStatus: ' pending approval ',
+            fromWorkflowStatus: 'PENDING_ADMIN_REVIEW',
             toStatus: 'completed',
+            toWorkflowStatus: 'CLOSED',
             createdAt: '2026-03-03T10:10:00.000Z',
           },
         ],
@@ -343,39 +327,137 @@ describe('adminReturnService', () => {
 
     const result = await returnService.detail(12);
 
-    expect(result.status).toBe('REQUESTED');
+    expect(result.status).toBe('PENDING_APPROVAL');
+    expect(result.statusBucket).toBe('REQUESTED');
+    expect(result.workflowStatus).toBe('PENDING_ADMIN_REVIEW');
+    expect(result.refundStatus).toBe('MANUAL_REVIEW');
     expect(result.statusLogs).toEqual([
       expect.objectContaining({
         fromStatus: 'REQUESTED',
+        fromWorkflowStatus: 'PENDING_ADMIN_REVIEW',
         toStatus: 'REFUNDED',
+        toWorkflowStatus: 'CLOSED',
       }),
     ]);
   });
 
-  it('normalizes casing before processing refund transitions', async () => {
-    returnApiMock.getAdminReturnRequestDetail.mockResolvedValueOnce({
+  it('maps customer return summaries for storefront list use', async () => {
+    returnApiMock.getMyReturns.mockResolvedValueOnce({
       data: {
-        returnRequestId: 66,
-        orderId: 3006,
-        userId: 7,
-        reason: 'OTHER',
-        status: ' approved ',
-        note: null,
-        totalRefundAmount: '45000',
-        createdAt: '2026-03-13T09:00:00.000Z',
-        attachments: [],
-        statusLogs: [],
+        data: [
+          {
+            returnRequestId: 21,
+            orderId: 301,
+            userId: 5,
+            reason: 'DEFECTIVE',
+            status: ' accepted_for_refund ',
+            workflowStatus: 'ACCEPTED_FOR_REFUND',
+            refundStatus: ' failed ',
+            updatedAt: '2026-03-26T10:20:00.000Z',
+            financeNote: 'Bộ phận hoàn tiền đang đối soát lại giao dịch.',
+            financeNoteUpdatedAt: '2026-03-26T10:15:00.000Z',
+            financeNoteUpdatedBy: { fullName: 'Bộ phận hỗ trợ' },
+            totalRefundAmount: '99000',
+            createdAt: '2026-03-26T09:00:00.000Z',
+          },
+        ],
+        total: 1,
+        page: 1,
+        limit: 100,
+        totalPages: 1,
       },
     });
 
-    const result = await adminReturnService.process(66, 'COMPLETE_REFUND');
+    const result = await returnService.myReturnSummaries(1, 100, { orderIds: [301] });
 
-    expect(returnApiMock.approveReturnRequest).not.toHaveBeenCalled();
-    expect(returnApiMock.markReturnReceived).toHaveBeenCalledWith(66);
-    expect(returnApiMock.refundReturnRequest).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({
-      success: true,
-      messageKey: 'feedback.refundSuccess',
+    expect(returnApiMock.getMyReturns).toHaveBeenCalledWith(1, 100, {
+      view: 'summary',
+      orderIds: [301],
     });
+    expect(result).toEqual([
+      {
+        returnRequestId: 21,
+        orderId: 301,
+        statusBucket: 'RECEIVED',
+        workflowStatus: 'ACCEPTED_FOR_REFUND',
+        refundStatus: 'FAILED',
+        totalRefundAmount: '99000',
+        refundableCapAmount: null,
+        updatedAt: '2026-03-26T10:20:00.000Z',
+        financeNote: 'Bộ phận hoàn tiền đang đối soát lại giao dịch.',
+        financeNoteUpdatedAt: '2026-03-26T10:15:00.000Z',
+        financeNoteUpdatedBy: { fullName: 'Bộ phận hỗ trợ' },
+      },
+    ]);
+  });
+
+  it('forwards updatedSince when requesting customer return summaries', async () => {
+    returnApiMock.getMyReturns.mockResolvedValueOnce({
+      data: {
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 50,
+        totalPages: 0,
+      },
+    });
+
+    await returnService.myReturnSummaries(1, 50, {
+      orderIds: [301],
+      updatedSince: '2026-03-26T12:00:00.000Z',
+    });
+
+    expect(returnApiMock.getMyReturns).toHaveBeenCalledWith(1, 50, {
+      view: 'summary',
+      orderIds: [301],
+      updatedSince: '2026-03-26T12:00:00.000Z',
+    });
+  });
+
+  it('derives LOCKED_UNTIL_PAYMENT_CONFIRMED for COD-gated return details', async () => {
+    returnApiMock.getUserReturnDetail.mockResolvedValueOnce({
+      data: {
+        returnRequestId: 18,
+        orderId: 208,
+        userId: 5,
+        reason: 'OTHER',
+        status: 'PENDING_PAYMENT_CONFIRMATION',
+        totalRefundAmount: '5000',
+        createdAt: '2026-03-07T10:00:00.000Z',
+        attachments: [],
+        refundTransactions: [],
+      },
+    });
+
+    const result = await returnService.detail(18);
+
+    expect(result.refundStatus).toBe('LOCKED_UNTIL_PAYMENT_CONFIRMED');
+  });
+
+  it('derives PARTIALLY_REFUNDED when completed refunds do not cover total refund amount', async () => {
+    returnApiMock.getUserReturnDetail.mockResolvedValueOnce({
+      data: {
+        returnRequestId: 19,
+        orderId: 209,
+        userId: 5,
+        reason: 'OTHER',
+        status: 'CLOSED',
+        totalRefundAmount: '100000',
+        createdAt: '2026-03-08T10:00:00.000Z',
+        attachments: [],
+        refundTransactions: [
+          {
+            refundTransactionId: 1,
+            amount: 40000,
+            method: 'ORIGINAL_PAYMENT',
+            status: 'COMPLETED',
+          },
+        ],
+      },
+    });
+
+    const result = await returnService.detail(19);
+
+    expect(result.refundStatus).toBe('PARTIALLY_REFUNDED');
   });
 });

@@ -3,12 +3,43 @@ import { useNavigate } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { orderService, Order } from '@/common/services/order.service';
+import { returnSummaryService, type MyReturnSummary } from '@/common/services/return.summary.service';
+import {
+  RETURN_SUMMARY_CHANGED_EVENT,
+  type ReturnSummaryChangedDetail,
+} from '@/common/events/returnSummary.events';
 import { Search } from 'lucide-react';
-import { formatVietnamTime } from '@/common/utils/formatDate';
-import { formatCurrencyVND } from '@/common/utils/currency';
+import {
+  shouldAutoRefreshRefundState,
+} from '@/common/utils/returnRefresh';
+import { useReturnAutoRefresh } from '@/common/hooks/useReturnAutoRefresh';
 import { useTranslation } from 'react-i18next';
-import { PaymentStatusBadge } from '@/common/components/PaymentStatusBadge';
-import { getCustomerOrderStatusMeta } from '@/store/utils/orderStatusDisplay';
+import {
+  CustomerOrderCard,
+  CustomerOrdersStatusTabs,
+  filterCustomerOrders,
+  type CustomerOrderStatusFilter,
+} from '@/store/components/CustomerOrdersUI';
+
+type OrderWithReturn = Order & {
+  activeReturn?: MyReturnSummary | null;
+};
+
+const getLatestReturnSummaryCursor = (summaries: Iterable<MyReturnSummary>) => {
+  let latestCursor: string | null = null;
+
+  for (const summary of summaries) {
+    if (!summary.updatedAt) {
+      continue;
+    }
+
+    if (!latestCursor || summary.updatedAt > latestCursor) {
+      latestCursor = summary.updatedAt;
+    }
+  }
+
+  return latestCursor;
+};
 
 export const MyOrders: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'myOrders' });
@@ -23,46 +54,76 @@ export const MyOrders: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<OrderWithReturn[]>([]);
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const [returnSummaryCursor, setReturnSummaryCursor] = useState<string | null>(null);
+  const [returnSummaryOrderIdsKey, setReturnSummaryOrderIdsKey] = useState('');
+  const [returnSummaryCache, setReturnSummaryCache] = useState<Map<number, MyReturnSummary>>(new Map());
+  const [expandedReturnOrderIds, setExpandedReturnOrderIds] = useState<Set<number>>(new Set());
 
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<CustomerOrderStatusFilter>('');
   const titleLabel = resolveText('title', 'Đơn hàng của tôi');
   const subtitleLabel = resolveText('subtitle', 'Xem lịch sử và chi tiết đơn hàng');
-  const tabAllLabel = resolveText('tabs.all', 'Tất cả');
-  const tabPendingLabel = resolveText('tabs.pending', 'Chờ xác nhận');
-  const tabShippingLabel = resolveText('tabs.shipping', 'Đang giao hàng');
-  const tabDeliveredLabel = resolveText('tabs.delivered', 'Đã giao hàng');
-  const tabCancelledLabel = resolveText('tabs.cancelled', 'Đã hủy');
   const trackOrderLabel = resolveText('actions.trackOrder', 'Tra cứu đơn hàng');
   const backToAccountLabel = resolveText('actions.backToAccount', 'Quay lại tài khoản');
-  const refreshLabel = resolveText('actions.refresh', 'Làm mới');
   const startShoppingLabel = resolveText('actions.startShopping', 'Bắt đầu mua sắm');
-  const viewLabel = resolveText('actions.view', 'Xem');
   const loadingLabel = resolveText('states.loading', 'Đang tải đơn hàng...');
   const emptyLabel = resolveText('states.empty', 'Không tìm thấy đơn hàng.');
-  const unknownLabel = resolveText('states.unknown', 'Không xác định');
-  const totalLabel = resolveText('labels.total', 'Tổng tiền');
-  const itemsLabel = resolveText('labels.items', 'Số món');
-  const orderCodeLabel = resolveText('labels.orderCode', 'Mã đơn hàng');
+  const emptyReturnsLabel = resolveText('states.emptyReturns', 'Không có đơn hoàn hàng nào.');
   const loadOrdersErrorLabel = resolveText('errors.loadOrders', 'Không thể tải đơn hàng');
-
-  const statusTabs = useMemo(
-    () => [
-      { label: tabAllLabel, value: '' },
-      { label: tabPendingLabel, value: 'Pending' },
-      { label: tabShippingLabel, value: 'Shipping' },
-      { label: tabDeliveredLabel, value: 'Delivered' },
-      { label: tabCancelledLabel, value: 'Cancelled' }
-    ],
-    [tabAllLabel, tabPendingLabel, tabShippingLabel, tabDeliveredLabel, tabCancelledLabel]
-  );
+  const headerSecondaryButtonClassName =
+    'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/74 transition-colors hover:border-white/18 hover:bg-white/[0.06] hover:text-white';
 
   const loadOrders = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await orderService.getMyOrders({ status: statusFilter || undefined, page: 1, pageSize: 20, sort: 'createdAt_desc' });
-      setOrders(res.orders || []);
+      const requestStatus = statusFilter && statusFilter !== 'returns' ? statusFilter : undefined;
+      const ordersResponse = await orderService.getMyOrders({
+        status: requestStatus,
+        page: 1,
+        pageSize: 20,
+        sort: 'createdAt_desc',
+      });
+      const loadedOrders = ordersResponse.orders || [];
+      const orderIds = loadedOrders.map((order) => order.orderId);
+      const orderIdsKey = orderIds.join(',');
+      const canUseDelta = Boolean(
+        returnSummaryCursor &&
+        returnSummaryOrderIdsKey === orderIdsKey,
+      );
+      const returnSummaries =
+        orderIds.length > 0
+          ? await returnSummaryService
+              .myReturnSummaries(1, orderIds.length, {
+                orderIds,
+                updatedSince: canUseDelta ? returnSummaryCursor ?? undefined : undefined,
+              })
+              .catch(() => null)
+          : [];
+      const returnsByOrderId = canUseDelta ? new Map(returnSummaryCache) : new Map<number, MyReturnSummary>();
+
+      for (const record of returnSummaries ?? []) {
+        returnsByOrderId.set(record.orderId, record);
+      }
+
+      setOrders(
+        loadedOrders.map((order) => ({
+          ...order,
+          activeReturn: returnsByOrderId.get(order.orderId) ?? null,
+        })),
+      );
+      const nextReturnSummaryCache = new Map<number, MyReturnSummary>();
+      for (const orderId of orderIds) {
+        const summary = returnsByOrderId.get(orderId);
+        if (summary) {
+          nextReturnSummaryCache.set(orderId, summary);
+        }
+      }
+      const nextReturnSummaryCursor = getLatestReturnSummaryCursor(nextReturnSummaryCache.values());
+      setReturnSummaryCache(nextReturnSummaryCache);
+      setReturnSummaryOrderIdsKey(orderIdsKey);
+      setReturnSummaryCursor(nextReturnSummaryCursor);
     } catch (e: unknown) {
       const error = e as { message?: string };
       setError(error?.message || loadOrdersErrorLabel);
@@ -77,12 +138,82 @@ export const MyOrders: React.FC = () => {
       navigate('/login', { replace: true });
       return;
     }
-    loadOrders();
-  }, [role, statusFilter, navigate]);
+    void loadOrders();
+  }, [role, navigate, reloadNonce, statusFilter]);
+
+  useEffect(() => {
+    const handleReturnSummaryChanged = (event: Event) => {
+      const detail = (event as CustomEvent<ReturnSummaryChangedDetail>).detail;
+      const changedOrderId = detail?.orderId;
+
+      if (
+        typeof changedOrderId === 'number' &&
+        changedOrderId > 0 &&
+        !orders.some((order) => order.orderId === changedOrderId)
+      ) {
+        return;
+      }
+
+      setReloadNonce((current) => current + 1);
+    };
+
+    window.addEventListener(RETURN_SUMMARY_CHANGED_EVENT, handleReturnSummaryChanged as EventListener);
+
+    return () => {
+      window.removeEventListener(
+        RETURN_SUMMARY_CHANGED_EVENT,
+        handleReturnSummaryChanged as EventListener,
+      );
+    };
+  }, [orders]);
+
+  useReturnAutoRefresh({
+    enabled: orders.some((order) => shouldAutoRefreshRefundState(order.activeReturn?.refundStatus)),
+    onRefresh: () => setReloadNonce((current) => current + 1),
+  });
+
+  useEffect(() => {
+    const visibleActiveReturnOrderIds = new Set(
+      orders
+        .filter((order) => Boolean(order.activeReturn?.returnRequestId))
+        .map((order) => order.orderId),
+    );
+
+    setExpandedReturnOrderIds((current) => {
+      const next = new Set<number>();
+      current.forEach((orderId) => {
+        if (visibleActiveReturnOrderIds.has(orderId)) {
+          next.add(orderId);
+        }
+      });
+      return next.size === current.size ? current : next;
+    });
+  }, [orders]);
+
+  const visibleOrders = useMemo(
+    () => filterCustomerOrders(orders, statusFilter),
+    [orders, statusFilter],
+  );
 
   const goToOrderDetailPage = (orderId: number) => {
     // Điều hướng sang route mới /orders/:id (React Router sẽ xử lý)
     navigate(`/orders/${orderId}`);
+  };
+
+  const goToReturnDetailPage = (orderId: number) => {
+    navigate(`/orders/${orderId}/return`);
+  };
+
+  const toggleReturnPanel = (orderId: number) => {
+    setExpandedReturnOrderIds((current) => {
+      const next = new Set(current);
+      if (next.has(orderId)) {
+        next.delete(orderId);
+      } else {
+        next.add(orderId);
+      }
+      return next;
+    });
   };
 
   return (
@@ -98,38 +229,24 @@ export const MyOrders: React.FC = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => { navigate('/tracking') }}
-              className="flex items-center gap-2 px-4 py-3 border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 transition-colors text-xs font-bold uppercase tracking-widest rounded"
+              className={headerSecondaryButtonClassName}
             >
               <Search size={13} />
               {trackOrderLabel}
             </button>
             <button
               onClick={() => navigate('/profile')}
-              className="px-6 py-3 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs font-bold uppercase tracking-widest"
+              className={headerSecondaryButtonClassName}
             >{backToAccountLabel}</button>
           </div>
         </div>
 
         <div className="bg-surface-dark border border-white/5 rounded-sm overflow-hidden">
-          <div className="border-b border-white/10 px-6 py-4 flex gap-2 overflow-x-auto">
-            {statusTabs.map((t) => (
-              <button
-                key={t.label}
-                onClick={() => setStatusFilter(t.value)}
-                className={`text-xs font-bold uppercase tracking-widest px-3 py-2 rounded border transition-colors whitespace-nowrap ${statusFilter === t.value
-                  ? 'bg-primary/15 text-primary border-primary/30'
-                  : 'bg-transparent text-white/50 border-white/10 hover:text-white hover:bg-white/5'
-                  }`}
-              >
-                {t.label}
-              </button>
-            ))}
-            <div className="flex-1" />
-            <button
-              onClick={loadOrders}
-              className="text-xs font-bold uppercase tracking-widest px-3 py-2 rounded border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-colors"
-            >{refreshLabel}</button>
-          </div>
+          <CustomerOrdersStatusTabs
+            statusFilter={statusFilter}
+            onChange={setStatusFilter}
+            onRefresh={loadOrders}
+          />
 
           <div className="p-6">
             {error && (
@@ -140,10 +257,10 @@ export const MyOrders: React.FC = () => {
 
             {isLoading ? (
               <div className="text-sm text-white/50">{loadingLabel}</div>
-            ) : orders.length === 0 ? (
+            ) : visibleOrders.length === 0 ? (
               <div className="bg-black/20 rounded p-10 text-center border border-white/5">
                 <span className="material-symbols-outlined text-5xl text-white/20 mb-2">receipt_long</span>
-                <p className="text-gray-500 text-sm">{emptyLabel}</p>
+                <p className="text-gray-500 text-sm">{statusFilter === 'returns' ? emptyReturnsLabel : emptyLabel}</p>
                 <button
                   onClick={() => navigate('/collection')}
                   className="mt-4 text-xs font-bold uppercase tracking-widest text-primary hover:text-white transition-colors"
@@ -151,48 +268,17 @@ export const MyOrders: React.FC = () => {
               </div>
             ) : (
                 <div className="space-y-3">
-                {orders.map((o) => {
-                  const statusMeta = getCustomerOrderStatusMeta(o.status);
-
-                  return (
-                    <div key={o.orderId} className="p-5 border border-white/10 bg-black/20 rounded-sm flex flex-col md:flex-row md:items-center gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <span className="font-mono text-sm text-white">#{o.orderNumber}</span>
-                          <span className="text-[10px] uppercase tracking-widest text-white/40">{o.createdAt ? formatVietnamTime(o.createdAt) : ''}</span>
-                          <span
-                            className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded border ${
-                              statusMeta
-                                ? `${statusMeta.badgeClass} ${statusMeta.textClass}`
-                                : 'border-white/10 text-white/70'
-                            }`}
-                          >
-                            {statusMeta?.label || o.status || unknownLabel}
-                          </span>
-                          <PaymentStatusBadge paymentMethod={o.paymentMethod} paymentStatus={o.paymentStatus} size="xs" uppercase className="tracking-widest" />
-                        </div>
-                        <div className="mt-2 text-sm text-white/70">
-                          {totalLabel}: <span className="text-white font-semibold">{formatCurrencyVND(Number(o.totalAmount ?? 0))}</span>
-                          <span className="text-white/30 mx-2">•</span>
-                          {itemsLabel}: <span className="text-white font-semibold">{o.itemCount}</span>
-                        </div>
-                        {(o.orderCode || o.orderNumber) && (
-                          <div className="mt-2 text-xs text-white/40">
-                            {orderCodeLabel}: {o.orderCode ?? o.orderNumber}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 justify-end">
-                        <button
-                          onClick={() => goToOrderDetailPage(o.orderId)}
-                          className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold uppercase tracking-widest transition-colors"
-                        >{viewLabel}</button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                  {visibleOrders.map((o) => (
+                    <CustomerOrderCard
+                      key={o.orderId}
+                      order={o}
+                      isReturnExpanded={expandedReturnOrderIds.has(o.orderId)}
+                      onToggleReturn={toggleReturnPanel}
+                      onViewOrder={goToOrderDetailPage}
+                      onViewReturn={goToReturnDetailPage}
+                    />
+                  ))}
+                </div>
             )}
           </div>
         </div>

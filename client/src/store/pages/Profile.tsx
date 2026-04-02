@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BadgeCheck,
@@ -20,16 +20,22 @@ import {
 import { Header } from '@/store/components/Header';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { useToast } from '@/common/contexts/ToastContext';
-import { userService, UserProfile, Address, RecentOrder } from '@/store/services/user.service';
+import { userService, UserProfile, Address } from '@/store/services/user.service';
+import { orderService, type Order } from '@/common/services/order.service';
+import { returnSummaryService, type MyReturnSummary } from '@/common/services/return.summary.service';
 import { getImageUrl } from '@/common/utils/cloudinary';
 import { formatCurrencyVND } from '@/common/utils/currency';
-import { ORDER_STATUS } from '@/config/orderStatus.config';
 import { useTranslation } from 'react-i18next';
 import { type FieldErrorMap, firstFieldError, mapZodFieldErrors } from '@/common/validation/errors';
 import { profileAddressClientSchema, profileUpdateClientSchema } from '@/common/validation/schemas';
 import { fetchVNDistricts, fetchVNProvinces, fetchVNWards, resolveVNLocationSelection, type VNLocationOption } from '@/common/utils/vnLocation';
 import { ZodError } from 'zod';
-import { getCustomerOrderStatusMeta, normalizeCustomerOrderStatus } from '@/store/utils/orderStatusDisplay';
+import {
+  CustomerOrderCard,
+  CustomerOrdersStatusTabs,
+  filterCustomerOrders,
+  type CustomerOrderStatusFilter,
+} from '@/store/components/CustomerOrdersUI';
 
 const surfaceClassName = 'rounded-sm border border-white/5 bg-surface-dark';
 const mutedSurfaceClassName = 'rounded-sm border border-white/10 bg-black/20';
@@ -49,13 +55,6 @@ const formErrorClassName = 'rounded border border-red-500/20 bg-red-500/10 px-4 
 const subtleButtonClassName = 'border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all text-xs font-bold uppercase tracking-widest';
 const solidPrimaryButtonClassName = 'bg-primary/15 text-primary hover:bg-primary hover:text-white transition-all text-xs font-bold uppercase tracking-widest border border-primary/30 shadow-[0_0_18px_rgba(239,68,68,0.12)]';
 
-const formatShortDate = (value: string) =>
-  new Date(value).toLocaleDateString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-
 const formatMemberSince = (value: string) =>
   new Date(value).toLocaleDateString('vi-VN', {
     month: 'long',
@@ -67,7 +66,9 @@ const formatAddressLine = (address: Address) =>
 
 const getInitial = (name: string) => name.trim().charAt(0).toUpperCase() || 'A';
 type ProfileSection = 'personal' | 'addresses' | 'orders' | 'security';
-type OrderFilter = 'all' | 'shipping' | 'delivered' | 'pending';
+type RecentOrderWithReturn = Order & {
+  activeReturn?: MyReturnSummary | null;
+};
 
 export const Profile: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'profile' });
@@ -77,11 +78,12 @@ export const Profile: React.FC = () => {
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [addresses, setAddresses] = useState<Address[]>([]);
-  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+  const [recentOrders, setRecentOrders] = useState<RecentOrderWithReturn[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<ProfileSection>('personal');
-  const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');
+  const [orderFilter, setOrderFilter] = useState<CustomerOrderStatusFilter>('');
+  const [expandedReturnOrderIds, setExpandedReturnOrderIds] = useState<Set<number>>(new Set());
 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ fullName: '', phone: '' });
@@ -114,6 +116,30 @@ export const Profile: React.FC = () => {
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [avatarFeedback, setAvatarFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
   const [addressActionFeedback, setAddressActionFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
+  const loadRecentOrders = useCallback(async (): Promise<RecentOrderWithReturn[]> => {
+    const ordersResponse = await orderService.getMyOrders({
+      page: 1,
+      pageSize: 5,
+      sort: 'createdAt_desc',
+    });
+    const ordersData = ordersResponse.orders ?? [];
+    const orderIds = ordersData.map((order) => order.orderId);
+    let returnSummaryByOrderId = new Map<number, MyReturnSummary>();
+
+    if (orderIds.length > 0) {
+      try {
+        const summaries = await returnSummaryService.myReturnSummaries(1, orderIds.length, { orderIds });
+        returnSummaryByOrderId = new Map(summaries.map((summary) => [summary.orderId, summary]));
+      } catch (summaryError) {
+        console.warn('[Profile] Failed to load return summaries:', summaryError);
+      }
+    }
+
+    return ordersData.map((order) => ({
+      ...order,
+      activeReturn: returnSummaryByOrderId.get(order.orderId) ?? null,
+    }));
+  }, []);
 
   const loadProfileData = useCallback(async () => {
     try {
@@ -123,7 +149,7 @@ export const Profile: React.FC = () => {
       const [profileData, addressesData, ordersData] = await Promise.all([
         userService.getProfile(),
         userService.getAddresses(),
-        userService.getRecentOrders(5),
+        loadRecentOrders(),
       ]);
 
       setProfile(profileData);
@@ -139,7 +165,7 @@ export const Profile: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [loadRecentOrders, t]);
 
   useEffect(() => {
     loadProfileData();
@@ -555,6 +581,11 @@ export const Profile: React.FC = () => {
     openTab(section as Exclude<ProfileSection, 'personal'>);
   }, [openOverview, openTab]);
 
+  const filteredOrders = useMemo(
+    () => filterCustomerOrders(recentOrders, orderFilter),
+    [orderFilter, recentOrders],
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-bg-dark font-sans text-white">
@@ -656,19 +687,6 @@ export const Profile: React.FC = () => {
     { id: 'addresses', icon: MapPinned, label: t('sidebar.addresses') },
     { id: 'security', icon: LockKeyhole, label: t('sidebar.security') },
   ];
-  const orderFilters: Array<{ id: OrderFilter; label: string }> = [
-    { id: 'all', label: t('filters.all') },
-    { id: 'shipping', label: t('filters.shipping') },
-    { id: 'delivered', label: t('filters.delivered') },
-    { id: 'pending', label: t('filters.pending') },
-  ];
-  const filteredOrders = recentOrders.filter((order) => {
-    const normalizedStatus = normalizeCustomerOrderStatus(order.status);
-    if (orderFilter === 'all') return true;
-    if (orderFilter === 'shipping') return normalizedStatus === ORDER_STATUS.SHIPPING;
-    if (orderFilter === 'delivered') return normalizedStatus === ORDER_STATUS.DELIVERED;
-    return normalizedStatus === ORDER_STATUS.PENDING;
-  });
   const linkedProviderLabel = profile.googleId ? t('summary.googleLinked') : t('summary.googleUnlinked');
   const showAvatarImage = Boolean(profile.avatarUrl || avatarPreview) && !avatarLoadFailed;
   const showSavedAvatarAction = Boolean(profile.avatarUrl);
@@ -729,58 +747,26 @@ export const Profile: React.FC = () => {
   } else {
     recentOrdersContent = (
       <div className="space-y-3">
-        {filteredOrders.map((order) => {
-          const statusMeta = getCustomerOrderStatusMeta(order.status);
-
-          return (
-            <div
-              key={order.orderId}
-              role="button"
-              tabIndex={0}
-              onClick={() => navigate(`/orders/${order.orderId}`)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  navigate(`/orders/${order.orderId}`);
+        {filteredOrders.map((order) => (
+          <CustomerOrderCard
+            key={order.orderId}
+            order={order}
+            isReturnExpanded={expandedReturnOrderIds.has(order.orderId)}
+            onToggleReturn={(orderId) => {
+              setExpandedReturnOrderIds((current) => {
+                const next = new Set(current);
+                if (next.has(orderId)) {
+                  next.delete(orderId);
+                } else {
+                  next.add(orderId);
                 }
-              }}
-              className="flex cursor-pointer flex-col gap-4 rounded-sm border border-white/10 bg-black/20 p-5 transition-colors hover:border-white/20 hover:bg-black/25 md:flex-row md:items-center"
-            >
-              <div className="flex-1">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="font-mono text-sm text-white">#{order.orderNumber}</span>
-                  <span className="text-[10px] uppercase tracking-widest text-white/40">{formatShortDate(order.createdAt)}</span>
-                  <span
-                    className={`inline-flex rounded border px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${
-                      statusMeta ? `${statusMeta.badgeClass} ${statusMeta.textClass}` : 'border-white/10 text-white/70'
-                    }`}
-                  >
-                    {statusMeta?.label || order.status || t('states.unknown')}
-                  </span>
-                </div>
-                <div className="mt-3 text-sm text-white/70">
-                  <span className="text-white/50">{t('recentOrders.totalLabel')}:</span>{' '}
-                  <span className="font-semibold text-white">{formatCurrencyVND(Number(order.totalAmount ?? 0))}</span>
-                </div>
-                <div className="mt-2 text-xs text-white/40">
-                  {t('recentOrders.orderNumber', { orderNumber: order.orderNumber })}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    navigate(`/orders/${order.orderId}`);
-                  }}
-                  className="border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-white/10"
-                >
-                  {t('recentOrders.actions.viewDetail')}
-                </button>
-              </div>
-            </div>
-          );
-        })}
+                return next;
+              });
+            }}
+            onViewOrder={(orderId) => navigate(`/orders/${orderId}`)}
+            onViewReturn={(orderId) => navigate(`/orders/${orderId}/return`)}
+          />
+        ))}
       </div>
     );
   }
@@ -1256,28 +1242,13 @@ export const Profile: React.FC = () => {
                 </button>
               </div>
               <div className="mt-6 overflow-hidden rounded-sm border border-white/5 bg-surface-dark">
-                <div className="flex gap-2 overflow-x-auto border-b border-white/10 px-6 py-4">
-                  {orderFilters.map((filter) => (
-                    <button
-                      key={filter.id}
-                      onClick={() => setOrderFilter(filter.id)}
-                      className={`whitespace-nowrap rounded border px-3 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${
-                        orderFilter === filter.id
-                          ? 'border-primary/30 bg-primary/15 text-primary'
-                          : 'border-white/10 bg-transparent text-white/50 hover:bg-white/5 hover:text-white'
-                      }`}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
-                  <div className="flex-1" />
-                  <button
-                    onClick={() => setOrderFilter('all')}
-                    className="rounded border border-white/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-white/60 transition-colors hover:bg-white/5 hover:text-white"
-                  >
-                    {t('common.refresh')}
-                  </button>
-                </div>
+                <CustomerOrdersStatusTabs
+                  statusFilter={orderFilter}
+                  onChange={setOrderFilter}
+                  onRefresh={() => {
+                    void loadProfileData();
+                  }}
+                />
 
                 <div className="p-6">
                   {recentOrdersContent}

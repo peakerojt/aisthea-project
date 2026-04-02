@@ -122,4 +122,60 @@ describe('api client auth/session flow', () => {
 
     window.removeEventListener('app:toast', toastListener);
   });
+
+  it('does not attach deprecated admin-shell headers to browser requests', async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(makeResponse(200, { data: [] }) as never);
+    window.history.pushState({}, '', '/admin/returns');
+
+    const api = await loadApi();
+    await api.get('/api/products');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:5000/api/products',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-lang': 'vi',
+          'accept-language': 'vi',
+        }),
+      }),
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).not.toMatchObject({
+      headers: expect.objectContaining({
+        'x-aisthea-shell': 'admin',
+      }),
+    });
+  });
+
+  it('surfaces nested error envelope messages from the server', async () => {
+    const fetchMock = vi.mocked(fetch);
+    translateMock.mockImplementation((key: string, options?: { defaultValue?: string }) => {
+      if (key === 'errors:VALIDATION_ERROR') {
+        return 'Lỗi xác thực dữ liệu yêu cầu. Vui lòng kiểm tra lại thông tin.';
+      }
+      return options?.defaultValue ?? key;
+    });
+    fetchMock
+      .mockResolvedValueOnce(makeResponse(200, { data: { csrfToken: 'csrf-from-body' } }) as never)
+      .mockResolvedValueOnce(
+        makeResponse(400, {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Each return item must include an explicit reasonCode',
+            details: {
+              path: ['items', 0, 'reasonCode'],
+            },
+          },
+        }) as never,
+      );
+
+    const api = await loadApi();
+
+    await expect(api.post('/api/return-requests', { orderId: 12 })).rejects.toMatchObject({
+      message: 'Each return item must include an explicit reasonCode',
+      status: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  });
 });

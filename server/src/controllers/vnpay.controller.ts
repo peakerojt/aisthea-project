@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { logger } from '../lib/logger';
 import { AuthRequest } from '../middlewares/auth.middleware';
-import { createVnpayPaymentUrl, handleVnpayIpn, handleVnpayReturn } from '../modules/payments/vnpay.service';
+import { createVnpayPaymentUrl, handleVnpayIpn, handleVnpayQueryResult, handleVnpayReturn } from '../modules/payments/vnpay.service';
 
 export const createPaymentUrl = async (req: Request, res: Response) => {
   try {
@@ -36,5 +36,10 @@ export const vnpayReturn = async (req: Request, res: Response) => {
 
 export const vnpayIpn = async (req: Request, res: Response) => {
   const result = await handleVnpayIpn(req.query as Record<string, unknown>);
+  return res.status(result.status).json(result.body);
+};
+
+export const vnpayQuery = async (req: Request, res: Response) => {
+  const result = await handleVnpayQueryResult(req.query as Record<string, unknown>);
   return res.status(result.status).json(result.body);
 };

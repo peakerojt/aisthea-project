@@ -225,6 +225,11 @@ export interface AdminOrderDetail {
     status: string;
     paidAt?: string;
   }[];
+  refundSummary?: {
+    totalCollected: number;
+    totalRefunded: number;
+    remainingRefundable: number;
+  };
   pricing?: OrderPricing;
   statusHistory: {
     status: string;
@@ -253,12 +258,19 @@ export interface UpdateStatusPayload {
   deliveryProofReviewed?: boolean;
 }
 
+export interface CancelOrderPayload {
+  reason?: string;
+  note?: string;
+}
+
 export type DeliveryProofUploadProgress = {
   fileKey: string;
   fileName: string;
   percent: number;
   status: 'pending' | 'uploading' | 'completed' | 'failed';
 };
+
+export type ReturnProofUploadProgress = DeliveryProofUploadProgress;
 
 const CSRF_COOKIE_NAME = 'csrfToken';
 const CSRF_HEADER_NAME = 'x-csrf-token';
@@ -358,8 +370,8 @@ export const orderService = {
     };
   },
 
-  async cancelOrderUser(id: string): Promise<any> {
-    const res = await orderApi.cancelOrder<any>(id);
+  async cancelOrderUser(id: string, payload?: CancelOrderPayload): Promise<any> {
+    const res = await orderApi.cancelOrder<any>(id, payload);
     return res.data ? res.data : res;
   },
 
@@ -404,9 +416,77 @@ export const orderService = {
     };
   },
 
-  async cancelMyOrder(orderId: number): Promise<OrderDetail> {
-    const res = await orderApi.cancelMyOrder<any>(orderId);
+  async cancelMyOrder(orderId: number, payload?: CancelOrderPayload): Promise<OrderDetail> {
+    const res = await orderApi.cancelMyOrder<any>(orderId, payload);
     return res.data ? res.data : res;
+  },
+
+  async uploadReturnProofImages(
+    orderId: number,
+    files: File[],
+    onProgress?: (progress: ReturnProofUploadProgress) => void,
+  ) {
+    const uploadedImages: Array<{ url: string; width: number; height: number }> = [];
+    const csrfToken = await ensureCsrfToken();
+    const activeLanguage = getActiveLanguage();
+
+    for (const file of files) {
+      const fileKey = createDeliveryProofFileKey(file);
+
+      onProgress?.({
+        fileKey,
+        fileName: file.name,
+        percent: 0,
+        status: 'pending',
+      });
+
+      const formData = new FormData();
+      formData.append('files', file);
+
+      try {
+        const response = await axios.post<{
+          success: boolean;
+          data?: { images?: Array<{ url: string; width: number; height: number }> };
+        }>(`${API_BASE_URL}/api/orders/${orderId}/return-proof-images`, formData, {
+          withCredentials: true,
+          headers: {
+            'x-lang': activeLanguage,
+            'accept-language': activeLanguage,
+            ...(csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {}),
+          },
+          onUploadProgress: (event) => {
+            const total = event.total || file.size || 1;
+            const percent = Math.min(99, Math.round((event.loaded / total) * 100));
+
+            onProgress?.({
+              fileKey,
+              fileName: file.name,
+              percent,
+              status: 'uploading',
+            });
+          },
+        });
+
+        const nextImages = response.data?.data?.images ?? [];
+        uploadedImages.push(...nextImages);
+        onProgress?.({
+          fileKey,
+          fileName: file.name,
+          percent: 100,
+          status: 'completed',
+        });
+      } catch (error) {
+        onProgress?.({
+          fileKey,
+          fileName: file.name,
+          percent: 100,
+          status: 'failed',
+        });
+        throw error;
+      }
+    }
+
+    return uploadedImages;
   },
 };
 

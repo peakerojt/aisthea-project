@@ -79,9 +79,16 @@
         "paymentStatusDesc": "Theo thanh toán"
     },
     "paymentStatus": {
-        "paid": "Đã thanh toán",
         "codPending": "COD chưa thu",
-        "pending": "Chờ thanh toán"
+        "pending": "Chờ thanh toán",
+        "PENDING_COD": "Chờ thanh toán",
+        "PENDING_VNPAY": "Chờ thanh toán",
+        "PAID": "Đã thanh toán",
+        "CANCELLED": "Đã hủy thanh toán",
+        "NEEDS_REVIEW": "Cần kiểm tra thanh toán",
+        "FAILED": "Thanh toán thất bại",
+        "REFUNDED": "Đã hoàn tiền",
+        "PARTIALLY_REFUNDED": "Hoàn tiền một phần"
     },
     "paymentMethod": {
         "COD": "COD",
@@ -158,6 +165,7 @@
             "reasonPlaceholder": "Mô tả lý do hoàn tiền...",
             "cancel": "Hủy",
             "submit": "Xác nhận hoàn tiền {{amount}}",
+            "lockedByProcessing": "Đang chờ giao dịch trước",
             "submitting": "Đang xử lý..."
         },
         "errors": {
@@ -169,7 +177,20 @@
             "reasonMinLength": "Lý do phải có ít nhất 5 ký tự.",
             "reasonMaxLength": "Lý do không được vượt quá 500 ký tự.",
             "invalidAmountOrExceeds": "Số tiền hoàn không hợp lệ hoặc vượt quá mức cho phép.",
+            "REFUND_ALREADY_IN_PROGRESS": "Đơn hàng này đang có một yêu cầu hoàn tiền khác đang xử lý.",
+            "REFUND_IN_PROGRESS": "Cổng thanh toán vẫn đang xử lý yêu cầu hoàn tiền trước đó.",
+            "REFUND_NOT_ELIGIBLE": "Giao dịch gốc hiện không đủ điều kiện để hoàn qua cổng thanh toán.",
+            "ORDER_NOT_PAID": "Đơn hàng chưa ở trạng thái có thể hoàn tiền.",
+            "ORDER_NOT_FOUND": "Không tìm thấy đơn hàng cần hoàn tiền.",
+            "INVALID_AMOUNT": "Số tiền hoàn không hợp lệ.",
+            "OVER_REFUND": "Số tiền hoàn vượt quá số tiền còn có thể hoàn.",
+            "GATEWAY_FAILED": "Cổng thanh toán từ chối yêu cầu hoàn tiền. Vui lòng thử lại hoặc chuyển sang xử lý thủ công.",
             "unknownError": "Lỗi không xác định."
+        },
+        "warnings": {
+            "processingLocked": "Đơn hàng này đang có một yêu cầu hoàn tiền khác đang được xử lý. Hãy chờ cổng thanh toán phản hồi hoặc cập nhật giao dịch hiện tại trước khi tạo yêu cầu mới.",
+            "processingGatewayHint": "Tín hiệu gần nhất từ cổng: {{message}}",
+            "remainingRefundable": "Số tiền còn có thể hoàn: {{amount}}"
         },
         "success": {
             "initiated": "Đã gửi yêu cầu hoàn tiền tới cổng thanh toán."
@@ -189,6 +210,12 @@
             "title": "Lịch sử tài chính",
             "transactionCount": "{{count}} giao dịch",
             "noTransactions": "Chưa có giao dịch hoàn tiền nào",
+            "summary": {
+                "totalCollected": "Đã thu",
+                "totalRefunded": "Đã hoàn",
+                "remainingRefundable": "Còn có thể hoàn",
+                "fullyRefunded": "Đơn hàng này đã hoàn hết số tiền đã thu. Không còn số dư để tạo thêm giao dịch hoàn tiền."
+            },
             "table": {
                 "createdAt": "Ngày tạo",
                 "transactionId": "Mã đối soát",

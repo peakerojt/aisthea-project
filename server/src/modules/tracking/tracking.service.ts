@@ -126,7 +126,13 @@ export const trackingService = {
     await updateOrderStatusAdmin(
       String(orderId),
       { userId: updatedBy, roles: ['Admin'] },
-      { status: toCanonicalOrderStatus(payload.status), note: payload.note },
+      {
+        status: toCanonicalOrderStatus(payload.status),
+        note: payload.note,
+        deliveryProofImages: payload.deliveryProofImages,
+        deliveryProofReviewed: payload.deliveryProofReviewed,
+        transitionSource: 'tracking_ops',
+      },
     );
 
     const latest = await trackingRepository.findOrderTrackingById(orderId);

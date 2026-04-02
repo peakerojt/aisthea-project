@@ -1,26 +1,26 @@
 import { Router } from 'express';
-import rateLimit from 'express-rate-limit';
 import { authenticateToken } from '../../middlewares/auth.middleware';
+import { createPublicReadRateLimiters } from '../../middlewares/security.middleware';
+import { validate } from '../../middlewares/validate.middleware';
 import { trackingController } from './tracking.controller';
+import { publicTrackingSchema } from './tracking.validator';
 
 const trackingRouter = Router();
-
-// Rate limiter: max 20 public lookup attempts per IP per 15 minutes
-const publicLookupLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        success: false,
-        errorCode: 'RATE_LIMIT_EXCEEDED',
-        message: 'Quá nhiều yêu cầu tra cứu. Vui lòng thử lại sau 15 phút.',
-    },
-});
+const publicLookupRateLimiters = createPublicReadRateLimiters('tracking.public-lookup');
 
 // ── Public endpoints — no JWT required ────────────────────────────────────────
-trackingRouter.post('/tracking/public', publicLookupLimiter, trackingController.publicTracking);
-trackingRouter.get('/tracking/lookup', publicLookupLimiter, trackingController.publicTrackingGet);
+trackingRouter.post(
+  '/tracking/public',
+  ...publicLookupRateLimiters,
+  validate(publicTrackingSchema),
+  trackingController.publicTracking,
+);
+trackingRouter.get(
+  '/tracking/lookup',
+  ...publicLookupRateLimiters,
+  validate(publicTrackingSchema, 'query'),
+  trackingController.publicTrackingGet,
+);
 
 // ── Authenticated endpoints ────────────────────────────────────────────────────
 // NOTE: /api/orders/:id/tracking for authenticated lookup

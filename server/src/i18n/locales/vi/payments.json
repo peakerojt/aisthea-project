@@ -6,8 +6,11 @@
     "configMissing": "Thiếu cấu hình VNPay.",
     "createPaymentUrlFailed": "Không thể tạo liên kết thanh toán VNPay.",
     "orderNotPaid": "Đơn hàng chưa được thanh toán nên không thể hoàn tiền.",
-    "overRefund": "Số tiền hoàn vượt quá giá trị đơn hàng.",
+    "overRefund": "Số tiền hoàn vượt quá số tiền đã thu còn có thể hoàn.",
     "gatewayFailed": "Cổng thanh toán đã từ chối giao dịch hoàn tiền.",
+    "refundAlreadyInProgress": "Đơn hàng này đang có một giao dịch hoàn tiền đang được xử lý.",
+    "refundInProgress": "Cổng thanh toán cho biết giao dịch hoàn tiền này vẫn đang được xử lý.",
+    "refundNotEligible": "Giao dịch gốc không đủ điều kiện để hoàn tiền qua cổng thanh toán.",
     "invalidAmount": "Số tiền hoàn không hợp lệ.",
     "missingRequiredFields": "Thiếu các trường bắt buộc: amount, type, method, reason.",
     "fetchRefundHistoryFailed": "Không thể tải lịch sử hoàn tiền."

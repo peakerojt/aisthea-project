@@ -12,6 +12,7 @@ import {
     updateOrderStatus,
     confirmReceipt,
     uploadDeliveryProofImages,
+    uploadReturnProofImages,
 } from '../controllers/order.controller';
 import {
     createOrderSchema,
@@ -31,6 +32,7 @@ router.post('/', authenticateToken, validate(createOrderSchema), createOrder);
 // NOTE: /my/:orderId/confirm-receipt uses the orderId param name but here we have :id
 // Confirm receipt is on /:id/confirm-receipt — placed BEFORE generic /:id/status to avoid conflicts
 router.patch('/:id/confirm-receipt', authenticateToken, validate(orderIdParamSchema, 'params'), confirmReceipt);
+router.post('/:id/return-proof-images', authenticateToken, validate(orderIdParamSchema, 'params'), upload.array('files', 5), uploadReturnProofImages);
 
 // ── Admin Routes ─────────────────────────────────────────────────────────────
 const adminGuard = [authenticateToken, checkRole(['Admin', 'Super Admin'])];

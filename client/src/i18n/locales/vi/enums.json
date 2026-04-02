@@ -17,8 +17,12 @@
     "UNPAID": "Chưa thanh toán",
     "VERIFYING": "Đang xác nhận thanh toán",
     "COD_PENDING": "Chờ thanh toán",
+    "PENDING_COD": "Chờ thanh toán",
+    "PENDING_VNPAY": "Chờ thanh toán",
     "PAID": "Đã thanh toán",
     "REFUNDED": "Đã hoàn tiền",
+    "CANCELLED": "Đã hủy thanh toán",
+    "NEEDS_REVIEW": "Cần kiểm tra thanh toán",
     "FAILED": "Thanh toán thất bại",
     "PARTIAL_REFUND": "Hoàn tiền một phần",
     "PARTIALLY_REFUNDED": "Hoàn tiền một phần"

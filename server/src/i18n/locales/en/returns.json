@@ -1,18 +1,28 @@
 {
   "errors": {
     "invalidReturnId": "Invalid return request ID.",
+    "invalidReturnQuantity": "Return quantity exceeds the allowed limit for {{productLabel}} (max {{maxQty}}).",
     "reasonRequired": "Return reason is required.",
     "invalidProofImages": "proofImages must be an array of image URLs.",
     "adminRequired": "Admin access is required for this action.",
     "invalidAction": "The requested return action is invalid.",
     "orderNotDelivered": "Only delivered orders can be returned.",
     "windowExpired": "The 7-day return window has expired.",
+    "itemSelectionRequired": "Please select the specific item or items you want to return.",
+    "refundStatusCommentRequired": "Please provide a comment when marking the refund as failed or requiring manual review.",
     "alreadyExists": "A return request already exists for this order.",
     "notFound": "Return request not found."
   },
   "success": {
     "approved": "Return request approved successfully.",
+    "inTransit": "Return marked as in transit successfully.",
+    "received": "Return marked as received successfully.",
+    "acceptedForRefund": "Return accepted for refund successfully.",
     "rejected": "Return request rejected successfully.",
-    "refundCompleted": "Refund completed and inventory restored successfully."
+    "refundCompleted": "Refund completed and inventory restored successfully.",
+    "refundStatusPending": "Refund status reset to pending successfully.",
+    "refundStatusProcessing": "Refund marked as processing successfully.",
+    "refundStatusFailed": "Refund marked as failed successfully.",
+    "refundStatusManualReview": "Refund moved to manual review successfully."
   }
 }

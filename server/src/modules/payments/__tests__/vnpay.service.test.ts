@@ -25,6 +25,7 @@ jest.mock('../../../lib/logger', () => ({
 import {
   createVnpayPaymentUrl,
   handleVnpayIpn,
+  handleVnpayQueryResult,
   handleVnpayReturn,
 } from '../vnpay.service';
 import { createVnpSecureHash } from '../vnpay.utils';
@@ -141,6 +142,68 @@ describe('vnpay.service', () => {
     });
   });
 
+  it('refreshes the latest VNPay payment attempt to pending before returning a payment URL', async () => {
+    prismaMock.order.findUnique.mockResolvedValueOnce({
+      orderId: 29,
+      userId: 5,
+      paymentMethod: 'VNPAY',
+      totalAmount: 275000,
+      payments: [
+        {
+          paymentId: 92,
+          paymentMethod: 'VNPAY',
+          status: 'FAILED',
+          transactionCode: 'OLD-TXN-92',
+        },
+      ],
+    });
+
+    const result = await createVnpayPaymentUrl({
+      userId: 5,
+      orderId: 29,
+    });
+
+    expect(prismaMock.payment.update).toHaveBeenCalledWith({
+      where: { paymentId: 92 },
+      data: {
+        amount: 275000,
+        status: 'PENDING',
+        transactionCode: null,
+        note: 'Awaiting VNPay reconciliation',
+      },
+    });
+    expect(result.status).toBe(200);
+    expect((result.body.data as { vnpUrl: string }).vnpUrl).toContain('vnp_TxnRef=29');
+  });
+
+  it('creates a pending VNPay payment attempt when the order has no previous VNPay payment', async () => {
+    prismaMock.order.findUnique.mockResolvedValueOnce({
+      orderId: 30,
+      userId: 5,
+      paymentMethod: 'VNPAY',
+      totalAmount: 485000,
+      payments: [],
+    });
+
+    const result = await createVnpayPaymentUrl({
+      userId: 5,
+      orderId: 30,
+    });
+
+    expect(prismaMock.payment.create).toHaveBeenCalledWith({
+      data: {
+        orderId: 30,
+        paymentMethod: 'VNPAY',
+        amount: 485000,
+        status: 'PENDING',
+        transactionCode: null,
+        note: 'Awaiting VNPay reconciliation',
+      },
+    });
+    expect(result.status).toBe(200);
+    expect((result.body.data as { vnpUrl: string }).vnpUrl).toContain('vnp_TxnRef=30');
+  });
+
   it('returns forbidden when the order belongs to another user', async () => {
     prismaMock.order.findUnique.mockResolvedValueOnce({
       orderId: 26,
@@ -196,7 +259,7 @@ describe('vnpay.service', () => {
     expect(prismaMock.order.findUnique).not.toHaveBeenCalled();
   });
 
-  it('marks payment as failed when VNPay return carries a failed response code', async () => {
+  it('maps cancelled VNPay return codes to the canonical cancelled payment outcome', async () => {
     prismaMock.order.findUnique.mockResolvedValueOnce({
       orderId: 39,
       totalAmount: 326000,
@@ -229,10 +292,10 @@ describe('vnpay.service', () => {
     expect(result).toEqual({
       status: 200,
       body: {
-        message: 'Failed',
+        message: 'Cancelled',
         code: '24',
         orderId: 39,
-        paymentStatus: 'FAILED',
+        paymentStatus: 'CANCELLED',
       },
     });
   });
@@ -267,6 +330,176 @@ describe('vnpay.service', () => {
     });
     expect(prismaMock.payment.update).not.toHaveBeenCalled();
     expect(prismaMock.payment.create).not.toHaveBeenCalled();
+  });
+
+  it('maps successful VNPay query fallback responses to the canonical paid outcome', async () => {
+    prismaMock.order.findUnique.mockResolvedValueOnce({
+      orderId: 37,
+      totalAmount: 326000,
+      payments: [
+        {
+          paymentId: 48,
+          paymentMethod: 'VNPAY',
+          status: 'PENDING',
+          transactionCode: null,
+        },
+      ],
+    });
+
+    const result = await handleVnpayQueryResult(signParams({
+      vnp_TxnRef: '37',
+      vnp_Amount: '32600000',
+      vnp_ResponseCode: '00',
+      vnp_TransactionStatus: '00',
+      vnp_TransactionNo: 'TXN-QUERY-37',
+    }));
+
+    expect(prismaMock.payment.update).toHaveBeenCalledWith({
+      where: { paymentId: 48 },
+      data: {
+        amount: 326000,
+        status: 'COMPLETED',
+        transactionCode: 'TXN-QUERY-37',
+        note: 'Confirmed from VNPay query fallback',
+      },
+    });
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        message: 'Success',
+        code: '00',
+        orderId: 37,
+        paymentStatus: 'PAID',
+        queryStatus: '00',
+      },
+    });
+  });
+
+  it('marks payment as failed when VNPay query fallback reports a terminal failure status', async () => {
+    prismaMock.order.findUnique.mockResolvedValueOnce({
+      orderId: 38,
+      totalAmount: 326000,
+      payments: [
+        {
+          paymentId: 49,
+          paymentMethod: 'VNPAY',
+          status: 'PENDING',
+          transactionCode: null,
+        },
+      ],
+    });
+
+    const result = await handleVnpayQueryResult(signParams({
+      vnp_TxnRef: '38',
+      vnp_Amount: '32600000',
+      vnp_ResponseCode: '00',
+      vnp_TransactionStatus: '24',
+      vnp_TransactionNo: 'TXN-QUERY-38',
+    }));
+
+    expect(prismaMock.payment.update).toHaveBeenCalledWith({
+      where: { paymentId: 49 },
+      data: {
+        amount: 326000,
+        status: 'FAILED',
+        transactionCode: 'TXN-QUERY-38',
+        note: 'VNPay query fallback reported terminal status 24.',
+      },
+    });
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        message: 'Cancelled',
+        code: '00',
+        orderId: 38,
+        paymentStatus: 'CANCELLED',
+        queryStatus: '24',
+      },
+    });
+  });
+
+  it('keeps payment pending and flags needs review when VNPay query fallback is inconclusive', async () => {
+    prismaMock.order.findUnique.mockResolvedValueOnce({
+      orderId: 40,
+      totalAmount: 326000,
+      payments: [
+        {
+          paymentId: 51,
+          paymentMethod: 'VNPAY',
+          status: 'PENDING',
+          transactionCode: null,
+        },
+      ],
+    });
+
+    const result = await handleVnpayQueryResult(signParams({
+      vnp_TxnRef: '40',
+      vnp_Amount: '32600000',
+      vnp_ResponseCode: '91',
+      vnp_TransactionStatus: '05',
+      vnp_TransactionNo: 'TXN-QUERY-40',
+    }));
+
+    expect(prismaMock.payment.update).toHaveBeenCalledWith({
+      where: { paymentId: 51 },
+      data: {
+        amount: 326000,
+        status: 'PENDING',
+        transactionCode: 'TXN-QUERY-40',
+        note: 'VNPay query fallback inconclusive. Response code 91, transaction status 05.',
+      },
+    });
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        message: 'Needs review',
+        code: '91',
+        orderId: 40,
+        paymentStatus: 'NEEDS_REVIEW',
+        queryStatus: '05',
+      },
+    });
+  });
+
+  it('maps successful VNPay return fallback responses to the canonical paid outcome', async () => {
+    prismaMock.order.findUnique.mockResolvedValueOnce({
+      orderId: 42,
+      totalAmount: 326000,
+      payments: [
+        {
+          paymentId: 53,
+          paymentMethod: 'VNPAY',
+          status: 'PENDING',
+          transactionCode: null,
+        },
+      ],
+    });
+
+    const result = await handleVnpayReturn(signParams({
+      vnp_TxnRef: '42',
+      vnp_Amount: '32600000',
+      vnp_ResponseCode: '00',
+      vnp_TransactionNo: 'TXN-RETURN-42',
+    }));
+
+    expect(prismaMock.payment.update).toHaveBeenCalledWith({
+      where: { paymentId: 53 },
+      data: {
+        amount: 326000,
+        status: 'COMPLETED',
+        transactionCode: 'TXN-RETURN-42',
+        note: 'Confirmed from VNPay return fallback',
+      },
+    });
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        message: 'Success',
+        code: '00',
+        orderId: 42,
+        paymentStatus: 'PAID',
+      },
+    });
   });
 
   it('marks payment as failed when VNPay return amount mismatches order total', async () => {

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AuthSession } from '@/types';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { api } from '@/common/utils/api';
+import { getAdminLandingPath, hasAdminShellAccess } from '@/common/utils/adminAccess';
 import { useTranslation } from 'react-i18next';
 
 export const OAuthCallback: React.FC = () => {
@@ -18,8 +19,8 @@ export const OAuthCallback: React.FC = () => {
 
         if (session.isAuthenticated && session.user) {
           setUserFromSession(session);
-          if (session.user.roles.includes('Admin')) {
-            navigate('/admin');
+          if (hasAdminShellAccess(session.user.roles)) {
+            navigate(getAdminLandingPath(session.user.roles));
           } else {
             navigate('/');
           }

@@ -110,11 +110,19 @@ describe('OrderActionPanel shipping action', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it('allows confirming a return-requested order as returned', async () => {
-    updateStatus.mockResolvedValueOnce({ success: true, stockRestored: true, messageKey: 'ORDER_STATUS_UPDATED' });
+  it('removes the legacy returned action from shipping and return-requested orders', () => {
+    const { rerender } = render(
+      <OrderActionPanel
+        orderId={303}
+        currentStatus="Shipping"
+        onStatusUpdated={vi.fn()}
+        onError={vi.fn()}
+      />,
+    );
 
-    const user = userEvent.setup();
-    render(
+    expect(screen.queryByRole('button', { name: 'Xác nhận trả hàng' })).not.toBeInTheDocument();
+
+    rerender(
       <OrderActionPanel
         orderId={303}
         currentStatus="RETURN_REQUESTED"
@@ -123,18 +131,6 @@ describe('OrderActionPanel shipping action', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Xác nhận trả hàng' }));
-
-    expect(screen.getByText('Tồn kho sẽ được hoàn lại tự động sau khi xác nhận.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Giữ lại' })).toBeInTheDocument();
-    expect(screen.getByText(/Lý do/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Mô tả lý do trả hàng...')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Sản phẩm bị hư hỏng' }));
-    await user.click(screen.getAllByRole('button', { name: 'Xác nhận trả hàng' }).at(-1)!);
-
-    await waitFor(() => {
-      expect(updateStatus).toHaveBeenCalledWith(303, { status: 'Returned', note: 'Sản phẩm bị hư hỏng' });
-    });
+    expect(screen.queryByRole('button', { name: 'Xác nhận trả hàng' })).not.toBeInTheDocument();
   });
 });

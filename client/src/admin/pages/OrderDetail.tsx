@@ -3,16 +3,19 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeft, Package, MapPin, CreditCard, User, Clock,
     Truck, ShoppingBag, AlertCircle,
-    ChevronLeft, ChevronRight, Copy, Check, RotateCcw, X,
+    ChevronLeft, ChevronRight, Copy, Check, X,
 } from 'lucide-react';
 import { adminOrderService, AdminOrderDetail as OrderDetailType } from '@/common/services/order.service';
 import { formatVND } from '@/admin/pages/Orders';
 import { OrderActionPanel } from '@/admin/components/OrderActionPanel';
 import { OrderTimeline } from '@/admin/components/OrderTimeline';
 import { OrderStatusBadge } from '@/admin/components/OrderStatusBadge';
-import { RefundDialog } from '@/admin/components/RefundDialog';
 import { OrderFinancials } from '@/admin/components/OrderFinancials';
-import { adminRefundService, RefundRecord } from '@/admin/services/refund.service';
+import {
+    adminRefundService,
+    RefundFinancialSummary,
+    RefundRecord,
+} from '@/admin/services/refund.service';
 import { getImageUrl } from '@/common/utils/cloudinary';
 import { getOrderStatusDisplayMeta } from '@/common/utils/orderUiStatus';
 import { useTranslation } from 'react-i18next';
@@ -104,8 +107,8 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
     const [error, setError] = useState<string | null>(null);
 
     // ── Refund state ─────────────────────────────────────────────────────────
-    const [showRefundDialog, setShowRefundDialog] = useState(false);
     const [refunds, setRefunds] = useState<RefundRecord[]>([]);
+    const [refundSummary, setRefundSummary] = useState<RefundFinancialSummary | null>(null);
     const [refundsLoading, setRefundsLoading] = useState(false);
     const [deliveryProofLightboxIndex, setDeliveryProofLightboxIndex] = useState<number | null>(null);
     const [isDeliveryProofLightboxVisible, setIsDeliveryProofLightboxVisible] = useState(false);
@@ -114,13 +117,25 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
         template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, token: string) => String(options?.[token] ?? ''));
     const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
         const value = t(key, { ...options, defaultValue: fallback });
-        return value === key ? interpolateFallback(fallback, options) : value;
+        if (value === key) {
+            return interpolateFallback(fallback, options);
+        }
+        return typeof value === 'string' && value.includes('{{')
+            ? interpolateFallback(value, options)
+            : value;
     };
 
-    const loadRefunds = useCallback(async (oId: number) => {
+    const loadRefunds = useCallback(async (oId: number, fallbackSummary?: RefundFinancialSummary | null) => {
         setRefundsLoading(true);
-        try { setRefunds(await adminRefundService.list(oId)); }
-        catch { setRefunds([]); }
+        try {
+            const result = await adminRefundService.listWithSummary(oId);
+            setRefunds(result.refunds);
+            setRefundSummary(result.summary ?? fallbackSummary ?? null);
+        }
+        catch {
+            setRefunds([]);
+            setRefundSummary(fallbackSummary ?? null);
+        }
         finally { setRefundsLoading(false); }
     }, []);
 
@@ -138,7 +153,9 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
         try {
             const o = await adminOrderService.getDetail(effectiveId);
             setOrder(o);
-            loadRefunds(effectiveId);
+            const nextRefundSummary = o.refundSummary ?? null;
+            setRefundSummary(nextRefundSummary);
+            loadRefunds(effectiveId, nextRefundSummary);
         } catch (error) {
             const e = error as Error | { message?: string; error?: string; data?: unknown };
             setError(e.message || resolveText('errors.loadFailed', 'Không thể tải chi tiết đơn hàng.'));
@@ -163,7 +180,6 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
     const loadingLabel = resolveText('states.loading', 'Đang tải chi tiết đơn hàng...');
     const notFoundTitleLabel = resolveText('states.notFoundTitle', 'Không tìm thấy đơn hàng');
     const backToListLabel = resolveText('actions.backToList', 'Quay lại danh sách');
-    const refundLabel = resolveText('actions.refund', 'Hoàn tiền');
     const copiedLabel = resolveText('actions.copied', 'Đã sao chép');
     const copyLabel = resolveText('actions.copy', 'Sao chép');
     const breadcrumbOrdersLabel = resolveText('breadcrumb.orders', 'Đơn hàng');
@@ -186,8 +202,6 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
     const deliveryProofUnreviewedLabel = resolveText('deliveryProof.unreviewed', 'Chưa duyệt bằng chứng');
     const deliveryProofLightboxLabel = resolveText('deliveryProof.lightboxLabel', 'Xem bằng chứng giao hàng');
     const deliveryProofOpenOriginalLabel = resolveText('deliveryProof.openOriginal', 'Mở ảnh gốc');
-    const refundRequestedToastLabel = resolveText('toast.refundRequested', 'Đã tạo yêu cầu hoàn tiền');
-
     useEffect(() => {
         if (activeDeliveryProofImage) {
             const frameId = window.requestAnimationFrame(() => setIsDeliveryProofLightboxVisible(true));
@@ -239,16 +253,6 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                             {backToListLabel}
                         </AdminSecondaryButton>
                         <StatusPill status={status} />
-                        {paymentMeta.isPaidLike && (
-                            <AdminSecondaryButton
-                                type="button"
-                                onClick={() => setShowRefundDialog(true)}
-                                className="border-cyan-500/25 bg-cyan-500/10 text-cyan-300 hover:border-cyan-500/35 hover:bg-cyan-500/18 hover:text-cyan-200"
-                            >
-                                <RotateCcw size={14} />
-                                {refundLabel}
-                            </AdminSecondaryButton>
-                        )}
                         <OrderActionPanel
                             orderId={order.orderId}
                             currentStatus={status}
@@ -521,28 +525,11 @@ export const OrderDetail: React.FC<AdminOrderDetailProps> = ({ orderId }) => {
                             )}
 
                             {/* ── Financial History ──────────────────────────────────── */}
-                            <OrderFinancials refunds={refunds} loading={refundsLoading} />
+                            <OrderFinancials refunds={refunds} payments={order.payments} summary={refundSummary ?? undefined} loading={refundsLoading} />
                         </div>
                     </div>
                 </div>
             </AdminPageShell>
-
-            {/* ── Refund Dialog ─────────────────────────────────────────────────── */}
-            {
-                showRefundDialog && order && (
-                    <RefundDialog
-                        orderId={order.orderId}
-                        totalPaid={Number(order.totalAmount)}
-                        existingRefunds={refunds}
-                        onClose={() => setShowRefundDialog(false)}
-                        onSuccess={(newRefund) => {
-                            setRefunds(prev => [newRefund, ...prev]);
-                            showToast(refundRequestedToastLabel, 'success');
-                            loadOrder();
-                        }}
-                    />
-                )
-            }
 
             {activeDeliveryProofImage && (
                 <div

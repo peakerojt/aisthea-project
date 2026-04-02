@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  AuthDivider,
+  AuthField,
+  AuthFooterLinks,
+  AuthOAuthButton,
+  AuthPageHeader,
+  AuthPasswordField,
+  AuthPrimaryButton,
+  AuthStatusRail,
+} from '@/common/components/auth';
 import { AuthLayout } from '@/common/layouts/AuthLayout';
-import Eye from 'lucide-react/dist/esm/icons/eye';
-import EyeOff from 'lucide-react/dist/esm/icons/eye-off';
 import { authService } from '@/common/services/auth.service';
 import { useForm, useWatch, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AnimatePresence, motion } from 'framer-motion';
 import { passwordRequirements, calculatePasswordStrength } from '@/common/utils/passwordValidation';
 import { useTranslation } from 'react-i18next';
 import { SignupFormInput, signupFormSchema } from '@/common/validation/schemas';
@@ -15,15 +22,15 @@ import type { input } from 'zod';
 type SignupFormValues = input<typeof signupFormSchema>;
 
 const ValidationItem = React.memo(({ met, text }: { met: boolean; text: string }) => (
-  <div className={`flex items-center gap-2 text-[10px] transition-colors ${met ? 'text-green-500' : 'text-gray-500'}`}>
-    <span className={`w-3 h-3 rounded-full flex items-center justify-center border ${met ? 'border-green-500 bg-green-500/20' : 'border-gray-600'}`}>
+  <div className={`flex items-center gap-2 text-[11px] transition-colors ${met ? 'text-emerald-300' : 'text-zinc-500'}`}>
+    <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border ${met ? 'border-emerald-500 bg-emerald-500/20' : 'border-zinc-700'}`}>
       {met && <span className="text-[8px]">✓</span>}
     </span>
     {text}
   </div>
 ));
 
-const PasswordStrengthMeter = React.memo(
+const PasswordGuidancePanel = React.memo(
   ({
     control,
     t,
@@ -38,43 +45,37 @@ const PasswordStrengthMeter = React.memo(
     });
 
     const strength = calculatePasswordStrength(passwordValue);
+    const progressColor = strength <= 2 ? 'bg-red-500' : strength <= 4 ? 'bg-amber-400' : 'bg-emerald-500';
+    const helperTone = passwordValue ? 'text-zinc-400' : 'text-zinc-500';
 
     return (
-      <AnimatePresence>
-        {passwordValue && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="w-full mt-2 bg-gray-900/90 p-3 rounded-sm border border-gray-800 backdrop-blur-sm overflow-hidden"
-          >
-            <div className="w-full h-1 bg-gray-700 rounded-full overflow-hidden mb-2">
-              <motion.div
-                className={`h-full rounded-full transition-colors duration-300 ${strength <= 2 ? 'bg-red-500' : strength <= 4 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                initial={{ width: 0 }}
-                animate={{ width: `${(strength / 5) * 100}%` }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
-              />
-            </div>
-            <p className="text-[10px] text-gray-400 mb-2 uppercase tracking-wider font-bold">{t('password.requirementsTitle')}</p>
-            <div className="grid grid-cols-1 gap-1">
-              <ValidationItem met={passwordValue.length >= passwordRequirements.minLength} text={t('password.minLength', { value: passwordRequirements.minLength })} />
-              <ValidationItem met={passwordRequirements.hasUpperCase.test(passwordValue)} text={t('password.uppercase')} />
-              <ValidationItem met={passwordRequirements.hasLowerCase.test(passwordValue)} text={t('password.lowercase')} />
-              <ValidationItem met={passwordRequirements.hasNumber.test(passwordValue)} text={t('password.number')} />
-              <ValidationItem met={passwordRequirements.hasSpecialChar.test(passwordValue)} text={t('password.special')} />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div className="min-h-[9.5rem] rounded-sm border border-white/10 bg-white/[0.02] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-zinc-400">{t('password.requirementsTitle')}</p>
+          <span className={`text-[11px] uppercase tracking-[0.18em] ${helperTone}`}>
+            {passwordValue ? `${strength}/5` : '0/5'}
+          </span>
+        </div>
+        <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-white/8">
+          <div
+            className={`h-full rounded-full transition-[width,background-color] duration-200 ${progressColor}`}
+            style={{ width: `${(strength / 5) * 100}%` }}
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <ValidationItem met={passwordValue.length >= passwordRequirements.minLength} text={t('password.minLength', { value: passwordRequirements.minLength })} />
+          <ValidationItem met={passwordRequirements.hasUpperCase.test(passwordValue)} text={t('password.uppercase')} />
+          <ValidationItem met={passwordRequirements.hasLowerCase.test(passwordValue)} text={t('password.lowercase')} />
+          <ValidationItem met={passwordRequirements.hasNumber.test(passwordValue)} text={t('password.number')} />
+          <ValidationItem met={passwordRequirements.hasSpecialChar.test(passwordValue)} text={t('password.special')} />
+        </div>
+      </div>
     );
   },
 );
 
 export const Signup: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'signup' });
-  const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const navigate = useNavigate();
 
@@ -95,6 +96,13 @@ export const Signup: React.FC = () => {
     mode: 'onChange',
   });
 
+  const clearServerError = () => setServerError(null);
+
+  const fullNameRegister = register('fullName', { onChange: clearServerError });
+  const emailRegister = register('email', { onChange: clearServerError });
+  const passwordRegister = register('password', { onChange: clearServerError });
+  const confirmPasswordRegister = register('confirmPassword', { onChange: clearServerError });
+
   const onSubmit = async (data: SignupFormInput) => {
     setServerError(null);
     try {
@@ -113,182 +121,112 @@ export const Signup: React.FC = () => {
 
   return (
     <AuthLayout backgroundImage="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2000">
-      <div className="mb-10">
-        <p className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-primary">{t('label')}</p>
-        <h1 className="mb-2 text-4xl font-black uppercase tracking-tighter text-white md:text-5xl">
-          {t('title')}
-        </h1>
-        <p className="max-w-xl text-gray-400">
-          {t('subtitle')}
-        </p>
-      </div>
+      <AuthPageHeader eyebrow={t('label')} title={t('title')} subtitle={t('subtitle')} className="mb-10" />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
-        {serverError && <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm p-3 rounded-sm mb-2">{serverError}</div>}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <AuthField
+          type="text"
+          autoComplete="off"
+          label={t('form.fullName')}
+          error={errors.fullName?.message}
+          placeholder={t('form.fullNamePlaceholder', { defaultValue: 'Nguyen Van A' })}
+          disabled={isSubmitting}
+          {...fullNameRegister}
+        />
 
-        <div className="relative group">
-          <input
-            type="text"
-            autoComplete="off"
-            {...register('fullName')}
-            className={`block py-4 px-0 w-full text-base text-white bg-transparent border-0 border-b appearance-none focus:outline-none focus:ring-0 peer transition-colors ${
-              errors.fullName ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-primary'
-            }`}
-            placeholder=" "
-          />
-          <label
-            className={`pointer-events-none absolute top-3 z-0 origin-[0] -translate-y-6 scale-75 transform text-sm font-medium uppercase tracking-wide duration-300 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-6 peer-focus:scale-75 ${
-              errors.fullName ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
-            }`}
-          >
-            {t('form.fullName')}
-          </label>
-          <div className="mt-1 h-4">
-            <span className={`text-xs text-red-500 transition-opacity duration-200 ${errors.fullName ? 'opacity-100' : 'opacity-0'}`}>
-              {errors.fullName?.message || ' '}
-            </span>
-          </div>
-        </div>
+        <AuthField
+          type="email"
+          autoComplete="off"
+          label={t('form.email')}
+          error={errors.email?.message}
+          placeholder={t('form.emailPlaceholder', { defaultValue: 'name@example.com' })}
+          disabled={isSubmitting}
+          {...emailRegister}
+        />
 
-        <div className="relative group">
-          <input
-            type="email"
-            autoComplete="off"
-            {...register('email')}
-            className={`block py-4 px-0 w-full text-base text-white bg-transparent border-0 border-b appearance-none focus:outline-none focus:ring-0 peer transition-colors ${
-              errors.email ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-primary'
-            }`}
-            placeholder=" "
-          />
-          <label
-            className={`pointer-events-none absolute top-3 z-0 origin-[0] -translate-y-6 scale-75 transform text-sm font-medium uppercase tracking-wide duration-300 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-6 peer-focus:scale-75 ${
-              errors.email ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
-            }`}
-          >
-            {t('form.email')}
-          </label>
-          <div className="mt-1 h-4">
-            <span className={`text-xs text-red-500 transition-opacity duration-200 ${errors.email ? 'opacity-100' : 'opacity-0'}`}>
-              {errors.email?.message || ' '}
-            </span>
-          </div>
-        </div>
-
-        <div className="relative group">
-          <input
-            type={showPassword ? 'text' : 'password'}
+        <div className="space-y-3">
+          <AuthPasswordField
             autoComplete="new-password"
-            {...register('password')}
-            className={`block py-4 px-0 w-full text-base text-white bg-transparent border-0 border-b appearance-none focus:outline-none focus:ring-0 peer transition-colors pr-10 ${
-              errors.password ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-primary'
-            }`}
-            placeholder=" "
+            label={t('form.password')}
+            error={errors.password?.message}
+            placeholder="••••••••"
+            disabled={isSubmitting}
+            {...passwordRegister}
           />
-          <label
-            className={`pointer-events-none absolute top-3 z-0 origin-[0] -translate-y-6 scale-75 transform text-sm font-medium uppercase tracking-wide duration-300 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-6 peer-focus:scale-75 ${
-              errors.password ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
-            }`}
-          >
-            {t('form.password')}
-          </label>
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-0 top-3 text-gray-500 hover:text-white transition-colors"
-          >
-            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-
-          <div className="mt-1 min-h-[1.25rem]">
-            <span className={`text-xs text-red-500 block transition-opacity duration-200 ${errors.password ? 'opacity-100' : 'opacity-0'}`}>
-              {errors.password?.message || ' '}
-            </span>
-          </div>
-
-          <PasswordStrengthMeter control={control} t={t} />
+          <PasswordGuidancePanel control={control} t={t} />
         </div>
 
-        <div className="relative group mb-2">
-          <input
-            type="password"
-            autoComplete="new-password"
-            {...register('confirmPassword')}
-            className={`block py-4 px-0 w-full text-base text-white bg-transparent border-0 border-b appearance-none focus:outline-none focus:ring-0 peer transition-colors ${
-              errors.confirmPassword ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-primary'
-            }`}
-            placeholder=" "
-          />
-          <label
-            className={`pointer-events-none absolute top-3 z-0 origin-[0] -translate-y-6 scale-75 transform text-sm font-medium uppercase tracking-wide duration-300 peer-focus:left-0 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-6 peer-focus:scale-75 ${
-              errors.confirmPassword ? 'text-red-500 peer-focus:text-red-500' : 'text-gray-500 peer-focus:text-primary'
-            }`}
-          >
-            {t('form.confirmPassword')}
-          </label>
-          <div className="mt-1 h-4">
-            <span className={`text-xs text-red-500 transition-opacity duration-200 ${errors.confirmPassword ? 'opacity-100' : 'opacity-0'}`}>
-              {errors.confirmPassword?.message || ' '}
-            </span>
-          </div>
-        </div>
+        <AuthPasswordField
+          autoComplete="new-password"
+          label={t('form.confirmPassword')}
+          error={errors.confirmPassword?.message}
+          placeholder="••••••••"
+          disabled={isSubmitting}
+          {...confirmPasswordRegister}
+        />
 
-        <label className="flex items-center gap-3 cursor-pointer group mt-4">
-          <div className="relative flex items-center">
+        <label className="group flex cursor-pointer items-start gap-3 pt-2">
+          <span className="relative mt-0.5 flex h-5 w-5 items-center justify-center">
             <input
               type="checkbox"
               {...register('newsletter')}
-              className="peer appearance-none w-5 h-5 border border-gray-600 rounded-sm bg-transparent checked:bg-primary checked:border-primary transition-all"
+              className="peer absolute inset-0 h-full w-full cursor-pointer opacity-0"
             />
-            <span className="material-symbols-outlined text-white text-sm absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 peer-checked:opacity-100 pointer-events-none">
-              check
-            </span>
-          </div>
-          <span className="text-sm text-gray-400 group-hover:text-white transition-colors">{t('newsletter')}</span>
+            <span className="h-5 w-5 rounded-sm border border-white/18 bg-white/[0.02] transition-colors duration-150 peer-checked:border-primary peer-checked:bg-primary" />
+            <svg
+              viewBox="0 0 16 16"
+              className="pointer-events-none absolute h-3 w-3 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
+            </svg>
+          </span>
+          <span className="text-sm leading-6 text-zinc-400 transition-colors duration-150 group-hover:text-zinc-200">{t('newsletter')}</span>
         </label>
 
-        <div className="flex flex-col gap-4 mt-6">
-          <button
+        <div className="space-y-4 pt-3">
+          <AuthStatusRail message={serverError ?? undefined} tone="error" reserveSpace />
+
+          <AuthPrimaryButton
             type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-sm bg-primary py-4 text-sm font-bold uppercase tracking-[0.15em] text-white shadow-lg shadow-primary/20 transition-all hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isSubmitting ? t('actions.creating') : t('actions.create')}
-          </button>
+            loading={isSubmitting}
+            label={t('actions.create')}
+            loadingLabel={t('actions.creating')}
+          />
 
-          <div className="relative py-2">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/10"></div>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#0a0a0a] px-4 font-bold tracking-wider text-gray-500">{t('divider.or')}</span>
-            </div>
-          </div>
+          <AuthDivider label={t('divider.or')} />
 
-          <button
+          <AuthOAuthButton
             type="button"
             onClick={() => (window.location.href = `${import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'}/api/auth/google`)}
             disabled={isSubmitting}
-            className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-sm border border-gray-200 bg-white py-4 text-sm font-bold uppercase tracking-[0.15em] text-gray-900 transition-all hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-            </svg>
-            {t('actions.google')}
-          </button>
+            icon={
+              <svg className="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+              </svg>
+            }
+            label={t('actions.google')}
+          />
         </div>
       </form>
 
-      <div className="mt-10 text-center">
-        <p className="text-gray-500 text-sm">
+      <AuthFooterLinks className="mt-10 text-center">
+        <p>
           {t('footer.hasAccount')}{' '}
-          <button onClick={() => navigate('/login')} className="text-white font-bold hover:underline underline-offset-4 ml-1">
+          <button
+            type="button"
+            onClick={() => navigate('/login')}
+            className="ui-stable-click ml-1 rounded-sm font-bold text-white underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20"
+          >
             {t('footer.signIn')}
           </button>
         </p>
-      </div>
+      </AuthFooterLinks>
     </AuthLayout>
   );
 };

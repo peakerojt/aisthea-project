@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService } from '@/common/services/auth.service';
+import { hasFullAdminAccess, hasSupportAdminAccess } from '@/common/utils/adminAccess';
 import { AuthSession } from '@/types';
 
 interface User {
@@ -17,7 +18,19 @@ type SessionError = Error & {
 
 const EXPECTED_SESSION_ERROR_CODES = new Set(['TOKEN_EXPIRED', 'INVALID_TOKEN']);
 
-export type UserRole = 'guest' | 'customer' | 'admin';
+export type UserRole = 'guest' | 'customer' | 'staff' | 'admin';
+
+const resolveUserRole = (roles?: string[] | null): UserRole => {
+  if (hasFullAdminAccess(roles)) {
+    return 'admin';
+  }
+
+  if (hasSupportAdminAccess(roles)) {
+    return 'staff';
+  }
+
+  return 'customer';
+};
 
 interface AuthContextType {
   user: User | null;
@@ -66,7 +79,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         setUser(mappedUser);
         setPermissions(session.user.permissions || []);
-        setRole(session.user.roles.includes('Admin') || session.user.roles.includes('Super Admin') ? 'admin' : 'customer');
+        setRole(resolveUserRole(session.user.roles));
       } else {
         setUser(null);
         setRole('guest');
@@ -123,7 +136,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setUser(mappedUser);
       setPermissions(userData.permissions || []);
-      setRole(userData.roles.includes('Admin') || userData.roles.includes('Super Admin') ? 'admin' : 'customer');
+      setRole(resolveUserRole(userData.roles));
 
       // Note: With cookie-based auth, we don't need to manually store tokens
       // The server sets HTTP-only cookies automatically
@@ -209,7 +222,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setUser(mappedUser);
       setPermissions(session.user.permissions || []);
-      setRole(session.user.roles.includes('Admin') || session.user.roles.includes('Super Admin') ? 'admin' : 'customer');
+      setRole(resolveUserRole(session.user.roles));
     } else {
       setUser(null);
       setRole('guest');

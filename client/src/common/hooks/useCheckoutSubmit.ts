@@ -16,6 +16,13 @@ type ApiValidationError = {
   message?: string;
 };
 
+type VnpayPaymentUrlResponse = {
+  vnpUrl?: string;
+  data?: {
+    vnpUrl?: string;
+  };
+};
+
 type UseCheckoutSubmitParams = {
   apiFieldToFormField: (field?: string) => CheckoutErrorField | null;
   appliedCouponCode: string | null;
@@ -31,6 +38,9 @@ type UseCheckoutSubmitParams = {
   user: CheckoutSessionUser;
   validateForm: () => CheckoutFormValues | null;
 };
+
+export const getVnpayRedirectUrl = (response?: VnpayPaymentUrlResponse | null) =>
+  response?.vnpUrl ?? response?.data?.vnpUrl;
 
 export const useCheckoutSubmit = ({
   apiFieldToFormField,
@@ -147,18 +157,24 @@ export const useCheckoutSubmit = ({
 
       if (formData.paymentMethod === 'VNPAY') {
         try {
-          const vnpResponse = await api.post<{ vnpUrl: string }>('/api/vnpay/create_payment_url', {
+          const vnpResponse = await api.post<VnpayPaymentUrlResponse>('/api/vnpay/create_payment_url', {
             orderId: data.orderId,
             orderDescription: `Thanh toan don hang ${data.orderId}`,
             orderType: 'other',
           });
-          if (vnpResponse && vnpResponse.vnpUrl) {
-            window.location.href = vnpResponse.vnpUrl;
+          const vnpUrl = getVnpayRedirectUrl(vnpResponse);
+
+          if (vnpUrl) {
+            window.location.href = vnpUrl;
             return;
           }
+
+          setError(t('errors.vnpayUrlFailed'));
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (vnpErr) {
           console.error('Failed to get VNPAY URL:', vnpErr);
           setError(t('errors.vnpayUrlFailed'));
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }
       } else {
         navigate('/order-success');

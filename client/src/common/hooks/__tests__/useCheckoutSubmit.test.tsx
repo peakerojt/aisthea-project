@@ -37,7 +37,8 @@ vi.mock('react-i18next', async () => {
   };
 });
 
-type UseCheckoutSubmit = typeof import('@/common/hooks/useCheckoutSubmit').useCheckoutSubmit;
+type UseCheckoutSubmitModule = typeof import('@/common/hooks/useCheckoutSubmit');
+type UseCheckoutSubmit = UseCheckoutSubmitModule['useCheckoutSubmit'];
 
 const makeCartItem = (overrides?: Record<string, unknown>) => ({
   id: 'cart-1',
@@ -83,10 +84,11 @@ const makeFormData = (overrides?: Record<string, unknown>) => ({
 });
 
 let useCheckoutSubmit: UseCheckoutSubmit;
+let getVnpayRedirectUrl: UseCheckoutSubmitModule['getVnpayRedirectUrl'];
 
 describe('useCheckoutSubmit', () => {
   beforeAll(async () => {
-    ({ useCheckoutSubmit } = await import('@/common/hooks/useCheckoutSubmit'));
+    ({ useCheckoutSubmit, getVnpayRedirectUrl } = await import('@/common/hooks/useCheckoutSubmit'));
   });
 
   beforeEach(() => {
@@ -146,6 +148,15 @@ describe('useCheckoutSubmit', () => {
       validateForm,
     };
   };
+
+  it('extracts the VNPay redirect URL from normalized API responses', () => {
+    expect(getVnpayRedirectUrl({
+      success: true,
+      data: {
+        vnpUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?mock=1',
+      },
+    } as never)).toBe('https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?mock=1');
+  });
 
   it('creates a COD order, stores snapshot, refreshes cart, and navigates to success page', async () => {
     createOrderMock.mockResolvedValue({
@@ -223,10 +234,13 @@ describe('useCheckoutSubmit', () => {
       paymentMethod: 'VNPAY',
     });
     apiPostMock.mockResolvedValue({
-      vnpUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?mock=1',
+      success: true,
+      data: {
+        vnpUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?mock=1',
+      },
     });
 
-    const { result } = renderUseCheckoutSubmit({
+    const { result, setError } = renderUseCheckoutSubmit({
       formData: makeFormData({ paymentMethod: 'VNPAY' }),
       validateForm: vi.fn().mockReturnValue(makeFormData({ paymentMethod: 'VNPAY' })),
     });
@@ -241,6 +255,7 @@ describe('useCheckoutSubmit', () => {
       orderType: 'other',
     });
     expect(navigateMock).not.toHaveBeenCalled();
+    expect(setError).not.toHaveBeenCalledWith('errors.vnpayUrlFailed');
   });
 
   it('maps API validation errors back to checkout fields', async () => {

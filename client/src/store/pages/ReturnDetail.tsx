@@ -1,11 +1,23 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { returnService } from '@/common/services/return.service';
-import { StatusBadge } from '@/common/components/StatusBadge';
-import { ReturnItemsTable } from '@/common/components/ReturnItemsTable';
-import { ReturnTimeline } from '@/common/components/ReturnTimeline';
-import { ReasonLabel } from '@/common/components/ReasonLabel';
+import { returnDetailReadService } from '@/common/services/return.detail-read.service';
+import {
+  RETURN_SUMMARY_CHANGED_EVENT,
+  type ReturnSummaryChangedDetail,
+} from '@/common/events/returnSummary.events';
+import { shouldAutoRefreshRefundState } from '@/common/utils/returnRefresh';
+import { useReturnAutoRefresh } from '@/common/hooks/useReturnAutoRefresh';
+import {
+  ReturnAttachmentGallery,
+  ReturnDetailNotices,
+  ReturnDetailOverview,
+  ReturnItemsSection,
+  ReturnRefundTransactions,
+  ReturnTimelineSection,
+} from '@/store/components/return-detail/ReturnDetailSections';
+import { ReturnItemList } from '@/store/components/return-detail/ReturnItemList';
+
 interface Props {
   returnId: number;
   onBack?: () => void;
@@ -21,56 +33,80 @@ export const ReturnDetail: React.FC<Props> = ({ returnId, onBack }) => {
   };
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['return-detail', returnId],
-    queryFn: () => returnService.detail(returnId),
+    queryFn: () => returnDetailReadService.detail(returnId),
     enabled: Number.isFinite(returnId) && returnId > 0,
   });
-  const rr = data;
-  const retryLabel = resolveText('detail.retry', 'Thử lại');
-  const backToListLabel = resolveText('detail.backToList', 'Quay lại danh sách');
-  const infoTitle = resolveText('detail.infoTitle', 'Thông tin yêu cầu');
-  const infoReasonLabel = resolveText('detail.infoReason', 'Lý do');
-  const infoStatusLabel = resolveText('detail.infoStatus', 'Trạng thái');
-  const infoExpectedRefundLabel = resolveText('detail.infoExpectedRefund', 'Hoàn tiền dự kiến');
-  const infoCreatedAtLabel = resolveText('detail.infoCreatedAt', 'Ngày tạo');
-  const infoNoteLabel = resolveText('detail.infoNote', 'Ghi chú');
-  const itemsTitle = resolveText('detail.itemsTitle', 'Sản phẩm trả');
-  const attachmentsTitle = resolveText('detail.attachmentsTitle', 'Ảnh minh chứng');
-  const timelineTitle = resolveText('detail.timelineTitle', 'Lịch sử trạng thái');
-  const transactionsTitle = resolveText('detail.transactionsTitle', 'Giao dịch hoàn tiền');
-  const refundOriginalLabel = resolveText('detail.refundOriginal', 'Hoàn về phương thức gốc');
-  const refundWalletLabel = resolveText('detail.refundWallet', 'Ví điện tử');
-  const notFoundLabel = resolveText('detail.notFound', 'Không tìm thấy yêu cầu trả hàng #{{id}}.', {
-    id: returnId,
+
+  React.useEffect(() => {
+    const handleReturnSummaryChanged = (event: Event) => {
+      const detail = (event as CustomEvent<ReturnSummaryChangedDetail>).detail;
+      if (detail?.returnRequestId !== returnId) {
+        return;
+      }
+
+      void refetch();
+    };
+
+    window.addEventListener(
+      RETURN_SUMMARY_CHANGED_EVENT,
+      handleReturnSummaryChanged as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        RETURN_SUMMARY_CHANGED_EVENT,
+        handleReturnSummaryChanged as EventListener,
+      );
+    };
+  }, [refetch, returnId]);
+
+  useReturnAutoRefresh({
+    enabled: shouldAutoRefreshRefundState(data?.refundStatus),
+    onRefresh: () => {
+      void refetch();
+    },
   });
-  const headerTitle = (id: number) => resolveText('detail.headerTitle', 'Yêu cầu #{{id}}', { id });
-  const headerSubtitle = (orderId: number, date: string) =>
-    resolveText('detail.headerSubtitle', 'Đơn hàng #{{orderId}} · Tạo lúc {{date}}', {
-      orderId,
-      date,
-    });
-  const attachmentAlt = (index: number) =>
-    resolveText('detail.attachmentAlt', 'Ảnh minh chứng {{index}}', { index });
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-4 animate-pulse">
-        <div className="h-8 w-48 rounded-lg bg-white/10" />
-        <div className="h-24 rounded-xl bg-white/5 border border-white/10" />
-        <div className="h-32 rounded-xl bg-white/5 border border-white/10" />
+      <div className="mx-auto max-w-6xl space-y-4 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="animate-pulse rounded-3xl border border-white/10 bg-[#101214] p-6">
+          <div className="h-10 w-44 rounded-full bg-white/10" />
+          <div className="mt-6 h-12 w-64 rounded-2xl bg-white/[0.08]" />
+          <div className="mt-3 h-6 w-80 max-w-full rounded-xl bg-white/[0.06]" />
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {[0, 1, 2, 3].map((index) => (
+              <div key={index} className="h-40 rounded-2xl border border-white/8 bg-white/[0.03]" />
+            ))}
+          </div>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="h-40 animate-pulse rounded-3xl border border-white/10 bg-[#101214]" />
+          <div className="h-40 animate-pulse rounded-3xl border border-white/10 bg-[#101214]" />
+        </div>
+        <div className="h-72 animate-pulse rounded-3xl border border-white/10 bg-[#101214]" />
       </div>
     );
   }
 
-  if (isError || !rr) {
+  if (isError || !data) {
     return (
-      <div className="p-6 space-y-4">
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-300">
-          <p>{(error as { message?: string })?.message ?? notFoundLabel}</p>
+      <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
+        <div
+          role="alert"
+          className="rounded-3xl border border-red-300/18 bg-red-300/[0.08] p-5 text-red-50 shadow-[0_16px_40px_rgba(248,113,113,0.08)]"
+        >
+          <p className="text-sm leading-7">
+            {(error as { message?: string })?.message ??
+              resolveText('detail.notFound', 'Không tìm thấy yêu cầu trả hàng #{{id}}.', {
+                id: returnId,
+              })}
+          </p>
           <button
             onClick={() => refetch()}
-            className="mt-2 text-sm underline hover:text-red-200"
+            className="mt-4 inline-flex items-center rounded-full border border-red-100/20 bg-black/10 px-4 py-2 text-sm font-medium text-red-50 transition-colors hover:border-red-100/30 hover:bg-black/20"
           >
-            {retryLabel}
+            {resolveText('detail.retry', 'Thử lại')}
           </button>
         </div>
       </div>
@@ -78,132 +114,23 @@ export const ReturnDetail: React.FC<Props> = ({ returnId, onBack }) => {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-white">
-            {headerTitle(rr.returnRequestId)}
-          </h1>
-          <p className="mt-0.5 text-sm text-white/60">
-            {headerSubtitle(rr.orderId, new Date(rr.createdAt).toLocaleString('vi-VN'))}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <StatusBadge status={rr.status} />
-          <button
-            onClick={() => onBack?.()}
-            className="rounded-lg border border-white/20 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition-colors"
-          >
-            ← {backToListLabel}
-          </button>
-        </div>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+      <ReturnDetailOverview detail={data} onBack={onBack} />
+      <ReturnDetailNotices detail={data} />
 
-      {/* Info card */}
-      <div className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-3">
-        <h2 className="font-semibold text-white">{infoTitle}</h2>
-        <dl className="grid grid-cols-2 gap-y-2 text-sm">
-          <dt className="text-white/50">{infoReasonLabel}</dt>
-          <dd><ReasonLabel reason={rr.reason} /></dd>
+      <ReturnItemsSection
+        title={resolveText('detail.itemsTitle', 'Sản phẩm trả')}
+        description={resolveText(
+          'detail.itemsDescription',
+          'Chi tiết sản phẩm, lý do và số tiền hoàn theo từng dòng trong yêu cầu này.',
+        )}
+      >
+        <ReturnItemList items={data.items ?? []} />
+      </ReturnItemsSection>
 
-          <dt className="text-white/50">{infoStatusLabel}</dt>
-          <dd><StatusBadge status={rr.status} /></dd>
-
-          <dt className="text-white/50">{infoExpectedRefundLabel}</dt>
-          <dd className="font-semibold text-green-400">
-            {Number(rr.totalRefundAmount).toLocaleString('vi-VN')}đ
-          </dd>
-
-          <dt className="text-white/50">{infoCreatedAtLabel}</dt>
-          <dd className="text-white/80">
-            {new Date(rr.createdAt).toLocaleString('vi-VN')}
-          </dd>
-
-          {rr.note && (
-            <>
-              <dt className="text-white/50">{infoNoteLabel}</dt>
-              <dd className="text-white/80">{rr.note}</dd>
-            </>
-          )}
-        </dl>
-      </div>
-
-      {/* Items */}
-      <div>
-        <h2 className="mb-3 font-semibold text-white">{itemsTitle}</h2>
-        <ReturnItemsTable items={rr.items ?? []} />
-      </div>
-
-      {/* Attachments */}
-      {Array.isArray(rr.attachments) && rr.attachments.length > 0 && (
-        <div>
-          <h2 className="mb-3 font-semibold text-white">{attachmentsTitle}</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {rr.attachments.map((att: { attachmentId?: number; fileUrl: string }, idx: number) => (
-              <a
-                key={att.attachmentId ?? idx}
-                href={att.fileUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="block rounded-xl overflow-hidden border border-white/10 hover:border-white/30 transition-colors aspect-video bg-white/5"
-              >
-                <img
-                  src={att.fileUrl}
-                  alt={attachmentAlt(idx + 1)}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                  }}
-                />
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Timeline */}
-      <div>
-        <h2 className="mb-3 font-semibold text-white">{timelineTitle}</h2>
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-          <ReturnTimeline logs={rr.statusLogs ?? []} />
-        </div>
-      </div>
-
-      {/* Refund info */}
-      {Array.isArray(rr.refundTransactions) && rr.refundTransactions.length > 0 && (
-        <div>
-          <h2 className="mb-3 font-semibold text-white">{transactionsTitle}</h2>
-          <div className="space-y-3">
-            {rr.refundTransactions.map((transaction: { transactionId: number; amount: number; method: string; status: string; transactionRef?: string }) => (
-              <div
-                key={transaction.transactionId}
-                className="rounded-xl border border-green-500/20 bg-green-500/10 p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-green-300">
-                      💰 {Number(transaction.amount).toLocaleString('vi-VN')}đ
-                    </div>
-                    <div className="text-xs text-green-300/60 mt-0.5">
-                      {transaction.method === 'ORIGINAL_PAYMENT'
-                        ? refundOriginalLabel
-                        : refundWalletLabel}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-green-300/80">{transaction.status}</div>
-                    {transaction.transactionRef && (
-                      <div className="text-xs text-green-300/50 mt-0.5">{transaction.transactionRef}</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <ReturnAttachmentGallery attachments={data.attachments} />
+      <ReturnTimelineSection detail={data} />
+      <ReturnRefundTransactions transactions={data.refundTransactions} />
     </div>
   );
 };

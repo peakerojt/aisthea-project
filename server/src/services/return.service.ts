@@ -1,5 +1,4 @@
 import { prisma } from '../utils/prisma';
-import { InventoryLogReason } from './inventory.service';
 
 export class ReturnError extends Error {
   public readonly code: string;
@@ -12,9 +11,115 @@ export class ReturnError extends Error {
   }
 }
 
-const RETURN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const LEGACY_REFUND_WORKFLOW_STATUSES = [
+  'NOT_APPLICABLE',
+  'LOCKED_UNTIL_PAYMENT_CONFIRMED',
+  'PENDING',
+  'PROCESSING',
+  'PARTIALLY_REFUNDED',
+  'REFUNDED',
+  'FAILED',
+  'MANUAL_REVIEW',
+] as const;
 
-const norm = (value: string | null | undefined) => (value ?? '').toLowerCase().trim();
+const normalizeWorkflowStatus = (value: unknown) => {
+  const normalized = String(value ?? '')
+    .trim()
+    .replace(/[\s-]+/g, '_')
+    .toUpperCase();
+
+  return normalized || null;
+};
+
+const coerceRefundWorkflowStatus = (value: unknown) => {
+  const normalized = normalizeWorkflowStatus(value);
+  return normalized &&
+    LEGACY_REFUND_WORKFLOW_STATUSES.includes(
+      normalized as (typeof LEGACY_REFUND_WORKFLOW_STATUSES)[number],
+    )
+    ? normalized
+    : undefined;
+};
+
+const deriveLegacyRefundStatus = (record: { refundStatus?: unknown; status?: unknown }) => {
+  const explicitStatus = coerceRefundWorkflowStatus(record.refundStatus);
+  if (explicitStatus) {
+    return explicitStatus;
+  }
+
+  const workflowStatus = normalizeWorkflowStatus(record.status);
+  if (workflowStatus === 'PENDING_PAYMENT_CONFIRMATION') {
+    return 'LOCKED_UNTIL_PAYMENT_CONFIRMED';
+  }
+
+  if (workflowStatus === 'ACCEPTED_FOR_REFUND') {
+    return 'PENDING';
+  }
+
+  if (
+    workflowStatus === 'COMPLETED' ||
+    workflowStatus === 'REFUNDED' ||
+    workflowStatus === 'CLOSED'
+  ) {
+    return 'REFUNDED';
+  }
+
+  return 'NOT_APPLICABLE';
+};
+
+const bucketLegacyWorkflowStatus = (value: unknown) => {
+  const workflowStatus = normalizeWorkflowStatus(value);
+  if (
+    workflowStatus === 'PENDING_APPROVAL' ||
+    workflowStatus === 'REQUESTED' ||
+    workflowStatus === 'SUBMITTED' ||
+    workflowStatus === 'PENDING_PAYMENT_CONFIRMATION' ||
+    workflowStatus === 'PENDING_ADMIN_REVIEW'
+  ) {
+    return 'REQUESTED';
+  }
+
+  if (workflowStatus === 'APPROVED' || workflowStatus === 'IN_RETURN_TRANSIT') {
+    return 'APPROVED';
+  }
+
+  if (workflowStatus === 'REJECTED') {
+    return 'REJECTED';
+  }
+
+  if (
+    workflowStatus === 'RECEIVED' ||
+    workflowStatus === 'RECEIVED_AND_INSPECTING' ||
+    workflowStatus === 'ACCEPTED_FOR_REFUND'
+  ) {
+    return 'RECEIVED';
+  }
+
+  if (workflowStatus === 'COMPLETED' || workflowStatus === 'REFUNDED' || workflowStatus === 'CLOSED') {
+    return 'REFUNDED';
+  }
+
+  return 'REQUESTED';
+};
+
+const canonicalizeLegacyWorkflowStatusForRead = (value: unknown) => {
+  const normalized = normalizeWorkflowStatus(value);
+  if (normalized === 'PENDING_APPROVAL') {
+    return 'PENDING_ADMIN_REVIEW';
+  }
+  if (normalized === 'COMPLETED') {
+    return 'CLOSED';
+  }
+  return normalized;
+};
+
+const canonicalizeLegacyReadWorkflow = <T extends Record<string, any>>(record: T) => ({
+  ...record,
+  workflowStatus: canonicalizeLegacyWorkflowStatusForRead(
+    record.workflowStatus ?? record.status,
+  ),
+});
+
 const parseProofImages = (value: string) => {
   try {
     return JSON.parse(value);
@@ -23,261 +128,20 @@ const parseProofImages = (value: string) => {
   }
 };
 
-const getPagination = (params?: { page?: number; pageSize?: number }) => {
-  const page = Math.max(1, params?.page ?? 1);
-  const pageSize = Math.min(50, Math.max(1, params?.pageSize ?? 20));
+const enrichLegacyReadRecord = <T extends Record<string, any>>(record: T) => ({
+  ...record,
+  workflowStatus: record.workflowStatus ?? normalizeWorkflowStatus(record.status),
+  refundStatus: deriveLegacyRefundStatus(record),
+});
 
+const enrichLegacyReadRecordWithStatusBucket = <T extends Record<string, any>>(record: T) => {
+  const enriched = enrichLegacyReadRecord(record);
   return {
-    page,
-    pageSize,
-    skip: (page - 1) * pageSize,
+    ...enriched,
+    statusBucket:
+      enriched.statusBucket ?? bucketLegacyWorkflowStatus(enriched.workflowStatus ?? enriched.status),
   };
 };
-
-export async function requestReturn(
-  orderId: number,
-  userId: number,
-  userRoles: string[],
-  reason: string,
-  proofImages: string[],
-) {
-  const isAdmin = userRoles.includes('Admin');
-
-  const order = await (prisma.order.findUnique as any)({
-    where: { orderId },
-    include: { orderReturn: true },
-  });
-
-  if (!order) {
-    throw new ReturnError('ORDER_NOT_FOUND', 404);
-  }
-
-  if (!isAdmin && order.userId !== userId) {
-    throw new ReturnError('FORBIDDEN', 403);
-  }
-
-  if (norm(order.status) !== 'delivered') {
-    throw new ReturnError('ORDER_NOT_DELIVERED');
-  }
-
-  const deliveryDate: Date = order.updatedAt ?? order.createdAt ?? new Date(0);
-  if (Date.now() - deliveryDate.getTime() > RETURN_WINDOW_MS) {
-    throw new ReturnError('RETURN_WINDOW_EXPIRED');
-  }
-
-  if (order.orderReturn) {
-    throw new ReturnError('RETURN_ALREADY_EXISTS');
-  }
-
-  return prisma.$transaction(async (tx) => {
-    const orderReturn = await (tx.orderReturn.create as any)({
-      data: {
-        orderId,
-        userId,
-        reason,
-        proofImages: JSON.stringify(proofImages),
-        status: 'PENDING_APPROVAL',
-      },
-    });
-
-    await (tx.order.update as any)({
-      where: { orderId },
-      data: { status: 'Return_Requested' },
-    });
-
-    await (tx.orderStatusHistory.create as any)({
-      data: {
-        orderId,
-        oldStatus: order.status,
-        status: 'Return_Requested',
-        changedBy: userId,
-        note: 'Customer submitted a return request.',
-      },
-    });
-
-    return orderReturn;
-  });
-}
-
-export async function processReturn(
-  returnId: number,
-  adminUserId: number,
-  action: 'APPROVE' | 'REJECT' | 'COMPLETE_REFUND',
-  note?: string,
-) {
-  const returnReq = await (prisma.orderReturn.findUnique as any)({
-    where: { returnId },
-    include: {
-      order: {
-        include: {
-          items: {
-            include: { variant: true },
-          },
-        },
-      },
-    },
-  });
-
-  if (!returnReq) {
-    throw new ReturnError('RETURN_NOT_FOUND', 404);
-  }
-
-  if (action === 'APPROVE') {
-    await (prisma.orderReturn.update as any)({
-      where: { returnId },
-      data: {
-        status: 'APPROVED',
-        adminNote: note ?? null,
-      },
-    });
-
-    return { success: true, code: 'RETURN_APPROVED' };
-  }
-
-  if (action === 'REJECT') {
-    await prisma.$transaction(async (tx) => {
-      await (tx.orderReturn.update as any)({
-        where: { returnId },
-        data: { status: 'REJECTED', adminNote: note ?? null },
-      });
-
-      await (tx.order.update as any)({
-        where: { orderId: returnReq.orderId },
-        data: { status: 'Delivered' },
-      });
-
-      await (tx.orderStatusHistory.create as any)({
-        data: {
-          orderId: returnReq.orderId,
-          oldStatus: 'Return_Requested',
-          status: 'Delivered',
-          changedBy: adminUserId,
-          note: note ? `Return rejected: ${note}` : 'Return request rejected.',
-        },
-      });
-    });
-
-    return { success: true, code: 'RETURN_REJECTED' };
-  }
-
-  if (action === 'COMPLETE_REFUND') {
-    await prisma.$transaction(async (tx) => {
-      await (tx.orderReturn.update as any)({
-        where: { returnId },
-        data: {
-          status: 'COMPLETED',
-          adminNote: note ?? null,
-        },
-      });
-
-      await (tx.order.update as any)({
-        where: { orderId: returnReq.orderId },
-        data: { status: 'Returned' },
-      });
-
-      await (tx.orderStatusHistory.create as any)({
-        data: {
-          orderId: returnReq.orderId,
-          oldStatus: returnReq.order.status,
-          status: 'Returned',
-          changedBy: adminUserId,
-          note: note ? `Refunded: ${note}` : 'Refund confirmed and stock restored.',
-        },
-      });
-
-      for (const item of returnReq.order.items) {
-        if (!item.variantId) continue;
-
-        const current = await (tx.productVariant.findUnique as any)({
-          where: { variantId: item.variantId },
-          select: { stockQuantity: true },
-        });
-
-        if (!current) continue;
-
-        const previousStock: number = current.stockQuantity;
-
-        await (tx.productVariant.update as any)({
-          where: { variantId: item.variantId },
-          data: { stockQuantity: { increment: item.quantity } },
-        });
-
-        const newStock = previousStock + item.quantity;
-
-        await (tx.inventoryLog.create as any)({
-          data: {
-            variantId: item.variantId,
-            orderId: returnReq.orderId,
-            userId: adminUserId,
-            changeQuantity: +item.quantity,
-            previousStock,
-            newStock,
-            reason: 'RETURN_RESTORE' satisfies InventoryLogReason,
-            note: `Returned order #${returnReq.orderId}`,
-          },
-        });
-      }
-    });
-
-    return { success: true, code: 'REFUND_COMPLETED' };
-  }
-
-  throw new ReturnError('INVALID_ACTION');
-}
-
-export async function listReturns(params?: {
-  status?: string;
-  page?: number;
-  pageSize?: number;
-}) {
-  const { page, pageSize, skip } = getPagination(params);
-
-  const where: any = {};
-  if (params?.status && params.status !== 'ALL') {
-    where.status = params.status;
-  }
-
-  const [returns, total] = await Promise.all([
-    (prisma.orderReturn.findMany as any)({
-      where,
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: pageSize,
-      include: {
-        order: {
-          select: {
-            orderNumber: true,
-            totalAmount: true,
-            customerName: true,
-            customerPhone: true,
-          },
-        },
-        user: {
-          select: {
-            userId: true,
-            fullName: true,
-            email: true,
-            avatarUrl: true,
-          },
-        },
-      },
-    }),
-    (prisma.orderReturn.count as any)({ where }),
-  ]);
-
-  return {
-    returns: returns.map((item: any) => ({
-      ...item,
-      proofImages: parseProofImages(item.proofImages),
-    })),
-    pagination: {
-      page,
-      pageSize,
-      total,
-      totalPages: Math.ceil(total / pageSize),
-    },
-  };
-}
 
 export async function getReturnForOrder(orderId: number) {
   const ret = await (prisma.orderReturn.findUnique as any)({
@@ -286,8 +150,10 @@ export async function getReturnForOrder(orderId: number) {
 
   if (!ret) return null;
 
-  return {
-    ...ret,
-    proofImages: parseProofImages(ret.proofImages),
-  };
+  return canonicalizeLegacyReadWorkflow(
+    enrichLegacyReadRecordWithStatusBucket({
+      ...ret,
+      proofImages: parseProofImages(ret.proofImages),
+    }),
+  );
 }

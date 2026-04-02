@@ -42,7 +42,6 @@ CLAUDE.md
 .npm-cache-gitnexus/
 
 # Postman Collection (local only)
-*.postman_collection.json
 /nbproject/private/
 nul
 

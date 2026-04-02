@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Logo } from '@/common/components/Logo';
 import { useAuth } from '@/common/contexts/AuthContext';
+import { canAccessAdminPath } from '@/common/utils/adminAccess';
 import { LayoutDashboard, Shirt, ShoppingBag, Users, BarChart2, LogOut, PackagePlus, Tag, TicketPercent, ShieldCheck, RotateCcw } from 'lucide-react';
 import { preloadAdminRoute } from '@/app/routes/adminRoutes';
 
@@ -23,6 +24,10 @@ export const Sidebar: React.FC = () => {
   const { logout, user } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const visibleMenuItems = React.useMemo(
+    () => menuItems.filter((item) => canAccessAdminPath(item.path, user?.roles)),
+    [user?.roles],
+  );
 
   const handleLogout = async () => {
     await logout();
@@ -34,12 +39,17 @@ export const Sidebar: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
+    const preloadPath = visibleMenuItems[0]?.path;
+    if (!preloadPath) {
+      return undefined;
+    }
+
     const timer = window.setTimeout(() => {
-      preloadAdminRoute('/admin/restock');
+      preloadAdminRoute(preloadPath);
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [visibleMenuItems]);
 
   return (
     <aside className="sticky top-0 flex h-screen w-[236px] flex-col border-r border-white/10 bg-black">
@@ -57,7 +67,7 @@ export const Sidebar: React.FC = () => {
           </p>
         </div>
 
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
           const Icon = item.icon;
           const label = item.label ?? t(item.labelKey);
 

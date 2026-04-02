@@ -106,6 +106,7 @@
     "tabs": {
       "all": "Tất cả",
       "pending": "Chờ xác nhận",
+      "returns": "Hoàn hàng",
       "shipping": "Đang giao hàng",
       "delivered": "Đã giao hàng",
       "cancelled": "Đã hủy"
@@ -115,18 +116,23 @@
       "backToAccount": "Quay lại tài khoản",
       "refresh": "Làm mới",
       "startShopping": "Bắt đầu mua sắm",
-      "view": "Xem"
+      "view": "Xem",
+      "viewReturn": "Xem hoàn trả",
+      "showReturnInfo": "Xem thông tin hoàn hàng",
+      "hideReturnInfo": "Ẩn thông tin hoàn hàng"
     },
     "states": {
       "loading": "Đang tải đơn hàng...",
       "empty": "Không tìm thấy đơn hàng.",
+      "emptyReturns": "Không có đơn hoàn hàng nào.",
       "unknown": "Không xác định",
       "none": "Không có"
     },
     "labels": {
       "total": "Tổng tiền",
       "items": "Số món",
-      "orderCode": "Mã đơn hàng"
+      "orderCode": "Mã đơn hàng",
+      "returnStatus": "Trạng thái hoàn hàng"
     },
     "errors": {
       "loadOrders": "Không thể tải đơn hàng"
@@ -206,6 +212,7 @@
     "subtitle": "Vui lòng nhập thông tin đăng nhập để truy cập tài khoản của bạn.",
     "form": {
       "email": "Địa chỉ email",
+      "emailPlaceholder": "name@example.com",
       "password": "Mật khẩu"
     },
     "actions": {
@@ -235,6 +242,12 @@
       "emailInvalid": "Email không hợp lệ",
       "passwordRequired": "Vui lòng nhập mật khẩu"
     }
+  },
+  "authLayout": {
+    "desktopEyebrow": "Aisthea Auth",
+    "desktopTitle": "Điểm vào dark luxury giữ nhịp ổn định cho mọi trạng thái.",
+    "desktopDescription": "Mọi trạng thái xác thực được giữ trong cùng một nhịp bố cục để người dùng không bị xao nhãng khi có lỗi hoặc đang tải.",
+    "mobileEyebrow": "Truy cập bảo mật"
   },
   "support": {
     "breadcrumbs": {
@@ -292,7 +305,9 @@
     "subtitle": "Tạo tài khoản để khám phá bộ sưu tập độc quyền và nhận gợi ý dành riêng cho bạn.",
     "form": {
       "fullName": "Họ và tên",
+      "fullNamePlaceholder": "Nguyen Van A",
       "email": "Địa chỉ email",
+      "emailPlaceholder": "name@example.com",
       "password": "Mật khẩu",
       "confirmPassword": "Xác nhận mật khẩu"
     },
@@ -328,6 +343,7 @@
     }
   },
   "forgotPassword": {
+    "eyebrow": "Khôi phục",
     "title": "Quên mật khẩu",
     "form": {
       "emailLabel": "Nhập địa chỉ email của bạn",
@@ -344,9 +360,14 @@
       "emailInvalid": "Email không hợp lệ.",
       "sendFailed": "Không thể gửi mã đặt lại.",
       "sentHint": "Nếu email tồn tại trong hệ thống, mã đặt lại đã được gửi. Tiếp tục để nhập mã và đổi mật khẩu."
+    },
+    "rail": {
+      "title": "Quy trình",
+      "description": "Hệ thống sẽ gửi mã 6 chữ số nếu email tồn tại trong hệ thống. Vị trí CTA và liên kết sẽ luôn giữ nguyên khi trạng thái thay đổi."
     }
   },
   "resetPassword": {
+    "eyebrow": "Khôi phục",
     "title": "Đặt lại mật khẩu",
     "form": {
       "code": "Mã đặt lại",
@@ -366,6 +387,9 @@
       "passwordMismatch": "Mật khẩu xác nhận không khớp",
       "passwordInvalid": "Mật khẩu phải có ít nhất 8 ký tự và bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.",
       "resetFailed": "Không thể đặt lại mật khẩu"
+    },
+    "rail": {
+      "description": "Mật khẩu mới cần đủ mạnh để hoàn tất quy trình đặt lại, nhưng mọi lỗi xác thực sẽ chỉ ở trong rail và helper row để không làm lệch bố cục."
     }
   },
   "oauthCallback": {
@@ -408,6 +432,10 @@
       "tip1": "Kiểm tra thư mục spam",
       "tip2": "Đảm bảo bạn nhập đúng email",
       "tip3": "Vui lòng chờ vài phút để nhận email"
+    },
+    "meta": {
+      "codeLabel": "Mã xác thực",
+      "currentEmail": "Email hiện tại"
     },
     "form": {
       "emailPlaceholder": "Nhập email của bạn"
@@ -622,6 +650,8 @@
     "states": {
       "loadingMessage": "Đang xác thực kết quả thanh toán...",
       "successMessage": "Thanh toán VNPAY thành công!",
+      "reviewMessage": "Thanh toán cần được kiểm tra thêm.",
+      "cancelledMessage": "Thanh toán đã bị hủy.",
       "failedMessage": "Thanh toán thất bại hoặc đã bị hủy.",
       "errorMessage": "Lỗi khi xác thực thanh toán VNPAY."
     },
@@ -629,6 +659,8 @@
       "badges": {
         "loading": "Đang xác thực",
         "success": "Thanh toán thành công",
+        "review": "Cần kiểm tra",
+        "cancelled": "Đã hủy",
         "failed": "Cần xử lý lại"
       },
       "orderLabel": "Mã đơn",
@@ -970,10 +1002,17 @@
       "filteredEmptyHint": "Hãy thử đổi bộ lọc để xem các đơn gần đây theo trạng thái khác.",
       "orderNumber": "Đơn hàng #{{orderNumber}}",
       "totalLabel": "Tổng thanh toán",
+      "returnSummaryTitle": "Hoàn trả đang xử lý",
+      "returnSummaryHint": "Theo dõi nhanh tiến trình hoàn trả và hoàn tiền ngay trong hồ sơ.",
+      "returnStatusLabel": "Trạng thái hoàn trả",
+      "refundStatusLabel": "Trạng thái hoàn tiền",
+      "expectedRefundLabel": "Hoàn tiền dự kiến",
+      "refundUpdateLabel": "Cập nhật hoàn tiền",
       "actions": {
         "startShopping": "Mua sắm ngay",
         "viewAll": "Xem tất cả đơn hàng",
-        "viewDetail": "Xem chi tiết"
+        "viewDetail": "Xem chi tiết",
+        "viewReturn": "Xem hoàn trả"
       }
     },
     "security": {
@@ -1046,7 +1085,14 @@
     },
     "labels": {
       "note": "Ghi chú",
-      "actions": "Hành động"
+      "actions": "Hành động",
+      "returnSummary": "Tiến trình hoàn trả",
+      "returnStatus": "Trạng thái trả hàng",
+      "refundStatus": "Trạng thái hoàn tiền",
+      "refundUpdate": "Cập nhật hoàn tiền"
+    },
+    "sections": {
+      "shippingAddress": "Địa chỉ giao hàng"
     },
     "actions": {
       "back": "Quay lại",
@@ -1055,8 +1101,10 @@
       "trackOrder": "Theo dõi đơn hàng",
       "confirmReceived": "Đã nhận được hàng",
       "cancelOrder": "Hủy đơn hàng",
+      "cancelAndRefund": "Hủy đơn và yêu cầu hoàn tiền",
       "requestReturn": "Yêu cầu trả hàng",
-      "buyAgain": "Mua lại"
+      "buyAgain": "Mua lại",
+      "viewReturnDetail": "Xem chi tiết hoàn trả"
     },
     "confirmReceipt": {
       "title": "Xác nhận đã nhận hàng?",
@@ -1064,6 +1112,31 @@
       "actions": {
         "notYet": "Chưa nhận",
         "confirm": "Đã nhận hàng"
+      }
+    },
+    "cancelDialog": {
+      "title": "Xác nhận hủy đơn?",
+      "description": "Bạn có thể chọn nhanh lý do hủy để hệ thống ghi nhận. Nếu bỏ qua, hệ thống sẽ tự tạo ghi chú mặc định.",
+      "reasonLabel": "Lý do hủy",
+      "reasonHint": "Có thể bỏ qua bước này nếu bạn chỉ muốn hủy nhanh.",
+      "otherReasonLabel": "Khác",
+      "otherReasonHint": "Nếu cần, bạn có thể nhập lý do riêng của mình tại đây.",
+      "otherReasonPlaceholder": "Nhập lý do hủy của bạn",
+      "actions": {
+        "keepOrder": "Giữ đơn",
+        "confirm": "Xác nhận hủy"
+      },
+      "reasons": {
+        "changedMind": "Đổi ý, không còn nhu cầu",
+        "orderedByMistake": "Đặt nhầm sản phẩm",
+        "changeDeliveryInfo": "Muốn đổi địa chỉ / thông tin nhận hàng",
+        "chooseOtherItem": "Muốn chọn sản phẩm khác"
+      },
+      "autoNote": {
+        "withReasonPaid": "Khách hàng hủy đơn và yêu cầu hoàn tiền trước khi xử lý. Lý do: {{reason}}.",
+        "withReason": "Khách hàng hủy đơn trước khi xử lý. Lý do: {{reason}}.",
+        "defaultPaid": "Khách hàng hủy đơn và yêu cầu hoàn tiền trước khi xử lý. Chưa chọn lý do hủy.",
+        "default": "Khách hàng hủy đơn trước khi xử lý. Chưa chọn lý do hủy."
       }
     },
     "toast": {
@@ -1082,7 +1155,7 @@
     },
     "hint": {
       "prefix": "Chỉ có thể hủy đơn khi",
-      "pending": "chờ xác nhận",
+      "pending": "chờ xác nhận hoặc đang xử lý",
       "middle": "theo dõi/xác nhận nhận hàng khi",
       "shipping": "đang giao hàng",
       "suffix": "hoặc hoàn đơn trong 7 ngày sau khi",

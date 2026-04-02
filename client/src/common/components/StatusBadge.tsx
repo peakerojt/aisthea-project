@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { normalizeReturnStatus } from '@/common/utils/returnStatus';
+import { canonicalizeWorkflowStatusFallback } from '@/common/utils/returnStatus';
 import { toCompactStatusKey } from '@/common/utils/orderUiStatus';
 
 const STATUS_CONFIG: Record<
@@ -19,7 +19,31 @@ const STATUS_CONFIG: Record<
     ring: 'ring-amber-600/20',
     dot: 'bg-amber-400',
   },
+  SUBMITTED: {
+    bg: 'bg-amber-50',
+    text: 'text-amber-700',
+    ring: 'ring-amber-600/20',
+    dot: 'bg-amber-400',
+  },
+  PENDING_PAYMENT_CONFIRMATION: {
+    bg: 'bg-amber-50',
+    text: 'text-amber-700',
+    ring: 'ring-amber-600/20',
+    dot: 'bg-amber-400',
+  },
+  PENDING_ADMIN_REVIEW: {
+    bg: 'bg-amber-50',
+    text: 'text-amber-700',
+    ring: 'ring-amber-600/20',
+    dot: 'bg-amber-400',
+  },
   APPROVED: {
+    bg: 'bg-blue-50',
+    text: 'text-blue-700',
+    ring: 'ring-blue-600/20',
+    dot: 'bg-blue-500',
+  },
+  IN_RETURN_TRANSIT: {
     bg: 'bg-blue-50',
     text: 'text-blue-700',
     ring: 'ring-blue-600/20',
@@ -37,7 +61,25 @@ const STATUS_CONFIG: Record<
     ring: 'ring-teal-600/20',
     dot: 'bg-teal-500',
   },
+  RECEIVED_AND_INSPECTING: {
+    bg: 'bg-teal-50',
+    text: 'text-teal-700',
+    ring: 'ring-teal-600/20',
+    dot: 'bg-teal-500',
+  },
+  ACCEPTED_FOR_REFUND: {
+    bg: 'bg-teal-50',
+    text: 'text-teal-700',
+    ring: 'ring-teal-600/20',
+    dot: 'bg-teal-500',
+  },
   REFUNDED: {
+    bg: 'bg-green-50',
+    text: 'text-green-700',
+    ring: 'ring-green-600/20',
+    dot: 'bg-green-500',
+  },
+  CLOSED: {
     bg: 'bg-green-50',
     text: 'text-green-700',
     ring: 'ring-green-600/20',
@@ -59,11 +101,12 @@ export function StatusBadge({ status }: { status: string }) {
     const value = t(key, { ...options, defaultValue: fallback });
     return value === key ? interpolateFallback(fallback, options) : value;
   };
-  const normalizedReturnStatus = normalizeReturnStatus(status);
+  const workflowStatus = canonicalizeWorkflowStatusFallback(status);
   const compactStatus = toCompactStatusKey(status);
   const normalizedStatus = (() => {
-    const candidate = normalizedReturnStatus || compactStatus;
-    return candidate === 'CANCELED' ? 'CANCELLED' : candidate;
+    if (STATUS_CONFIG[workflowStatus]) return workflowStatus;
+    if (compactStatus && STATUS_CONFIG[compactStatus]) return compactStatus;
+    return workflowStatus === 'CANCELED' ? 'CANCELLED' : status;
   })();
   const cfg = STATUS_CONFIG[normalizedStatus] ?? {
     bg: 'bg-gray-50',
@@ -77,10 +120,17 @@ export function StatusBadge({ status }: { status: string }) {
       ({
         RETURN_REQUESTED: 'Yêu cầu trả hàng',
         REQUESTED: 'Chờ duyệt',
+        SUBMITTED: 'Chờ duyệt',
+        PENDING_PAYMENT_CONFIRMATION: 'Chờ xác nhận thanh toán',
+        PENDING_ADMIN_REVIEW: 'Chờ duyệt',
         APPROVED: 'Đã duyệt',
+        IN_RETURN_TRANSIT: 'Đang hoàn về kho',
         REJECTED: 'Đã từ chối',
         RECEIVED: 'Đã nhận hàng',
+        RECEIVED_AND_INSPECTING: 'Đã nhận và đang kiểm tra',
+        ACCEPTED_FOR_REFUND: 'Đã chấp nhận hoàn tiền',
         REFUNDED: 'Đã hoàn tiền',
+        CLOSED: 'Đã đóng',
         CANCELLED: 'Đã hủy',
       } as Record<string, string>)[normalizedStatus] ?? normalizedStatus,
     )

@@ -93,4 +93,43 @@ describe('VNPayReturn', () => {
     expect(screen.getByTestId('payment-status-badge')).toHaveTextContent('PAID');
     expect(screen.getByRole('button', { name: 'Xem xác nhận đơn' })).toBeInTheDocument();
   });
+
+  it('keeps pending VNPay responses in the loading bucket with a canonical pending-vnpay status', async () => {
+    searchParamMode.value = 'vnp_TransactionStatus=01';
+    apiGetMock.mockResolvedValue({
+      paymentStatus: 'pending_vnpay',
+      code: 'PENDING',
+    });
+
+    render(<VNPayReturn />);
+
+    expect(await screen.findByText('Đang xác thực kết quả thanh toán...')).toBeInTheDocument();
+    expect(screen.getByTestId('payment-status-badge')).toHaveTextContent('PENDING_VNPAY');
+  });
+
+  it('renders a dedicated review state when the backend flags NEEDS_REVIEW', async () => {
+    searchParamMode.value = 'vnp_TransactionStatus=99';
+    apiGetMock.mockResolvedValue({
+      paymentStatus: 'needs_review',
+      code: '99',
+    });
+
+    render(<VNPayReturn />);
+
+    expect(await screen.findByText('Thanh toán cần được kiểm tra thêm.')).toBeInTheDocument();
+    expect(screen.getByTestId('payment-status-badge')).toHaveTextContent('NEEDS_REVIEW');
+  });
+
+  it('renders a dedicated cancelled state when the backend flags CANCELLED', async () => {
+    searchParamMode.value = 'vnp_TransactionStatus=24';
+    apiGetMock.mockResolvedValue({
+      paymentStatus: 'canceled',
+      code: '24',
+    });
+
+    render(<VNPayReturn />);
+
+    expect(await screen.findByText('Thanh toán đã bị hủy.')).toBeInTheDocument();
+    expect(screen.getByTestId('payment-status-badge')).toHaveTextContent('CANCELLED');
+  });
 });

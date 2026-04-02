@@ -5,10 +5,10 @@ const vnpayController = {
   createPaymentUrl: jest.fn((_req, res) => res.status(201).json({ route: 'create-payment-url' })),
   vnpayReturn: jest.fn((_req, res) => res.json({ route: 'vnpay-return' })),
   vnpayIpn: jest.fn((_req, res) => res.json({ route: 'vnpay-ipn' })),
+  vnpayQuery: jest.fn((_req, res) => res.json({ route: 'vnpay-query' })),
 };
 
 const refundController = {
-  postInitiateRefund: jest.fn((_req, res) => res.status(201).json({ route: 'post-initiate-refund' })),
   getOrderRefunds: jest.fn((_req, res) => res.json({ route: 'get-order-refunds' })),
 };
 
@@ -60,12 +60,12 @@ describe('payment module routes', () => {
     expect(vnpayController.vnpayIpn).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps initiate refund routed through the refund controller', async () => {
-    const response = await request(refundApp).post('/42/refunds').send({ amount: 50000 });
+  it('keeps vnpay query fallback routed through the VNPay controller', async () => {
+    const response = await request(vnpayApp).get('/vnpay_query');
 
-    expect(response.status).toBe(201);
-    expect(response.body).toEqual({ route: 'post-initiate-refund' });
-    expect(refundController.postInitiateRefund).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ route: 'vnpay-query' });
+    expect(vnpayController.vnpayQuery).toHaveBeenCalledTimes(1);
   });
 
   it('keeps refund history routed through the refund controller', async () => {

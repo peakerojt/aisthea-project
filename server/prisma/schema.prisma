@@ -28,9 +28,12 @@ model User {
   passwordResetTokens PasswordResetToken[]
   inventoryLogs InventoryLog[]
   orderReturns  OrderReturn[]
+  returnRequests ReturnRequest[]
   cart          Cart?        // 1-to-1: mỗi user có tối đa một giỏ hàng
   stockMovements StockMovement[]
   goodsReceipts  GoodsReceipt[]
+  returnRequestStatusLogs ReturnRequestStatusLog[] @relation("ReturnRequestStatusChangedBy")
+  processedRefundTransactions RefundTransaction[] @relation("RefundTransactionProcessedBy")
 
   @@index([email, status], map: "IX_Users_Email_Status")
   @@index([phone], map: "IX_Users_Phone")
@@ -314,6 +317,7 @@ model Order {
   inventoryLogs         InventoryLog[]
   orderReturn           OrderReturn?
   refunds               Refund[]
+  returnRequests        ReturnRequest[]
 
   @@index([createdAt], map: "IX_Orders_CreatedAt")
   @@index([status], map: "IX_Orders_Status")
@@ -359,17 +363,21 @@ model Shipment {
 }
 
 model OrderItem {
-  orderItemId Int             @id(map: "PK__OrderIte__57ED06814CA69FFC") @default(autoincrement()) @map("OrderItemId")
-  orderId     Int             @map("OrderId")
-  variantId   Int?            @map("VariantId")
-  productName String          @map("ProductName") @db.NVarChar(200)
-  sku         String          @map("SKU") @db.NVarChar(50)
-  variantName String          @map("VariantName") @db.NVarChar(200)
-  unitPrice   Decimal         @map("UnitPrice") @db.Decimal(18, 2)
-  quantity    Int             @map("Quantity")
-  order       Order           @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderItems_Orders")
-  variant     ProductVariant? @relation(fields: [variantId], references: [variantId], onUpdate: NoAction, map: "FK_OrderItems_Variants")
-  review      Review?         // One-to-one: each purchased item can have at most one review
+  orderItemId              Int             @id(map: "PK__OrderIte__57ED06814CA69FFC") @default(autoincrement()) @map("OrderItemId")
+  orderId                  Int             @map("OrderId")
+  variantId                Int?            @map("VariantId")
+  productName              String          @map("ProductName") @db.NVarChar(200)
+  sku                      String          @map("SKU") @db.NVarChar(50)
+  variantName              String          @map("VariantName") @db.NVarChar(200)
+  unitPrice                Decimal         @map("UnitPrice") @db.Decimal(18, 2)
+  quantity                 Int             @map("Quantity")
+  grossItemAmount          Decimal         @default(0) @map("GrossItemAmount") @db.Decimal(18, 2)
+  allocatedDiscountAmount  Decimal         @default(0) @map("AllocatedDiscountAmount") @db.Decimal(18, 2)
+  netItemPaidAmount        Decimal         @default(0) @map("NetItemPaidAmount") @db.Decimal(18, 2)
+  order                    Order           @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderItems_Orders")
+  variant                  ProductVariant? @relation(fields: [variantId], references: [variantId], onUpdate: NoAction, map: "FK_OrderItems_Variants")
+  review                   Review?         // One-to-one: each purchased item can have at most one review
+  returnRequestItems ReturnRequestItem[]
 
   @@index([orderId], map: "IX_OrderItems_OrderId")
   @@index([variantId], map: "IX_OrderItems_VariantId")
@@ -454,6 +462,102 @@ model OrderReturn {
   @@index([status],  map: "IX_OrderReturns_Status")
   @@index([userId],  map: "IX_OrderReturns_UserId")
   @@map("OrderReturns")
+}
+
+model ReturnRequest {
+  returnRequestId   Int                       @id @default(autoincrement()) @map("ReturnRequestId")
+  orderId           Int                       @map("OrderId")
+  userId            Int                       @map("UserId")
+  reason            String                    @map("Reason") @db.NVarChar(500)
+  note              String?                   @map("Note") @db.NVarChar(1000)
+  deliveredAt       DateTime?                 @map("DeliveredAt")
+  totalRefundAmount Decimal                   @default(0) @map("TotalRefundAmount") @db.Decimal(18, 2)
+  status            String                    @default("REQUESTED") @map("Status") @db.NVarChar(50)
+  refundStatus      String                    @default("NOT_APPLICABLE") @map("RefundStatus") @db.NVarChar(50)
+  financeNote       String?                   @map("FinanceNote") @db.NVarChar(1000)
+  createdAt         DateTime                  @default(now()) @map("CreatedAt")
+  updatedAt         DateTime                  @default(now()) @updatedAt @map("UpdatedAt")
+  order             Order                     @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReturnRequests_Orders")
+  user              User                      @relation(fields: [userId], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_ReturnRequests_Users")
+  items             ReturnRequestItem[]
+  attachments       ReturnRequestAttachment[]
+  statusLogs        ReturnRequestStatusLog[]
+  refundTransactions RefundTransaction[]
+
+  @@index([orderId], map: "IX_ReturnRequests_OrderId")
+  @@index([status], map: "IX_ReturnRequests_Status")
+  @@index([userId], map: "IX_ReturnRequests_UserId")
+  @@index([createdAt], map: "IX_ReturnRequests_CreatedAt")
+  @@map("ReturnRequests")
+}
+
+model ReturnRequestItem {
+  returnRequestItemId Int           @id @default(autoincrement()) @map("ReturnRequestItemId")
+  returnRequestId     Int           @map("ReturnRequestId")
+  orderItemId         Int           @map("OrderItemId")
+  quantity            Int           @map("Quantity")
+  unitPrice           Decimal       @map("UnitPrice") @db.Decimal(18, 2)
+  reason              String        @map("Reason") @db.NVarChar(500)
+  reasonText          String?       @map("ReasonText") @db.NVarChar(200)
+  createdAt           DateTime      @default(now()) @map("CreatedAt")
+  returnRequest       ReturnRequest @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReturnRequestItems_ReturnRequests")
+  orderItem           OrderItem     @relation(fields: [orderItemId], references: [orderItemId], onDelete: NoAction, onUpdate: NoAction, map: "FK_ReturnRequestItems_OrderItems")
+  attachments         ReturnRequestAttachment[]
+
+  @@index([orderItemId], map: "IX_ReturnRequestItems_OrderItemId")
+  @@index([returnRequestId], map: "IX_ReturnRequestItems_ReturnRequestId")
+  @@map("ReturnRequestItems")
+}
+
+model ReturnRequestAttachment {
+  attachmentId         Int                @id @default(autoincrement()) @map("AttachmentId")
+  returnRequestId      Int                @map("ReturnRequestId")
+  returnRequestItemId  Int?               @map("ReturnRequestItemId")
+  fileUrl              String             @map("FileUrl") @db.NVarChar(1000)
+  createdAt            DateTime           @default(now()) @map("CreatedAt")
+  returnRequest        ReturnRequest      @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReturnRequestAttachments_ReturnRequests")
+  returnRequestItem    ReturnRequestItem? @relation(fields: [returnRequestItemId], references: [returnRequestItemId], onDelete: NoAction, onUpdate: NoAction, map: "FK_ReturnRequestAttachments_ReturnRequestItems")
+
+  @@index([returnRequestId], map: "IX_ReturnRequestAttachments_ReturnRequestId")
+  @@index([returnRequestItemId], map: "IX_ReturnRequestAttachments_ReturnRequestItemId")
+  @@map("ReturnRequestAttachments")
+}
+
+model ReturnRequestStatusLog {
+  returnRequestStatusLogId Int           @id @default(autoincrement()) @map("ReturnRequestStatusLogId")
+  returnRequestId          Int           @map("ReturnRequestId")
+  fromStatus               String?       @map("FromStatus") @db.NVarChar(50)
+  toStatus                 String        @map("ToStatus") @db.NVarChar(50)
+  changedBy                Int?          @map("ChangedBy")
+  comment                  String?       @map("Comment") @db.NVarChar(1000)
+  createdAt                DateTime      @default(now()) @map("CreatedAt")
+  returnRequest            ReturnRequest @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReturnRequestStatusLogs_ReturnRequests")
+  changedByUser            User?         @relation("ReturnRequestStatusChangedBy", fields: [changedBy], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_ReturnRequestStatusLogs_Users")
+
+  @@index([createdAt], map: "IX_ReturnRequestStatusLogs_CreatedAt")
+  @@index([returnRequestId], map: "IX_ReturnRequestStatusLogs_ReturnRequestId")
+  @@index([changedBy], map: "IX_ReturnRequestStatusLogs_ChangedBy")
+  @@map("ReturnRequestStatusLogs")
+}
+
+model RefundTransaction {
+  refundTransactionId Int           @id @default(autoincrement()) @map("RefundTransactionId")
+  returnRequestId     Int           @map("ReturnRequestId")
+  amount              Decimal       @map("Amount") @db.Decimal(18, 2)
+  method              String        @map("Method") @db.NVarChar(30)
+  status              String        @default("PENDING") @map("Status") @db.NVarChar(30)
+  idempotencyKey      String        @unique(map: "UQ_RefundTransactions_IdempotencyKey") @map("IdempotencyKey") @db.NVarChar(100)
+  transactionRef      String?       @map("TransactionRef") @db.NVarChar(100)
+  processedBy         Int?          @map("ProcessedBy")
+  createdAt           DateTime      @default(now()) @map("CreatedAt")
+  updatedAt           DateTime      @default(now()) @updatedAt @map("UpdatedAt")
+  returnRequest       ReturnRequest @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RefundTransactions_ReturnRequests")
+  processedByUser     User?         @relation("RefundTransactionProcessedBy", fields: [processedBy], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_RefundTransactions_Users")
+
+  @@index([returnRequestId], map: "IX_RefundTransactions_ReturnRequestId")
+  @@index([status], map: "IX_RefundTransactions_Status")
+  @@index([processedBy], map: "IX_RefundTransactions_ProcessedBy")
+  @@map("RefundTransactions")
 }
 
 // ─── Coupon & Discount System ─────────────────────────────────────────────────

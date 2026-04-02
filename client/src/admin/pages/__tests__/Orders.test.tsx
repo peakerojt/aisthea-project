@@ -15,11 +15,16 @@ vi.mock('react-i18next', () => ({
         ? interpolateMock(options.defaultValue, options)
         : key;
 
+      const translations: Record<string, string> = {
+        'paymentStatus.CANCELLED': 'Thanh toán đã hủy',
+        'paymentStatus.NEEDS_REVIEW': 'Cần kiểm tra thanh toán',
+      };
+
       if (i18nMode.rawKeys) {
         return fallback;
       }
 
-      return fallback;
+      return translations[key] ?? fallback;
     },
   }),
 }));
@@ -134,6 +139,18 @@ describe('Admin Orders page', () => {
     expect(screen.getByText('Hiển thị 1-1 / 1 đơn')).toBeInTheDocument();
   });
 
+  it('loads the main list plus one count request per tab without re-triggering an infinite refresh loop', async () => {
+    render(<Orders />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Đơn hàng')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(getAllMock).toHaveBeenCalledTimes(7);
+    });
+  });
+
   it('normalizes hyphenated return requested statuses before rendering compact labels', async () => {
     getAllMock.mockResolvedValue({
       orders: [
@@ -234,5 +251,89 @@ describe('Admin Orders page', () => {
     });
 
     expect(screen.getByText('Chuyển khoản ngân hàng')).toBeInTheDocument();
+  });
+
+  it('upgrades generic VNPay pending values to the canonical VNPay pending label', async () => {
+    getAllMock.mockResolvedValue({
+      orders: [
+        {
+          orderId: 105,
+          orderNumber: 'ORD-105',
+          customerName: 'Bui Thi E',
+          customerPhone: '0900444444',
+          status: 'PENDING',
+          statusLabel: 'PENDING',
+          paymentStatus: 'PENDING',
+          paymentMethod: 'VNPAY',
+          totalAmount: '150000',
+          createdAt: '2026-03-25T10:00:00.000Z',
+          itemCount: 1,
+          user: null,
+        },
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 15,
+        total: 1,
+        totalPages: 1,
+      },
+    });
+
+    render(<Orders />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Chờ thanh toán')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('VNPay')).toBeInTheDocument();
+  });
+
+  it('renders canonical cancelled and needs-review payment labels distinctly', async () => {
+    getAllMock.mockResolvedValue({
+      orders: [
+        {
+          orderId: 107,
+          orderNumber: 'ORD-107',
+          customerName: 'Vo Thi G',
+          customerPhone: '0900666666',
+          status: 'PROCESSING',
+          statusLabel: 'PROCESSING',
+          paymentStatus: 'canceled',
+          paymentMethod: 'VNPAY',
+          totalAmount: '250000',
+          createdAt: '2026-03-25T10:00:00.000Z',
+          itemCount: 1,
+          user: null,
+        },
+        {
+          orderId: 108,
+          orderNumber: 'ORD-108',
+          customerName: 'Bui Van H',
+          customerPhone: '0900777777',
+          status: 'PROCESSING',
+          statusLabel: 'PROCESSING',
+          paymentStatus: 'needs_review',
+          paymentMethod: 'VNPAY',
+          totalAmount: '275000',
+          createdAt: '2026-03-25T11:00:00.000Z',
+          itemCount: 1,
+          user: null,
+        },
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 15,
+        total: 2,
+        totalPages: 1,
+      },
+    });
+
+    render(<Orders />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Thanh toán đã hủy')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Cần kiểm tra thanh toán')).toBeInTheDocument();
   });
 });

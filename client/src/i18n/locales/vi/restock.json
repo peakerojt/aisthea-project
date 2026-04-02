@@ -107,6 +107,7 @@
     },
     "actions": {
       "refresh": "Làm mới",
+      "suppliers": "Nhà cung cấp",
       "newPo": "Tạo phiếu nhập",
       "applyFilter": "Lọc",
       "view": "Xem",
@@ -132,6 +133,10 @@
       "title": "Tạo phiếu nhập",
       "sectionInfo": "Thông tin phiếu nhập",
       "sectionItems": "Danh sách sản phẩm cần nhập",
+      "savedSupplier": "Nhà cung cấp đã lưu",
+      "chooseSavedSupplier": "Chọn nhà cung cấp để tự động điền",
+      "savedSupplierHint": "Chọn một nhà cung cấp đã lưu để tự động điền người liên hệ, số điện thoại, email và ghi chú.",
+      "addSupplier": "+ Nhà cung cấp",
       "supplier": "Tên nhà cung cấp *",
       "expected": "Ngày dự kiến nhận",
       "invoice": "Số hóa đơn",
@@ -141,6 +146,28 @@
       "notes": "Ghi chú",
       "items": "Danh sách sản phẩm nhập",
       "addItem": "Thêm dòng",
+      "quickAddLow": "Thêm sắp hết hàng",
+      "quickAddOut": "Thêm hết hàng",
+      "bulkControls": {
+        "eyebrow": "Bulk actions",
+        "title": "Áp dụng nhanh theo nhóm biến thể",
+        "hint": "Chọn một nhóm sản phẩm rồi áp dụng cùng số lượng hoặc đơn giá cho các biến thể cùng loại, tránh sửa từng dòng riêng lẻ.",
+        "selectedCount": "{{count}} biến thể",
+        "groupHint": "Nhóm hiện tại có {{count}} biến thể đang nằm trong phiếu nhập."
+      },
+      "bulkQuantity": {
+        "label": "Số lượng áp dụng nhanh",
+        "hint": "Áp dụng cùng một số lượng đặt cho {{count}} biến thể trong nhóm đã chọn.",
+        "apply": "Áp dụng số lượng"
+      },
+      "bulkPricing": {
+        "groupLabel": "Nhóm sản phẩm áp dụng",
+        "chooseGroup": "Chọn nhóm sản phẩm / biến thể",
+        "groupOption": "{{name}} · {{count}} biến thể",
+        "label": "Đơn giá áp dụng nhanh",
+        "hint": "Áp dụng cùng một đơn giá cho {{count}} biến thể trong nhóm đã chọn.",
+        "apply": "Áp dụng nhóm"
+      },
       "itemRow": "Dòng sản phẩm {{index}}",
       "chooseVariant": "Chọn biến thể sản phẩm",
       "variantLabel": "Biến thể sản phẩm",
@@ -154,6 +181,23 @@
         "phone": "Ví dụ: 0901234567",
         "email": "Ví dụ: supplier@example.com",
         "notes": "Ví dụ: Giao trước 17h, ưu tiên đủ size S và M."
+      },
+      "supplierLibrary": {
+        "title": "Nhà cung cấp",
+        "subtitle": "Quản lý danh sách NCC để chọn nhanh khi tạo phiếu nhập và tự động điền thông tin liên hệ.",
+        "listTitle": "Danh sách NCC",
+        "addNew": "Thêm mới",
+        "createTitle": "Thêm nhà cung cấp mới",
+        "editTitle": "Chỉnh sửa nhà cung cấp",
+        "switchToCreate": "Tạo NCC mới",
+        "editAction": "Chỉnh sửa",
+        "editingBadge": "Đang sửa",
+        "noMeta": "Chưa có thông tin liên hệ",
+        "saveCreate": "Lưu nhà cung cấp",
+        "saveEdit": "Lưu chỉnh sửa",
+        "errors": {
+          "nameRequired": "Vui lòng nhập tên nhà cung cấp."
+        }
       }
     },
     "receive": {
@@ -214,6 +258,7 @@
       "duplicateVariant": "Không được trùng biến thể trong cùng một phiếu nhập.",
       "invalidOrderedQty": "Số lượng đặt phải lớn hơn 0.",
       "invalidUnitCost": "Đơn giá nhập phải lớn hơn 0.",
+      "bulkProductRequired": "Vui lòng chọn nhóm sản phẩm để áp đơn giá.",
       "createFailed": "Tạo phiếu nhập thất bại.",
       "receiptItemsRequired": "Vui lòng nhập số lượng nhận cho ít nhất một dòng.",
       "receiveFailed": "Nhận hàng thất bại.",

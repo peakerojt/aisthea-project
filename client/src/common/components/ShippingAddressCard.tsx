@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 export const ShippingAddressCard: React.FC<{ order: OrderDetail }> = ({ order }) => {
   const { t } = useTranslation('pages', { keyPrefix: 'orderDetail' });
   const a = order.shippingAddress;
-  const shippingAddressTranslation = t('shippingAddress', { defaultValue: 'Địa chỉ giao hàng' });
-  const shippingAddressLabel = shippingAddressTranslation !== 'shippingAddress'
+  const shippingAddressTranslation = t('sections.shippingAddress', { defaultValue: 'Địa chỉ giao hàng' });
+  const shippingAddressLabel = shippingAddressTranslation !== 'sections.shippingAddress'
     ? shippingAddressTranslation
     : 'Địa chỉ giao hàng';
 

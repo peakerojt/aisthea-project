@@ -71,6 +71,29 @@ describe('OAuthCallback', () => {
     expect(navigateMock).toHaveBeenCalledWith('/admin');
   });
 
+  it('redirects support users to the returns admin route', async () => {
+    apiGetMock.mockResolvedValue({
+      isAuthenticated: true,
+      user: {
+        userId: 2,
+        email: 'support@example.com',
+        fullName: 'Support User',
+        roles: ['Support'],
+      },
+    });
+
+    await act(async () => {
+      render(<OAuthCallback />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(setUserFromSessionMock).toHaveBeenCalledWith(expect.objectContaining({
+      isAuthenticated: true,
+    }));
+    expect(navigateMock).toHaveBeenCalledWith('/admin/returns');
+  });
+
   it('shows an error and redirects to /login when no session is found', async () => {
     vi.useFakeTimers();
     apiGetMock.mockResolvedValue({

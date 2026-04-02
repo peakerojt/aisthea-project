@@ -6,6 +6,7 @@ import { useCart } from '@/common/contexts/CartContext';
 import { fetchProducts, Product } from '@/common/services/product.service';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
 import { matchesSearchQuery } from '@/common/utils/search';
+import { getAdminLandingPath } from '@/common/utils/adminAccess';
 import { useTranslation } from 'react-i18next';
 
 const STYLIST_LABEL = 'T\u01b0 v\u1ea5n';
@@ -190,8 +191,8 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
       return;
     }
 
-    if (role === 'admin') {
-      navigate('/admin');
+    if (role === 'admin' || role === 'staff') {
+      navigate(getAdminLandingPath(user.roles));
       return;
     }
 

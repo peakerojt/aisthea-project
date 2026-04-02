@@ -64,7 +64,11 @@
         "deleteBody": "Sản phẩm sẽ được <b>ẩn khỏi hiển thị</b> thay vì xóa cứng, giúp tránh ảnh hưởng dây chuyền đến dữ liệu liên quan.",
         "deleteWarning": "Sản phẩm sẽ được <span class=\"text-yellow-400 font-semibold\">ẩn khỏi hiển thị</span> thay vì xóa cứng để tránh lỗi dây chuyền và giữ an toàn cho dữ liệu liên quan.",
         "deleting": "Đang ẩn...",
-        "delete": "Ẩn"
+        "delete": "Ẩn",
+        "restoreTitle": "Xác nhận hiện lại sản phẩm?",
+        "restoreWarning": "Sản phẩm sẽ được <span class=\"text-emerald-400 font-semibold\">hiện lại trên hệ thống</span> để có thể tiếp tục bán và xuất hiện trong danh sách.",
+        "restoring": "Đang hiện...",
+        "restore": "Hiện lại"
     },
     "categories": {
         "coats": "Áo khoác",
@@ -89,6 +93,7 @@
         "deleteConfirm": "Bạn có chắc muốn ẩn sản phẩm «{{name}}» không?",
         "deleteSelectedConfirm": "Bạn có chắc muốn ẩn {{count}} mục đã chọn không?",
         "deleteSelectedSuccess": "Đã ẩn {{count}} sản phẩm thành công",
+        "restoreSuccess": "Hiện sản phẩm thành công",
         "markInStockSuccess": "Đã đánh dấu còn hàng thành công",
         "priceUpdated": "Cập nhật giá thành công",
         "stockUpdated": "Cập nhật tồn kho thành công",

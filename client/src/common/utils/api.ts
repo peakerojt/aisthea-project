@@ -18,14 +18,32 @@ interface FetchOptions extends RequestInit {
 type ApiErrorPayload = {
     code?: string;
     errorCode?: string;
-    error?: string;
+    error?: string | {
+        code?: string;
+        errorCode?: string;
+        message?: string;
+        messageKey?: string;
+        type?: 'VALIDATION' | 'BUSINESS' | 'AUTH' | 'PERMISSION' | 'SYSTEM' | string;
+        field?: string;
+        details?: Array<{ field?: string; code?: string; message?: string }> | Record<string, unknown>;
+        traceId?: string;
+    };
     message?: string;
     messageKey?: string;
     type?: 'VALIDATION' | 'BUSINESS' | 'AUTH' | 'PERMISSION' | 'SYSTEM' | string;
     field?: string;
-    details?: Array<{ field?: string; code?: string; message?: string }>;
+    details?: Array<{ field?: string; code?: string; message?: string }> | Record<string, unknown>;
     traceId?: string;
 };
+
+const getNestedErrorPayload = (payload: ApiErrorPayload) =>
+    typeof payload.error === 'object' && payload.error !== null ? payload.error : undefined;
+
+const PREFER_SERVER_MESSAGE_CODES = new Set([
+    'VALIDATION_ERROR',
+    'INVALID_BODY',
+    'MISSING_REQUIRED_FIELDS',
+]);
 
 const getActiveLanguage = () => {
     const current = i18n.resolvedLanguage || i18n.language || DEFAULT_LANGUAGE;
@@ -33,23 +51,35 @@ const getActiveLanguage = () => {
 };
 
 const resolveApiMessage = (payload: ApiErrorPayload, fallback: string) => {
-    if (typeof payload.messageKey === 'string' && payload.messageKey.length > 0) {
-        return i18n.t(payload.messageKey, { defaultValue: payload.message || fallback });
+    const nestedError = getNestedErrorPayload(payload);
+    const message = payload.message || nestedError?.message;
+    const messageKey = payload.messageKey || nestedError?.messageKey;
+
+    if (typeof messageKey === 'string' && messageKey.length > 0) {
+        return i18n.t(messageKey, { defaultValue: message || fallback });
     }
 
     const code = typeof payload.errorCode === 'string'
         ? payload.errorCode
         : typeof payload.code === 'string'
             ? payload.code
-            : typeof payload.error === 'string'
-                ? payload.error
-                : undefined;
+            : typeof nestedError?.errorCode === 'string'
+                ? nestedError.errorCode
+                : typeof nestedError?.code === 'string'
+                    ? nestedError.code
+                : typeof payload.error === 'string'
+                    ? payload.error
+                    : undefined;
 
-    if (code) {
-        return i18n.t(`errors:${code}`, { defaultValue: payload.message || code });
+    if (typeof message === 'string' && message.trim().length > 0 && code && PREFER_SERVER_MESSAGE_CODES.has(code)) {
+        return message;
     }
 
-    return payload.message || fallback;
+    if (code) {
+        return i18n.t(`errors:${code}`, { defaultValue: message || code });
+    }
+
+    return message || fallback;
 };
 
 class ApiClient {
@@ -217,13 +247,23 @@ class ApiClient {
 
                 const fallbackMessage = `Request failed with status ${response.status}`;
                 const errorMessage = resolveApiMessage(errorData, fallbackMessage);
+                const nestedError = getNestedErrorPayload(errorData);
                 const errorCode =
                     typeof errorData.code === 'string'
                         ? errorData.code
                         : typeof errorData.errorCode === 'string'
                             ? errorData.errorCode
+                            : typeof nestedError?.code === 'string'
+                                ? nestedError.code
+                                : typeof nestedError?.errorCode === 'string'
+                                    ? nestedError.errorCode
+                                    : undefined;
+                const messageKey =
+                    typeof errorData.messageKey === 'string'
+                        ? errorData.messageKey
+                        : typeof nestedError?.messageKey === 'string'
+                            ? nestedError.messageKey
                             : undefined;
-                const messageKey = typeof errorData.messageKey === 'string' ? errorData.messageKey : undefined;
 
                 if (response.status >= 500) {
                     window.dispatchEvent(new CustomEvent('app:toast', {
@@ -268,10 +308,24 @@ class ApiClient {
                 err.status = response.status;
                 err.code = errorCode;
                 err.messageKey = messageKey;
-                err.type = errorData.type;
-                err.field = typeof errorData.field === 'string' ? errorData.field : undefined;
-                err.details = Array.isArray(errorData.details) ? errorData.details : undefined;
-                err.traceId = typeof errorData.traceId === 'string' ? errorData.traceId : undefined;
+                err.type = errorData.type ?? nestedError?.type;
+                err.field =
+                    typeof errorData.field === 'string'
+                        ? errorData.field
+                        : typeof nestedError?.field === 'string'
+                            ? nestedError.field
+                            : undefined;
+                err.details = Array.isArray(errorData.details)
+                    ? errorData.details
+                    : Array.isArray(nestedError?.details)
+                        ? nestedError.details
+                        : undefined;
+                err.traceId =
+                    typeof errorData.traceId === 'string'
+                        ? errorData.traceId
+                        : typeof nestedError?.traceId === 'string'
+                            ? nestedError.traceId
+                            : undefined;
                 err.skipAuthRedirect = skipAuthRedirect;
                 throw err;
             }

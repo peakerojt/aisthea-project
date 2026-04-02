@@ -28,8 +28,8 @@ export type OrderStatusValue = (typeof ORDER_STATUS)[keyof typeof ORDER_STATUS];
  * Paid             → Processing | Cancelled
  * Processing       → Shipping | Cancelled
  * Shipping         → Delivered | Returned | Return_Requested
- * Delivered        → Returned | Return_Requested
- * Return_Requested → Returned
+ * Delivered        → Return_Requested
+ * Return_Requested → (terminal in legacy order FSM; modern return workflow continues elsewhere)
  * Cancelled        → (terminal)
  * Returned         → (terminal)
  */
@@ -38,8 +38,8 @@ export const FSM_TRANSITIONS: Record<OrderStatusValue, OrderStatusValue[]> = {
     [ORDER_STATUS.PAID]: [ORDER_STATUS.PROCESSING, ORDER_STATUS.CANCELLED],
     [ORDER_STATUS.PROCESSING]: [ORDER_STATUS.SHIPPING, ORDER_STATUS.CANCELLED],
     [ORDER_STATUS.SHIPPING]: [ORDER_STATUS.DELIVERED, ORDER_STATUS.RETURNED, ORDER_STATUS.RETURN_REQUESTED],
-    [ORDER_STATUS.DELIVERED]: [ORDER_STATUS.RETURNED, ORDER_STATUS.RETURN_REQUESTED],
-    [ORDER_STATUS.RETURN_REQUESTED]: [ORDER_STATUS.RETURNED],
+    [ORDER_STATUS.DELIVERED]: [ORDER_STATUS.RETURN_REQUESTED],
+    [ORDER_STATUS.RETURN_REQUESTED]: [],
     [ORDER_STATUS.CANCELLED]: [],
     [ORDER_STATUS.RETURNED]: [],
 };
@@ -67,8 +67,8 @@ export function isValidTransition(from: string, to: string): boolean {
  * Terminal states — no further transitions allowed.
  */
 export const TERMINAL_STATUSES: OrderStatusValue[] = [
-    ORDER_STATUS.DELIVERED,
     ORDER_STATUS.CANCELLED,
+    ORDER_STATUS.RETURN_REQUESTED,
     ORDER_STATUS.RETURNED,
 ];
 
@@ -77,7 +77,6 @@ export const TERMINAL_STATUSES: OrderStatusValue[] = [
  */
 export const INVENTORY_RESTORE_STATUSES: OrderStatusValue[] = [
     ORDER_STATUS.CANCELLED,
-    ORDER_STATUS.RETURN_REQUESTED,
     ORDER_STATUS.RETURNED,
 ];
 

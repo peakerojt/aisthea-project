@@ -1,4 +1,3 @@
-const initiateRefundMock = jest.fn();
 const getRefundsForOrderMock = jest.fn();
 const loggerMock = {
   error: jest.fn(),
@@ -10,6 +9,7 @@ jest.mock('../../services/refund.service', () => {
       public code: string,
       public status = 400,
       message = code,
+      public details?: Array<{ field?: string; code?: string; message?: string }>,
     ) {
       super(message);
       this.name = 'RefundError';
@@ -17,7 +17,6 @@ jest.mock('../../services/refund.service', () => {
   }
 
   return {
-    initiateRefund: (...args: unknown[]) => initiateRefundMock(...args),
     getRefundsForOrder: (...args: unknown[]) => getRefundsForOrderMock(...args),
     RefundError: MockRefundError,
   };
@@ -28,7 +27,7 @@ jest.mock('../../lib/logger', () => ({
 }));
 
 import { RefundError } from '../../services/refund.service';
-import { getOrderRefunds, postInitiateRefund } from '../refund.controller';
+import { getOrderRefunds } from '../refund.controller';
 
 const createResponse = () => {
   const res: any = {};
@@ -39,184 +38,104 @@ const createResponse = () => {
 
 describe('refund.controller', () => {
   beforeEach(() => {
-    initiateRefundMock.mockReset();
     getRefundsForOrderMock.mockReset();
     loggerMock.error.mockReset();
   });
 
-  it('returns INVALID_ORDER_ID when initiating refund with a non-numeric order id', async () => {
+  it('returns INVALID_ORDER_ID when refund history is requested with a non-numeric order id', async () => {
     const req: any = {
       params: { id: 'abc' },
-      body: {},
-      user: { userId: 7 },
+      user: { userId: 7, roles: ['Admin'] },
     };
     const res = createResponse();
 
-    await postInitiateRefund(req, res);
+    await getOrderRefunds(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
       success: false,
       code: 'INVALID_ORDER_ID',
     });
-    expect(initiateRefundMock).not.toHaveBeenCalled();
+    expect(getRefundsForOrderMock).not.toHaveBeenCalled();
   });
 
-  it('returns MISSING_REQUIRED_FIELDS when payload is incomplete', async () => {
+  it('returns ADMIN_REQUIRED when refund history is requested without finance access', async () => {
     const req: any = {
       params: { id: '15' },
-      body: {
-        amount: 150000,
-        type: 'PARTIAL',
-        reason: 'Missing method should fail',
-      },
-      user: { userId: 7 },
+      user: { userId: 7, roles: ['Support'] },
     };
     const res = createResponse();
 
-    await postInitiateRefund(req, res);
+    await getOrderRefunds(req, res);
 
-    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({
       success: false,
-      code: 'MISSING_REQUIRED_FIELDS',
+      code: 'ADMIN_REQUIRED',
     });
-    expect(initiateRefundMock).not.toHaveBeenCalled();
+    expect(getRefundsForOrderMock).not.toHaveBeenCalled();
   });
 
-  it('maps RefundError to the configured status/code when initiating refund fails', async () => {
-    initiateRefundMock.mockRejectedValueOnce(new RefundError('OVER_REFUND', 400));
-
-    const req: any = {
-      params: { id: '15' },
-      body: {
-        amount: 150000,
-        type: 'PARTIAL',
-        method: 'BANK_TRANSFER',
-        reason: 'Requested partial refund',
+  it('returns refund history for finance users', async () => {
+    getRefundsForOrderMock.mockResolvedValueOnce({
+      refunds: [{ refundId: 501, status: 'SUCCESS' }],
+      summary: {
+        totalCollected: 300000,
+        totalRefunded: 100000,
+        remainingRefundable: 200000,
       },
-      user: { userId: 7 },
-    };
-    const res = createResponse();
-
-    await postInitiateRefund(req, res);
-
-    expect(initiateRefundMock).toHaveBeenCalledWith(15, 7, {
-      amount: 150000,
-      type: 'PARTIAL',
-      method: 'BANK_TRANSFER',
-      reason: 'Requested partial refund',
-    });
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
-      success: false,
-      code: 'OVER_REFUND',
-    });
-  });
-
-  it('returns REFUND_INITIATED when refund creation succeeds', async () => {
-    initiateRefundMock.mockResolvedValueOnce({
-      refundId: 501,
-      status: 'SUCCESS',
     });
 
     const req: any = {
       params: { id: '18' },
-      body: {
-        amount: '200000',
-        type: 'FULL',
-        method: 'BANK_TRANSFER',
-        reason: 'Manual refund approved',
-      },
-      user: { userId: 9 },
-    };
-    const res = createResponse();
-
-    await postInitiateRefund(req, res);
-
-    expect(initiateRefundMock).toHaveBeenCalledWith(18, 9, {
-      amount: 200000,
-      type: 'FULL',
-      method: 'BANK_TRANSFER',
-      reason: 'Manual refund approved',
-    });
-    expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith({
-      success: true,
-      code: 'REFUND_INITIATED',
-      data: {
-        refundId: 501,
-        status: 'SUCCESS',
-      },
-    });
-  });
-
-  it('logs and returns INTERNAL_SERVER_ERROR for unexpected initiateRefund failures', async () => {
-    const error = new Error('db offline');
-    initiateRefundMock.mockRejectedValueOnce(error);
-
-    const req: any = {
-      params: { id: '19' },
-      body: {
-        amount: 100000,
-        type: 'PARTIAL',
-        method: 'BANK_TRANSFER',
-        reason: 'Retry refund',
-      },
-      user: { userId: 9 },
-    };
-    const res = createResponse();
-
-    await postInitiateRefund(req, res);
-
-    expect(loggerMock.error).toHaveBeenCalledWith('[refundController] postInitiateRefund failed', {
-      error,
-    });
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({
-      success: false,
-      code: 'INTERNAL_SERVER_ERROR',
-    });
-  });
-
-  it('returns refund history for a valid order id', async () => {
-    getRefundsForOrderMock.mockResolvedValueOnce([
-      { refundId: 2 },
-      { refundId: 1 },
-    ]);
-
-    const req: any = {
-      params: { id: '21' },
+      user: { userId: 9, roles: ['Admin'] },
     };
     const res = createResponse();
 
     await getOrderRefunds(req, res);
 
-    expect(getRefundsForOrderMock).toHaveBeenCalledWith(21);
+    expect(getRefundsForOrderMock).toHaveBeenCalledWith(18);
     expect(res.json).toHaveBeenCalledWith({
       success: true,
-      data: [{ refundId: 2 }, { refundId: 1 }],
+      data: [{ refundId: 501, status: 'SUCCESS' }],
+      summary: {
+        totalCollected: 300000,
+        totalRefunded: 100000,
+        remainingRefundable: 200000,
+      },
     });
   });
 
-  it('logs and returns FETCH_REFUND_HISTORY_FAILED when history lookup crashes', async () => {
-    const error = new Error('query failed');
-    getRefundsForOrderMock.mockRejectedValueOnce(error);
+  it('maps RefundError when refund history lookup fails', async () => {
+    getRefundsForOrderMock.mockRejectedValueOnce(
+      new RefundError('FETCH_FAILED', 409, 'FETCH_FAILED', [
+        {
+          field: 'orderId',
+          code: 'ORDER_LOCKED',
+          message: 'Order is currently reconciling',
+        },
+      ]),
+    );
 
     const req: any = {
-      params: { id: '21' },
+      params: { id: '18' },
+      user: { userId: 9, roles: ['Admin'] },
     };
     const res = createResponse();
 
     await getOrderRefunds(req, res);
 
-    expect(loggerMock.error).toHaveBeenCalledWith('[refundController] getOrderRefunds failed', {
-      error,
-    });
-    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith({
       success: false,
-      code: 'FETCH_REFUND_HISTORY_FAILED',
+      code: 'FETCH_FAILED',
+      details: [
+        {
+          field: 'orderId',
+          code: 'ORDER_LOCKED',
+          message: 'Order is currently reconciling',
+        },
+      ],
     });
   });
 });

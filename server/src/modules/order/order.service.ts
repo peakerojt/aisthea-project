@@ -6,14 +6,14 @@ import { AppError } from '../../middlewares/error.middleware';
 import { quoteOrderPricing, ShippingMethod } from './order-pricing.service';
 import {
   ORDER_STATUS,
-  getValidNextStatuses,
-  isValidTransition,
-  INVENTORY_RESTORE_STATUSES,
 } from '../../config/orderStatus.config';
 import { emitOrderStatusUpdated } from '../../socket';
-import { getOrderTrackingSummary, normalizeOrderStatus } from '../../shared/order-state';
+import { deriveOrderPaymentStatus, getOrderTrackingSummary, normalizeOrderStatus } from '../../shared/order-state';
 import { buildCanonicalTimeline, deriveCanonicalPaymentStatus, toCanonicalOrderStatus } from '../../shared/order-contract';
 import { syncOrderWithShippingProvider } from '../shipping/shipping-provider.adapter';
+import { EnrichedOrderItem } from './order-pricing.service';
+import { reconcileCodReturnUnlockAfterDeliveryConfirmation } from './cod-return-reconciliation';
+import { ACTIVE_RETURN_REQUEST_STATUSES } from '../return-order/types';
 
 export type Role = 'Admin' | 'Customer' | string;
 
@@ -77,7 +77,287 @@ export interface OrderDetailDto {
   note: string | null;
 }
 
+export interface CancelOrderContext {
+  reason?: string;
+  note?: string;
+}
+
+type OrderTransitionSource = 'admin_order' | 'tracking_ops';
+
+type UpdateOrderStatusPayload = {
+  status: string;
+  note?: string;
+  deliveryProofImages?: string[];
+  deliveryProofReviewed?: boolean;
+  transitionSource?: OrderTransitionSource;
+};
+
+const ORDER_STATUS_POLICY_BY_SOURCE: Record<OrderTransitionSource, Record<string, string[]>> = {
+  admin_order: {
+    [ORDER_STATUS.PENDING]: [ORDER_STATUS.PROCESSING, ORDER_STATUS.PAID, ORDER_STATUS.CANCELLED],
+    [ORDER_STATUS.PAID]: [ORDER_STATUS.PROCESSING, ORDER_STATUS.CANCELLED],
+    [ORDER_STATUS.PROCESSING]: [ORDER_STATUS.SHIPPING, ORDER_STATUS.CANCELLED],
+    [ORDER_STATUS.SHIPPING]: [ORDER_STATUS.DELIVERED],
+    [ORDER_STATUS.DELIVERED]: [],
+    [ORDER_STATUS.RETURN_REQUESTED]: [],
+    [ORDER_STATUS.CANCELLED]: [],
+    [ORDER_STATUS.RETURNED]: [],
+  },
+  tracking_ops: {
+    [ORDER_STATUS.PENDING]: [],
+    [ORDER_STATUS.PAID]: [],
+    [ORDER_STATUS.PROCESSING]: [ORDER_STATUS.SHIPPING],
+    [ORDER_STATUS.SHIPPING]: [ORDER_STATUS.DELIVERED, ORDER_STATUS.RETURNED],
+    [ORDER_STATUS.DELIVERED]: [],
+    [ORDER_STATUS.RETURN_REQUESTED]: [],
+    [ORDER_STATUS.CANCELLED]: [],
+    [ORDER_STATUS.RETURNED]: [],
+  },
+};
+
+const INVENTORY_RESTORE_STATUSES_BY_SOURCE: Record<OrderTransitionSource, string[]> = {
+  admin_order: [ORDER_STATUS.CANCELLED],
+  tracking_ops: [ORDER_STATUS.RETURNED],
+};
+
+const PRE_DELIVERY_CANCELLATION_REASON = 'PRE_DELIVERY_CANCELLATION' as const;
+const PRE_DELIVERY_CANCELLATION_NOTE =
+  'Customer cancelled a paid VNPAY order before fulfillment. Awaiting admin refund review.';
+
+const resolveAllowedOrderTransitions = (
+  currentStatus: string,
+  transitionSource: OrderTransitionSource,
+) => ORDER_STATUS_POLICY_BY_SOURCE[transitionSource][currentStatus] ?? [];
+
+const isOrderTransitionAllowed = (
+  currentStatus: string,
+  nextStatus: string,
+  transitionSource: OrderTransitionSource,
+) => resolveAllowedOrderTransitions(currentStatus, transitionSource).includes(nextStatus);
+
+const shouldRestoreInventoryForOrderTransition = (
+  nextStatus: string,
+  transitionSource: OrderTransitionSource,
+) => INVENTORY_RESTORE_STATUSES_BY_SOURCE[transitionSource].includes(nextStatus);
+
+const toNumericAmount = (value: unknown): number => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  if (value && typeof value === 'object') {
+    if ('toNumber' in value && typeof (value as { toNumber?: unknown }).toNumber === 'function') {
+      const parsed = Number((value as { toNumber(): number }).toNumber());
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    if ('toString' in value && typeof (value as { toString?: unknown }).toString === 'function') {
+      const parsed = Number((value as { toString(): string }).toString());
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+  }
+
+  return 0;
+};
+
+const roundCurrencyAmount = (value: number) =>
+  Math.round((value + Number.EPSILON) * 100) / 100;
+
+const buildOrderItemDiscountAllocation = (order: OrderWithRelations) => {
+  const itemSubtotals = order.items.map((item) => toNumericAmount(item.unitPrice) * item.quantity);
+  const orderItemsSubtotal = itemSubtotals.reduce((sum, subtotal) => sum + subtotal, 0);
+  const cappedDiscount = Math.min(
+    Math.max(toNumericAmount(order.discountAmount), 0),
+    Math.max(orderItemsSubtotal, 0),
+  );
+  let allocatedDiscountRemainder = cappedDiscount;
+  const allocatedDiscountByOrderItem = new Map<number, number>();
+
+  order.items.forEach((item, index) => {
+    const itemSubtotal = itemSubtotals[index] ?? 0;
+    const isLastItem = index === order.items.length - 1;
+    const allocatedDiscount =
+      orderItemsSubtotal <= 0 || cappedDiscount <= 0
+        ? 0
+        : isLastItem
+          ? allocatedDiscountRemainder
+          : roundCurrencyAmount((cappedDiscount * itemSubtotal) / orderItemsSubtotal);
+
+    allocatedDiscountByOrderItem.set(item.orderItemId, allocatedDiscount);
+    allocatedDiscountRemainder = Math.max(
+      roundCurrencyAmount(allocatedDiscountRemainder - allocatedDiscount),
+      0,
+    );
+  });
+
+  return allocatedDiscountByOrderItem;
+};
+
+const resolveOrderItemNetPaidLineAmount = (
+  item: OrderWithRelations['items'][number],
+  allocatedDiscountByOrderItem: Map<number, number>,
+) => {
+  const orderItemSubtotal = toNumericAmount(item.unitPrice) * item.quantity;
+  const persistedNetPaidAmount = toNumericAmount((item as { netItemPaidAmount?: unknown }).netItemPaidAmount);
+  const allocatedDiscount = allocatedDiscountByOrderItem.get(item.orderItemId) ?? 0;
+
+  return persistedNetPaidAmount > 0
+    ? persistedNetPaidAmount
+    : Math.max(roundCurrencyAmount(orderItemSubtotal - allocatedDiscount), 0);
+};
+
+const isCollectedPaymentStatus = (paymentStatus: string | null | undefined) =>
+  paymentStatus === 'PAID' || paymentStatus === 'PARTIALLY_REFUNDED';
+
+async function createPreDeliveryCancellationRefundRequest(
+  tx: any,
+  order: OrderWithRelations,
+  userId: number,
+  cancellationContext?: CancelOrderContext,
+) {
+  const existingRequest = await tx.returnRequest.findFirst({
+    where: {
+      orderId: order.orderId,
+      status: { in: ACTIVE_RETURN_REQUEST_STATUSES },
+    },
+    select: {
+      returnRequestId: true,
+      orderId: true,
+      status: true,
+    },
+  });
+
+  if (existingRequest) {
+    throw new AppError(
+      409,
+      'RETURN_ALREADY_EXISTS',
+      'returns:errors.alreadyExists',
+      undefined,
+      {
+        returnRequestId: existingRequest.returnRequestId,
+        orderId: existingRequest.orderId,
+        workflowStatus: existingRequest.status,
+      },
+    );
+  }
+
+  const cancellationDetailNote =
+    cancellationContext?.note?.trim() ||
+    (cancellationContext?.reason?.trim()
+      ? `Customer selected cancellation reason: ${cancellationContext.reason.trim()}`
+      : PRE_DELIVERY_CANCELLATION_NOTE);
+  const requestNote = cancellationDetailNote;
+
+  const allocatedDiscountByOrderItem = buildOrderItemDiscountAllocation(order);
+  const returnItems = order.items
+    .filter((item) => Number.isFinite(item.orderItemId) && item.orderItemId > 0 && item.quantity > 0)
+    .map((item) => {
+      const netPaidLineAmount = resolveOrderItemNetPaidLineAmount(item, allocatedDiscountByOrderItem);
+      const refundUnitPrice = roundCurrencyAmount(netPaidLineAmount / item.quantity);
+
+      return {
+        orderItem: { connect: { orderItemId: item.orderItemId } },
+        quantity: item.quantity,
+        unitPrice: refundUnitPrice,
+        reason: PRE_DELIVERY_CANCELLATION_REASON,
+        reasonText: 'Cancelled before fulfillment after successful VNPay payment',
+      };
+    });
+
+  const totalRefundAmount = roundCurrencyAmount(
+    returnItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
+  );
+
+  if (returnItems.length === 0 || totalRefundAmount <= 0) {
+    throw new AppError(
+      409,
+      'ITEM_SELECTION_REQUIRED',
+      'returns:errors.itemSelectionRequired',
+    );
+  }
+
+  await tx.returnRequest.create({
+    data: {
+      order: { connect: { orderId: order.orderId } },
+      user: { connect: { userId } },
+      reason: PRE_DELIVERY_CANCELLATION_REASON,
+      note: requestNote,
+      totalRefundAmount,
+      status: 'PENDING_ADMIN_REVIEW',
+      refundStatus: 'PENDING',
+      items: { create: returnItems },
+      statusLogs: {
+        create: {
+          fromStatus: null,
+          toStatus: 'PENDING_ADMIN_REVIEW',
+          changedBy: userId,
+          comment: requestNote,
+        },
+      },
+    },
+  });
+}
+
+const buildCancellationStatusHistoryNote = (
+  shouldCreateVnpayRefundReview: boolean,
+  cancellationContext?: CancelOrderContext,
+) => {
+  const normalizedNote = cancellationContext?.note?.trim();
+  if (normalizedNote) {
+    return normalizedNote;
+  }
+
+  return shouldCreateVnpayRefundReview
+    ? 'Order cancelled by customer; refund request submitted for admin review'
+    : 'Order cancelled by customer';
+};
+
 const isAdmin = (user: CurrentUser) => user.roles.includes('Admin');
+const CUSTOMER_CANCELLABLE_STATUSES = new Set(['pending', 'processing']);
+
+type OrderItemEconomicsSnapshot = {
+  grossItemAmount: number;
+  allocatedDiscountAmount: number;
+  netItemPaidAmount: number;
+};
+
+function buildOrderItemEconomicsSnapshots(
+  items: EnrichedOrderItem[],
+  discountAmount: number,
+): OrderItemEconomicsSnapshot[] {
+  const grossAmounts = items.map((item) => item.unitPrice * item.quantity);
+  const itemsSubtotal = grossAmounts.reduce((sum, amount) => sum + amount, 0);
+  const cappedDiscount = Math.max(0, Math.min(discountAmount, itemsSubtotal));
+  let remainingDiscount = cappedDiscount;
+
+  return items.map((item, index) => {
+    const grossItemAmount = grossAmounts[index] ?? 0;
+    const isLastItem = index === items.length - 1;
+    const allocatedDiscountAmount =
+      itemsSubtotal <= 0 || cappedDiscount <= 0
+        ? 0
+        : isLastItem
+          ? remainingDiscount
+          : Math.round((cappedDiscount * grossItemAmount) / itemsSubtotal);
+    const normalizedAllocatedDiscount = Math.max(
+      0,
+      Math.min(allocatedDiscountAmount, grossItemAmount),
+    );
+
+    remainingDiscount = Math.max(0, remainingDiscount - normalizedAllocatedDiscount);
+
+    return {
+      grossItemAmount,
+      allocatedDiscountAmount: normalizedAllocatedDiscount,
+      netItemPaidAmount: Math.max(0, grossItemAmount - normalizedAllocatedDiscount),
+    };
+  });
+}
 const LEGACY_MANUAL_CARRIER = 'AISTHEA Manual Delivery';
 
 const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto => {
@@ -141,7 +421,7 @@ const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto =
     providerStatus: shipping.providerStatus,
     status: normalizeOrderStatus(toCanonicalOrderStatus(order.status)),
     paymentMethod: order.paymentMethod,
-    paymentStatus: normalizeOrderStatus(deriveCanonicalPaymentStatus(order.payments, order.paymentMethod)),
+    paymentStatus: deriveCanonicalPaymentStatus(order.payments, order.paymentMethod),
     createdAt: order.createdAt ? order.createdAt.toISOString() : null,
     customer: {
       name: order.customerName,
@@ -186,7 +466,11 @@ export async function getOrderDetailForUser(orderId: number, currentUser: Curren
   return mapOrderToDto(order);
 }
 
-export async function cancelOrderForUser(orderId: number, currentUser: CurrentUser): Promise<OrderDetailDto> {
+export async function cancelOrderForUser(
+  orderId: number,
+  currentUser: CurrentUser,
+  cancellationContext?: CancelOrderContext,
+): Promise<OrderDetailDto> {
   if (!Number.isFinite(orderId) || orderId <= 0) {
     throw new AppError(400, 'BAD_REQUEST', 'orders:errors.invalidOrderId');
   }
@@ -201,9 +485,14 @@ export async function cancelOrderForUser(orderId: number, currentUser: CurrentUs
   }
 
   const currentStatus = normalizeOrderStatus(existing.status);
-  if (currentStatus !== 'pending') {
+  if (!CUSTOMER_CANCELLABLE_STATUSES.has(currentStatus)) {
     throw new AppError(400, 'ORDER_CANNOT_BE_CANCELLED', 'orders:errors.cannotCancel');
   }
+
+  const orderPaymentStatus = deriveOrderPaymentStatus(existing.payments);
+  const shouldCreateVnpayRefundReview =
+    (existing.paymentMethod ?? '').trim().toUpperCase() === 'VNPAY' &&
+    isCollectedPaymentStatus(orderPaymentStatus);
 
   // ─── Atomic cancel + stock restore transaction ────────────────────────────
   // All three operations (status update, history append, stock restore + logs)
@@ -223,9 +512,19 @@ export async function cancelOrderForUser(orderId: number, currentUser: CurrentUs
           },
         },
         payments: true,
+        shipment: true,
         statusHistory: true,
       },
     });
+
+    if (shouldCreateVnpayRefundReview) {
+      await createPreDeliveryCancellationRefundRequest(
+        tx,
+        existing,
+        currentUser.userId,
+        cancellationContext,
+      );
+    }
 
     // 2. Append status history
     await (tx.orderStatusHistory.create as any)({
@@ -235,6 +534,10 @@ export async function cancelOrderForUser(orderId: number, currentUser: CurrentUs
         status: 'Cancelled',
         changedBy: currentUser.userId,
         changedAt: new Date(),
+        note: buildCancellationStatusHistoryNote(
+          shouldCreateVnpayRefundReview,
+          cancellationContext,
+        ),
       },
     });
 
@@ -259,15 +562,11 @@ export async function cancelOrderForUser(orderId: number, currentUser: CurrentUs
 export async function updateOrderStatusAdmin(
   orderIdRaw: string,
   currentUser: CurrentUser,
-  payload: {
-    status: string;
-    note?: string;
+  payload: UpdateOrderStatusPayload & {
     carrier?: string;
     trackingNumber?: string;
     estimatedDeliveryDate?: string;
-    deliveryProofImages?: string[];
-    deliveryProofReviewed?: boolean;
-  }
+  },
 ) {
   if (!isAdmin(currentUser)) {
     throw new AppError(403, 'FORBIDDEN', 'orders:errors.forbidden');
@@ -278,7 +577,13 @@ export async function updateOrderStatusAdmin(
     throw new AppError(400, 'BAD_REQUEST', 'orders:errors.invalidOrderId');
   }
 
-  const { status: newStatus, note, deliveryProofImages, deliveryProofReviewed } = payload;
+  const {
+    status: newStatus,
+    note,
+    deliveryProofImages,
+    deliveryProofReviewed,
+    transitionSource = 'admin_order',
+  } = payload;
   if (!newStatus) {
     throw new AppError(400, 'BAD_REQUEST', 'orders:errors.statusRequired');
   }
@@ -300,6 +605,8 @@ export async function updateOrderStatusAdmin(
       orderNumber: true,
       status: true,
       userId: true,
+      paymentMethod: true,
+      totalAmount: true,
       items: {
         select: { orderItemId: true, variantId: true, quantity: true },
       },
@@ -312,20 +619,22 @@ export async function updateOrderStatusAdmin(
 
   const currentStatus = order.status ?? ORDER_STATUS.PENDING;
 
-  if (!isValidTransition(currentStatus, newStatus)) {
+  if (!isOrderTransitionAllowed(currentStatus, newStatus, transitionSource)) {
     throw new AppError(
       400,
       'INVALID_STATUS_TRANSITION',
       'orders:errors.invalidTransition',
+      undefined,
       {
         from: currentStatus,
         to: newStatus,
-        allowed: getValidNextStatuses(currentStatus).join(', '),
+        allowed: resolveAllowedOrderTransitions(currentStatus, transitionSource).join(', '),
+        transitionSource,
       },
     );
   }
 
-  const shouldRestoreInventory = INVENTORY_RESTORE_STATUSES.includes(newStatus as any);
+  const shouldRestoreInventory = shouldRestoreInventoryForOrderTransition(newStatus, transitionSource);
 
   await prisma.$transaction(async (tx) => {
     if (shouldRestoreInventory) {
@@ -381,6 +690,14 @@ export async function updateOrderStatusAdmin(
           deliveryProofImages: JSON.stringify(deliveryProofImages ?? []),
           deliveryProofReviewed: Boolean(deliveryProofReviewed),
         },
+      });
+
+      await reconcileCodReturnUnlockAfterDeliveryConfirmation(tx as any, {
+        orderId: parsedId,
+        paymentMethod: order.paymentMethod,
+        totalAmount: order.totalAmount,
+        actorId: currentUser.userId,
+        paymentNote: 'Quản trị viên đã xác nhận giao hàng. Thanh toán COD được đánh dấu là đã thu.',
       });
     }
   });
@@ -558,6 +875,10 @@ export async function createOrder(
       },
       tx as any,
     );
+    const itemEconomics = buildOrderItemEconomicsSnapshots(
+      pricing.enrichedItems,
+      pricing.discountAmount,
+    );
 
     // ── Step 2: Create the Order record ──────────────────────────────────────
     const order = await (tx.order.create as any)({
@@ -588,15 +909,26 @@ export async function createOrder(
 
     // ── Step 3: Create OrderItem records (price snapshot) ─────────────────────
     await (tx.orderItem.createMany as any)({
-      data: pricing.enrichedItems.map((ei) => ({
-        orderId,
-        variantId: ei.variantId,
-        productName: ei.productName,
-        sku: ei.sku,
-        variantName: ei.variantName,
-        unitPrice: ei.unitPrice,
-        quantity: ei.quantity,
-      })),
+      data: pricing.enrichedItems.map((ei, index) => {
+        const economics = itemEconomics[index] ?? {
+          grossItemAmount: ei.unitPrice * ei.quantity,
+          allocatedDiscountAmount: 0,
+          netItemPaidAmount: ei.unitPrice * ei.quantity,
+        };
+
+        return {
+          orderId,
+          variantId: ei.variantId,
+          productName: ei.productName,
+          sku: ei.sku,
+          variantName: ei.variantName,
+          unitPrice: ei.unitPrice,
+          quantity: ei.quantity,
+          grossItemAmount: economics.grossItemAmount,
+          allocatedDiscountAmount: economics.allocatedDiscountAmount,
+          netItemPaidAmount: economics.netItemPaidAmount,
+        };
+      }),
     });
 
     // ── Step 4: Atomic stock deduction (race-condition safe) ──────────────────

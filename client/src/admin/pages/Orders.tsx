@@ -226,13 +226,16 @@ const OrderTableRow = React.memo(({
 export const Orders: React.FC = () => {
   const { t } = useTranslation(['orders']);
   const navigate = useNavigate();
-  const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
-    template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, token: string) => String(options?.[token] ?? ''));
-  const resolveText: OrdersTranslator = (key, options) => {
+  const interpolateFallback = useCallback(
+    (template: string, options?: Record<string, unknown>) =>
+      template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, token: string) => String(options?.[token] ?? '')),
+    [],
+  );
+  const resolveText = useCallback<OrdersTranslator>((key, options) => {
     const fallback = typeof options?.defaultValue === 'string' ? options.defaultValue : key;
     const value = t(key, options);
     return value === key ? interpolateFallback(fallback, options) : value;
-  };
+  }, [interpolateFallback, t]);
   const statusTabs = useMemo(
     () => ([
       { key: 'ALL', label: resolveText('filters.all', { defaultValue: 'Tất cả' }) },

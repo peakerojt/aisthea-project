@@ -2,7 +2,11 @@ import {
   hasAnyRole,
   hasSupportAccess,
   normalizeRoles,
+  RETURN_REQUEST_ADMIN_LIST_ROLES,
   RETURN_REQUEST_CREATOR_ROLES,
+  RETURN_REQUEST_FINANCE_ROLES,
+  RETURN_REQUEST_REVIEW_ROLES,
+  RETURN_REQUEST_WAREHOUSE_ROLES,
   SUPPORT_ACCESS_ROLES,
 } from '../role-access';
 
@@ -34,5 +38,9 @@ describe('shared role access helpers', () => {
   it('exports normalized shared role sets for return access', () => {
     expect(SUPPORT_ACCESS_ROLES).toEqual(['admin', 'support']);
     expect(RETURN_REQUEST_CREATOR_ROLES).toEqual(['customer', 'admin', 'support']);
+    expect(RETURN_REQUEST_ADMIN_LIST_ROLES).toEqual(['admin', 'support']);
+    expect(RETURN_REQUEST_REVIEW_ROLES).toEqual(['admin', 'support']);
+    expect(RETURN_REQUEST_WAREHOUSE_ROLES).toEqual(['admin', 'support']);
+    expect(RETURN_REQUEST_FINANCE_ROLES).toEqual(['admin']);
   });
 });

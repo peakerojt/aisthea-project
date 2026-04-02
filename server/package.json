@@ -9,6 +9,7 @@
     "start": "node dist/src/index.js",
     "studio": "prisma studio",
     "postinstall": "prisma generate",
+    "repair:cod-return-locks": "tsx src/scripts/reconcile-cod-return-locks.ts",
     "test": "jest --runInBand",
     "test:watch": "jest --watch"
   },

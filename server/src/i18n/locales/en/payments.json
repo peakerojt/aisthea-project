@@ -6,8 +6,11 @@
     "configMissing": "VNPay configuration is missing.",
     "createPaymentUrlFailed": "Failed to create the VNPay payment URL.",
     "orderNotPaid": "This order has not been paid, so it cannot be refunded.",
-    "overRefund": "Refund amount exceeds the total order value.",
+    "overRefund": "Refund amount exceeds the remaining collected amount.",
     "gatewayFailed": "The payment gateway rejected the refund transaction.",
+    "refundAlreadyInProgress": "A refund for this order is already being processed.",
+    "refundInProgress": "The gateway reports that this refund is still being processed.",
+    "refundNotEligible": "The original transaction is not eligible for gateway refund.",
     "invalidAmount": "Refund amount is invalid.",
     "missingRequiredFields": "Missing required fields: amount, type, method, reason.",
     "fetchRefundHistoryFailed": "Failed to load refund history."

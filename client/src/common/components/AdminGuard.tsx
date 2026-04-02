@@ -12,7 +12,7 @@ export const AdminGuard: React.FC = () => {
   const { role, isInitialized } = useAuth();
 
   if (!isInitialized) return <Spinner />;
-  if (role !== 'admin') return <Navigate to="/login" replace />;
+  if (role !== 'admin' && role !== 'staff') return <Navigate to="/login" replace />;
 
   return <Outlet />;
 };

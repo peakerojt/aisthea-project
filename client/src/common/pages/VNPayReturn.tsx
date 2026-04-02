@@ -169,17 +169,27 @@ export const VNPayReturn: React.FC = () => {
         const canonicalPaymentStatus = getPaymentStatusMeta('VNPAY', data.paymentStatus).canonicalStatus;
         const normalizedCode = normalizeGatewayCode(data.code);
         let nextStatus: 'loading' | 'success' | 'failed' = 'failed';
-        let nextMessage = failedMessageLabel;
+        let nextMessage =
+          canonicalPaymentStatus === 'NEEDS_REVIEW'
+            ? resolveText('states.reviewMessage', 'Thanh toán cần được kiểm tra thêm.')
+            : canonicalPaymentStatus === 'CANCELLED'
+              ? resolveText('states.cancelledMessage', 'Thanh toán đã bị hủy.')
+              : failedMessageLabel;
         let nextPaymentStatus: PaymentDisplayStatus = canonicalPaymentStatus === 'UNKNOWN' ? 'FAILED' : canonicalPaymentStatus;
 
         if (canonicalPaymentStatus === 'PAID' && normalizedCode === '00') {
           nextStatus = 'success';
           nextMessage = successMessageLabel;
           nextPaymentStatus = 'PAID';
-        } else if (canonicalPaymentStatus === 'PENDING' || canonicalPaymentStatus === 'VERIFYING' || normalizedCode === 'PENDING') {
+        } else if (
+          canonicalPaymentStatus === 'PENDING' ||
+          canonicalPaymentStatus === 'PENDING_VNPAY' ||
+          canonicalPaymentStatus === 'VERIFYING' ||
+          normalizedCode === 'PENDING'
+        ) {
           nextStatus = 'loading';
           nextMessage = loadingMessageLabel;
-          nextPaymentStatus = canonicalPaymentStatus === 'UNKNOWN' ? 'PENDING' : canonicalPaymentStatus;
+          nextPaymentStatus = canonicalPaymentStatus === 'UNKNOWN' ? 'PENDING_VNPAY' : canonicalPaymentStatus;
         }
 
         setStatus(nextStatus);

@@ -5,11 +5,19 @@ import passport from 'passport';
 import { configureGoogleStrategy } from './config/passport.config';
 
 // ─── Security ─────────────────────────────────────────────────────────────────
-import { applyCsrfProtection, applyHelmet, applyPermissionsPolicy, globalRateLimiter } from './middlewares/security.middleware';
+import {
+  applyCsrfProtection,
+  applyHelmet,
+  applyPermissionsPolicy,
+  attachRateLimitIdentity,
+  createAdminRateLimiters,
+  globalRateLimiter,
+} from './middlewares/security.middleware';
 import { localeMiddleware } from './middlewares/locale.middleware';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 import { responseNormalizer } from './middlewares/response.middleware';
 import { requestIdMiddleware } from './middlewares/request-id.middleware';
+import { markLegacyCompatibilityRoute } from './middlewares/legacy-compatibility.middleware';
 
 // ─── Module-owned routes ───────────────────────────────────────────────────────
 import authModuleRoutes from './modules/auth/auth.routes';
@@ -34,21 +42,29 @@ import orderModuleRoutes from './modules/order/order.route';
 import trackingRouter from './modules/tracking/tracking.route';
 import { trackingController } from './modules/tracking/tracking.controller';
 import itemsRouter from './modules/items/items.route';
-import returnOrderRoutes from './modules/return-order/routes/return-request.routes';
+import returnOrderRoutes from './modules/return-order/routes/routes';
 
 // ─── Remaining legacy routes (thin — keep until full migration) ───────────────
 import roleRoutes from './routes/role.routes';
 import permissionRoutes from './routes/permission.routes';
-import returnRoutes from './routes/return.routes';
 import orderRoutes from './routes/order.routes';
 
 import { authenticateToken } from './middlewares/auth.middleware';
-import { postReturnRequest, getOrderReturn } from './controllers/return.controller';
+import { getOrderReturn } from './controllers/legacy-returns.controller';
 import { env } from './lib/env';
 import { queryCountMiddleware } from './lib/query-monitor';
 
 export function createApp() {
   const app = express();
+  const adminOrderStatusRateLimiters = createAdminRateLimiters('admin.orders.status');
+  const legacyOrderReturnRoute = markLegacyCompatibilityRoute({
+    successor: '/api/return-requests',
+    surface: 'legacy-order-return',
+  });
+  const legacyOrderRefundsRoute = markLegacyCompatibilityRoute({
+    successor: '/api/return-requests/admin/:id/refund',
+    surface: 'legacy-order-refunds',
+  });
 
   // ── Passport ────────────────────────────────────────────────────────────────
   configureGoogleStrategy();
@@ -81,6 +97,7 @@ export function createApp() {
   app.use(queryCountMiddleware);
 
   // ── Global rate limiter ───────────────────────────────────────────────────────
+  app.use('/api', attachRateLimitIdentity);
   app.use('/api/', globalRateLimiter);
 
   // ── Module-owned domains ─────────────────────────────────────────────────────
@@ -104,18 +121,21 @@ export function createApp() {
   // ── Order/payment/return routes — left as-is during this cleanup wave ───────
   // ORDERING MATTERS: named paths before catch-all /:id
   // Backward-compatible tracking endpoints expected by legacy i18n tests.
-  app.patch('/api/admin/orders/:id/status', authenticateToken, trackingController.adminUpdateOrderStatus);
+  app.patch(
+    '/api/admin/orders/:id/status',
+    authenticateToken,
+    ...adminOrderStatusRateLimiters,
+    trackingController.adminUpdateOrderStatus,
+  );
   app.use('/api/orders', orderRoutes);            // /admin, /my, /my/:id, POST /, PATCH /:id/status
-  app.post('/api/orders/:id/return', authenticateToken, postReturnRequest);
-  app.get('/api/orders/:id/return', authenticateToken, getOrderReturn);
-  app.use('/api/orders', refundModuleRoutes);     // /:id/refunds
+  app.get('/api/orders/:id/return', legacyOrderReturnRoute, authenticateToken, getOrderReturn);
+  app.use('/api/orders', legacyOrderRefundsRoute, refundModuleRoutes);     // /:id/refunds
   app.use('/api/orders', orderModuleRoutes);      // /:id (catch-all detail / cancel)
 
   // Return/refund management (deferred migration)
   app.use('/api', trackingRouter);
   app.use('/api/items', itemsRouter);
   app.use('/api/return-requests', returnOrderRoutes);
-  app.use('/api/returns', returnRoutes);
 
   // Roles & permissions (Admin RBAC)
   app.use('/api/roles', roleRoutes);

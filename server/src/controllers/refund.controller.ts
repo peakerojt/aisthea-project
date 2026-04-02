@@ -1,17 +1,30 @@
 import { Request, Response } from 'express';
-import { initiateRefund, getRefundsForOrder, RefundError } from '../services/refund.service';
+import { getRefundsForOrder, RefundError } from '../services/refund.service';
 import { logger } from '../lib/logger';
+import { hasAnyRole, RETURN_REQUEST_FINANCE_ROLES } from '../shared/role-access';
 
 type RefundRequest = Request & {
   user?: {
     userId?: number;
+    roles?: string[];
   };
 };
 
-const sendError = (res: Response, status: number, code: string) =>
-  res.status(status).json({ success: false, code });
+const sendError = (
+  res: Response,
+  status: number,
+  code: string,
+  details?: Array<{ field?: string; code?: string; message?: string }>,
+) =>
+  res.status(status).json({
+    success: false,
+    code,
+    ...(details && details.length > 0 ? { details } : {}),
+  });
 
 const parseOrderId = (req: Request) => parseInt(req.params.id as string, 10);
+const hasFinanceAccess = (req: RefundRequest) =>
+  hasAnyRole(req.user, [...RETURN_REQUEST_FINANCE_ROLES]);
 
 const handleRefundError = (
   res: Response,
@@ -20,7 +33,7 @@ const handleRefundError = (
   fallbackCode: string,
 ): void => {
   if (error instanceof RefundError) {
-    sendError(res, error.status, error.code);
+    sendError(res, error.status, error.code, error.details);
     return;
   }
 
@@ -28,57 +41,27 @@ const handleRefundError = (
   sendError(res, 500, fallbackCode);
 };
 
-export async function postInitiateRefund(req: Request, res: Response): Promise<void> {
-  const orderId = parseOrderId(req);
-  const adminUserId = (req as RefundRequest).user?.userId ?? 0;
-
-  if (isNaN(orderId)) {
-    sendError(res, 400, 'INVALID_ORDER_ID');
-    return;
-  }
-
-  const { amount, type, method, reason } = req.body;
-
-  if (!amount || !type || !method || !reason) {
-    sendError(res, 400, 'MISSING_REQUIRED_FIELDS');
-    return;
-  }
-
-  const numAmount = Number(amount);
-  if (isNaN(numAmount) || numAmount <= 0) {
-    sendError(res, 400, 'INVALID_AMOUNT');
-    return;
-  }
-
-  try {
-    const refund = await initiateRefund(orderId, adminUserId, {
-      amount: numAmount,
-      type,
-      method,
-      reason,
-    });
-
-    res.status(201).json({
-      success: true,
-      code: 'REFUND_INITIATED',
-      data: refund,
-    });
-  } catch (error: unknown) {
-    handleRefundError(res, error, '[refundController] postInitiateRefund failed', 'INTERNAL_SERVER_ERROR');
-  }
-}
-
 export async function getOrderRefunds(req: Request, res: Response): Promise<void> {
   const orderId = parseOrderId(req);
+  const authReq = req as RefundRequest;
 
   if (isNaN(orderId)) {
     sendError(res, 400, 'INVALID_ORDER_ID');
     return;
   }
 
+  if (!hasFinanceAccess(authReq)) {
+    sendError(res, 403, 'ADMIN_REQUIRED');
+    return;
+  }
+
   try {
-    const refunds = await getRefundsForOrder(orderId);
-    res.json({ success: true, data: refunds });
+    const refundHistory = await getRefundsForOrder(orderId);
+    res.json({
+      success: true,
+      data: refundHistory.refunds,
+      summary: refundHistory.summary,
+    });
   } catch (error: unknown) {
     handleRefundError(res, error, '[refundController] getOrderRefunds failed', 'FETCH_REFUND_HISTORY_FAILED');
   }

@@ -129,8 +129,8 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders, isLoading })
                                                 <span
                                                     className={`
                             inline-flex items-center px-2.5 py-0.5 rounded-full
-                            border text-[10px] font-bold uppercase tracking-wider
-                            ${meta.badgeClass}
+                            border text-[10px] font-bold uppercase tracking-wider shadow-sm
+                            ${meta.badgeClass} ${meta.textClass}
                           `}
                                                 >
                                                     {statusLabel}

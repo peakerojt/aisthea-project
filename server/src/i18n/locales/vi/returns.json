@@ -1,18 +1,28 @@
 {
   "errors": {
     "invalidReturnId": "Mã yêu cầu trả hàng không hợp lệ.",
+    "invalidReturnQuantity": "Số lượng trả vượt quá giới hạn cho phép cho {{productLabel}} (tối đa {{maxQty}}).",
     "reasonRequired": "Lý do trả hàng là bắt buộc.",
     "invalidProofImages": "proofImages phải là một mảng URL ảnh.",
     "adminRequired": "Bạn cần quyền quản trị để thực hiện thao tác này.",
     "invalidAction": "Thao tác xử lý trả hàng không hợp lệ.",
     "orderNotDelivered": "Chỉ có thể yêu cầu trả hàng với đơn đã giao.",
     "windowExpired": "Đã quá thời hạn 7 ngày để yêu cầu trả hàng.",
+    "itemSelectionRequired": "Vui lòng chọn rõ sản phẩm hoặc các sản phẩm muốn trả.",
+    "refundStatusCommentRequired": "Vui lòng nhập ghi chú khi đánh dấu hoàn tiền lỗi hoặc cần kiểm tra thủ công.",
     "alreadyExists": "Đơn hàng này đã có yêu cầu trả hàng.",
     "notFound": "Không tìm thấy yêu cầu trả hàng."
   },
   "success": {
     "approved": "Duyệt yêu cầu trả hàng thành công.",
+    "inTransit": "Đã đánh dấu đang hoàn về kho.",
+    "received": "Đã đánh dấu nhận hàng trả về.",
+    "acceptedForRefund": "Đã chấp nhận yêu cầu hoàn tiền.",
     "rejected": "Từ chối yêu cầu trả hàng thành công.",
-    "refundCompleted": "Hoàn tiền và hoàn kho thành công."
+    "refundCompleted": "Hoàn tiền và hoàn kho thành công.",
+    "refundStatusPending": "Đã đặt lại trạng thái chờ hoàn tiền.",
+    "refundStatusProcessing": "Đã đánh dấu đang hoàn tiền.",
+    "refundStatusFailed": "Đã đánh dấu hoàn tiền thất bại.",
+    "refundStatusManualReview": "Đã chuyển sang kiểm tra thủ công."
   }
 }

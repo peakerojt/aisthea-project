@@ -13,6 +13,8 @@ vi.mock('react-i18next', () => ({
       const translations: Record<string, string> = {
         'paymentStatus.REFUNDED': 'Đã hoàn tiền',
         'paymentStatus.PARTIALLY_REFUNDED': 'Hoàn tiền một phần',
+        'paymentStatus.CANCELLED': 'Thanh toán đã bị hủy',
+        'paymentStatus.NEEDS_REVIEW': 'Cần rà soát thanh toán',
         'paymentMethod.BANK_TRANSFER': 'Chuyển khoản ngân hàng',
       };
 
@@ -68,5 +70,17 @@ describe('PaymentStatusBadge', () => {
 
     expect(screen.getByText('Hoàn tiền một phần')).toBeInTheDocument();
     expect(screen.getByText('Chuyển khoản ngân hàng')).toBeInTheDocument();
+  });
+
+  it('renders dedicated canonical labels for cancelled and needs-review outcomes', () => {
+    render(
+      <>
+        <PaymentStatusBadge paymentMethod="VNPAY" paymentStatus="canceled" />
+        <PaymentStatusBadge paymentMethod="VNPAY" paymentStatus="needs_review" />
+      </>,
+    );
+
+    expect(screen.getByText('Thanh toán đã bị hủy')).toBeInTheDocument();
+    expect(screen.getByText('Cần rà soát thanh toán')).toBeInTheDocument();
   });
 });

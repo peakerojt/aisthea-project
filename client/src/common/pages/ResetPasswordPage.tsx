@@ -1,6 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
+import ShieldCheck from 'lucide-react/dist/esm/icons/shield-check';
+import {
+  AuthField,
+  AuthFooterLinks,
+  AuthPageHeader,
+  AuthPasswordField,
+  AuthPrimaryButton,
+  AuthStatePanel,
+  AuthStatusRail,
+} from '@/common/components/auth';
+import { AuthLayout } from '@/common/layouts/AuthLayout';
 import { api } from '@/common/utils/api';
 import { resetPasswordClientSchema } from '@/common/validation/schemas';
 
@@ -93,100 +105,108 @@ export const ResetPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-bg-dark text-white p-4">
-      <div className="w-full max-w-md bg-bg-card p-8 rounded-lg shadow-lg border border-border-light/20">
-        <h2 className="text-3xl font-bold text-center mb-6 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-          {t('title')}
-        </h2>
+    <AuthLayout backgroundImage="https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=2000">
+      {status === 'success' ? (
+        <AuthStatePanel
+          eyebrow={t('title')}
+          badge={
+            <div className="flex h-20 w-20 items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/10 shadow-[0_18px_40px_rgba(16,185,129,0.12)]">
+              <CheckCircle2 className="h-10 w-10 text-emerald-400" />
+            </div>
+          }
+          title={t('actions.loginNow')}
+          description={message}
+        >
+          <AuthPrimaryButton type="button" label={t('actions.loginNow')} onClick={() => navigate('/login')} />
+        </AuthStatePanel>
+      ) : (
+        <>
+          <AuthPageHeader eyebrow={t('eyebrow')} title={t('title')} subtitle={t('messages.codeHint')} className="mb-10" />
 
-        {status === 'success' ? (
-          <div className="text-center">
-            <div className="bg-green-500/10 border border-green-500/50 text-green-500 p-4 rounded mb-6">{message}</div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <AuthField
+              type="text"
+              value={token}
+              onChange={(e) => {
+                setToken(e.target.value.replace(/\D/g, '').slice(0, 6));
+                setTokenError('');
+                if (status === 'error') {
+                  setMessage('');
+                  setStatus('idle');
+                }
+              }}
+              inputMode="numeric"
+              maxLength={6}
+              label={t('form.code')}
+              placeholder="123456"
+              error={tokenError}
+              helperText={!tokenError ? t('messages.codeHint') : undefined}
+            />
+
+            <div className="rounded-sm border border-white/10 bg-white/[0.02] px-4 py-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.03]">
+                  <ShieldCheck className="h-5 w-5 text-zinc-200" />
+                </div>
+                <p className="text-sm leading-6 text-zinc-400">{t('rail.description')}</p>
+              </div>
+            </div>
+
+            <AuthPasswordField
+              value={newPassword}
+              onChange={(e) => {
+                setNewPassword(e.target.value);
+                setNewPasswordError('');
+                if (status === 'error') {
+                  setMessage('');
+                  setStatus('idle');
+                }
+              }}
+              required
+              autoComplete="new-password"
+              label={t('form.newPassword')}
+              placeholder="••••••••"
+              error={newPasswordError}
+            />
+
+            <AuthPasswordField
+              value={confirmPassword}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                setConfirmPasswordError('');
+                if (status === 'error') {
+                  setMessage('');
+                  setStatus('idle');
+                }
+              }}
+              required
+              autoComplete="new-password"
+              label={t('form.confirmPassword')}
+              placeholder="••••••••"
+              error={confirmPasswordError}
+            />
+
+            <AuthStatusRail message={status === 'error' ? message : undefined} tone="error" reserveSpace />
+
+            <AuthPrimaryButton
+              type="submit"
+              loading={status === 'loading'}
+              label={t('actions.resetPassword')}
+              loadingLabel={t('actions.resetting')}
+            />
+          </form>
+
+          <AuthFooterLinks className="mt-10 text-center">
             <button
+              type="button"
               onClick={() => navigate('/login')}
-              className="w-full py-3 bg-white text-black font-bold rounded-md hover:bg-gray-200 transition-colors"
+              className="ui-stable-click rounded-sm text-sm text-zinc-400 transition-colors duration-150 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20"
             >
               {t('actions.loginNow')}
             </button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {status === 'error' && message ? <div className="text-red-500 text-center bg-red-500/10 p-4 rounded mb-4">{message}</div> : null}
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">{t('form.code')}</label>
-              <input
-                type="text"
-                value={token}
-                onChange={(e) => {
-                  setToken(e.target.value.replace(/\D/g, '').slice(0, 6));
-                  setTokenError('');
-                  if (status === 'error') {
-                    setMessage('');
-                    setStatus('idle');
-                  }
-                }}
-                inputMode="numeric"
-                maxLength={6}
-                className={`w-full px-4 py-3 bg-bg-dark border rounded-md text-white focus:outline-none focus:ring-1 transition-colors ${tokenError ? 'border-red-500 focus:border-red-400 focus:ring-red-500/20' : 'border-border-light focus:border-primary focus:ring-primary'}`}
-                placeholder="123456"
-              />
-              <p className="mt-2 text-xs text-text-secondary">{t('messages.codeHint')}</p>
-              {tokenError && <p className="mt-2 text-sm text-red-400">{tokenError}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">{t('form.newPassword')}</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => {
-                  setNewPassword(e.target.value);
-                  setNewPasswordError('');
-                  if (status === 'error') {
-                    setMessage('');
-                    setStatus('idle');
-                  }
-                }}
-                required
-                minLength={8}
-                className={`w-full px-4 py-3 bg-bg-dark border rounded-md text-white focus:outline-none focus:ring-1 transition-colors ${newPasswordError ? 'border-red-500 focus:border-red-400 focus:ring-red-500/20' : 'border-border-light focus:border-primary focus:ring-primary'}`}
-                placeholder="••••••••"
-              />
-              {newPasswordError && <p className="mt-2 text-sm text-red-400">{newPasswordError}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">{t('form.confirmPassword')}</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  setConfirmPasswordError('');
-                  if (status === 'error') {
-                    setMessage('');
-                    setStatus('idle');
-                  }
-                }}
-                required
-                minLength={8}
-                className={`w-full px-4 py-3 bg-bg-dark border rounded-md text-white focus:outline-none focus:ring-1 transition-colors ${confirmPasswordError ? 'border-red-500 focus:border-red-400 focus:ring-red-500/20' : 'border-border-light focus:border-primary focus:ring-primary'}`}
-                placeholder="••••••••"
-              />
-              {confirmPasswordError && <p className="mt-2 text-sm text-red-400">{confirmPasswordError}</p>}
-            </div>
-
-            <button
-              type="submit"
-              disabled={status === 'loading'}
-              className="w-full py-3 bg-white text-black font-bold rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {status === 'loading' ? t('actions.resetting') : t('actions.resetPassword')}
-            </button>
-          </form>
-        )}
-      </div>
-    </div>
+          </AuthFooterLinks>
+        </>
+      )}
+    </AuthLayout>
   );
 };

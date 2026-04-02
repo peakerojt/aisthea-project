@@ -1,3 +1,5 @@
+import { isSettledPaymentStatus, normalizePaymentStatusKey } from '../config/paymentStatus.config';
+
 export interface PaymentStatusLike {
   status?: string | null;
 }
@@ -15,14 +17,28 @@ export interface ShipmentLike {
 
 export function deriveOrderPaymentStatus(payments: PaymentStatusLike[] | null | undefined): string {
   const normalized = (payments ?? [])
-    .map((payment) => (payment.status ?? '').toUpperCase())
+    .map((payment) => normalizePaymentStatusKey(payment.status))
     .filter(Boolean);
 
   if (normalized.some((status) => status === 'REFUNDED')) return 'REFUNDED';
   if (normalized.some((status) => status === 'PARTIALLY_REFUNDED')) return 'PARTIALLY_REFUNDED';
-  if (normalized.some((status) => status === 'COMPLETED' || status === 'PAID')) return 'PAID';
-  if (normalized.some((status) => status === 'FAILED')) return 'FAILED';
-  if (normalized.some((status) => status === 'PENDING' || status === 'PROCESSING')) return 'PENDING';
+  if (normalized.some((status) => isSettledPaymentStatus(status))) return 'PAID';
+  if (normalized.some((status) => status === 'NEEDS_REVIEW')) return 'NEEDS_REVIEW';
+  if (normalized.some((status) => status === 'FAILED' || status === 'CANCELLED' || status === 'DECLINED' || status === 'EXPIRED')) {
+    return 'CANCELLED';
+  }
+  if (
+    normalized.some(
+      (status) =>
+        status === 'PENDING' ||
+        status === 'PROCESSING' ||
+        status === 'VERIFYING' ||
+        status === 'PENDING_COD' ||
+        status === 'PENDING_VNPAY',
+    )
+  ) {
+    return 'PENDING';
+  }
   return 'UNPAID';
 }
 

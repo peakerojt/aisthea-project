@@ -16,9 +16,9 @@ export const orderApi = {
 
     createOrder: <T>(payload: unknown) => api.post<T>('/api/orders', payload),
 
-    cancelMyOrder: <T>(id: string | number) => api.patch<T>(`/api/orders/my/${id}/cancel`, {}),
+    cancelMyOrder: <T>(id: string | number, payload?: { reason?: string; note?: string }) => api.patch<T>(`/api/orders/my/${id}/cancel`, payload ?? {}),
 
-    cancelOrder: <T>(id: string | number) => api.patch<T>(`/api/orders/${id}/cancel`),
+    cancelOrder: <T>(id: string | number, payload?: { reason?: string; note?: string }) => api.patch<T>(`/api/orders/${id}/cancel`, payload ?? {}),
 
     confirmReceipt: (id: string | number) => api.patch<{ success: boolean; newStatus: string }>(`/api/orders/${id}/confirm-receipt`),
 

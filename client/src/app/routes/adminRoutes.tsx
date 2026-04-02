@@ -1,4 +1,7 @@
 import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '@/common/contexts/AuthContext';
+import { canAccessAdminPath, getAdminLandingPath } from '@/common/utils/adminAccess';
 
 const loadDashboard = () => import('@/admin/pages/Dashboard').then((m) => ({ default: m.Dashboard }));
 const loadProducts = () => import('@/admin/pages/Products').then((m) => ({ default: m.Products }));
@@ -30,21 +33,39 @@ const Roles = React.lazy(loadRoles);
 const Restock = React.lazy(loadRestock);
 const Tracking = React.lazy(loadTracking);
 
+const AdminRouteAccessGate: React.FC<{ path: string; children: React.ReactNode }> = ({ path, children }) => {
+  const { isInitialized, user } = useAuth();
+
+  if (!isInitialized) {
+    return null;
+  }
+
+  if (canAccessAdminPath(path, user?.roles)) {
+    return <>{children}</>;
+  }
+
+  return <Navigate to={getAdminLandingPath(user?.roles)} replace />;
+};
+
+const withAdminRouteAccess = (path: string, element: React.ReactNode) => (
+  <AdminRouteAccessGate path={path}>{element}</AdminRouteAccessGate>
+);
+
 export const adminRoutes = [
-  { path: '/admin', element: <Dashboard /> },
-  { path: '/admin/products', element: <Products /> },
-  { path: '/admin/products/create', element: <CreateProduct /> },
-  { path: '/admin/products/:id/edit', element: <EditProduct /> },
-  { path: '/admin/categories', element: <Categories /> },
-  { path: '/admin/orders', element: <Orders /> },
-  { path: '/admin/orders/:id', element: <OrderDetail /> },
-  { path: '/admin/returns', element: <Returns /> },
-  { path: '/admin/customers', element: <Customers /> },
-  { path: '/admin/analytics', element: <Analytics /> },
-  { path: '/admin/coupons', element: <Coupons /> },
-  { path: '/admin/roles', element: <Roles /> },
-  { path: '/admin/restock', element: <Restock /> },
-  { path: '/admin/tracking', element: <Tracking /> },
+  { path: '/admin', element: withAdminRouteAccess('/admin', <Dashboard />) },
+  { path: '/admin/products', element: withAdminRouteAccess('/admin/products', <Products />) },
+  { path: '/admin/products/create', element: withAdminRouteAccess('/admin/products/create', <CreateProduct />) },
+  { path: '/admin/products/:id/edit', element: withAdminRouteAccess('/admin/products/:id/edit', <EditProduct />) },
+  { path: '/admin/categories', element: withAdminRouteAccess('/admin/categories', <Categories />) },
+  { path: '/admin/orders', element: withAdminRouteAccess('/admin/orders', <Orders />) },
+  { path: '/admin/orders/:id', element: withAdminRouteAccess('/admin/orders/:id', <OrderDetail />) },
+  { path: '/admin/returns', element: withAdminRouteAccess('/admin/returns', <Returns />) },
+  { path: '/admin/customers', element: withAdminRouteAccess('/admin/customers', <Customers />) },
+  { path: '/admin/analytics', element: withAdminRouteAccess('/admin/analytics', <Analytics />) },
+  { path: '/admin/coupons', element: withAdminRouteAccess('/admin/coupons', <Coupons />) },
+  { path: '/admin/roles', element: withAdminRouteAccess('/admin/roles', <Roles />) },
+  { path: '/admin/restock', element: withAdminRouteAccess('/admin/restock', <Restock />) },
+  { path: '/admin/tracking', element: withAdminRouteAccess('/admin/tracking', <Tracking />) },
 ];
 
 type RoutePreloader = {

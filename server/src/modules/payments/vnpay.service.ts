@@ -28,8 +28,19 @@ type VnpayIpnBody = {
   Message: string;
 };
 
+type VnpayQueryBody = {
+  message: string;
+  code: string;
+  orderId?: number;
+  paymentStatus?: string;
+  queryStatus?: string;
+};
+
 const hasCompletedPayment = (payments: PaymentSnapshot[]) =>
   payments.some((payment) => isSettledPaymentStatus(payment.status));
+
+const FAILED_VNPAY_QUERY_STATUSES = new Set(['01', '02', '04', '13', '24']);
+const CANCELLED_VNPAY_RESPONSE_CODES = new Set(['24']);
 
 const parsePositiveInt = (value: unknown) => {
   const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -46,6 +57,19 @@ const loadOrder = (orderId: number) =>
     },
   });
 
+const buildVnpayQueryNeedsReviewNote = ({
+  responseCode,
+  transactionStatus,
+  reason,
+}: {
+  responseCode: string;
+  transactionStatus: string;
+  reason?: string;
+}) => {
+  const detail = reason ? `${reason}. ` : '';
+  return `${detail}VNPay query fallback inconclusive. Response code ${responseCode || '99'}, transaction status ${transactionStatus || 'unknown'}.`;
+};
+
 const upsertVnpayPayment = async ({
   orderId,
   payments,
@@ -53,13 +77,15 @@ const upsertVnpayPayment = async ({
   status,
   transactionCode,
   note,
+  resetTransactionCode = false,
 }: {
   orderId: number;
   payments: PaymentSnapshot[];
   amount: number;
-  status: 'COMPLETED' | 'FAILED';
+  status: 'PENDING' | 'COMPLETED' | 'FAILED';
   transactionCode?: string | null;
   note?: string | null;
+  resetTransactionCode?: boolean;
 }) => {
   const latestPayment = payments[0] ?? null;
 
@@ -69,7 +95,9 @@ const upsertVnpayPayment = async ({
       data: {
         amount,
         status,
-        transactionCode: transactionCode ?? latestPayment.transactionCode ?? null,
+        transactionCode: resetTransactionCode
+          ? transactionCode ?? null
+          : transactionCode ?? latestPayment.transactionCode ?? null,
         note: note ?? null,
       },
     });
@@ -146,6 +174,16 @@ export const createVnpayPaymentUrl = async ({
     return { status: 409, body: { errorCode: 'ORDER_ALREADY_PAID' } };
   }
 
+  await upsertVnpayPayment({
+    orderId: order.orderId,
+    payments: order.payments,
+    amount: Number(order.totalAmount),
+    status: 'PENDING',
+    transactionCode: null,
+    note: 'Awaiting VNPay reconciliation',
+    resetTransactionCode: true,
+  });
+
   process.env.TZ = 'Asia/Ho_Chi_Minh';
   const createDate = moment(new Date()).format('YYYYMMDDHHmmss');
 
@@ -210,6 +248,8 @@ export const handleVnpayReturn = async (
   const transactionCode = typeof params.vnp_TransactionNo === 'string' ? params.vnp_TransactionNo : null;
 
   if (responseCode !== '00') {
+    const isCancelledResponse = CANCELLED_VNPAY_RESPONSE_CODES.has(responseCode);
+
     await upsertVnpayPayment({
       orderId: order.orderId,
       payments: order.payments,
@@ -222,10 +262,10 @@ export const handleVnpayReturn = async (
     return {
       status: 200,
       body: {
-        message: 'Failed',
+        message: isCancelledResponse ? 'Cancelled' : 'Failed',
         code: responseCode || '99',
         orderId: order.orderId,
-        paymentStatus: 'FAILED',
+        paymentStatus: isCancelledResponse ? 'CANCELLED' : 'FAILED',
       },
     };
   }
@@ -266,7 +306,7 @@ export const handleVnpayReturn = async (
         message: 'Success',
         code: '00',
         orderId: order.orderId,
-        paymentStatus: 'COMPLETED',
+        paymentStatus: 'PAID',
       },
     };
   }
@@ -291,7 +331,7 @@ export const handleVnpayReturn = async (
       message: 'Success',
       code: '00',
       orderId: order.orderId,
-      paymentStatus: 'COMPLETED',
+      paymentStatus: 'PAID',
     },
   };
 };
@@ -392,4 +432,200 @@ export const handleVnpayIpn = async (
     logger.error('VNPay IPN Error', { error: message, stack });
     return { status: 200, body: { RspCode: '99', Message: 'Unknow error' } };
   }
+};
+
+export const handleVnpayQueryResult = async (
+  query: Record<string, unknown>,
+): Promise<ServiceResult<VnpayQueryBody>> => {
+  const { params, secureHash } = extractSignedVnpQuery(query);
+  const secretKey = process.env.VNP_HASH_SECRET;
+
+  if (!secretKey) {
+    return { status: 500, body: { message: 'Missing VNPAY configuration', code: '97' } };
+  }
+
+  const signed = createVnpSecureHash(params, secretKey);
+  if (secureHash !== signed) {
+    return { status: 200, body: { message: 'Fail checksum', code: '97' } };
+  }
+
+  const parsedOrderId = parsePositiveInt(params.vnp_TxnRef);
+  if (!parsedOrderId) {
+    return { status: 200, body: { message: 'Invalid order', code: '01' } };
+  }
+
+  const order = await loadOrder(parsedOrderId);
+  if (!order) {
+    return { status: 200, body: { message: 'Order not found', code: '01' } };
+  }
+
+  const responseCode = String(params.vnp_ResponseCode ?? '');
+  const transactionStatus = String(params.vnp_TransactionStatus ?? '');
+  const gatewayAmount = Number(params.vnp_Amount ?? 0) / 100;
+  const expectedAmount = Number(order.totalAmount);
+  const transactionCode = typeof params.vnp_TransactionNo === 'string' ? params.vnp_TransactionNo : null;
+
+  if (hasCompletedPayment(order.payments)) {
+    return {
+      status: 200,
+      body: {
+        message: 'Success',
+        code: '00',
+        orderId: order.orderId,
+        paymentStatus: 'PAID',
+        queryStatus: transactionStatus || undefined,
+      },
+    };
+  }
+
+  if (responseCode !== '00') {
+    const note = buildVnpayQueryNeedsReviewNote({
+      responseCode,
+      transactionStatus,
+    });
+
+    await upsertVnpayPayment({
+      orderId: order.orderId,
+      payments: order.payments,
+      amount: gatewayAmount || expectedAmount,
+      status: 'PENDING',
+      transactionCode,
+      note,
+    });
+
+    logger.warn('VNPay query fallback needs review due to response code', {
+      orderId: order.orderId,
+      responseCode,
+      transactionStatus,
+    });
+
+    return {
+      status: 200,
+      body: {
+        message: 'Needs review',
+        code: responseCode || '99',
+        orderId: order.orderId,
+        paymentStatus: 'NEEDS_REVIEW',
+        queryStatus: transactionStatus || undefined,
+      },
+    };
+  }
+
+  if (transactionStatus === '00') {
+    if (Math.round(gatewayAmount) !== Math.round(expectedAmount)) {
+      const note = buildVnpayQueryNeedsReviewNote({
+        responseCode,
+        transactionStatus,
+        reason: `VNPay query amount mismatch. Expected ${expectedAmount}, received ${gatewayAmount}`,
+      });
+
+      await upsertVnpayPayment({
+        orderId: order.orderId,
+        payments: order.payments,
+        amount: gatewayAmount || expectedAmount,
+        status: 'PENDING',
+        transactionCode,
+        note,
+      });
+
+      logger.warn('VNPay query fallback amount mismatch', {
+        orderId: order.orderId,
+        expectedAmount,
+        gatewayAmount,
+      });
+
+      return {
+        status: 200,
+        body: {
+          message: 'Needs review',
+          code: '04',
+          orderId: order.orderId,
+          paymentStatus: 'NEEDS_REVIEW',
+          queryStatus: transactionStatus,
+        },
+      };
+    }
+
+    await upsertVnpayPayment({
+      orderId: order.orderId,
+      payments: order.payments,
+      amount: gatewayAmount,
+      status: 'COMPLETED',
+      transactionCode,
+      note: 'Confirmed from VNPay query fallback',
+    });
+
+    logger.info('VNPay payment completed from query fallback', {
+      orderId: order.orderId,
+      transactionCode,
+    });
+
+    return {
+      status: 200,
+      body: {
+        message: 'Success',
+        code: '00',
+        orderId: order.orderId,
+        paymentStatus: 'PAID',
+        queryStatus: transactionStatus,
+      },
+    };
+  }
+
+  if (FAILED_VNPAY_QUERY_STATUSES.has(transactionStatus)) {
+    await upsertVnpayPayment({
+      orderId: order.orderId,
+      payments: order.payments,
+      amount: gatewayAmount || expectedAmount,
+      status: 'FAILED',
+      transactionCode,
+      note: `VNPay query fallback reported terminal status ${transactionStatus}.`,
+    });
+
+    logger.warn('VNPay query fallback reported cancelled payment', {
+      orderId: order.orderId,
+      transactionStatus,
+    });
+
+    return {
+      status: 200,
+      body: {
+        message: 'Cancelled',
+        code: '00',
+        orderId: order.orderId,
+        paymentStatus: 'CANCELLED',
+        queryStatus: transactionStatus,
+      },
+    };
+  }
+
+  const note = buildVnpayQueryNeedsReviewNote({
+    responseCode,
+    transactionStatus,
+  });
+
+  await upsertVnpayPayment({
+    orderId: order.orderId,
+    payments: order.payments,
+    amount: gatewayAmount || expectedAmount,
+    status: 'PENDING',
+    transactionCode,
+    note,
+  });
+
+  logger.warn('VNPay query fallback returned unknown transaction status', {
+    orderId: order.orderId,
+    transactionStatus,
+  });
+
+  return {
+    status: 200,
+    body: {
+      message: 'Needs review',
+      code: '00',
+      orderId: order.orderId,
+      paymentStatus: 'NEEDS_REVIEW',
+      queryStatus: transactionStatus || undefined,
+    },
+  };
 };
