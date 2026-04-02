@@ -20,31 +20,107 @@
       "women": "Nữ"
     },
     "hero": {
-      "titleLine1": "Định nghĩa lại",
-      "titleLine2": "Phong cách hiện đại",
-      "subtitle": "Nơi tư duy kiến trúc gặp gỡ ngôn ngữ thiết kế mềm mại.",
-      "cta": "Khám phá bộ sưu tập"
+      "eyebrow": "Mùa mới",
+      "titleLine1": "Định hình",
+      "titleLine2": "phong cách",
+      "titleLine3": "hiện đại",
+      "subtitle": "Tư duy kiến trúc gặp chất cảm mềm của thời trang đương đại, để việc mặc đẹp mỗi ngày trở nên rõ ràng hơn.",
+      "ctaPrimary": "Khám phá bộ sưu tập",
+      "ctaSecondary": "Nhận tư vấn phong cách",
+      "editorialCard": {
+        "label": "Bản phối đầu mùa",
+        "title": "Sắc sảo từng đường nét, tinh gọn mọi góc nhìn.",
+        "copy": "Nhịp landing gọn hơn để bộ\nsưu tập, danh mục và tư vấn\nxuất hiện đúng lúc."
+      }
+    },
+    "support": {
+      "items": {
+        "curated": {
+          "title": "Chọn lọc theo mùa",
+          "description": "Những item dễ mặc, dễ quay lại mỗi ngày."
+        },
+        "silhouettes": {
+          "title": "Silhouette gọn",
+          "description": "Phom hiện đại, giữ được độ sắc và sự nhẹ mắt."
+        },
+        "styling": {
+          "title": "Có hỗ trợ tư vấn",
+          "description": "Nhận gợi ý nhanh khi bạn cần phối đồ rõ ràng hơn."
+        }
+      }
     },
     "trending": {
       "label": "Xu hướng {{month}}",
-      "men": "Gợi ý cho nam",
-      "women": "Gợi ý cho nữ",
-      "unisex": "Gợi ý unisex",
-      "viewAll": "Xem tất cả"
+      "heading": "Chọn lọc cho tháng này",
+      "description": "Những thiết kế được chọn theo mùa, độ linh hoạt khi phối và nhịp dùng hằng ngày.",
+      "viewAll": "Xem tất cả",
+      "empty": "Chưa có sản phẩm phù hợp để hiển thị trong mục này."
     },
-    "sections": {
-      "men": {
-        "collection": "Bộ sưu tập 01",
-        "title": "Nam"
+    "brandStrip": {
+      "items": {
+        "materials": {
+          "title": "Chất liệu được chọn kỹ",
+          "description": "Giữ bề mặt gọn và phom đẹp khi mặc thường xuyên."
+        },
+        "fits": {
+          "title": "Phom hiện đại dễ mặc",
+          "description": "Đủ sắc nét cho công việc mà vẫn thoải mái cả ngày."
+        },
+        "support": {
+          "title": "Có hỗ trợ tư vấn cá nhân",
+          "description": "Gợi ý bám sát nhu cầu thật để bạn chọn đồ nhanh hơn."
+        }
+      }
+    },
+    "category": {
+      "label": "Mua theo phong cách",
+      "title": "Chọn hướng đi phù hợp với bản sắc của bạn",
+      "description": "Hai điểm vào rõ ràng hơn cho hành trình mua sắm, thay cho những banner lặp lại.",
+      "cta": "Xem danh mục",
+      "cards": {
+        "men": {
+          "label": "Danh mục nam",
+          "title": "Nam",
+          "description": "Tailoring gọn gàng và essential sắc nét cho nhịp mặc hằng ngày.",
+          "links": {
+            "tailoring": "Áo khoác",
+            "shirts": "Sơ mi",
+            "essentials": "Essentials"
+          }
+        },
+        "women": {
+          "label": "Danh mục nữ",
+          "title": "Nữ",
+          "description": "Độ mềm hiện đại đi cùng tinh thần tối giản và tự tin.",
+          "links": {
+            "outerwear": "Outerwear",
+            "knitwear": "Knitwear",
+            "essentials": "Essentials"
+          }
+        }
+      }
+    },
+    "styling": {
+      "label": "Tư vấn cá nhân",
+      "titleLine1": "Gợi ý phong cách,",
+      "titleLine2": "được cá nhân hóa",
+      "titleLine3": "cho nhịp sống thật",
+      "copy": "Không chắc đâu là outfit hợp vóc dáng, thời tiết hay buổi gặp? AISTHEA giúp bạn chọn nhanh hơn mà vẫn giữ bản sắc riêng.",
+      "benefits": {
+        "occasion": "Gợi ý theo hoàn cảnh thật: đi làm, gặp gỡ, cuối tuần.",
+        "preference": "Ưu tiên món hợp gu mặc và độ tối giản bạn thích.",
+        "mixMatch": "Đưa ra cách phối nhanh, dễ áp dụng ngay."
       },
-      "women": {
-        "collection": "Bộ sưu tập 02",
-        "title": "Nữ"
+      "cta": "Bắt đầu tư vấn",
+      "preview": {
+        "eyebrow": "Mô phỏng hội thoại",
+        "title": "AISTHEA Styling Assistant",
+        "copy": "Ví dụ câu hỏi thật để bạn hình dung cách trợ lý đồng hành."
       },
-      "stylist": {
-        "label": "Gợi ý cá nhân",
-        "title": "Tư vấn phong cách",
-        "cta": "Xem gợi ý phối đồ"
+      "prompts": {
+        "office": "Tôi nên mặc gì cho một ngày công sở smart casual?",
+        "rain": "Gợi ý một outfit tối giản cho ngày mưa.",
+        "weekend": "Giúp tôi phối một set trung tính cho buổi cafe cuối tuần."
       }
     }
   },

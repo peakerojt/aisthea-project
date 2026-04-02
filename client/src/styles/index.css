@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Cormorant+Garamond:wght@500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -89,4 +91,20 @@ body {
     100% {
         background-position: 200% 0;
     }
+}
+
+@keyframes brandMarqueeLoop {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+
+    to {
+        transform: translate3d(calc(-50% - 0.625rem), 0, 0);
+    }
+}
+
+.brand-marquee-track {
+    width: max-content;
+    animation: brandMarqueeLoop 18s linear infinite;
+    will-change: transform;
 }

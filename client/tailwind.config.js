@@ -14,7 +14,8 @@ export default {
                 'border-dark': '#262626',
             },
             fontFamily: {
-                sans: ['Epilogue', 'sans-serif'],
+                sans: ['"Be Vietnam Pro"', 'sans-serif'],
+                serif: ['"Cormorant Garamond"', 'serif'],
             },
             animation: {
                 'fade-in-up': 'fadeInUp 0.8s ease-out forwards',

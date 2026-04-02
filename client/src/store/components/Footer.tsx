@@ -142,6 +142,10 @@ export const Footer: React.FC = () => {
               </li>
             </ul>
 
+            <p className="text-sm leading-relaxed text-gray-400">
+              {t('footer.newsletter.copy')}
+            </p>
+
             {submitted ? (
               <div className="flex items-center gap-2 text-emerald-400 text-sm py-2">
                 <CheckCircle size={16} />

@@ -59,7 +59,7 @@
     "support": "Hỗ trợ",
     "quick_links": "Liên kết nhanh",
     "about_desc": "AISTHEA - thương hiệu thời trang tối giản, hiện đại.",
-    "contact_newsletter": "Đăng ký nhận tin khuyến mãi mới nhất.",
+    "contact_newsletter": "Liên hệ & bản tin",
     "email_placeholder": "Nhập email của bạn",
     "secure_payment": "Thanh toán bảo mật",
     "copyright": "Bản quyền thuộc AISTHEA",
@@ -84,7 +84,8 @@
     },
     "newsletter": {
       "success": "Đăng ký thành công!",
-      "subscribeAria": "Đăng ký nhận tin"
+      "subscribeAria": "Đăng ký nhận tin",
+      "copy": "Nhận seasonal drops, curated edits và cập nhật styling mới nhất từ AISTHEA."
     }
   }
 }

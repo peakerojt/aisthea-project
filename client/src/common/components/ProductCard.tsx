@@ -18,6 +18,7 @@ interface ProductCardProps {
     onClick?: () => void;
     className?: string;
     showHoverGallery?: boolean;
+    variant?: 'default' | 'editorial';
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -30,7 +31,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     status,
     onClick,
     className = '',
-    showHoverGallery = true
+    showHoverGallery = true,
+    variant = 'default',
 }) => {
     const { t } = useTranslation(['pages', 'products']);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -51,6 +53,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
     const currentImage = imageList[currentImageIndex];
     const hasMultipleImages = imageList.length > 1;
+    const isEditorial = variant === 'editorial';
 
     // Optimize image URL for Retina displays (600x800 for 300x400 CSS)
     const optimizedImageUrl = getCloudinaryProductCard(
@@ -87,7 +90,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
     return (
         <div
-            className={`group cursor-pointer flex flex-col gap-4 ${className}`}
+            className={`group flex flex-col gap-4 cursor-pointer ${isEditorial ? 'rounded-[24px]' : ''} ${className}`}
             onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -97,7 +100,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             onMouseLeave={handleMouseLeave}
         >
             {/* Image Container */}
-            <div className="relative aspect-square overflow-hidden bg-[#f0f0ee] rounded-sm">
+            <div className={`relative aspect-square overflow-hidden bg-[#f0f0ee] ${isEditorial ? 'rounded-[24px]' : 'rounded-sm'}`}>
                 {/* Skeleton shimmer while loading */}
                 {!imgLoaded && (
                     <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-white/10 to-white/5 animate-pulse" />
@@ -112,11 +115,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                         e.currentTarget.src = 'https://via.placeholder.com/400x600?text=Khong+co+anh';
                         setImgLoaded(true);
                     }}
-                    className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+                    className={`w-full h-full object-cover transition-all duration-700 ${isEditorial ? 'group-hover:scale-[1.02]' : 'group-hover:scale-105'} ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
                 />
 
                 {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className={`absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${isEditorial ? 'bg-black/10' : 'bg-black/20'}`} />
 
                 {/* Quick View Button */}
                 <div className="absolute bottom-4 left-4 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
@@ -190,16 +193,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </div>
 
             {/* Product Info */}
-            <div className="py-4">
-                <h3 className="text-lg font-bold uppercase tracking-wide text-white group-hover:text-primary transition-colors line-clamp-2">
+            <div className={`${isEditorial ? 'py-3' : 'py-4'}`}>
+                <h3 className={`line-clamp-2 text-white transition-all duration-300 ${isEditorial
+                    ? 'text-lg font-semibold tracking-[0.01em] group-hover:text-white'
+                    : 'text-lg font-bold uppercase tracking-wide group-hover:text-primary'
+                    }`}>
                     {name}
                 </h3>
-                <div className="flex items-baseline gap-2 mt-2">
-                    <p className="text-base font-bold text-white">{new Intl.NumberFormat('vi-VN').format(price)}đ</p>
+                <div className={`mt-2 flex items-baseline gap-2 ${isEditorial ? 'text-sm' : ''}`}>
+                    <p className={`${isEditorial ? 'text-[15px] font-semibold text-white' : 'text-base font-bold text-white'}`}>{new Intl.NumberFormat('vi-VN').format(price)}đ</p>
                     {category && (
                         <>
-                            <span className="text-gray-500">•</span>
-                            <p className="text-xs text-gray-300 uppercase">{category}</p>
+                            <span className={`${isEditorial ? 'text-white/40' : 'text-gray-500'}`}>•</span>
+                            <p className={`${isEditorial ? 'text-[11px] text-white/55' : 'text-xs text-gray-300 uppercase'}`}>{category}</p>
                         </>
                     )}
                 </div>
