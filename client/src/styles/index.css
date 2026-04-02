@@ -106,5 +106,16 @@ body {
 .brand-marquee-track {
     width: max-content;
     animation: brandMarqueeLoop 18s linear infinite;
-    will-change: transform;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .brand-marquee-track {
+        will-change: transform;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .brand-marquee-track {
+        animation-duration: 36s;
+    }
 }

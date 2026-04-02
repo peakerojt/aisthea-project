@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
 import { useTranslation } from 'react-i18next';
 
@@ -38,29 +38,81 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isHovering, setIsHovering] = useState(false);
     const [imgLoaded, setImgLoaded] = useState(false);
+    const [canUseHoverGallery, setCanUseHoverGallery] = useState(false);
+    const hoverFrameRef = useRef<number | null>(null);
+    const pendingImageIndexRef = useRef<number | null>(null);
+    const currentImageIndexRef = useRef(0);
 
-    const displayStatus = (() => {
+    const displayStatus = useMemo(() => {
         if (status === 'In Stock') return t('products:status.inStock');
         if (status === 'Low Stock') return t('products:status.lowStock');
         if (status === 'Out of Stock') return t('products:status.outOfStock');
         return status;
-    })();
+    }, [status, t]);
 
-    // Use images array if available, otherwise fall back to single image
-    const imageList = images.length > 0
-        ? images
-        : [{ imageUrl: image, thumbnailUrl: image }];
-
-    const currentImage = imageList[currentImageIndex];
-    const hasMultipleImages = imageList.length > 1;
-    const isEditorial = variant === 'editorial';
-
-    // Optimize image URL for Retina displays (600x800 for 300x400 CSS)
-    const optimizedImageUrl = getCloudinaryProductCard(
-        currentImage.thumbnailUrl || currentImage.imageUrl
+    const imageList = useMemo(
+        () => (images.length > 0 ? images : [{ imageUrl: image, thumbnailUrl: image }]),
+        [image, images]
     );
 
-    // Preload next image on hover
+    const currentImage = imageList[currentImageIndex] ?? imageList[0];
+    const hasMultipleImages = imageList.length > 1;
+    const isEditorial = variant === 'editorial';
+    const canRenderHoverGallery = showHoverGallery && hasMultipleImages && canUseHoverGallery;
+
+    const optimizedImageUrl = useMemo(
+        () => getCloudinaryProductCard(currentImage.thumbnailUrl || currentImage.imageUrl),
+        [currentImage]
+    );
+
+    useEffect(() => {
+        currentImageIndexRef.current = currentImageIndex;
+    }, [currentImageIndex]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return undefined;
+        }
+
+        const mediaQuery = window.matchMedia('(min-width: 1024px) and (hover: hover) and (pointer: fine)');
+        const updateHoverCapability = () => {
+            setCanUseHoverGallery(mediaQuery.matches);
+        };
+
+        updateHoverCapability();
+        mediaQuery.addEventListener('change', updateHoverCapability);
+
+        return () => {
+            mediaQuery.removeEventListener('change', updateHoverCapability);
+        };
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (hoverFrameRef.current !== null) {
+                window.cancelAnimationFrame(hoverFrameRef.current);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!canRenderHoverGallery) {
+            if (hoverFrameRef.current !== null) {
+                window.cancelAnimationFrame(hoverFrameRef.current);
+                hoverFrameRef.current = null;
+            }
+            pendingImageIndexRef.current = null;
+            setIsHovering(false);
+            setCurrentImageIndex(0);
+        }
+    }, [canRenderHoverGallery]);
+
+    useEffect(() => {
+        if (currentImageIndex > imageList.length - 1) {
+            setCurrentImageIndex(0);
+        }
+    }, [currentImageIndex, imageList.length]);
+
     const preloadNextImage = () => {
         if (hasMultipleImages && currentImageIndex < imageList.length - 1) {
             const nextImage = imageList[currentImageIndex + 1];
@@ -70,22 +122,68 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     };
 
     const handleMouseEnter = () => {
-        setIsHovering(true);
-        if (showHoverGallery && hasMultipleImages) {
-            preloadNextImage();
+        if (!canRenderHoverGallery) {
+            return;
         }
+
+        setIsHovering(true);
+        preloadNextImage();
     };
 
     const handleMouseLeave = () => {
+        if (hoverFrameRef.current !== null) {
+            window.cancelAnimationFrame(hoverFrameRef.current);
+            hoverFrameRef.current = null;
+        }
+
+        pendingImageIndexRef.current = null;
         setIsHovering(false);
         setCurrentImageIndex(0); // Reset to first image
     };
 
-    const handleImageCycle = () => {
-        if (hasMultipleImages && showHoverGallery) {
-            setCurrentImageIndex((prev) => (prev + 1) % imageList.length);
-            preloadNextImage();
+    const handleHoverImageMove = (event: React.MouseEvent<HTMLDivElement>) => {
+        if (!canRenderHoverGallery) {
+            return;
         }
+
+        const rect = event.currentTarget.getBoundingClientRect();
+        const sectionWidth = rect.width / imageList.length;
+        if (sectionWidth <= 0) {
+            return;
+        }
+
+        const x = event.clientX - rect.left;
+        const nextIndex = Math.min(
+            Math.max(Math.floor(x / sectionWidth), 0),
+            imageList.length - 1
+        );
+
+        if (
+            nextIndex === currentImageIndexRef.current ||
+            nextIndex === pendingImageIndexRef.current
+        ) {
+            return;
+        }
+
+        pendingImageIndexRef.current = nextIndex;
+
+        if (hoverFrameRef.current !== null) {
+            window.cancelAnimationFrame(hoverFrameRef.current);
+        }
+
+        hoverFrameRef.current = window.requestAnimationFrame(() => {
+            hoverFrameRef.current = null;
+
+            const scheduledIndex = pendingImageIndexRef.current;
+            pendingImageIndexRef.current = null;
+
+            if (
+                typeof scheduledIndex === 'number' &&
+                scheduledIndex !== currentImageIndexRef.current
+            ) {
+                setCurrentImageIndex(scheduledIndex);
+            }
+        });
     };
 
     return (
@@ -129,7 +227,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 </div>
 
                 {/* Image Counter (top-right) */}
-                {hasMultipleImages && showHoverGallery && (
+                {canRenderHoverGallery && (
                     <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <div className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-full">
                             {currentImageIndex + 1}/{imageList.length}
@@ -138,7 +236,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 )}
 
                 {/* Image Cycling on Hover (Bottom Indicators) */}
-                {hasMultipleImages && showHoverGallery && isHovering && (
+                {canRenderHoverGallery && isHovering && (
                     <div className="absolute bottom-4 right-4 flex gap-1.5">
                         {imageList.map((_, index) => (
                             <button
@@ -172,22 +270,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 )}
 
                 {/* Hover Image Cycle Trigger */}
-                {hasMultipleImages && showHoverGallery && isHovering && (
+                {canRenderHoverGallery && isHovering && (
                     <div
                         className="absolute inset-0 cursor-pointer"
-                        onMouseMove={(e) => {
-                            // Cycle image on mouse move (simple auto-advance on hover)
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const x = e.clientX - rect.left;
-                            const sectionWidth = rect.width / imageList.length;
-                            const newIndex = Math.min(
-                                Math.floor(x / sectionWidth),
-                                imageList.length - 1
-                            );
-                            if (newIndex !== currentImageIndex) {
-                                setCurrentImageIndex(newIndex);
-                            }
-                        }}
+                        onMouseMove={handleHoverImageMove}
                     />
                 )}
             </div>

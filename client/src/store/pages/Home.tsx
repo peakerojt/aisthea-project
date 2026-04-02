@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ArrowRight, ChevronRight, Layers3, MessageCircleMore, ShieldCheck, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
@@ -21,6 +21,37 @@ interface HomeCardProduct {
   status: string;
 }
 
+const MEN_KEYWORDS = ['nam', 'men', 'man', 'male'];
+const WOMEN_KEYWORDS = ['nu', 'women', 'woman', 'female'];
+const SEASONAL_KEYWORDS: Record<number, string[]> = {
+  0: ['jacket', 'sweater', 'hoodie', 'coat'],
+  1: ['jacket', 'sweater', 'hoodie', 'coat'],
+  2: ['shirt', 'dress', 'blazer', 'polo'],
+  3: ['shirt', 'dress', 'blazer', 'polo'],
+  4: ['tee', 'dress', 'shorts', 'polo'],
+  5: ['tee', 'shorts', 'dress', 'accessory'],
+  6: ['tee', 'shorts', 'dress', 'accessory'],
+  7: ['tee', 'shorts', 'dress', 'accessory'],
+  8: ['jacket', 'blazer', 'layer', 'shirt'],
+  9: ['jacket', 'blazer', 'layer', 'pants'],
+  10: ['jacket', 'hoodie', 'coat', 'pants'],
+  11: ['jacket', 'sweater', 'hoodie', 'coat'],
+};
+
+const toHomeCardProducts = (pool: Product[]): HomeCardProduct[] =>
+  pool.map((product) => ({
+    id: product.productId.toString(),
+    name: product.name,
+    price: Number(product.variants?.[0]?.price ?? product.basePrice),
+    image: product.images?.[0]?.thumbnailUrl || product.images?.[0]?.imageUrl || '',
+    images: product.images?.map((image) => ({
+      imageUrl: image.imageUrl,
+      thumbnailUrl: image.thumbnailUrl || image.imageUrl,
+    })),
+    category: product.category?.name || '',
+    status: (product.variants?.[0]?.stockQuantity ?? 0) === 0 ? 'Out of Stock' : 'In Stock',
+  }));
+
 export const Home: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'home' });
   const navigate = useNavigate();
@@ -40,172 +71,173 @@ export const Home: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const monthNames = [
-    t('months.january'),
-    t('months.february'),
-    t('months.march'),
-    t('months.april'),
-    t('months.may'),
-    t('months.june'),
-    t('months.july'),
-    t('months.august'),
-    t('months.september'),
-    t('months.october'),
-    t('months.november'),
-    t('months.december'),
-  ];
+  const monthNames = useMemo(
+    () => [
+      t('months.january'),
+      t('months.february'),
+      t('months.march'),
+      t('months.april'),
+      t('months.may'),
+      t('months.june'),
+      t('months.july'),
+      t('months.august'),
+      t('months.september'),
+      t('months.october'),
+      t('months.november'),
+      t('months.december'),
+    ],
+    [t]
+  );
   const currentMonth = monthNames[new Date().getMonth()];
+  const keywords = useMemo(() => SEASONAL_KEYWORDS[new Date().getMonth()] ?? [], []);
 
-  const seasonalKeywords: Record<number, string[]> = {
-    0: ['jacket', 'sweater', 'hoodie', 'coat'],
-    1: ['jacket', 'sweater', 'hoodie', 'coat'],
-    2: ['shirt', 'dress', 'blazer', 'polo'],
-    3: ['shirt', 'dress', 'blazer', 'polo'],
-    4: ['tee', 'dress', 'shorts', 'polo'],
-    5: ['tee', 'shorts', 'dress', 'accessory'],
-    6: ['tee', 'shorts', 'dress', 'accessory'],
-    7: ['tee', 'shorts', 'dress', 'accessory'],
-    8: ['jacket', 'blazer', 'layer', 'shirt'],
-    9: ['jacket', 'blazer', 'layer', 'pants'],
-    10: ['jacket', 'hoodie', 'coat', 'pants'],
-    11: ['jacket', 'sweater', 'hoodie', 'coat'],
-  };
-  const keywords = seasonalKeywords[new Date().getMonth()] ?? [];
+  const { menFinal, womenFinal, unisexFinal } = useMemo(() => {
+    const scoreProduct = (product: Product) => {
+      const categoryName = (product.category?.name || '').toLowerCase();
+      const productName = (product.name || '').toLowerCase();
 
-  const scoreProduct = (product: typeof rawProducts[number]) => {
-    const categoryName = (product.category?.name || '').toLowerCase();
-    const productName = (product.name || '').toLowerCase();
+      return keywords.reduce(
+        (score, keyword) => score + (categoryName.includes(keyword) || productName.includes(keyword) ? 1 : 0),
+        0,
+      );
+    };
 
-    return keywords.reduce(
-      (score, keyword) => score + (categoryName.includes(keyword) || productName.includes(keyword) ? 1 : 0),
-      0,
+    const sort4 = (pool: Product[]) =>
+      pool
+        .map((product) => ({ product, score: scoreProduct(product) }))
+        .sort((left, right) => right.score - left.score)
+        .slice(0, 4)
+        .map((item) => item.product);
+
+    const menRaw = sort4(
+      rawProducts.filter((product) =>
+        MEN_KEYWORDS.some((keyword) => (product.category?.name || '').toLowerCase().includes(keyword))
+      )
     );
-  };
+    const womenRaw = sort4(
+      rawProducts.filter((product) =>
+        WOMEN_KEYWORDS.some((keyword) => (product.category?.name || '').toLowerCase().includes(keyword))
+      )
+    );
+    const fallback = sort4(rawProducts);
 
-  const menKeywords = ['nam', 'men', 'man', 'male'];
-  const womenKeywords = ['nu', 'women', 'woman', 'female'];
+    return {
+      menFinal: menRaw.length >= 2 ? menRaw : fallback,
+      womenFinal: womenRaw.length >= 2 ? womenRaw : fallback,
+      unisexFinal: [...rawProducts]
+        .map((product) => ({ product, score: scoreProduct(product) }))
+        .sort((left, right) => right.score - left.score)
+        .slice(0, 4)
+        .map((item) => item.product),
+    };
+  }, [keywords, rawProducts]);
 
-  const sort4 = (pool: typeof rawProducts) =>
-    pool
-      .map((product) => ({ product, score: scoreProduct(product) }))
-      .sort((left, right) => right.score - left.score)
-      .slice(0, 4)
-      .map((item) => item.product);
-
-  const menRaw = sort4(rawProducts.filter((product) => menKeywords.some((keyword) => (product.category?.name || '').toLowerCase().includes(keyword))));
-  const womenRaw = sort4(rawProducts.filter((product) => womenKeywords.some((keyword) => (product.category?.name || '').toLowerCase().includes(keyword))));
-  const fallback = sort4(rawProducts);
-
-  const menFinal = menRaw.length >= 2 ? menRaw : fallback;
-  const womenFinal = womenRaw.length >= 2 ? womenRaw : fallback;
-  const unisexFinal = [...rawProducts]
-    .map((product) => ({ product, score: scoreProduct(product) }))
-    .sort((left, right) => right.score - left.score)
-    .slice(0, 4)
-    .map((item) => item.product);
-
-  const toCards = (pool: typeof rawProducts): HomeCardProduct[] =>
-    pool.map((product) => ({
-      id: product.productId.toString(),
-      name: product.name,
-      price: Number(product.variants?.[0]?.price ?? product.basePrice),
-      image: product.images?.[0]?.thumbnailUrl || product.images?.[0]?.imageUrl || '',
-      images: product.images?.map((image) => ({
-        imageUrl: image.imageUrl,
-        thumbnailUrl: image.thumbnailUrl || image.imageUrl,
-      })),
-      category: product.category?.name || '',
-      status: (product.variants?.[0]?.stockQuantity ?? 0) === 0 ? 'Out of Stock' : 'In Stock',
-    }));
-
-  const menProducts = toCards(menFinal);
-  const womenProducts = toCards(womenFinal);
-  const unisexProducts = toCards(unisexFinal);
+  const menProducts = useMemo(() => toHomeCardProducts(menFinal), [menFinal]);
+  const womenProducts = useMemo(() => toHomeCardProducts(womenFinal), [womenFinal]);
+  const unisexProducts = useMemo(() => toHomeCardProducts(unisexFinal), [unisexFinal]);
 
   const handleProductClick = (product: ProductItem | Product) => {
     const id = (product as ProductItem).id ?? (product as Product).productId;
     navigate(`/product/${id}`);
   };
 
-  const tabs = [
-    { key: 'Unisex' as const, label: t('tabs.unisex'), raw: unisexFinal, products: unisexProducts },
-    { key: 'Men' as const, label: t('tabs.men'), raw: menFinal, products: menProducts },
-    { key: 'Women' as const, label: t('tabs.women'), raw: womenFinal, products: womenProducts },
-  ];
-  const activeTab = tabs.find((tab) => tab.key === selectedGender) ?? tabs[0];
+  const tabs = useMemo(
+    () => [
+      { key: 'Unisex' as const, label: t('tabs.unisex'), raw: unisexFinal, products: unisexProducts },
+      { key: 'Men' as const, label: t('tabs.men'), raw: menFinal, products: menProducts },
+      { key: 'Women' as const, label: t('tabs.women'), raw: womenFinal, products: womenProducts },
+    ],
+    [menFinal, menProducts, t, unisexFinal, unisexProducts, womenFinal, womenProducts]
+  );
+  const activeTab = useMemo(
+    () => tabs.find((tab) => tab.key === selectedGender) ?? tabs[0],
+    [selectedGender, tabs]
+  );
 
-  const brandValues = [
-    {
-      icon: Sparkles,
-      title: t('brandStrip.items.materials.title'),
-      description: t('brandStrip.items.materials.description'),
-    },
-    {
-      icon: Layers3,
-      title: t('brandStrip.items.fits.title'),
-      description: t('brandStrip.items.fits.description'),
-    },
-    {
-      icon: ShieldCheck,
-      title: t('brandStrip.items.support.title'),
-      description: t('brandStrip.items.support.description'),
-    },
-    {
-      icon: Sparkles,
-      title: t('support.items.curated.title'),
-      description: t('support.items.curated.description'),
-    },
-    {
-      icon: Layers3,
-      title: t('support.items.silhouettes.title'),
-      description: t('support.items.silhouettes.description'),
-    },
-    {
-      icon: ShieldCheck,
-      title: t('support.items.styling.title'),
-      description: t('support.items.styling.description'),
-    },
-  ];
-  const brandMarqueeValues = [...brandValues, ...brandValues];
+  const brandValues = useMemo(
+    () => [
+      {
+        icon: Sparkles,
+        title: t('brandStrip.items.materials.title'),
+        description: t('brandStrip.items.materials.description'),
+      },
+      {
+        icon: Layers3,
+        title: t('brandStrip.items.fits.title'),
+        description: t('brandStrip.items.fits.description'),
+      },
+      {
+        icon: ShieldCheck,
+        title: t('brandStrip.items.support.title'),
+        description: t('brandStrip.items.support.description'),
+      },
+      {
+        icon: Sparkles,
+        title: t('support.items.curated.title'),
+        description: t('support.items.curated.description'),
+      },
+      {
+        icon: Layers3,
+        title: t('support.items.silhouettes.title'),
+        description: t('support.items.silhouettes.description'),
+      },
+      {
+        icon: ShieldCheck,
+        title: t('support.items.styling.title'),
+        description: t('support.items.styling.description'),
+      },
+    ],
+    [t]
+  );
+  const brandMarqueeValues = useMemo(() => [...brandValues, ...brandValues], [brandValues]);
 
-  const categoryCards = [
-    {
-      key: 'Men' as const,
-      label: t('category.cards.men.label'),
-      title: t('category.cards.men.title'),
-      description: t('category.cards.men.description'),
-      image: 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?q=80&w=1600&auto=format&fit=crop',
-      links: [
-        { label: t('category.cards.men.links.tailoring'), collection: 'Outerwear' as const },
-        { label: t('category.cards.men.links.shirts'), collection: 'Tops' as const },
-        { label: t('category.cards.men.links.essentials'), collection: 'Accessories' as const },
-      ],
-    },
-    {
-      key: 'Women' as const,
-      label: t('category.cards.women.label'),
-      title: t('category.cards.women.title'),
-      description: t('category.cards.women.description'),
-      image: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=1600&auto=format&fit=crop',
-      links: [
-        { label: t('category.cards.women.links.outerwear'), collection: 'Outerwear' as const },
-        { label: t('category.cards.women.links.knitwear'), collection: 'Tops' as const },
-        { label: t('category.cards.women.links.essentials'), collection: 'Accessories' as const },
-      ],
-    },
-  ];
+  const categoryCards = useMemo(
+    () => [
+      {
+        key: 'Men' as const,
+        label: t('category.cards.men.label'),
+        title: t('category.cards.men.title'),
+        description: t('category.cards.men.description'),
+        image: 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?q=80&w=1600&auto=format&fit=crop',
+        links: [
+          { label: t('category.cards.men.links.tailoring'), collection: 'Outerwear' as const },
+          { label: t('category.cards.men.links.shirts'), collection: 'Tops' as const },
+          { label: t('category.cards.men.links.essentials'), collection: 'Accessories' as const },
+        ],
+      },
+      {
+        key: 'Women' as const,
+        label: t('category.cards.women.label'),
+        title: t('category.cards.women.title'),
+        description: t('category.cards.women.description'),
+        image: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=1600&auto=format&fit=crop',
+        links: [
+          { label: t('category.cards.women.links.outerwear'), collection: 'Outerwear' as const },
+          { label: t('category.cards.women.links.knitwear'), collection: 'Tops' as const },
+          { label: t('category.cards.women.links.essentials'), collection: 'Accessories' as const },
+        ],
+      },
+    ],
+    [t]
+  );
 
-  const stylingBenefits = [
-    t('styling.benefits.occasion'),
-    t('styling.benefits.preference'),
-    t('styling.benefits.mixMatch'),
-  ];
+  const stylingBenefits = useMemo(
+    () => [
+      t('styling.benefits.occasion'),
+      t('styling.benefits.preference'),
+      t('styling.benefits.mixMatch'),
+    ],
+    [t]
+  );
 
-  const stylingPrompts = [
-    t('styling.prompts.office'),
-    t('styling.prompts.rain'),
-    t('styling.prompts.weekend'),
-  ];
+  const stylingPrompts = useMemo(
+    () => [
+      t('styling.prompts.office'),
+      t('styling.prompts.rain'),
+      t('styling.prompts.weekend'),
+    ],
+    [t]
+  );
 
   const skeletonGrid = (
     <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
