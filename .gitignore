@@ -25,6 +25,12 @@ logs
 *.log
 npm-debug.log*
 server/logs/
+concurrently
+nodemon
+vite
+client@*
+server@*
+aisthea-project@*
 
 # OS generated files
 .DS_Store
