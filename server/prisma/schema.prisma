@@ -34,6 +34,9 @@ model User {
   goodsReceipts  GoodsReceipt[]
   returnRequestStatusLogs ReturnRequestStatusLog[] @relation("ReturnRequestStatusChangedBy")
   processedRefundTransactions RefundTransaction[] @relation("RefundTransactionProcessedBy")
+  customerBankAccounts CustomerBankAccount[]
+  refundBenefits RefundBenefit[]
+  uploadedRefundPayoutProofs RefundPayoutProof[] @relation("RefundPayoutProofUploadedBy")
 
   @@index([email, status], map: "IX_Users_Email_Status")
   @@index([phone], map: "IX_Users_Phone")
@@ -318,6 +321,7 @@ model Order {
   orderReturn           OrderReturn?
   refunds               Refund[]
   returnRequests        ReturnRequest[]
+  refundBenefits        RefundBenefit[]
 
   @@index([createdAt], map: "IX_Orders_CreatedAt")
   @@index([status], map: "IX_Orders_Status")
@@ -475,6 +479,9 @@ model ReturnRequest {
   status            String                    @default("REQUESTED") @map("Status") @db.NVarChar(50)
   refundStatus      String                    @default("NOT_APPLICABLE") @map("RefundStatus") @db.NVarChar(50)
   financeNote       String?                   @map("FinanceNote") @db.NVarChar(1000)
+  bankInfoRequestedAt DateTime?              @map("BankInfoRequestedAt")
+  bankInfoSubmittedAt DateTime?              @map("BankInfoSubmittedAt")
+  refundCompletedAt  DateTime?                @map("RefundCompletedAt")
   createdAt         DateTime                  @default(now()) @map("CreatedAt")
   updatedAt         DateTime                  @default(now()) @updatedAt @map("UpdatedAt")
   order             Order                     @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReturnRequests_Orders")
@@ -483,6 +490,9 @@ model ReturnRequest {
   attachments       ReturnRequestAttachment[]
   statusLogs        ReturnRequestStatusLog[]
   refundTransactions RefundTransaction[]
+  refundBankSnapshots RefundBankSnapshot[]
+  refundPayoutProofs RefundPayoutProof[]
+  refundBenefits    RefundBenefit[]
 
   @@index([orderId], map: "IX_ReturnRequests_OrderId")
   @@index([status], map: "IX_ReturnRequests_Status")
@@ -553,6 +563,7 @@ model RefundTransaction {
   updatedAt           DateTime      @default(now()) @updatedAt @map("UpdatedAt")
   returnRequest       ReturnRequest @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RefundTransactions_ReturnRequests")
   processedByUser     User?         @relation("RefundTransactionProcessedBy", fields: [processedBy], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_RefundTransactions_Users")
+  payoutProofs        RefundPayoutProof[]
 
   @@index([returnRequestId], map: "IX_RefundTransactions_ReturnRequestId")
   @@index([status], map: "IX_RefundTransactions_Status")
@@ -576,12 +587,104 @@ model Coupon {
   usedCount         Int      @default(0) @map("UsedCount")
   usagePerUser      Int      @default(1) @map("UsagePerUser")
   isActive          Boolean  @default(true) @map("IsActive")
+  isHidden          Boolean  @default(false) @map("IsHidden")
+  source            String?  @map("Source") @db.NVarChar(30)
+  visibleInPublicList Boolean @default(true) @map("VisibleInPublicList")
   createdAt         DateTime @default(now()) @map("CreatedAt")
   updatedAt         DateTime @default(now()) @updatedAt @map("UpdatedAt")
   orders            Order[]
+  refundBenefits    RefundBenefit[]
 
   @@index([isActive], map: "IX_Coupons_IsActive")
+  @@index([source], map: "IX_Coupons_Source")
   @@map("Coupons")
+}
+
+model CustomerBankAccount {
+  bankAccountId   Int      @id @default(autoincrement()) @map("BankAccountId")
+  userId          Int      @map("UserId")
+  bankName        String   @map("BankName") @db.NVarChar(120)
+  bankCode        String?  @map("BankCode") @db.NVarChar(50)
+  accountNumber   String   @map("AccountNumber") @db.NVarChar(50)
+  accountHolder   String   @map("AccountHolder") @db.NVarChar(120)
+  qrImageUrl      String?  @map("QrImageUrl") @db.NVarChar(1000)
+  inputMethod     String   @map("InputMethod") @db.NVarChar(20)
+  isDefault       Boolean  @default(true) @map("IsDefault")
+  isActive        Boolean  @default(true) @map("IsActive")
+  createdAt       DateTime @default(now()) @map("CreatedAt")
+  updatedAt       DateTime @default(now()) @updatedAt @map("UpdatedAt")
+  user            User     @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_CustomerBankAccounts_Users")
+  refundSnapshots RefundBankSnapshot[]
+
+  @@index([userId], map: "IX_CustomerBankAccounts_UserId")
+  @@index([userId, isDefault], map: "IX_CustomerBankAccounts_UserId_IsDefault")
+  @@index([userId, isDefault, isActive], map: "IX_CustomerBankAccounts_UserId_IsDefault_IsActive")
+  @@map("CustomerBankAccounts")
+}
+
+model RefundBankSnapshot {
+  refundBankSnapshotId Int                  @id @default(autoincrement()) @map("RefundBankSnapshotId")
+  returnRequestId      Int                  @map("ReturnRequestId")
+  bankAccountId        Int?                 @map("BankAccountId")
+  bankName             String               @map("BankName") @db.NVarChar(120)
+  bankCode             String?              @map("BankCode") @db.NVarChar(50)
+  accountNumberMasked  String               @map("AccountNumberMasked") @db.NVarChar(50)
+  accountHolder        String               @map("AccountHolder") @db.NVarChar(120)
+  qrImageUrl           String?              @map("QrImageUrl") @db.NVarChar(1000)
+  inputMethod          String               @map("InputMethod") @db.NVarChar(20)
+  capturedAt           DateTime             @default(now()) @map("CapturedAt")
+  returnRequest        ReturnRequest        @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RefundBankSnapshots_ReturnRequests")
+  bankAccount          CustomerBankAccount? @relation(fields: [bankAccountId], references: [bankAccountId], onDelete: SetNull, onUpdate: NoAction, map: "FK_RefundBankSnapshots_CustomerBankAccounts")
+
+  @@index([returnRequestId], map: "IX_RefundBankSnapshots_ReturnRequestId")
+  @@index([returnRequestId, capturedAt], map: "IX_RefundBankSnapshots_ReturnRequestId_CapturedAt")
+  @@map("RefundBankSnapshots")
+}
+
+model RefundPayoutProof {
+  refundPayoutProofId Int                @id @default(autoincrement()) @map("RefundPayoutProofId")
+  returnRequestId     Int                @map("ReturnRequestId")
+  refundTransactionId Int?               @map("RefundTransactionId")
+  uploadedBy          Int                @map("UploadedBy")
+  fileUrl             String             @map("FileUrl") @db.NVarChar(1000)
+  fileName            String?            @map("FileName") @db.NVarChar(255)
+  mimeType            String?            @map("MimeType") @db.NVarChar(100)
+  note                String?            @map("Note") @db.NVarChar(1000)
+  createdAt           DateTime           @default(now()) @map("CreatedAt")
+  returnRequest       ReturnRequest      @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: NoAction, onUpdate: NoAction, map: "FK_RefundPayoutProofs_ReturnRequests")
+  refundTransaction   RefundTransaction? @relation(fields: [refundTransactionId], references: [refundTransactionId], onDelete: SetNull, onUpdate: NoAction, map: "FK_RefundPayoutProofs_RefundTransactions")
+  uploadedByUser      User               @relation("RefundPayoutProofUploadedBy", fields: [uploadedBy], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_RefundPayoutProofs_Users")
+
+  @@index([returnRequestId], map: "IX_RefundPayoutProofs_ReturnRequestId")
+  @@index([returnRequestId, createdAt], map: "IX_RefundPayoutProofs_ReturnRequestId_CreatedAt")
+  @@map("RefundPayoutProofs")
+}
+
+model RefundBenefit {
+  refundBenefitId    Int          @id @default(autoincrement()) @map("RefundBenefitId")
+  returnRequestId    Int          @unique(map: "UQ_RefundBenefits_ReturnRequestId") @map("ReturnRequestId")
+  orderId            Int          @map("OrderId")
+  userId             Int          @map("UserId")
+  benefitType        String       @map("BenefitType") @db.NVarChar(20)
+  percentValue       Decimal?     @map("PercentValue") @db.Decimal(5, 2)
+  maxDiscountAmount  Decimal?     @map("MaxDiscountAmount") @db.Decimal(18, 2)
+  minOrderValue      Decimal      @default(0) @map("MinOrderValue") @db.Decimal(18, 2)
+  couponId           Int?         @map("CouponId")
+  status             String       @map("Status") @db.NVarChar(20)
+  validFrom          DateTime     @map("ValidFrom")
+  validUntil         DateTime     @map("ValidUntil")
+  issuedAt           DateTime?    @map("IssuedAt")
+  usedAt             DateTime?    @map("UsedAt")
+  ruleVersion        String       @map("RuleVersion") @db.NVarChar(30)
+  source             String       @default("REFUND") @map("Source") @db.NVarChar(30)
+  metadataJson       String?      @map("MetadataJson") @db.NVarChar(Max)
+  returnRequest      ReturnRequest @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: NoAction, onUpdate: NoAction, map: "FK_RefundBenefits_ReturnRequests")
+  order              Order        @relation(fields: [orderId], references: [orderId], onDelete: NoAction, onUpdate: NoAction, map: "FK_RefundBenefits_Orders")
+  user               User         @relation(fields: [userId], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_RefundBenefits_Users")
+  coupon             Coupon?      @relation(fields: [couponId], references: [couponId], onDelete: SetNull, onUpdate: NoAction, map: "FK_RefundBenefits_Coupons")
+
+  @@index([userId, status, validUntil], map: "IX_RefundBenefits_UserId_Status_ValidUntil")
+  @@map("RefundBenefits")
 }
 
 // ─── Financial Refund Ledger ──────────────────────────────────────────────────

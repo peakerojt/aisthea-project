@@ -122,7 +122,7 @@ const INVENTORY_RESTORE_STATUSES_BY_SOURCE: Record<OrderTransitionSource, string
 
 const PRE_DELIVERY_CANCELLATION_REASON = 'PRE_DELIVERY_CANCELLATION' as const;
 const PRE_DELIVERY_CANCELLATION_NOTE =
-  'Customer cancelled a paid VNPAY order before fulfillment. Awaiting admin refund review.';
+  'Khách hàng đã hủy đơn VNPAY đã thanh toán trước khi xử lý đơn. Đang chờ quản trị viên xem xét hoàn tiền.';
 
 const resolveAllowedOrderTransitions = (
   currentStatus: string,
@@ -249,7 +249,7 @@ async function createPreDeliveryCancellationRefundRequest(
   const cancellationDetailNote =
     cancellationContext?.note?.trim() ||
     (cancellationContext?.reason?.trim()
-      ? `Customer selected cancellation reason: ${cancellationContext.reason.trim()}`
+      ? `Khách hàng chọn lý do hủy đơn: ${cancellationContext.reason.trim()}`
       : PRE_DELIVERY_CANCELLATION_NOTE);
   const requestNote = cancellationDetailNote;
 
@@ -265,7 +265,7 @@ async function createPreDeliveryCancellationRefundRequest(
         quantity: item.quantity,
         unitPrice: refundUnitPrice,
         reason: PRE_DELIVERY_CANCELLATION_REASON,
-        reasonText: 'Cancelled before fulfillment after successful VNPay payment',
+        reasonText: 'Đơn đã được hủy trước khi xử lý đơn sau khi thanh toán VNPay thành công.',
       };
     });
 
@@ -313,8 +313,8 @@ const buildCancellationStatusHistoryNote = (
   }
 
   return shouldCreateVnpayRefundReview
-    ? 'Order cancelled by customer; refund request submitted for admin review'
-    : 'Order cancelled by customer';
+    ? 'Khách hàng đã hủy đơn. Yêu cầu hoàn tiền đã được tạo để quản trị viên xem xét.'
+    : 'Khách hàng đã hủy đơn.';
 };
 
 const isAdmin = (user: CurrentUser) => user.roles.includes('Admin');

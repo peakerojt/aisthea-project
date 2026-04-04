@@ -53,6 +53,9 @@ function shapeCoupon(c: any) {
         usedCount: c.usedCount,
         usagePerUser: c.usagePerUser,
         isActive: c.isActive,
+        isHidden: Boolean(c.isHidden),
+        source: c.source ?? null,
+        visibleInPublicList: c.visibleInPublicList !== false,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
         status,
@@ -105,26 +108,73 @@ export const validateCouponHandler = async (req: AuthRequest, res: Response) => 
 
 export const listCoupons = async (req: Request, res: Response) => {
     try {
-        const { page, pageSize, search, isActive } = req.query as unknown as CouponListQueryInput;
+        const { page, pageSize, search, includeHidden, isActive } = req.query as unknown as CouponListQueryInput;
         const skip = (page - 1) * pageSize;
 
-        const where: any = {};
+        const baseWhere: any = {
+            ...(includeHidden ? {} : { isHidden: false }),
+        };
 
         if (search) {
-            where.code = { contains: search };
+            baseWhere.code = { contains: search };
         }
+
+        const where: any = {
+            ...baseWhere,
+        };
 
         if (typeof isActive === 'boolean') {
             where.isActive = isActive;
         }
 
-        const [total, coupons] = await Promise.all([
+        const now = new Date();
+
+        const [total, coupons, summaryTotal, summaryActive, summaryExpired, summaryDepleted, summaryUpcoming, summaryInactive] = await Promise.all([
             (prisma.coupon as any).count({ where }),
             (prisma.coupon as any).findMany({
                 where,
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take: pageSize,
+            }),
+            (prisma.coupon as any).count({ where: baseWhere }),
+            (prisma.coupon as any).count({
+                where: {
+                    ...baseWhere,
+                    isActive: true,
+                    startDate: { lte: now },
+                    endDate: { gte: now },
+                    usedCount: { lt: prisma.coupon.fields.usageLimit },
+                },
+            }),
+            (prisma.coupon as any).count({
+                where: {
+                    ...baseWhere,
+                    isActive: true,
+                    endDate: { lt: now },
+                },
+            }),
+            (prisma.coupon as any).count({
+                where: {
+                    ...baseWhere,
+                    isActive: true,
+                    startDate: { lte: now },
+                    endDate: { gte: now },
+                    usedCount: { gte: prisma.coupon.fields.usageLimit },
+                },
+            }),
+            (prisma.coupon as any).count({
+                where: {
+                    ...baseWhere,
+                    isActive: true,
+                    startDate: { gt: now },
+                },
+            }),
+            (prisma.coupon as any).count({
+                where: {
+                    ...baseWhere,
+                    isActive: false,
+                },
             }),
         ]);
 
@@ -135,6 +185,14 @@ export const listCoupons = async (req: Request, res: Response) => {
                 pageSize,
                 total,
                 totalPages: Math.ceil(total / pageSize),
+            },
+            summary: {
+                total: summaryTotal,
+                active: summaryActive,
+                expired: summaryExpired,
+                depleted: summaryDepleted,
+                upcoming: summaryUpcoming,
+                inactive: summaryInactive,
             },
         });
     } catch (err) {
@@ -160,6 +218,23 @@ export const getAvailableCoupons = async (req: AuthRequest, res: Response) => {
                 isActive: true,
                 startDate: { lte: now },
                 endDate: { gte: now },
+                OR: [
+                    {
+                        isHidden: false,
+                        visibleInPublicList: true,
+                    },
+                    {
+                        source: 'REFUND_BENEFIT',
+                        refundBenefits: {
+                            some: {
+                                userId,
+                                status: 'ACTIVE',
+                                validFrom: { lte: now },
+                                validUntil: { gte: now },
+                            },
+                        },
+                    },
+                ],
             },
             // Hard cap: coupon lists are small by design; 100 is a safe upper bound.
             // In-memory filter below further narrows this to only usable coupons.

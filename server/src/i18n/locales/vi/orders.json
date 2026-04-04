@@ -13,6 +13,7 @@
     "cartEmpty": "Không thể tạo đơn hàng khi giỏ hàng trống.",
     "outOfStock": "Số lượng yêu cầu vượt quá tồn kho hiện tại.",
     "quoteFailed": "Không thể tính lại giá đơn hàng.",
+    "refundBenefitNotCombinable": "Voucher hoàn tiền không thể áp dụng cho sản phẩm đang có khuyến mãi hoặc giảm giá.",
     "checkoutFailed": "Không thể hoàn tất đặt hàng. Vui lòng thử lại.",
     "deliveryProofUploadFailed": "Không thể tải ảnh xác nhận giao hàng."
   },

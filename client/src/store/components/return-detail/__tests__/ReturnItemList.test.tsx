@@ -152,6 +152,31 @@ describe('ReturnItemList', () => {
     );
   });
 
+  it('translates legacy english item notes before rendering them', () => {
+    render(
+      <ReturnItemList
+        items={[
+          {
+            returnRequestItemId: 31,
+            orderItemId: 27,
+            quantity: 1,
+            unitPrice: 50000,
+            requestedRefundAmount: 50000,
+            reason: 'PRE_DELIVERY_CANCELLATION',
+            reasonText: 'Cancelled before fulfillment after successful VNPay payment',
+          },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByText('Đơn đã được hủy trước khi xử lý đơn sau khi thanh toán VNPay thành công.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Cancelled before fulfillment after successful VNPay payment'),
+    ).not.toBeInTheDocument();
+  });
+
   it('shows an empty state when there are no items', () => {
     render(<ReturnItemList items={[]} />);
 

@@ -9,6 +9,10 @@ const serviceMock = {
   markReturnReceived: jest.fn(),
   acceptReturnForRefund: jest.fn(),
   refundReturnRequest: jest.fn(),
+  completeManualBankRefund: jest.fn(),
+  uploadPayoutProofImage: jest.fn(),
+  listRefundPayoutProofs: jest.fn(),
+  sendBankInfoReminder: jest.fn(),
   updateRefundStatus: jest.fn(),
 };
 
@@ -61,6 +65,10 @@ describe('ReturnRequestController', () => {
     serviceMock.markReturnReceived.mockReset();
     serviceMock.acceptReturnForRefund.mockReset();
     serviceMock.refundReturnRequest.mockReset();
+    serviceMock.completeManualBankRefund.mockReset();
+    serviceMock.uploadPayoutProofImage.mockReset();
+    serviceMock.listRefundPayoutProofs.mockReset();
+    serviceMock.sendBankInfoReminder.mockReset();
     serviceMock.updateRefundStatus.mockReset();
   });
 
@@ -656,6 +664,162 @@ describe('ReturnRequestController', () => {
         refundTransactionId: 101,
         status: 'COMPLETED',
         method: 'ORIGINAL_PAYMENT',
+      },
+    });
+  });
+
+  it('returns success envelopes for complete-bank-refund actions', async () => {
+    serviceMock.completeManualBankRefund.mockResolvedValueOnce({
+      refundTransactionId: 301,
+      refundStatus: 'REFUNDED',
+      benefit: {
+        issued: true,
+        type: 'FREESHIP',
+        summary: 'Available voucher free shipping for your next order',
+      },
+    });
+
+    const req: any = {
+      params: { id: '55' },
+      body: {
+        amount: 150000,
+        transactionRef: 'VCB-REFUND-55',
+        financeNote: 'Da chuyen khoan',
+        proofImageUrls: ['https://cdn.example.com/refund-proof-55.png'],
+        selectedBankAccountId: 77,
+      },
+      user: { userId: 88, roles: ['Admin'] },
+    };
+    const res = createResponse();
+
+    await controller.completeBankRefund(req, res);
+
+    expect(serviceMock.completeManualBankRefund).toHaveBeenCalledWith(55, 88, {
+      amount: 150000,
+      transactionRef: 'VCB-REFUND-55',
+      financeNote: 'Da chuyen khoan',
+      proofImageUrls: ['https://cdn.example.com/refund-proof-55.png'],
+      selectedBankAccountId: 77,
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      data: {
+        refundTransactionId: 301,
+        refundStatus: 'REFUNDED',
+        benefit: {
+          issued: true,
+          type: 'FREESHIP',
+          summary: 'Available voucher free shipping for your next order',
+        },
+      },
+    });
+  });
+
+  it('returns validation errors for invalid complete-bank-refund payloads', async () => {
+    const req: any = {
+      params: { id: '55' },
+      body: {
+        amount: 0,
+        proofImageUrls: [],
+      },
+      user: { userId: 88, roles: ['Admin'] },
+    };
+    const res = createResponse();
+
+    await controller.completeBankRefund(req, res);
+
+    expect(serviceMock.completeManualBankRefund).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: expect.any(String),
+      },
+    });
+  });
+
+  it('returns success envelopes for payout proof upload actions', async () => {
+    serviceMock.uploadPayoutProofImage.mockResolvedValueOnce({
+      fileUrl: 'https://cdn.example.com/refund-proof-88.png',
+      fileName: 'refund-proof-88.png',
+    });
+
+    const req: any = {
+      body: {
+        imageData: 'data:image/png;base64,AAA',
+        fileName: 'refund-proof-88.png',
+      },
+      user: { userId: 88, roles: ['Admin'] },
+    };
+    const res = createResponse();
+
+    await controller.uploadPayoutProofImage(req, res);
+
+    expect(serviceMock.uploadPayoutProofImage).toHaveBeenCalledWith(88, {
+      imageData: 'data:image/png;base64,AAA',
+      fileName: 'refund-proof-88.png',
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      data: {
+        fileUrl: 'https://cdn.example.com/refund-proof-88.png',
+        fileName: 'refund-proof-88.png',
+      },
+    });
+  });
+
+  it('returns success envelopes for refund payout proof listing', async () => {
+    serviceMock.listRefundPayoutProofs.mockResolvedValueOnce([
+      {
+        refundPayoutProofId: 401,
+        refundTransactionId: 301,
+        fileUrl: 'https://cdn.example.com/refund-proof-1.png',
+      },
+    ]);
+
+    const req: any = {
+      params: { id: '55' },
+    };
+    const res = createResponse();
+
+    await controller.listRefundPayoutProofs(req, res);
+
+    expect(serviceMock.listRefundPayoutProofs).toHaveBeenCalledWith(55);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      data: [
+        {
+          refundPayoutProofId: 401,
+          refundTransactionId: 301,
+          fileUrl: 'https://cdn.example.com/refund-proof-1.png',
+        },
+      ],
+    });
+  });
+
+  it('returns success envelopes for send-bank-info-reminder actions', async () => {
+    serviceMock.sendBankInfoReminder.mockResolvedValueOnce({
+      reminded: true,
+    });
+
+    const req: any = {
+      params: { id: '55' },
+      user: { userId: 88, roles: ['Admin'] },
+    };
+    const res = createResponse();
+
+    await controller.sendBankInfoReminder(req, res);
+
+    expect(serviceMock.sendBankInfoReminder).toHaveBeenCalledWith(55, 88);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      data: {
+        reminded: true,
       },
     });
   });

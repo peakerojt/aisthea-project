@@ -12,6 +12,10 @@ const controllerMock = {
   markReceived: jest.fn((_req, res) => res.json({ route: 'mark-received' })),
   acceptForRefund: jest.fn((_req, res) => res.json({ route: 'accept-for-refund' })),
   refund: jest.fn((_req, res) => res.json({ route: 'refund' })),
+  uploadPayoutProofImage: jest.fn((_req, res) => res.json({ route: 'upload-payout-proof-image' })),
+  listRefundPayoutProofs: jest.fn((_req, res) => res.json({ route: 'refund-payout-proofs' })),
+  completeBankRefund: jest.fn((_req, res) => res.json({ route: 'complete-bank-refund' })),
+  sendBankInfoReminder: jest.fn((_req, res) => res.json({ route: 'send-bank-info-reminder' })),
   updateRefundStatus: jest.fn((_req, res) => res.json({ route: 'refund-status' })),
 };
 
@@ -23,7 +27,12 @@ jest.mock('../../../middlewares/auth.middleware', () => ({
   authenticateToken: (req: any, _res: unknown, next: () => void) => {
     const userId = Number(req.header('x-user-id') || 0);
     const rolesHeader = String(req.header('x-user-roles') || req.header('x-user-role') || 'customer');
+    const permissionsHeader = String(req.header('x-user-permissions') || '');
     const roles = rolesHeader
+      .split(',')
+      .map((value: string) => value.trim())
+      .filter(Boolean);
+    const permissions = permissionsHeader
       .split(',')
       .map((value: string) => value.trim())
       .filter(Boolean);
@@ -32,9 +41,24 @@ jest.mock('../../../middlewares/auth.middleware', () => ({
       userId,
       roles,
       role: roles[0] || 'customer',
+      permissions,
     };
 
     next();
+  },
+  requirePermission: (permissionCode: string) => (req: any, res: any, next: () => void) => {
+    const permissions = Array.isArray(req.user?.permissions) ? req.user.permissions : [];
+    if (permissions.includes(permissionCode) || permissions.includes('*')) {
+      return next();
+    }
+
+    return res.status(403).json({
+      success: false,
+      error: {
+        code: 'FORBIDDEN',
+        message: 'Insufficient access rights',
+      },
+    });
   },
 }));
 
@@ -209,6 +233,19 @@ describe('return request routes', () => {
     expect(controllerMock.refund).not.toHaveBeenCalled();
   });
 
+  it('accepts support access on the admin refund route when finance permission is present', async () => {
+    const response = await request(app)
+      .patch('/admin/55/refund')
+      .set('x-user-id', '203')
+      .set('x-user-roles', 'support')
+      .set('x-user-permissions', 'RETURN_REFUND_FINANCE_COMPLETE')
+      .send({ method: 'ORIGINAL_PAYMENT', idempotencyKey: 'refund-key-203' });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ route: 'refund' });
+    expect(controllerMock.refund).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps admin refund-status route owned by the module controller', async () => {
     const response = await request(app)
       .patch('/admin/55/refund-status')
@@ -237,6 +274,47 @@ describe('return request routes', () => {
       },
     });
     expect(controllerMock.updateRefundStatus).not.toHaveBeenCalled();
+  });
+
+  it('accepts support access on refund proof listing when finance view permission is present', async () => {
+    const response = await request(app)
+      .get('/admin/55/refund-payout-proofs')
+      .set('x-user-id', '204')
+      .set('x-user-roles', 'support')
+      .set('x-user-permissions', 'RETURN_REFUND_FINANCE_VIEW');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ route: 'refund-payout-proofs' });
+    expect(controllerMock.listRefundPayoutProofs).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts support access on complete-bank-refund when finance permission is present', async () => {
+    const response = await request(app)
+      .post('/admin/55/complete-bank-refund')
+      .set('x-user-id', '205')
+      .set('x-user-roles', 'support')
+      .set('x-user-permissions', 'RETURN_REFUND_FINANCE_COMPLETE')
+      .send({
+        amount: 150000,
+        bankAccountId: 1,
+        payoutProofs: [{ imageUrl: 'https://cdn.example.com/proofs/refund-proof.jpg' }],
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ route: 'complete-bank-refund' });
+    expect(controllerMock.completeBankRefund).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts support access on bank-info reminder when finance permission is present', async () => {
+    const response = await request(app)
+      .post('/admin/55/send-bank-info-reminder')
+      .set('x-user-id', '206')
+      .set('x-user-roles', 'support')
+      .set('x-user-permissions', 'RETURN_REFUND_FINANCE_COMPLETE');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ route: 'send-bank-info-reminder' });
+    expect(controllerMock.sendBankInfoReminder).toHaveBeenCalledTimes(1);
   });
 
   it('rate limits create requests after the tenth request in the burst window', async () => {

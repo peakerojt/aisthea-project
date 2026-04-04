@@ -43,4 +43,29 @@ describe('translateLegacyReturnCopy', () => {
       ),
     ).toBe('Kho đã xác nhận nhận kiện hàng hoàn và bắt đầu kiểm tra.');
   });
+
+  it('translates legacy prepaid-cancellation notes and refund completion logs', () => {
+    expect(
+      translateLegacyReturnCopy(
+        'Cancelled before fulfillment after successful VNPay payment',
+        resolveText,
+      ),
+    ).toBe('Đơn đã được hủy trước khi xử lý đơn sau khi thanh toán VNPay thành công.');
+
+    expect(
+      translateLegacyReturnCopy(
+        'Refund completed via BANK_TRANSFER - txn VCB',
+        resolveText,
+      ),
+    ).toBe('Đã hoàn tiền qua chuyển khoản ngân hàng - mã giao dịch VCB');
+  });
+
+  it('translates legacy cancellation-reason notes with payload text', () => {
+    expect(
+      translateLegacyReturnCopy(
+        'Customer selected cancellation reason: Đổi ý',
+        resolveText,
+      ),
+    ).toBe('Khách hàng chọn lý do hủy đơn: Đổi ý');
+  });
 });

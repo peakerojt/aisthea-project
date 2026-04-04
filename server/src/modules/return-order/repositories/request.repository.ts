@@ -66,6 +66,56 @@ const returnRequestItemInclude = {
   },
 } satisfies Prisma.ReturnRequestItemInclude;
 
+const returnRequestDetailInclude = {
+  order: true,
+  user: {
+    select: {
+      userId: true,
+      fullName: true,
+      email: true,
+      customerBankAccounts: {
+        where: { isActive: true },
+        orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
+      },
+    },
+  },
+  items: { include: returnRequestItemInclude },
+  attachments: true,
+  statusLogs: {
+    include: { changedByUser: { select: { userId: true, fullName: true } } },
+    orderBy: { createdAt: 'asc' },
+  },
+  refundTransactions: {
+    include: { processedByUser: { select: { userId: true, fullName: true } } },
+    orderBy: { createdAt: 'desc' },
+  },
+  refundBankSnapshots: {
+    orderBy: { capturedAt: 'desc' },
+  },
+  refundPayoutProofs: {
+    include: {
+      uploadedByUser: {
+        select: { userId: true, fullName: true },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  },
+  refundBenefits: {
+    include: {
+      coupon: {
+        select: {
+          couponId: true,
+          type: true,
+          source: true,
+          visibleInPublicList: true,
+          isHidden: true,
+        },
+      },
+    },
+    orderBy: [{ issuedAt: 'desc' }, { validFrom: 'desc' }],
+  },
+} satisfies Prisma.ReturnRequestInclude;
+
 export class ReturnRequestRepository {
   private readonly db: PrismaClient = prisma;
 
@@ -142,17 +192,7 @@ export class ReturnRequestRepository {
   findById(id: number) {
     return this.db.returnRequest.findUnique({
       where: { returnRequestId: id },
-      include: {
-        order: true,
-        user: { select: { userId: true, fullName: true, email: true } },
-        items: { include: returnRequestItemInclude },
-        attachments: true,
-        statusLogs: {
-          include: { changedByUser: { select: { userId: true, fullName: true } } },
-          orderBy: { createdAt: 'asc' },
-        },
-        refundTransactions: { orderBy: { createdAt: 'desc' } },
-      },
+      include: returnRequestDetailInclude,
     });
   }
 
@@ -160,17 +200,7 @@ export class ReturnRequestRepository {
     return this.db.returnRequest.findFirst({
       where: { orderId },
       orderBy: { createdAt: 'desc' },
-      include: {
-        order: true,
-        user: { select: { userId: true, fullName: true, email: true } },
-        items: { include: returnRequestItemInclude },
-        attachments: true,
-        statusLogs: {
-          include: { changedByUser: { select: { userId: true, fullName: true } } },
-          orderBy: { createdAt: 'asc' },
-        },
-        refundTransactions: { orderBy: { createdAt: 'desc' } },
-      },
+      include: returnRequestDetailInclude,
     });
   }
 

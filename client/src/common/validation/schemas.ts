@@ -29,6 +29,9 @@ import {
   descriptionField,
   positiveIntField,
   phoneField,
+  bankAccountSchema,
+  bankAccountIdParamSchema,
+  uploadImagePayloadSchema,
 } from '@validation';
 
 const translate = (key: string, defaultValue = '') => {
@@ -253,6 +256,9 @@ export const createOrderClientSchema = createOrderSchema;
 export const profileUpdateClientSchema = updateProfileSchema;
 export const profileAddressClientSchema = addressSchema;
 export const addressIdClientParamSchema = addressIdParamSchema;
+export const bankAccountClientSchema = bankAccountSchema;
+export const bankAccountIdClientParamSchema = bankAccountIdParamSchema;
+export const uploadImageClientSchema = uploadImagePayloadSchema;
 export const productStatusUpdateClientSchema = updateProductStatusSchema;
 export const trackingLookupClientSchema = z.object({
   orderCode: z.preprocess(
@@ -280,4 +286,5 @@ export type CreateCouponClientInput = z.infer<typeof createCouponClientSchema>;
 export type UpdateCouponClientInput = z.infer<typeof updateCouponClientSchema>;
 export type ProfileUpdateClientInput = z.infer<typeof profileUpdateClientSchema>;
 export type ProfileAddressClientInput = z.infer<typeof profileAddressClientSchema>;
+export type BankAccountClientInput = z.infer<typeof bankAccountClientSchema>;
 export type TrackingLookupClientInput = z.infer<typeof trackingLookupClientSchema>;

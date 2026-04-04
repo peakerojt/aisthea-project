@@ -22,9 +22,6 @@ import { ReasonLabel } from '@/common/components/ReasonLabel';
 import { resolveExpectedRefundEconomics } from '@/common/utils/returnEconomics';
 import { translateLegacyReturnCopy } from '@/common/utils/returnCopy';
 
-const returnsDesktopGridClassName =
-    'xl:grid-cols-[minmax(220px,1.28fr)_minmax(162px,0.94fr)_minmax(116px,0.68fr)_minmax(184px,0.96fr)_minmax(122px,0.72fr)_116px]';
-
 const refundToneCardClasses: Record<
     string,
     { shell: string; eyebrow: string; dot: string; value: string }
@@ -184,29 +181,31 @@ export const Returns: React.FC = () => {
                     />
                 ) : (
                     <>
-                        <div data-testid="admin-returns-table-scroll">
-                            <div className={`hidden xl:grid ${returnsDesktopGridClassName} xl:gap-3 xl:px-[40px] py-3 border-b border-white/5 bg-white/[0.02]`}>
-                                <div className="text-[10px] uppercase tracking-widest text-white/30">
-                                    {orderCustomerLabel}
-                                </div>
-                                <div className="text-[10px] uppercase tracking-widest text-white/30 hidden md:block">
-                                    {reasonLabel}
-                                </div>
-                                <div className="text-[10px] uppercase tracking-widest text-white/30">
-                                    {requestDateLabel}
-                                </div>
-                                <div className="text-[10px] uppercase tracking-widest text-white/30">
-                                    {statusLabel}
-                                </div>
-                                <div className="text-[10px] uppercase tracking-widest text-white/30">
-                                    {refundAmountLabel}
-                                </div>
-                                <div className="text-[10px] uppercase tracking-widest text-white/30 text-right">
-                                    {actionsLabel}
-                                </div>
-                            </div>
-
-                            <div className="space-y-4 px-4 py-4 lg:px-5 lg:py-5">
+                        <div data-testid="admin-returns-table-scroll" className="overflow-x-auto">
+                            <table className="min-w-[1080px] w-full border-collapse text-left">
+                                <thead>
+                                    <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                                        <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white/30">
+                                            {orderCustomerLabel}
+                                        </th>
+                                        <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white/30">
+                                            {reasonLabel}
+                                        </th>
+                                        <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white/30">
+                                            {requestDateLabel}
+                                        </th>
+                                        <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white/30">
+                                            {statusLabel}
+                                        </th>
+                                        <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white/30">
+                                            {refundAmountLabel}
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-[10px] font-bold uppercase tracking-[0.18em] text-white/30">
+                                            {actionsLabel}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
                                 {returns.map((ret) => {
                                     const displayStatus = ret.workflowStatus ?? ret.status;
                                     const financeNoteCopy = translateLegacyReturnCopy(ret.financeNote, resolveText);
@@ -223,84 +222,64 @@ export const Returns: React.FC = () => {
                                         refundToneCardClasses[refundStatusTone] ?? refundToneCardClasses.default;
 
                                     return (
-                                        <div
-                                            key={ret.returnId}
-                                            className="rounded-[26px] border border-white/[0.06] bg-white/[0.02] px-5 py-4 transition-colors hover:border-white/10 hover:bg-white/[0.03]"
-                                        >
-                                            <div className={`grid gap-4 xl:items-start xl:gap-3 ${returnsDesktopGridClassName}`}>
-                                                <div className="min-w-0 xl:flex xl:h-[62px] xl:flex-col xl:justify-center">
-                                                    <div className="text-sm font-semibold text-white font-mono truncate">
-                                                        #{ret.order?.orderNumber ?? `RET-${ret.returnId}`}
+                                        <React.Fragment key={ret.returnId}>
+                                            <tr className="border-b border-white/[0.06] transition-colors hover:bg-white/[0.02]">
+                                                <td className="px-6 py-5 align-top">
+                                                    <div className="min-w-0">
+                                                        <div className="text-sm font-semibold text-white font-mono truncate">
+                                                            #{ret.order?.orderNumber ?? `RET-${ret.returnId}`}
+                                                        </div>
+                                                        <div className="mt-2 text-sm font-semibold text-white truncate">
+                                                            {ret.user?.fullName ?? guestLabel}
+                                                        </div>
+                                                        <div className="mt-1 text-xs text-white/38 truncate">
+                                                            {ret.user?.email ?? '—'}
+                                                        </div>
                                                     </div>
-                                                    <div className="mt-1 text-xs text-white/58 truncate">
-                                                        {ret.user?.fullName ?? guestLabel}
-                                                    </div>
-                                                    <div className="mt-0.5 text-[10px] text-white/30 truncate">
-                                                        {ret.user?.email ?? '—'}
-                                                    </div>
-                                                </div>
+                                                </td>
 
-                                                <div className="min-w-0 xl:grid xl:h-[62px] xl:grid-rows-[44px_18px] xl:content-start xl:justify-self-start">
-                                                    <div className="flex h-[44px] items-start overflow-hidden">
-                                                        <p className="text-sm text-white/78 line-clamp-2 leading-snug">
+                                                <td className="px-6 py-5 align-top">
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-semibold leading-snug text-white">
                                                             <ReasonLabel reason={ret.reason} />
                                                         </p>
-                                                    </div>
-                                                    <div className="flex h-[18px] items-center">
                                                         {ret.proofImages.length > 0 && (
-                                                            <span className="inline-flex items-center gap-1 text-[10px] text-white/36">
-                                                                <ImageIcon className="h-3 w-3" />
+                                                            <div className="mt-3 inline-flex items-center gap-1 text-[11px] text-white/42">
+                                                                <ImageIcon className="h-3.5 w-3.5" />
                                                                 {proofImagesLabel(ret.proofImages.length)}
-                                                            </span>
+                                                            </div>
                                                         )}
                                                     </div>
-                                                </div>
+                                                </td>
 
-                                                <div className="xl:grid xl:h-[62px] xl:grid-rows-[44px_18px] xl:content-start xl:justify-self-start">
-                                                    <div className="flex h-[44px] flex-col justify-start overflow-hidden">
-                                                        <div className="text-sm font-medium text-white/88 whitespace-nowrap">
-                                                            {requestedAt.time}
-                                                        </div>
-                                                        <div className="mt-1 text-[11px] text-white/46 whitespace-nowrap xl:hidden">
-                                                            {requestedAt.date}
-                                                        </div>
+                                                <td className="px-6 py-5 align-top">
+                                                    <div className="text-sm font-medium text-white/88 whitespace-nowrap">
+                                                        {requestedAt.time}
                                                     </div>
-                                                    <div className="hidden h-[18px] items-center text-[11px] text-white/46 whitespace-nowrap xl:flex">
+                                                    <div className="mt-2 text-xs text-white/42 whitespace-nowrap">
                                                         {requestedAt.date}
                                                     </div>
-                                                </div>
+                                                </td>
 
-                                                <div className="min-w-0 xl:grid xl:h-[62px] xl:grid-rows-[44px_18px] xl:content-start xl:justify-self-start">
-                                                    <div className="flex h-[44px] items-center">
-                                                        <div className="xl:hidden text-[10px] uppercase tracking-widest text-white/28">
-                                                            {statusLabel}
-                                                        </div>
-                                                        <AdminBadge
-                                                            tone={getAdminReturnStatusBadgeTone(displayStatus)}
-                                                            className="max-w-full justify-center rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] leading-none text-center whitespace-nowrap"
-                                                        >
-                                                            {getAdminReturnStatusLabel(displayStatus, t)}
-                                                        </AdminBadge>
+                                                <td className="px-6 py-5 align-top">
+                                                    <AdminBadge
+                                                        tone={getAdminReturnStatusBadgeTone(displayStatus)}
+                                                        className="w-fit max-w-full justify-center rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] leading-none text-center whitespace-nowrap"
+                                                    >
+                                                        {getAdminReturnStatusLabel(displayStatus, t)}
+                                                    </AdminBadge>
+                                                </td>
+
+                                                <td className="px-6 py-5 align-top">
+                                                    <div className="text-sm font-bold text-emerald-200 whitespace-nowrap">
+                                                        {expectedRefundAmount > 0
+                                                            ? `${expectedRefundAmount.toLocaleString('vi-VN')}đ`
+                                                            : '—'}
                                                     </div>
-                                                    <div className="hidden h-[18px] xl:block" />
-                                                </div>
+                                                </td>
 
-                                                <div className="xl:grid xl:h-[62px] xl:grid-rows-[44px_18px] xl:content-start xl:justify-self-start">
-                                                    <div className="flex h-[44px] flex-col justify-start overflow-hidden">
-                                                        <div className="xl:hidden text-[10px] uppercase tracking-widest text-white/28">
-                                                            {refundAmountLabel}
-                                                        </div>
-                                                        <div className="text-sm font-bold text-emerald-200 whitespace-nowrap">
-                                                            {expectedRefundAmount > 0
-                                                                ? `${expectedRefundAmount.toLocaleString('vi-VN')}đ`
-                                                                : '—'}
-                                                        </div>
-                                                    </div>
-                                                    <div className="hidden h-[18px] xl:block" />
-                                                </div>
-
-                                                <div className="xl:grid xl:h-[62px] xl:grid-rows-[44px_18px] xl:content-start xl:justify-self-end">
-                                                    <div className="flex h-[44px] items-center justify-end gap-2">
+                                                <td className="px-6 py-5 align-top text-right">
+                                                    <div className="flex items-start justify-end gap-2">
                                                         <AdminActionButton
                                                             onClick={() => setSelectedReturn(ret)}
                                                             className="cursor-pointer whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white/70 transition-colors duration-150 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
@@ -318,57 +297,65 @@ export const Returns: React.FC = () => {
                                                             <ChevronDown size={16} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                                                         </button>
                                                     </div>
-                                                    <div className="hidden h-[18px] xl:block" />
-                                                </div>
-                                            </div>
+                                                </td>
+                                            </tr>
 
-                                            {isExpanded && (
-                                                <div
-                                                    id={`admin-return-panel-${ret.returnId}`}
-                                                    className={`mt-4 flex gap-3 ${hasFinanceNote ? 'w-full flex-col xl:flex-row xl:items-stretch' : 'flex-col items-start'}`}
-                                                >
-                                                    {hasRefundStatus && ret.refundStatus && (
-                                                        <div className={`inline-flex max-w-full flex-col rounded-2xl border px-4 py-3 text-xs text-white ${hasFinanceNote ? 'xl:min-w-[18rem] xl:max-w-[22rem]' : 'w-fit'} ${refundStatusCardClass.shell}`}>
-                                                            <span className={`text-[10px] uppercase tracking-[0.16em] ${refundStatusCardClass.eyebrow}`}>
-                                                                {refundStatusDetailLabel}
-                                                            </span>
-                                                            <div className="mt-2 flex flex-wrap items-center gap-2.5">
-                                                                <span className={`h-2.5 w-2.5 rounded-full ${refundStatusCardClass.dot}`} />
-                                                                <span className={`text-sm font-semibold ${refundStatusCardClass.value}`}>
-                                                                    {getAdminRefundStatusLabel(ret.refundStatus, t)}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    {hasFinanceNote && (
+                                            {isExpanded && (hasRefundStatus || hasFinanceNote) && (
+                                                <tr className="border-b border-white/[0.06] bg-white/[0.018]">
+                                                    <td colSpan={6} className="px-6 py-4">
                                                         <div
-                                                            className="inline-flex min-w-0 max-w-full flex-1 flex-col rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-xs leading-relaxed text-white/70"
-                                                            title={`${financeNoteLabel}: ${financeNoteCopy ?? ret.financeNote}`}
+                                                            id={`admin-return-panel-${ret.returnId}`}
+                                                            className={`grid gap-3 ${
+                                                                hasFinanceNote && hasRefundStatus
+                                                                    ? 'grid-cols-1 xl:grid-cols-[max-content_minmax(0,1fr)] xl:items-start xl:gap-2'
+                                                                    : 'grid-cols-1'
+                                                            }`}
                                                         >
-                                                            <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-white/38">
-                                                                <span>{financeNoteLabel}</span>
-                                                                {(ret.financeNoteUpdatedAt || ret.financeNoteUpdatedBy?.fullName) && (
-                                                                    <span className="inline-flex rounded-full border border-white/[0.08] bg-black/20 px-2 py-1 text-[10px] normal-case tracking-normal text-white/42">
-                                                                        {financeNoteMetaLabel(
-                                                                            ret.financeNoteUpdatedAt
-                                                                                ? formatAdminReturnDateTime(ret.financeNoteUpdatedAt)
-                                                                                : '—',
-                                                                            ret.financeNoteUpdatedBy?.fullName ?? '—',
-                                                                        )}
+                                                            {hasRefundStatus && ret.refundStatus && (
+                                                                <div className={`inline-flex w-fit max-w-full flex-col rounded-2xl border px-4 py-3 text-xs text-white xl:justify-self-start ${refundStatusCardClass.shell}`}>
+                                                                    <span className={`text-[10px] uppercase tracking-[0.16em] ${refundStatusCardClass.eyebrow}`}>
+                                                                        {refundStatusDetailLabel}
                                                                     </span>
-                                                                )}
-                                                            </div>
-                                                            <div className="mt-2 text-sm leading-relaxed text-white/80">
-                                                                {financeNoteCopy ?? ret.financeNote}
-                                                            </div>
+                                                                    <div className="mt-2 flex flex-wrap items-center gap-2.5">
+                                                                        <span className={`h-2.5 w-2.5 rounded-full ${refundStatusCardClass.dot}`} />
+                                                                        <span className={`text-sm font-semibold ${refundStatusCardClass.value}`}>
+                                                                            {getAdminRefundStatusLabel(ret.refundStatus, t)}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {hasFinanceNote && (
+                                                                <div
+                                                                    className="inline-flex min-w-0 max-w-full flex-col rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-xs leading-relaxed text-white/70"
+                                                                    title={`${financeNoteLabel}: ${financeNoteCopy ?? ret.financeNote}`}
+                                                                >
+                                                                    <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-white/38">
+                                                                        <span>{financeNoteLabel}</span>
+                                                                        {(ret.financeNoteUpdatedAt || ret.financeNoteUpdatedBy?.fullName) && (
+                                                                            <span className="inline-flex rounded-full border border-white/[0.08] bg-black/20 px-2 py-1 text-[10px] normal-case tracking-normal text-white/42">
+                                                                                {financeNoteMetaLabel(
+                                                                                    ret.financeNoteUpdatedAt
+                                                                                        ? formatAdminReturnDateTime(ret.financeNoteUpdatedAt)
+                                                                                        : '—',
+                                                                                    ret.financeNoteUpdatedBy?.fullName ?? '—',
+                                                                                )}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="mt-2 text-sm leading-relaxed text-white/80">
+                                                                        {financeNoteCopy ?? ret.financeNote}
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                    )}
-                                                </div>
+                                                    </td>
+                                                </tr>
                                             )}
-                                        </div>
+                                        </React.Fragment>
                                     );
                                 })}
-                            </div>
+                                </tbody>
+                            </table>
                         </div>
                     </>
                 )}

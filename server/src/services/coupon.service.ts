@@ -27,6 +27,7 @@ export interface ValidateCouponResult {
         value: number;
         maxDiscountAmount: number | null;
         minOrderValue: number;
+        source: string | null;
     };
     discountAmount: number;
 }
@@ -108,6 +109,7 @@ export async function validateCoupon(
             usedCount: true,
             usagePerUser: true,
             isActive: true,
+            source: true,
         },
     });
 
@@ -177,6 +179,7 @@ export async function validateCoupon(
             value,
             maxDiscountAmount: maxDiscount,
             minOrderValue,
+            source: coupon.source ?? null,
         },
         discountAmount,
     };

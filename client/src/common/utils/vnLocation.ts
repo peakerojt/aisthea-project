@@ -28,6 +28,20 @@ export const normalizeVNLocationName = (value?: string | null) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const resolveWardCodeFromText = (wards: VNLocationOption[], text?: string | null) => {
+  const normalizedText = normalizeVNLocationName(text);
+  if (!normalizedText) {
+    return '';
+  }
+
+  const matchedWard = wards.find((ward) => {
+    const normalizedWard = normalizeVNLocationName(ward.name);
+    return normalizedWard && normalizedText.includes(normalizedWard);
+  });
+
+  return matchedWard?.code ?? '';
+};
+
 export const fetchVNProvinces = () =>
   fetchJson<Array<{ code: string | number; name: string }>>('https://provinces.open-api.vn/api/p/')
     .then((items) => normalizeLocationOptions(items));
@@ -43,7 +57,13 @@ export const fetchVNWards = async (districtCode: string) => {
 };
 
 export const resolveVNLocationSelection = async (
-  location: { city?: string | null; district?: string | null; ward?: string | null },
+  location: {
+    city?: string | null;
+    district?: string | null;
+    ward?: string | null;
+    addressLine?: string | null;
+    displayName?: string | null;
+  },
   provinces: VNLocationOption[]
 ) => {
   const matchedProvince = provinces.find(
@@ -61,9 +81,34 @@ export const resolveVNLocationSelection = async (
   }
 
   const districts = await fetchVNDistricts(matchedProvince.code);
-  const matchedDistrict = districts.find(
+  let matchedDistrict = districts.find(
     (district) => normalizeVNLocationName(district.name) === normalizeVNLocationName(location.district)
   );
+
+  if (!matchedDistrict && location.ward) {
+    matchedDistrict = districts.find(
+      (district) => normalizeVNLocationName(district.name) === normalizeVNLocationName(location.ward)
+    );
+  }
+
+  if (!matchedDistrict && location.ward) {
+    for (const district of districts) {
+      const wards = await fetchVNWards(district.code);
+      const matchedWard = wards.find(
+        (ward) => normalizeVNLocationName(ward.name) === normalizeVNLocationName(location.ward)
+      );
+
+      if (matchedWard) {
+        return {
+          provinceCode: matchedProvince.code,
+          districts,
+          districtCode: district.code,
+          wards,
+          wardCode: matchedWard.code,
+        };
+      }
+    }
+  }
 
   if (!matchedDistrict) {
     return {
@@ -79,12 +124,17 @@ export const resolveVNLocationSelection = async (
   const matchedWard = wards.find(
     (ward) => normalizeVNLocationName(ward.name) === normalizeVNLocationName(location.ward)
   );
+  const inferredWardCode =
+    matchedWard?.code ||
+    resolveWardCodeFromText(wards, location.addressLine) ||
+    resolveWardCodeFromText(wards, location.displayName) ||
+    '';
 
   return {
     provinceCode: matchedProvince.code,
     districts,
     districtCode: matchedDistrict.code,
     wards,
-    wardCode: matchedWard?.code ?? '',
+    wardCode: inferredWardCode,
   };
 };

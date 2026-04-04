@@ -93,6 +93,22 @@ const LEGACY_EXACT_COPY: Record<string, { key: string; fallback: string }> = {
     key: 'timeline.comments.outOfPolicy',
     fallback: 'Yêu cầu không đáp ứng chính sách hoàn trả.',
   },
+  'Cancelled before fulfillment after successful VNPay payment': {
+    key: 'timeline.comments.cancelledBeforeFulfillmentAfterSuccessfulVnpayPayment',
+    fallback: 'Đơn đã được hủy trước khi xử lý đơn sau khi thanh toán VNPay thành công.',
+  },
+  'Customer cancelled a paid VNPAY order before fulfillment. Awaiting admin refund review.': {
+    key: 'timeline.comments.customerCancelledPaidVnpayBeforeFulfillment',
+    fallback: 'Khách hàng đã hủy đơn VNPAY đã thanh toán trước khi xử lý đơn. Đang chờ quản trị viên xem xét hoàn tiền.',
+  },
+  'Order cancelled by customer; refund request submitted for admin review': {
+    key: 'timeline.comments.orderCancelledRefundSubmittedForAdminReview',
+    fallback: 'Khách hàng đã hủy đơn. Yêu cầu hoàn tiền đã được tạo để quản trị viên xem xét.',
+  },
+  'Order cancelled by customer': {
+    key: 'timeline.comments.orderCancelledByCustomer',
+    fallback: 'Khách hàng đã hủy đơn.',
+  },
 };
 
 const REFUND_STATUS_LABELS: Record<string, string> = {
@@ -108,6 +124,31 @@ const REFUND_STATUS_LABELS: Record<string, string> = {
 
 const formatRefundStatusPath = (status: string) =>
   REFUND_STATUS_LABELS[status.trim()] ?? status.trim();
+
+const REFUND_METHOD_LABELS: Record<string, { key: string; fallback: string }> = {
+  BANK_TRANSFER: {
+    key: 'detail.refundBankTransfer',
+    fallback: 'Chuyển khoản ngân hàng',
+  },
+  ORIGINAL_GATEWAY: {
+    key: 'detail.refundOriginal',
+    fallback: 'Hoàn về phương thức gốc',
+  },
+  STORE_WALLET: {
+    key: 'detail.refundWallet',
+    fallback: 'Ví điện tử',
+  },
+};
+
+const formatRefundMethodPath = (method: string, resolveText: ReturnTextResolver) => {
+  const normalizedMethod = method.trim().toUpperCase();
+  const config = REFUND_METHOD_LABELS[normalizedMethod];
+  if (!config) {
+    return normalizedMethod;
+  }
+
+  return resolveText(config.key, config.fallback);
+};
 
 export const translateLegacyReturnCopy = (
   message: string | null | undefined,
@@ -143,6 +184,32 @@ export const translateLegacyReturnCopy = (
         to: formatRefundStatusPath(toStatus),
       },
     );
+  }
+
+  if (trimmedMessage.startsWith('Customer selected cancellation reason:')) {
+    const reason = trimmedMessage.slice('Customer selected cancellation reason:'.length).trim();
+    return resolveText(
+      'timeline.comments.customerSelectedCancellationReason',
+      'Khách hàng chọn lý do hủy đơn: {{reason}}',
+      {
+        reason: reason || resolveText('detail.processing', 'Đang xử lý...'),
+      },
+    );
+  }
+
+  if (trimmedMessage.startsWith('Refund completed via')) {
+    const matchedRefund = trimmedMessage.match(/^Refund completed via\s+([A-Z_]+)\s+-\s+txn\s+(.+)$/i);
+    if (matchedRefund) {
+      const [, method, transactionRef] = matchedRefund;
+      return resolveText(
+        'timeline.comments.refundCompletedViaMethod',
+        'Đã hoàn tiền qua {{method}} - mã giao dịch {{transactionRef}}',
+        {
+          method: formatRefundMethodPath(method, resolveText).toLowerCase(),
+          transactionRef: transactionRef.trim(),
+        },
+      );
+    }
   }
 
   return trimmedMessage;

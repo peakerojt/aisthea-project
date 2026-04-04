@@ -1,4 +1,4 @@
-import type { ReturnRequestDetail } from '@/common/services/return.types';
+﻿import type { CompleteBankRefundPayload, ReturnRequestDetail } from '@/common/services/return.types';
 
 export interface AdminReturnReviewActions {
   acceptForRefund: (returnId: number) => Promise<void>;
@@ -6,7 +6,8 @@ export interface AdminReturnReviewActions {
   markInTransit: (returnId: number) => Promise<void>;
   markReceived: (returnId: number) => Promise<void>;
   reject: (returnId: number, note: string) => Promise<void>;
-  refund: (returnId: number) => Promise<void>;
+  refund: (returnId: number, payload: CompleteBankRefundPayload) => Promise<void>;
+  sendBankInfoReminder: (returnId: number) => Promise<void>;
   setRefundFailed: (returnId: number, note: string) => Promise<void>;
   setRefundManualReview: (returnId: number, note: string) => Promise<void>;
   setRefundPending: (returnId: number) => Promise<void>;

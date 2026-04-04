@@ -191,7 +191,7 @@ describe('order.service integration guards', () => {
     expect(returnRequestCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         reason: 'PRE_DELIVERY_CANCELLATION',
-        note: 'Customer cancelled a paid VNPAY order before fulfillment. Awaiting admin refund review.',
+        note: 'Khách hàng đã hủy đơn VNPAY đã thanh toán trước khi xử lý đơn. Đang chờ quản trị viên xem xét hoàn tiền.',
         status: 'PENDING_ADMIN_REVIEW',
         refundStatus: 'PENDING',
         totalRefundAmount: 1492000,
@@ -201,7 +201,7 @@ describe('order.service integration guards', () => {
               quantity: 1,
               unitPrice: 1492000,
               reason: 'PRE_DELIVERY_CANCELLATION',
-              reasonText: 'Cancelled before fulfillment after successful VNPay payment',
+              reasonText: 'Đơn đã được hủy trước khi xử lý đơn sau khi thanh toán VNPay thành công.',
             }),
           ],
         },
@@ -225,7 +225,7 @@ describe('order.service integration guards', () => {
         oldStatus: 'Processing',
         status: 'Cancelled',
         changedBy: 7,
-        note: 'Order cancelled by customer; refund request submitted for admin review',
+        note: 'Khách hàng đã hủy đơn. Yêu cầu hoàn tiền đã được tạo để quản trị viên xem xét.',
       }),
     });
     expect(result.status).toBe('cancelled');
@@ -328,7 +328,7 @@ describe('order.service integration guards', () => {
         oldStatus: 'Pending',
         status: 'Cancelled',
         changedBy: 7,
-        note: 'Order cancelled by customer',
+        note: 'Khách hàng đã hủy đơn.',
       }),
     });
     expect(result.status).toBe('cancelled');

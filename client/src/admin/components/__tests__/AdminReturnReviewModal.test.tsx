@@ -78,6 +78,8 @@ vi.mock('react-i18next', () => ({
           return 'Chuyển kiểm tra thủ công';
         case 'modal.actionContinueRefund':
           return 'Tiếp tục tới hoàn tiền';
+        case 'modal.actionConfirmCompleteRefund':
+          return 'Xác nhận chuyển khoản hoàn tiền';
         case 'modal.actionConfirmReject':
           return 'Xác nhận từ chối';
         case 'modal.actionConfirmRefundNote':
@@ -274,6 +276,15 @@ describe('AdminReturnReviewModal', () => {
             transactionRef: 'RF-500',
           },
         ],
+        refundPayoutProofs: [
+          {
+            refundPayoutProofId: 901,
+            refundTransactionId: 77,
+            fileUrl: 'https://cdn.example.com/refund-proof-1.jpg',
+            fileName: 'refund-proof-1.jpg',
+            createdAt: '2026-03-26T11:30:00.000Z',
+          },
+        ],
         proofImages: ['https://cdn.example.com/proof-1.jpg'],
         user: {
           userId: 8,
@@ -317,6 +328,8 @@ describe('AdminReturnReviewModal', () => {
     expect(screen.getByText('Chuyển khoản ngân hàng')).toBeInTheDocument();
     expect(screen.getByText('Đang hoàn tiền')).toBeInTheDocument();
     expect(screen.getByText('RF-500')).toBeInTheDocument();
+    expect(screen.getByText('Chứng từ hoàn tiền')).toBeInTheDocument();
+    expect(screen.getByText('refund-proof-1.jpg')).toBeInTheDocument();
     expect(screen.getByText('Hydrated User')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Minh chứng 1' })).toBeInTheDocument();
   });
@@ -488,12 +501,120 @@ describe('AdminReturnReviewModal', () => {
     });
   });
 
+  it('opens a dedicated complete-refund sub-modal before submitting the bank refund', async () => {
+    const actions = createMockReviewActions();
+    detailMock.mockResolvedValueOnce(
+      createReturnItem({
+        status: 'ACCEPTED_FOR_REFUND' as any,
+        workflowStatus: 'ACCEPTED_FOR_REFUND',
+        refundStatus: 'PENDING' as any,
+        refundableCapAmount: '80000',
+        bankInfo: {
+          available: true,
+          bankAccountId: 55,
+          bankName: 'Vietcombank',
+          bankCode: 'VCB',
+          accountNumber: '123456789',
+          accountHolder: 'Nguyen Van A',
+          accountNumberMasked: '****6789',
+          source: 'PROFILE',
+          updatedAt: '2026-03-28T10:00:00.000Z',
+          qrImageUrl: null,
+        },
+      }),
+    );
+
+    render(
+      <AdminReturnReviewModal
+        actions={actions}
+        item={createReturnItem({
+          status: 'ACCEPTED_FOR_REFUND' as any,
+          workflowStatus: 'ACCEPTED_FOR_REFUND',
+          refundStatus: 'PENDING' as any,
+        })}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Tiếp tục tới hoàn tiền' }));
+
+    expect(await screen.findByRole('button', { name: 'Xác nhận chuyển khoản hoàn tiền' })).toBeInTheDocument();
+    expect(screen.getAllByText('Vietcombank').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('123456789').length).toBeGreaterThan(0);
+
+    await userEvent.clear(screen.getByLabelText('Số tiền hoàn'));
+    await userEvent.type(screen.getByLabelText('Số tiền hoàn'), '78000');
+    await userEvent.type(screen.getByLabelText('Mã giao dịch'), 'VCB-001');
+    await userEvent.type(screen.getByLabelText('Ghi chú tài chính'), 'Da chuyen khoan');
+
+    expect(screen.getByRole('button', { name: 'Xác nhận chuyển khoản hoàn tiền' })).toBeDisabled();
+    expect(actions.refund).not.toHaveBeenCalled();
+  });
+
+  it('blocks continue refund when bank info is missing and offers a reminder action', async () => {
+    const actions = createMockReviewActions();
+    detailMock.mockResolvedValueOnce(
+      createReturnItem({
+        status: 'ACCEPTED_FOR_REFUND' as any,
+        workflowStatus: 'ACCEPTED_FOR_REFUND',
+        refundStatus: 'PENDING' as any,
+        bankInfo: {
+          available: false,
+          bankAccountId: null,
+          bankName: null,
+          bankCode: null,
+          accountNumber: null,
+          accountHolder: null,
+          accountNumberMasked: null,
+          source: null,
+          updatedAt: null,
+          qrImageUrl: null,
+        },
+      }),
+    );
+
+    render(
+      <AdminReturnReviewModal
+        actions={actions}
+        item={createReturnItem({
+          status: 'ACCEPTED_FOR_REFUND' as any,
+          workflowStatus: 'ACCEPTED_FOR_REFUND',
+          refundStatus: 'PENDING' as any,
+        })}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText('Khách hàng chưa cung cấp thông tin ngân hàng để hoàn tiền.')).toBeInTheDocument();
+
+    const continueButton = screen.getByRole('button', { name: 'Tiếp tục tới hoàn tiền' });
+    expect(continueButton).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi nhắc bổ sung ngân hàng' }));
+
+    await waitFor(() => {
+      expect(actions.sendBankInfoReminder).toHaveBeenCalledWith(12);
+    });
+  });
+
   it('hides finance refund actions for support-only viewers and shows handoff notice', async () => {
     detailMock.mockResolvedValueOnce(
       createReturnItem({
         status: 'ACCEPTED_FOR_REFUND' as any,
         workflowStatus: 'ACCEPTED_FOR_REFUND',
         refundStatus: 'PENDING' as any,
+        bankInfo: {
+          available: true,
+          bankAccountId: 55,
+          bankName: 'Vietcombank',
+          bankCode: 'VCB',
+          accountNumber: '123456789',
+          accountHolder: 'Nguyen Van A',
+          accountNumberMasked: '****6789',
+          source: 'Hồ sơ khách hàng',
+          updatedAt: '2026-04-03T10:30:00.000Z',
+          qrImageUrl: 'https://example.com/bank-qr.png',
+        },
       }),
     );
 
@@ -511,6 +632,9 @@ describe('AdminReturnReviewModal', () => {
     );
 
     expect(await screen.findByText('Bước hoàn tiền đang chờ bộ phận tài chính xử lý.')).toBeInTheDocument();
+    expect(screen.queryByText('Thông tin nhận hoàn tiền')).not.toBeInTheDocument();
+    expect(screen.queryByText('Vietcombank')).not.toBeInTheDocument();
+    expect(screen.queryByText('123456789')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Đặt lại chờ hoàn tiền' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Đánh dấu đang hoàn tiền' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Đánh dấu hoàn tiền lỗi' })).not.toBeInTheDocument();

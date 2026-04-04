@@ -2,7 +2,14 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { logger } from '../../lib/logger';
 import type { AuthRequest } from '../../middlewares/auth.middleware';
-import type { AddressIdParams, AddressInput, UpdateProfileInput } from '../../utils/schemas/user.validator';
+import type {
+  AddressIdParams,
+  AddressInput,
+  BankAccountIdParams,
+  BankAccountInput,
+  UpdateProfileInput,
+  UploadImagePayloadInput,
+} from '../../utils/schemas/user.validator';
 import { userModuleService, UserModuleError } from './user.service';
 
 const UpdateRoleSchema = z.object({
@@ -123,6 +130,16 @@ export const userController = {
     }
   },
 
+  getBankAccounts: async (req: AuthRequest, res: Response) => {
+    try {
+      const bankAccounts = await userModuleService.listBankAccounts(getUserId(req));
+      res.status(200).json({ success: true, data: bankAccounts });
+    } catch (error) {
+      logger.error('[userModuleController] getBankAccounts failed', { error });
+      sendUserModuleError(res, error, 'FETCH_BANK_ACCOUNTS_FAILED');
+    }
+  },
+
   createAddress: async (req: AuthRequest, res: Response) => {
     try {
       const address = await userModuleService.createAddress(getUserId(req), req.body as AddressInput);
@@ -134,6 +151,23 @@ export const userController = {
     } catch (error) {
       logger.error('[userModuleController] createAddress failed', { error });
       sendUserModuleError(res, error, 'CREATE_ADDRESS_FAILED', 400);
+    }
+  },
+
+  createBankAccount: async (req: AuthRequest, res: Response) => {
+    try {
+      const bankAccount = await userModuleService.createBankAccount(
+        getUserId(req),
+        req.body as BankAccountInput,
+      );
+      res.status(201).json({
+        success: true,
+        code: 'BANK_ACCOUNT_CREATED',
+        data: bankAccount,
+      });
+    } catch (error) {
+      logger.error('[userModuleController] createBankAccount failed', { error });
+      sendUserModuleError(res, error, 'CREATE_BANK_ACCOUNT_FAILED', 400);
     }
   },
 
@@ -157,6 +191,26 @@ export const userController = {
     }
   },
 
+  updateBankAccount: async (req: AuthRequest, res: Response) => {
+    try {
+      const { id: bankAccountId } = req.params as unknown as BankAccountIdParams;
+      const updatedBankAccount = await userModuleService.updateBankAccount(
+        getUserId(req),
+        bankAccountId,
+        req.body as BankAccountInput,
+      );
+
+      res.status(200).json({
+        success: true,
+        code: 'BANK_ACCOUNT_UPDATED',
+        data: updatedBankAccount,
+      });
+    } catch (error) {
+      logger.error('[userModuleController] updateBankAccount failed', { error });
+      sendUserModuleError(res, error, 'UPDATE_BANK_ACCOUNT_FAILED', 400);
+    }
+  },
+
   deleteAddress: async (req: AuthRequest, res: Response) => {
     try {
       const { id: addressId } = req.params as unknown as AddressIdParams;
@@ -165,6 +219,17 @@ export const userController = {
     } catch (error) {
       logger.error('[userModuleController] deleteAddress failed', { error });
       sendUserModuleError(res, error, 'DELETE_ADDRESS_FAILED', 400);
+    }
+  },
+
+  deleteBankAccount: async (req: AuthRequest, res: Response) => {
+    try {
+      const { id: bankAccountId } = req.params as unknown as BankAccountIdParams;
+      const result = await userModuleService.deleteBankAccount(getUserId(req), bankAccountId);
+      res.status(200).json({ success: true, ...result });
+    } catch (error) {
+      logger.error('[userModuleController] deleteBankAccount failed', { error });
+      sendUserModuleError(res, error, 'DELETE_BANK_ACCOUNT_FAILED', 400);
     }
   },
 
@@ -180,6 +245,48 @@ export const userController = {
     } catch (error) {
       logger.error('[userModuleController] setDefaultAddress failed', { error });
       sendUserModuleError(res, error, 'SET_DEFAULT_ADDRESS_FAILED', 400);
+    }
+  },
+
+  setDefaultBankAccount: async (req: AuthRequest, res: Response) => {
+    try {
+      const { id: bankAccountId } = req.params as unknown as BankAccountIdParams;
+      const updatedBankAccount = await userModuleService.setDefaultBankAccount(getUserId(req), bankAccountId);
+      res.status(200).json({
+        success: true,
+        code: 'DEFAULT_BANK_ACCOUNT_SET',
+        data: updatedBankAccount,
+      });
+    } catch (error) {
+      logger.error('[userModuleController] setDefaultBankAccount failed', { error });
+      sendUserModuleError(res, error, 'SET_DEFAULT_BANK_ACCOUNT_FAILED', 400);
+    }
+  },
+
+  uploadBankQrImage: async (req: AuthRequest, res: Response) => {
+    try {
+      const result = await userModuleService.uploadBankQrImage(
+        getUserId(req),
+        req.body as UploadImagePayloadInput,
+      );
+      res.status(200).json({
+        success: true,
+        code: 'BANK_QR_UPLOADED',
+        data: result,
+      });
+    } catch (error) {
+      logger.error('[userModuleController] uploadBankQrImage failed', { error });
+      sendUserModuleError(res, error, 'UPLOAD_BANK_QR_FAILED', 400);
+    }
+  },
+
+  getRefundBenefits: async (req: AuthRequest, res: Response) => {
+    try {
+      const benefits = await userModuleService.listRefundBenefits(getUserId(req));
+      res.status(200).json({ success: true, data: benefits });
+    } catch (error) {
+      logger.error('[userModuleController] getRefundBenefits failed', { error });
+      sendUserModuleError(res, error, 'FETCH_REFUND_BENEFITS_FAILED');
     }
   },
 

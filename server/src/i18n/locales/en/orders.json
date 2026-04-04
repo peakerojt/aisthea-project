@@ -13,6 +13,7 @@
     "cartEmpty": "Cannot create an order with no items.",
     "outOfStock": "Requested quantity exceeds available stock.",
     "quoteFailed": "Failed to calculate pricing.",
+    "refundBenefitNotCombinable": "Refund benefit vouchers cannot be applied to items that already have sale pricing.",
     "checkoutFailed": "Checkout failed. Please try again.",
     "deliveryProofUploadFailed": "Failed to upload delivery proof images."
   },

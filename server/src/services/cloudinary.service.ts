@@ -51,6 +51,11 @@ export interface ProductVariantBatchResult {
     totalFailed: number;
 }
 
+export interface BankQrUploadResult extends CloudinaryUploadResult {
+    optimizedUrl: string;
+    previewUrl: string;
+}
+
 /**
  * Cloudinary service for image uploads and management
  */
@@ -327,6 +332,91 @@ class CloudinaryService {
                 quality: 'auto:good',
             },
         });
+    }
+
+    /**
+     * Upload bank QR image with scan-safe optimizations.
+     * Keeps aspect ratio, avoids aggressive crops, and returns optimized delivery URLs.
+     */
+    async uploadBankQrImage(base64Data: string, userId: number): Promise<BankQrUploadResult> {
+        try {
+            if (!base64Data.startsWith('data:image/')) {
+                throw new Error('Invalid image data. Must be base64 encoded image.');
+            }
+
+            const sizeBytes = Math.ceil(base64Data.length * 0.75);
+            if (sizeBytes > this.DEFAULT_MAX_SIZE) {
+                throw new Error(`Image too large. Maximum size is ${this.DEFAULT_MAX_SIZE / 1024 / 1024}MB`);
+            }
+
+            const uploadResult: UploadApiResponse = await cloudinary.uploader.upload(base64Data, {
+                folder: `refund-bank-qr/user-${userId}`,
+                resource_type: 'image',
+                allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+                transformation: [
+                    {
+                        width: 1600,
+                        height: 1600,
+                        crop: 'limit',
+                        quality: 'auto:best',
+                        fetch_format: 'auto',
+                        dpr: 'auto',
+                    },
+                ],
+                eager: [
+                    {
+                        width: 900,
+                        height: 900,
+                        crop: 'limit',
+                        quality: 'auto:best',
+                        fetch_format: 'auto',
+                        dpr: 'auto',
+                    },
+                ],
+                eager_async: false,
+            });
+
+            const optimizedUrl = this.generateOptimizedUrl(uploadResult.public_id, {
+                width: 1600,
+                height: 1600,
+                crop: 'limit',
+                quality: 'auto:best',
+                fetchFormat: 'auto',
+                dpr: 'auto',
+            });
+            const previewUrl =
+                uploadResult.eager?.[0]?.secure_url ||
+                this.generateOptimizedUrl(uploadResult.public_id, {
+                    width: 900,
+                    height: 900,
+                    crop: 'limit',
+                    quality: 'auto:best',
+                    fetchFormat: 'auto',
+                    dpr: 'auto',
+                });
+
+            return {
+                publicId: uploadResult.public_id,
+                url: uploadResult.url,
+                secureUrl: optimizedUrl,
+                optimizedUrl,
+                previewUrl,
+                format: uploadResult.format,
+                width: uploadResult.width,
+                height: uploadResult.height,
+                bytes: uploadResult.bytes,
+            };
+        } catch (error: unknown) {
+            logger.error('[cloudinaryService] uploadBankQrImage failed', { error, userId });
+            const e = error as { http_code?: number; message?: string };
+            if (e.http_code === 400) {
+                throw new Error('Invalid bank QR image. Allowed formats: jpg, jpeg, png, webp');
+            }
+            if (e.http_code === 401) {
+                throw new Error('Cloudinary authentication failed. Please check your credentials.');
+            }
+            throw new Error(e.message || 'Failed to upload bank QR image');
+        }
     }
 
     /**

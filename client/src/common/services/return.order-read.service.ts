@@ -1,4 +1,4 @@
-import { returnApi } from '@/common/api/return.api';
+﻿import { returnApi } from '@/common/api/return.api';
 import type {
   OrderReturn,
   RawReturnStatus,
@@ -45,10 +45,16 @@ const mapOrderReturnRecord = (record: OrderReturnRecord): OrderReturn => ({
   financeNote: record.financeNote ?? null,
   financeNoteUpdatedAt: record.financeNoteUpdatedAt ?? null,
   financeNoteUpdatedBy: record.financeNoteUpdatedBy ?? null,
+  bankInfo: record.bankInfo ?? null,
+  bankInfoRequestedAt: record.bankInfoRequestedAt ?? null,
+  bankInfoSubmittedAt: record.bankInfoSubmittedAt ?? null,
+  refundCompletedAt: record.refundCompletedAt ?? null,
+  refundBenefit: record.refundBenefit ?? null,
   refundTransactions: record.refundTransactions?.map((transaction) => ({
     ...transaction,
     method: normalizeRefundTransactionMethod(transaction.method),
   })),
+  refundPayoutProofs: record.refundPayoutProofs ?? [],
 });
 
 export const returnOrderReadService = {

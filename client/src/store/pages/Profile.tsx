@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   BadgeCheck,
   Camera,
@@ -7,6 +7,7 @@ import {
   ChevronRight,
   CircleAlert,
   LockKeyhole,
+  LocateFixed,
   Mail,
   Phone,
   LogOut,
@@ -24,11 +25,11 @@ import { userService, UserProfile, Address } from '@/store/services/user.service
 import { orderService, type Order } from '@/common/services/order.service';
 import { returnSummaryService, type MyReturnSummary } from '@/common/services/return.summary.service';
 import { getImageUrl } from '@/common/utils/cloudinary';
-import { formatCurrencyVND } from '@/common/utils/currency';
 import { useTranslation } from 'react-i18next';
 import { type FieldErrorMap, firstFieldError, mapZodFieldErrors } from '@/common/validation/errors';
 import { profileAddressClientSchema, profileUpdateClientSchema } from '@/common/validation/schemas';
 import { fetchVNDistricts, fetchVNProvinces, fetchVNWards, resolveVNLocationSelection, type VNLocationOption } from '@/common/utils/vnLocation';
+import { getCurrentGeolocationPosition, getGeolocationPermissionState, reverseGeocodeCurrentPosition } from '@/common/utils/currentAddress';
 import { ZodError } from 'zod';
 import {
   CustomerOrderCard,
@@ -36,6 +37,8 @@ import {
   filterCustomerOrders,
   type CustomerOrderStatusFilter,
 } from '@/store/components/CustomerOrdersUI';
+import { ProfileBankAccountsSection } from '@/store/components/profile/ProfileBankAccountsSection';
+import { ProfileRefundBenefitsSection } from '@/store/components/profile/ProfileRefundBenefitsSection';
 
 const surfaceClassName = 'rounded-sm border border-white/5 bg-surface-dark';
 const mutedSurfaceClassName = 'rounded-sm border border-white/10 bg-black/20';
@@ -65,7 +68,35 @@ const formatAddressLine = (address: Address) =>
   [address.addressLine, address.ward, address.district, address.city].filter(Boolean).join(', ');
 
 const getInitial = (name: string) => name.trim().charAt(0).toUpperCase() || 'A';
-type ProfileSection = 'personal' | 'addresses' | 'orders' | 'security';
+type ProfileSection = 'personal' | 'addresses' | 'orders' | 'bank' | 'vouchers' | 'security';
+const profileSectionsOnProfilePath: ProfileSection[] = ['personal', 'addresses', 'orders', 'security'];
+
+const resolveProfileSectionFromLocation = (pathname: string, navigationState: unknown): ProfileSection => {
+  if (pathname === '/profile/bank') {
+    return 'bank';
+  }
+
+  if (pathname === '/profile/vouchers') {
+    return 'vouchers';
+  }
+
+  if (pathname !== '/profile') {
+    return 'personal';
+  }
+
+  const section = (
+    navigationState &&
+    typeof navigationState === 'object' &&
+    'profileSection' in navigationState
+      ? (navigationState as { profileSection?: unknown }).profileSection
+      : undefined
+  );
+
+  return typeof section === 'string' && profileSectionsOnProfilePath.includes(section as ProfileSection)
+    ? (section as ProfileSection)
+    : 'personal';
+};
+
 type RecentOrderWithReturn = Order & {
   activeReturn?: MyReturnSummary | null;
 };
@@ -73,6 +104,7 @@ type RecentOrderWithReturn = Order & {
 export const Profile: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'profile' });
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout } = useAuth();
   const { showToast } = useToast();
 
@@ -81,7 +113,7 @@ export const Profile: React.FC = () => {
   const [recentOrders, setRecentOrders] = useState<RecentOrderWithReturn[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<ProfileSection>('personal');
+  const [activeSection, setActiveSection] = useState<ProfileSection>(() => resolveProfileSectionFromLocation(location.pathname, location.state));
   const [orderFilter, setOrderFilter] = useState<CustomerOrderStatusFilter>('');
   const [expandedReturnOrderIds, setExpandedReturnOrderIds] = useState<Set<number>>(new Set());
 
@@ -110,6 +142,7 @@ export const Profile: React.FC = () => {
   const [selectedAddressCityCode, setSelectedAddressCityCode] = useState('');
   const [selectedAddressDistrictCode, setSelectedAddressDistrictCode] = useState('');
   const [selectedAddressWardCode, setSelectedAddressWardCode] = useState('');
+  const [isUsingCurrentLocation, setIsUsingCurrentLocation] = useState(false);
 
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -215,6 +248,33 @@ export const Profile: React.FC = () => {
       delete next[field];
       return next;
     });
+  };
+
+  const resolveCurrentLocationErrorMessage = ({
+    error,
+    permissionState,
+  }: {
+    error: unknown;
+    permissionState: Awaited<ReturnType<typeof getGeolocationPermissionState>>;
+  }) => {
+    const errorCode =
+      typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'number'
+        ? error.code
+        : undefined;
+
+    if (!window.isSecureContext) {
+      return t('addresses.errors.locationInsecureContext');
+    }
+
+    if (permissionState === 'denied' || errorCode === 1) {
+      return t('addresses.errors.locationPermissionDenied');
+    }
+
+    if (!navigator.geolocation) {
+      return t('addresses.errors.locationUnsupported');
+    }
+
+    return t('addresses.errors.locationLookupFailed');
   };
 
   const mapApiFieldErrors = (details?: Array<{ field?: string; message?: string }>): FieldErrorMap => {
@@ -418,7 +478,13 @@ export const Profile: React.FC = () => {
     setEditingAddressId(null);
   };
 
-  const syncAddressFormLocation = useCallback(async (address: Pick<Address, 'city' | 'district' | 'ward'>) => {
+  const syncAddressFormLocation = useCallback(async (address: {
+    city?: string | null;
+    district?: string | null;
+    ward?: string | null;
+    addressLine?: string | null;
+    displayName?: string | null;
+  }) => {
     try {
       const resolved = await resolveVNLocationSelection(address, addressProvinces);
       setSelectedAddressCityCode(resolved.provinceCode);
@@ -502,6 +568,56 @@ export const Profile: React.FC = () => {
     }));
   };
 
+  const handleUseCurrentLocationForAddress = async () => {
+    let permissionState: Awaited<ReturnType<typeof getGeolocationPermissionState>> = 'unsupported';
+
+    try {
+      setIsUsingCurrentLocation(true);
+      setAddressErrorMessage('');
+      setAddressActionFeedback(null);
+      clearFieldError(setAddressErrors, 'addressLine');
+      clearFieldError(setAddressErrors, 'city');
+      clearFieldError(setAddressErrors, 'district');
+      clearFieldError(setAddressErrors, 'ward');
+
+      permissionState = await getGeolocationPermissionState();
+      const position = await getCurrentGeolocationPosition();
+      const detectedAddress = await reverseGeocodeCurrentPosition(
+        position.coords.latitude,
+        position.coords.longitude,
+      );
+
+      setAddressForm((prev) => ({
+        ...prev,
+        addressLine: detectedAddress.addressLine || prev.addressLine,
+        city: detectedAddress.city || prev.city,
+        district: detectedAddress.district || '',
+        ward: detectedAddress.ward || '',
+      }));
+
+      if (detectedAddress.city && addressProvinces.length > 0) {
+        await syncAddressFormLocation({
+          city: detectedAddress.city,
+          district: detectedAddress.district,
+          ward: detectedAddress.ward,
+          addressLine: detectedAddress.addressLine,
+          displayName: detectedAddress.displayName,
+        });
+      }
+
+      setAddressActionFeedback({ type: 'success', message: t('addresses.messages.locationApplied') });
+    } catch (locationError) {
+      setAddressErrorMessage(
+        resolveCurrentLocationErrorMessage({
+          error: locationError,
+          permissionState,
+        }),
+      );
+    } finally {
+      setIsUsingCurrentLocation(false);
+    }
+  };
+
   const handleSaveAddress = async () => {
     const province = addressProvinces.find((item) => item.code === selectedAddressCityCode);
     const district = addressDistricts.find((item) => item.code === selectedAddressDistrictCode);
@@ -573,13 +689,32 @@ export const Profile: React.FC = () => {
   };
 
   const handleSectionChange = useCallback((section: ProfileSection) => {
+    const pathBySection: Record<ProfileSection, string> = {
+      personal: '/profile',
+      addresses: '/profile',
+      orders: '/profile',
+      bank: '/profile/bank',
+      vouchers: '/profile/vouchers',
+      security: '/profile',
+    };
+
+    navigate(pathBySection[section], {
+      state: pathBySection[section] === '/profile'
+        ? { profileSection: section }
+        : null,
+    });
+
     if (section === 'personal') {
       openOverview();
       return;
     }
 
     openTab(section as Exclude<ProfileSection, 'personal'>);
-  }, [openOverview, openTab]);
+  }, [navigate, openOverview, openTab]);
+
+  useEffect(() => {
+    setActiveSection(resolveProfileSectionFromLocation(location.pathname, location.state));
+  }, [location.pathname, location.state]);
 
   const filteredOrders = useMemo(
     () => filterCustomerOrders(recentOrders, orderFilter),
@@ -679,12 +814,16 @@ export const Profile: React.FC = () => {
     { id: 'personal', icon: UserRound, label: t('sidebar.overview') },
     { id: 'orders', icon: Package, label: t('sidebar.orders') },
     { id: 'addresses', icon: MapPinned, label: t('sidebar.addresses') },
+    { id: 'bank', icon: Link2, label: 'Tài khoản' },
+    { id: 'vouchers', icon: BadgeCheck, label: 'Mã giảm giá' },
     { id: 'security', icon: LockKeyhole, label: t('sidebar.security') },
   ];
   const mobileItems: Array<{ id: ProfileSection; icon: React.ComponentType<{ size?: number; className?: string }>; label: string }> = [
     { id: 'personal', icon: UserRound, label: t('sidebar.overview') },
     { id: 'orders', icon: Package, label: t('sidebar.orders') },
     { id: 'addresses', icon: MapPinned, label: t('sidebar.addresses') },
+    { id: 'bank', icon: Link2, label: 'Tài khoản' },
+    { id: 'vouchers', icon: BadgeCheck, label: 'Mã giảm giá' },
     { id: 'security', icon: LockKeyhole, label: t('sidebar.security') },
   ];
   const linkedProviderLabel = profile.googleId ? t('summary.googleLinked') : t('summary.googleUnlinked');
@@ -1076,6 +1215,16 @@ export const Profile: React.FC = () => {
                 <div className="mt-6 rounded-sm border border-white/10 bg-black/20 p-5">
                   <h3 className="text-lg font-bold">{editingAddressId ? t('addresses.actions.edit') : t('addresses.actions.addNew')}</h3>
                   <p className="mt-2 text-sm leading-6 text-white/58">{t('addresses.formHint')}</p>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <button
+                      onClick={handleUseCurrentLocationForAddress}
+                      disabled={isUsingCurrentLocation}
+                      className={`${subtleButtonClassName} inline-flex items-center gap-2 rounded px-4 py-3 ${isUsingCurrentLocation ? 'cursor-not-allowed opacity-60' : ''}`}
+                    >
+                      <LocateFixed size={14} />
+                      {isUsingCurrentLocation ? t('addresses.actions.locatingCurrentLocation') : t('addresses.actions.useCurrentLocation')}
+                    </button>
+                  </div>
                   {addressErrorMessage && <div className={`mt-4 ${formErrorClassName}`}>{addressErrorMessage}</div>}
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <div>
@@ -1256,6 +1405,10 @@ export const Profile: React.FC = () => {
               </div>
             </section>
             )}
+
+            <ProfileBankAccountsSection isActive={activeSection === 'bank'} />
+
+            <ProfileRefundBenefitsSection isActive={activeSection === 'vouchers'} />
 
             {activeSection === 'security' && (
             <section id="profile-content" className={`${surfaceClassName} overflow-hidden p-6`}>

@@ -17,6 +17,9 @@ export interface Coupon {
     usedCount: number;
     usagePerUser: number;
     isActive: boolean;
+    isHidden?: boolean;
+    source?: string | null;
+    visibleInPublicList?: boolean;
     createdAt: string;
     updatedAt: string;
     status: CouponStatus;
@@ -29,6 +32,14 @@ export interface CouponListResponse {
         pageSize: number;
         total: number;
         totalPages: number;
+    };
+    summary?: {
+        total: number;
+        active: number;
+        expired: number;
+        depleted: number;
+        upcoming: number;
+        inactive: number;
     };
 }
 
@@ -65,12 +76,14 @@ export const fetchCoupons = async (params?: {
     pageSize?: number;
     search?: string;
     isActive?: boolean;
+    includeHidden?: boolean;
 }): Promise<CouponListResponse> => {
     const query: Record<string, string> = {};
     if (params?.page) query.page = String(params.page);
     if (params?.pageSize) query.pageSize = String(params.pageSize);
     if (params?.search) query.search = params.search;
     if (params?.isActive !== undefined) query.isActive = String(params.isActive);
+    if (params?.includeHidden !== undefined) query.includeHidden = String(params.includeHidden);
     return couponApi.fetch(query);
 };
 

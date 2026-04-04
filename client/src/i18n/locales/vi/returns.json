@@ -322,6 +322,12 @@
       "refundGatewayTimedOut": "Cổng hoàn tiền phản hồi quá hạn.",
       "gatewayTimeoutWhileIssuingRefund": "Cổng thanh toán bị quá hạn khi xử lý hoàn tiền.",
       "outOfPolicy": "Yêu cầu không đáp ứng chính sách hoàn trả.",
+      "cancelledBeforeFulfillmentAfterSuccessfulVnpayPayment": "Đơn đã được hủy trước khi xử lý đơn sau khi thanh toán VNPay thành công.",
+      "customerCancelledPaidVnpayBeforeFulfillment": "Khách hàng đã hủy đơn VNPAY đã thanh toán trước khi xử lý đơn. Đang chờ quản trị viên xem xét hoàn tiền.",
+      "orderCancelledRefundSubmittedForAdminReview": "Khách hàng đã hủy đơn. Yêu cầu hoàn tiền đã được tạo để quản trị viên xem xét.",
+      "orderCancelledByCustomer": "Khách hàng đã hủy đơn.",
+      "customerSelectedCancellationReason": "Khách hàng chọn lý do hủy đơn: {{reason}}",
+      "refundCompletedViaMethod": "Đã hoàn tiền qua {{method}} - mã giao dịch {{transactionRef}}",
       "refundedWithNote": "Đã hoàn tiền: {{note}}",
       "refundStatusUpdated": "Cập nhật trạng thái hoàn tiền: {{from}} -> {{to}}"
     }

@@ -1,4 +1,4 @@
-import { adminReturnApi } from '@/admin/api/returns.api';
+﻿import { adminReturnApi } from '@/admin/api/returns.api';
 import type { AdminReturnRecord } from '@/admin/services/types';
 import type {
   OrderReturn,
@@ -104,6 +104,11 @@ const mapAdminReturnRecord = (record: CanonicalizableAdminReturnRecord): OrderRe
     financeNote: financeNoteContext.financeNote,
     financeNoteUpdatedAt: financeNoteContext.financeNoteUpdatedAt,
     financeNoteUpdatedBy: financeNoteContext.financeNoteUpdatedBy,
+    bankInfo: record.bankInfo ?? null,
+    bankInfoRequestedAt: record.bankInfoRequestedAt ?? null,
+    bankInfoSubmittedAt: record.bankInfoSubmittedAt ?? null,
+    refundCompletedAt: record.refundCompletedAt ?? null,
+    refundBenefit: record.refundBenefit ?? null,
     totalRefundAmount: record.totalRefundAmount ?? null,
     refundableCapAmount: record.refundableCapAmount ?? null,
     economicsSummary: record.economicsSummary ?? undefined,
@@ -111,6 +116,7 @@ const mapAdminReturnRecord = (record: CanonicalizableAdminReturnRecord): OrderRe
       ...transaction,
       method: normalizeRefundTransactionMethod(transaction.method),
     })),
+    refundPayoutProofs: record.refundPayoutProofs ?? [],
     createdAt: record.createdAt,
     updatedAt: record.updatedAt ?? record.createdAt,
     items: record.items,

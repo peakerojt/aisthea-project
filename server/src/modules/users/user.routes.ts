@@ -7,7 +7,14 @@ import {
 } from '../../middlewares/security.middleware';
 import { upload } from '../../middlewares/upload.middleware';
 import { validate } from '../../middlewares/validate.middleware';
-import { updateProfileSchema, addressSchema, addressIdParamSchema } from '../../utils/schemas/user.validator';
+import {
+  updateProfileSchema,
+  addressSchema,
+  addressIdParamSchema,
+  bankAccountSchema,
+  bankAccountIdParamSchema,
+  uploadImagePayloadSchema,
+} from '../../utils/schemas/user.validator';
 
 const router = Router();
 const profileMutationRateLimiters = createCustomerMutationRateLimiters('user.profile');
@@ -43,6 +50,38 @@ router.put(
   validate(addressIdParamSchema, 'params'),
   userController.setDefaultAddress,
 );
+
+// ── Bank accounts ─────────────────────────────────────────────────────────────
+router.get('/bank-accounts', userController.getBankAccounts);
+router.post('/bank-accounts', ...addressMutationRateLimiters, validate(bankAccountSchema), userController.createBankAccount);
+router.put(
+  '/bank-accounts/:id',
+  ...addressMutationRateLimiters,
+  validate(bankAccountIdParamSchema, 'params'),
+  validate(bankAccountSchema),
+  userController.updateBankAccount,
+);
+router.delete(
+  '/bank-accounts/:id',
+  ...addressMutationRateLimiters,
+  validate(bankAccountIdParamSchema, 'params'),
+  userController.deleteBankAccount,
+);
+router.patch(
+  '/bank-accounts/:id/default',
+  ...addressMutationRateLimiters,
+  validate(bankAccountIdParamSchema, 'params'),
+  userController.setDefaultBankAccount,
+);
+router.post(
+  '/bank-accounts/upload-qr-image',
+  ...addressMutationRateLimiters,
+  validate(uploadImagePayloadSchema),
+  userController.uploadBankQrImage,
+);
+
+// ── Refund benefits ───────────────────────────────────────────────────────────
+router.get('/refund-benefits', userController.getRefundBenefits);
 
 // ── Recent orders for profile ─────────────────────────────────────────────────
 router.get('/recent-orders', userController.getRecentOrders);

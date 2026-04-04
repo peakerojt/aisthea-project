@@ -1,12 +1,12 @@
-import { adminReturnApi } from '@/admin/api/returns.api';
+﻿import { adminReturnApi } from '@/admin/api/returns.api';
 import { adminReturnReadService } from '@/admin/services/returns.query';
 import type {
+  CompleteBankRefundPayload,
   OrderReturn,
   RefundMethod,
   RefundWorkflowStatus,
   ReturnListResponse,
 } from '@/common/services/return.types';
-import { canonicalizeWorkflowStatusFallback } from '@/common/utils/returnStatus';
 
 type AdminReturnProcessResult = {
   success: boolean;
@@ -93,64 +93,6 @@ const updateAdminRefundWorkflowStatus = (
     messageKey ?? 'feedback.refundSuccess',
   );
 
-const completeAdminRefundRequest = async (
-  detailLoader: (returnId: number) => Promise<OrderReturn>,
-  returnId: number,
-): Promise<AdminReturnProcessResult> => {
-  const detail = await detailLoader(returnId);
-  const isPreDeliveryCancellation = detail.reason === 'PRE_DELIVERY_CANCELLATION';
-  if (detail.refundStatus === 'LOCKED_UNTIL_PAYMENT_CONFIRMED') {
-    throw createAdminReturnError(
-      'feedback.refundLocked',
-      'Hoàn tiền đang bị khóa cho tới khi đơn hàng được xác nhận thanh toán.',
-      'RETURN_REFUND_LOCKED',
-    );
-  }
-
-  let currentStatus = canonicalizeWorkflowStatusFallback(detail.workflowStatus ?? detail.status);
-
-  if (currentStatus === 'REJECTED') {
-    throw createAdminReturnError(
-      'feedback.refundRejected',
-      'Yêu cầu đã bị từ chối, không thể hoàn tiền.',
-      'RETURN_ALREADY_REJECTED',
-    );
-  }
-
-  if (
-    currentStatus === 'REQUESTED' ||
-    currentStatus === 'PENDING_ADMIN_REVIEW' ||
-    currentStatus === 'SUBMITTED'
-  ) {
-    await adminReturnApi.approveReturnRequest(returnId);
-    currentStatus = isPreDeliveryCancellation ? 'ACCEPTED_FOR_REFUND' : 'APPROVED';
-  }
-
-  if (!isPreDeliveryCancellation && currentStatus === 'APPROVED') {
-    await adminReturnApi.markReturnInTransit(returnId);
-    currentStatus = 'IN_RETURN_TRANSIT';
-  }
-
-  if (!isPreDeliveryCancellation && currentStatus === 'IN_RETURN_TRANSIT') {
-    await adminReturnApi.markReturnReceived(returnId);
-    currentStatus = 'RECEIVED_AND_INSPECTING';
-  }
-
-  if (!isPreDeliveryCancellation && (currentStatus === 'RECEIVED' || currentStatus === 'RECEIVED_AND_INSPECTING')) {
-    await adminReturnApi.acceptReturnForRefund(returnId);
-    currentStatus = 'ACCEPTED_FOR_REFUND';
-  }
-
-  if (currentStatus === 'ACCEPTED_FOR_REFUND') {
-    await adminReturnApi.refundReturnRequest(returnId, {
-      method: 'ORIGINAL_PAYMENT',
-      idempotencyKey: createRefundIdempotencyKey(returnId),
-    });
-  }
-
-  return createAdminReturnResult('feedback.refundSuccess');
-};
-
 export const adminReturnRuntimeService = {
   async list(params?: {
     status?: string;
@@ -193,6 +135,13 @@ export const adminReturnRuntimeService = {
     );
   },
 
+  async adminSendBankInfoReminder(returnId: number) {
+    return runAdminActionRequest(
+      () => adminReturnApi.sendBankInfoReminder(returnId),
+      'feedback.bankInfoReminderSent',
+    );
+  },
+
   async adminSetRefundPending(returnId: number, note?: string) {
     return updateAdminRefundWorkflowStatus(
       returnId,
@@ -229,8 +178,16 @@ export const adminReturnRuntimeService = {
     );
   },
 
-  async adminCompleteRefund(returnId: number) {
-    return completeAdminRefundRequest((targetReturnId) => this.detail(targetReturnId), returnId);
+  async uploadPayoutProofImage(imageData: string, fileName?: string) {
+    const response = await adminReturnApi.uploadPayoutProofImage({ imageData, fileName });
+    return response.data;
+  },
+
+  async adminCompleteRefund(returnId: number, payload: CompleteBankRefundPayload) {
+    return runAdminActionRequest(
+      () => adminReturnApi.completeBankRefund(returnId, payload),
+      'feedback.refundSuccess',
+    );
   },
 
   async adminRefund(returnId: number, payload: Record<string, unknown>) {

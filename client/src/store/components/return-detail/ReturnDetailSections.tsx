@@ -28,6 +28,7 @@ import {
 } from '@/common/utils/returnEconomics';
 import { canonicalizeWorkflowStatusFallback } from '@/common/utils/returnStatus';
 import { translateLegacyReturnCopy } from '@/common/utils/returnCopy';
+import { getCloudinaryQrImage } from '@/common/utils/cloudinary';
 
 const pageSectionClassName =
   'rounded-3xl border border-white/10 bg-[#101214] p-5 shadow-[0_24px_64px_rgba(0,0,0,0.24)] sm:p-6';
@@ -113,6 +114,7 @@ export function ReturnDetailOverview({
     'Đã giới hạn theo số tiền thực trả của các sản phẩm trong yêu cầu này.',
   );
   const noteLabel = resolveText('detail.infoNote', 'Ghi chú');
+  const translatedDetailNote = translateLegacyReturnCopy(detail.note, resolveText);
 
   return (
     <section className={joinClasses(surfaceClassName, 'overflow-hidden')}>
@@ -216,7 +218,7 @@ export function ReturnDetailOverview({
         {detail.note && (
           <div className={joinClasses('mt-4 p-4', mutedPanelClassName)}>
             <div className={eyebrowClassName}>{noteLabel}</div>
-            <p className="mt-3 text-sm leading-7 text-white/78">{detail.note}</p>
+            <p className="mt-3 text-sm leading-7 text-white/78">{translatedDetailNote ?? detail.note}</p>
           </div>
         )}
       </div>
@@ -227,6 +229,7 @@ export function ReturnDetailOverview({
 export function ReturnDetailNotices({ detail }: { detail: ReturnRequestDetail }) {
   const navigate = useNavigate();
   const { resolveText } = useReturnDetailText();
+  const workflowStatus = canonicalizeWorkflowStatusFallback(detail.workflowStatus ?? detail.status);
   const translatedFinanceNote = translateLegacyReturnCopy(detail.financeNote, resolveText);
   const financeMetaLabel = resolveText('detail.infoFinanceUpdateMeta', 'Cập nhật {{date}} bởi {{actor}}', {
     date: detail.financeNoteUpdatedAt ? new Date(detail.financeNoteUpdatedAt).toLocaleString('vi-VN') : '—',
@@ -245,6 +248,28 @@ export function ReturnDetailNotices({ detail }: { detail: ReturnRequestDetail })
     'Mở đơn hàng để xác nhận đã nhận hàng',
   );
   const financeUpdateLabel = resolveText('detail.infoFinanceUpdate', 'Cập nhật hoàn tiền');
+  const bankInfoReminderLabel = resolveText(
+    'detail.bankInfoReminder',
+    'Cần cập nhật tài khoản nhận hoàn tiền trước khi bộ phận tài chính chuyển khoản.',
+  );
+  const bankInfoReminderHintLabel = resolveText(
+    'detail.bankInfoReminderHint',
+    'Hãy mở Hồ sơ của bạn và thêm tài khoản ngân hàng hoặc QR nhận tiền để quy trình hoàn tiền không bị chậm.',
+  );
+  const bankInfoReminderActionLabel = resolveText(
+    'detail.bankInfoReminderAction',
+    'Mở hồ sơ để cập nhật',
+  );
+  const bankInfoTitle = resolveText('detail.bankInfoTitle', 'Thông tin nhận hoàn tiền');
+  const refundBenefitTitle = resolveText('detail.refundBenefitTitle', 'Ưu đãi sau hoàn tiền');
+  const refundProofTitle = resolveText('detail.refundProofTitle', 'Biên nhận chuyển khoản');
+  const shouldShowBankInfoReminder = workflowStatus === 'ACCEPTED_FOR_REFUND' && !detail.bankInfo?.available;
+  const shouldShowBankInfoSummary = Boolean(detail.bankInfo?.available) && (
+    workflowStatus === 'ACCEPTED_FOR_REFUND' ||
+    workflowStatus === 'CLOSED' ||
+    detail.refundStatus === 'REFUNDED' ||
+    detail.refundStatus === 'PARTIALLY_REFUNDED'
+  );
 
   return (
     <>
@@ -268,6 +293,74 @@ export function ReturnDetailNotices({ detail }: { detail: ReturnRequestDetail })
         </section>
       )}
 
+      {shouldShowBankInfoReminder && (
+        <section className={warningPanelClassName}>
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-200/20 bg-black/10 text-amber-50/90">
+              <Banknote size={18} />
+            </div>
+            <div className="space-y-3">
+              <div className="text-base font-semibold">{bankInfoReminderLabel}</div>
+              <p className="text-sm leading-6 text-amber-50/78">{bankInfoReminderHintLabel}</p>
+              <button
+                onClick={() => navigate('/profile/bank')}
+                className="inline-flex items-center rounded-full border border-amber-100/20 bg-black/10 px-4 py-2 text-sm font-medium text-amber-50 transition-colors hover:border-amber-100/30 hover:bg-black/20"
+              >
+                {bankInfoReminderActionLabel}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {shouldShowBankInfoSummary && (
+        <section className={infoPanelClassName}>
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-sky-200/20 bg-black/10 text-sky-50/92">
+              <Banknote size={17} />
+            </div>
+            <div className="min-w-0 flex-1 space-y-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-100/76">
+                {bankInfoTitle}
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-2xl border border-sky-100/10 bg-black/10 p-4">
+                  <div className="text-xs uppercase tracking-[0.12em] text-sky-100/60">
+                    {detail.bankInfo?.bankName ?? '—'}
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-sky-50">
+                    {detail.bankInfo?.accountHolder ?? '—'}
+                  </div>
+                  <div className="mt-1 text-sm text-sky-50/72">
+                    {detail.bankInfo?.accountNumberMasked ?? '—'}
+                  </div>
+                  {detail.bankInfo?.updatedAt && (
+                    <div className="mt-3 text-xs text-sky-100/62">
+                      {resolveText('detail.bankInfoUpdatedAt', 'Cập nhật {{date}}', {
+                        date: new Date(detail.bankInfo.updatedAt).toLocaleString('vi-VN'),
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="overflow-hidden rounded-2xl border border-sky-100/10 bg-black/10">
+                  {detail.bankInfo?.qrImageUrl ? (
+                    <img
+                      src={getCloudinaryQrImage(detail.bankInfo.qrImageUrl, 900, 900)}
+                      alt={resolveText('detail.bankQrAlt', 'QR tài khoản ngân hàng')}
+                      className="h-full min-h-44 w-full object-contain bg-white/[0.03] p-3"
+                    />
+                  ) : (
+                    <div className="flex h-full min-h-44 items-center justify-center px-6 text-center text-sm text-sky-100/58">
+                      {resolveText('detail.bankQrEmpty', 'Tài khoản này chưa có ảnh QR đính kèm.')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {detail.financeNote && (
         <section className={infoPanelClassName}>
           <div className="flex items-start gap-4">
@@ -282,6 +375,82 @@ export function ReturnDetailNotices({ detail }: { detail: ReturnRequestDetail })
               {(detail.financeNoteUpdatedAt || detail.financeNoteUpdatedBy?.fullName) && (
                 <p className="text-xs leading-6 text-sky-100/66">{financeMetaLabel}</p>
               )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {detail.refundBenefit && (
+        <section className={infoPanelClassName}>
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-sky-200/20 bg-black/10 text-sky-50/92">
+              <RefreshCcw size={17} />
+            </div>
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-100/76">
+                {refundBenefitTitle}
+              </div>
+              <p className="text-sm leading-7 text-sky-50/90">{detail.refundBenefit.summary}</p>
+              <div className="flex flex-wrap gap-2 text-xs text-sky-100/66">
+                {typeof detail.refundBenefit.minOrderValue === 'number' && (
+                  <span className="rounded-full border border-sky-100/15 px-3 py-1">
+                    {resolveText('detail.refundBenefitMinOrder', 'Đơn tối thiểu {{amount}}', {
+                      amount: formatMoney(detail.refundBenefit.minOrderValue),
+                    })}
+                  </span>
+                )}
+                {detail.refundBenefit.validUntil && (
+                  <span className="rounded-full border border-sky-100/15 px-3 py-1">
+                    {resolveText('detail.refundBenefitValidUntil', 'Hiệu lực tới {{date}}', {
+                      date: new Date(detail.refundBenefit.validUntil).toLocaleDateString('vi-VN'),
+                    })}
+                  </span>
+                )}
+                {detail.refundBenefit.status && (
+                  <span className="rounded-full border border-sky-100/15 px-3 py-1">
+                    {resolveText('detail.refundBenefitStatus', 'Trạng thái {{status}}', {
+                      status: detail.refundBenefit.status,
+                    })}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {Array.isArray(detail.refundPayoutProofs) && detail.refundPayoutProofs.length > 0 && (
+        <section className={infoPanelClassName}>
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-sky-200/20 bg-black/10 text-sky-50/92">
+              <ImageIcon size={17} />
+            </div>
+            <div className="min-w-0 flex-1 space-y-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-100/76">
+                {refundProofTitle}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {detail.refundPayoutProofs.map((proof) => (
+                  <a
+                    key={proof.refundPayoutProofId}
+                    href={proof.fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="overflow-hidden rounded-2xl border border-sky-100/12 bg-black/10 transition hover:border-sky-100/22"
+                  >
+                    <div className="aspect-[4/3] bg-black/20">
+                      <img
+                        src={proof.fileUrl}
+                        alt={proof.fileName ?? resolveText('detail.refundProofAlt', 'Ảnh chứng từ hoàn tiền')}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="px-3 py-2 text-xs text-sky-100/70">
+                      {proof.fileName ?? resolveText('detail.refundProofOpen', 'Mở ảnh chứng từ')}
+                    </div>
+                  </a>
+                ))}
+              </div>
             </div>
           </div>
         </section>

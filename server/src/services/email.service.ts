@@ -270,6 +270,140 @@ export const sendPasswordResetEmail = async (email: string, token: string, fullN
     }
 };
 
+type RefundEmailOptions = {
+    email: string;
+    subject: string;
+    html: string;
+    text: string;
+    logLabel: string;
+};
+
+const sendRefundWorkflowEmail = async (options: RefundEmailOptions) => {
+    const mailOptions = {
+        from: SMTP_FROM,
+        to: options.email,
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+    };
+
+    try {
+        const info = await createTransporter().sendMail(mailOptions);
+        logger.debug(`[emailService] ${options.logLabel} email sent`, {
+            to: options.email,
+            accepted: info.accepted,
+            rejected: info.rejected,
+            response: info.response,
+            messageId: info.messageId,
+        });
+        return true;
+    } catch (error) {
+        logger.error(`[emailService] Failed to send ${options.logLabel} email`, {
+            mailError: serializeMailError(error),
+            smtpHost: SMTP_HOST,
+            smtpPort: SMTP_PORT,
+            smtpUser: SMTP_USER,
+            smtpFrom: SMTP_FROM,
+            to: options.email,
+        });
+        throw new Error(`Failed to send ${options.logLabel} email`);
+    }
+};
+
+export const sendRefundAcceptedBankInfoRequiredEmail = async (
+    email: string,
+    fullName: string,
+    orderNumber: string,
+    profileBankLink = `${env.clientUrl}/profile`,
+) =>
+    sendRefundWorkflowEmail({
+        email,
+        subject: 'Your refund request has been approved',
+        logLabel: 'refund accepted bank info required',
+        html: `
+            <p>Hello <strong>${fullName}</strong>,</p>
+            <p>Your refund request for order <strong>${orderNumber}</strong> has been approved.</p>
+            <p>Before our finance team can complete the payout, please update your bank information in your account profile.</p>
+            <p><a href="${profileBankLink}">Update Bank Information</a></p>
+            <p>You can add a bank account manually or upload a QR image as a reference.</p>
+        `,
+        text: `
+            Hello ${fullName},
+
+            Your refund request for order ${orderNumber} has been approved.
+
+            Before our finance team can complete the payout, please update your bank information here:
+            ${profileBankLink}
+
+            You can add a bank account manually or upload a QR image as a reference.
+        `,
+    });
+
+export const sendRefundAcceptedAwaitingPayoutEmail = async (
+    email: string,
+    fullName: string,
+    orderNumber: string,
+) =>
+    sendRefundWorkflowEmail({
+        email,
+        subject: 'Your refund request is being processed',
+        logLabel: 'refund accepted awaiting payout',
+        html: `
+            <p>Hello <strong>${fullName}</strong>,</p>
+            <p>Your refund request for order <strong>${orderNumber}</strong> has been approved.</p>
+            <p>We already have your bank information on file, and your payout is now waiting for manual processing by our finance team.</p>
+        `,
+        text: `
+            Hello ${fullName},
+
+            Your refund request for order ${orderNumber} has been approved.
+
+            We already have your bank information on file, and your payout is now waiting for manual processing by our finance team.
+        `,
+    });
+
+export const sendRefundCompletedBenefitIssuedEmail = async (params: {
+    email: string;
+    fullName: string;
+    orderNumber: string;
+    refundAmount: number;
+    refundDate: Date;
+    voucherSummary: string | null;
+    profileLink?: string;
+}) => {
+    const profileLink = params.profileLink ?? `${env.clientUrl}/profile`;
+    const refundDateLabel = params.refundDate.toLocaleDateString('vi-VN');
+    const formattedAmount = params.refundAmount.toLocaleString('vi-VN');
+    const voucherSummary = params.voucherSummary ?? 'An available voucher has been added to your account.';
+
+    return sendRefundWorkflowEmail({
+        email: params.email,
+        subject: 'Your refund has been completed successfully',
+        logLabel: 'refund completed benefit issued',
+        html: `
+            <p>Hello <strong>${params.fullName}</strong>,</p>
+            <p>Your refund for order <strong>${params.orderNumber}</strong> has been completed successfully.</p>
+            <p>Refund amount: <strong>${formattedAmount} VND</strong></p>
+            <p>Refund date: <strong>${refundDateLabel}</strong></p>
+            <p>${voucherSummary}</p>
+            <p>You can review your available voucher information in your account:</p>
+            <p><a href="${profileLink}">Open My Account</a></p>
+        `,
+        text: `
+            Hello ${params.fullName},
+
+            Your refund for order ${params.orderNumber} has been completed successfully.
+
+            Refund amount: ${formattedAmount} VND
+            Refund date: ${refundDateLabel}
+            ${voucherSummary}
+
+            You can review your available voucher information here:
+            ${profileLink}
+        `,
+    });
+};
+
 /**
  * Verify SMTP connection
  */

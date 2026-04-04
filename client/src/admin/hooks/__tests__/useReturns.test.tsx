@@ -175,6 +175,27 @@ describe('useAdminReturns', () => {
     expect(result.current.canManageFinanceActions).toBe(false);
   });
 
+  it('enables finance actions for support sessions with explicit finance permission', async () => {
+    useAuthMock.mockReturnValue({
+      user: {
+        roles: ['Support'],
+        permissions: ['RETURN_REFUND_FINANCE_COMPLETE'],
+      },
+    });
+    listMock.mockResolvedValue({
+      returns: [makeReturn({ returnId: 31, workflowStatus: 'ACCEPTED_FOR_REFUND' })],
+      pagination: { page: 1, pageSize: 15, total: 1, totalPages: 1 },
+    });
+
+    const { result } = renderHook(() => useAdminReturns());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.canManageFinanceActions).toBe(true);
+  });
+
   it('uses the explicit status bucket when the admin read model carries both raw and bucket statuses', async () => {
     listMock.mockResolvedValue({
       returns: [
@@ -271,7 +292,7 @@ describe('useAdminReturns', () => {
     });
 
     await waitFor(() => {
-      expect(adminCompleteRefundMock).toHaveBeenCalledWith(10);
+      expect(adminCompleteRefundMock).toHaveBeenCalledWith(10, undefined);
       expect(showToastMock).toHaveBeenCalledWith({
         type: 'success',
         title: 'Đã hoàn tiền thành công',

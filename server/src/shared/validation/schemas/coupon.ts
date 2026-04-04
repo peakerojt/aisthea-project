@@ -75,6 +75,15 @@ export const couponListQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional().default(1),
   pageSize: z.coerce.number().int().positive().max(100).optional().default(20),
   search: z.string().trim().max(50, 'Từ khóa tìm kiếm không được vượt quá 50 ký tự').optional(),
+  includeHidden: z.preprocess(
+    (value) => {
+      if (value === undefined || value === '') return undefined;
+      if (value === 'true') return true;
+      if (value === 'false') return false;
+      return value;
+    },
+    z.boolean().optional(),
+  ),
   isActive: z.preprocess(
     (value) => {
       if (value === undefined || value === '') return undefined;

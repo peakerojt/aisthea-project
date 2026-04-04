@@ -1,6 +1,6 @@
 import { Prisma } from '../../generated/client';
 import { AppError } from '../../middlewares/error.middleware';
-import { validateCoupon, ValidateCouponResult } from '../../services/coupon.service';
+import { CouponError, validateCoupon, ValidateCouponResult } from '../../services/coupon.service';
 import { prisma } from '../../utils/prisma';
 
 export type ShippingMethod = 'STANDARD' | 'EXPRESS';
@@ -107,7 +107,7 @@ export async function quoteOrderPricing(
       sku: true,
       price: true,
       stockQuantity: true,
-      product: { select: { name: true } },
+      product: { select: { name: true, basePrice: true } },
       variantAttributes: {
         select: {
           value: {
@@ -122,6 +122,7 @@ export async function quoteOrderPricing(
 
   const variantMap = new Map(variants.map((variant) => [variant.variantId, variant]));
   let itemsSubtotal = 0;
+  let cartHasSalePromotion = false;
 
   const enrichedItems = input.items.map((item) => {
     const variant = variantMap.get(item.variantId);
@@ -143,6 +144,10 @@ export async function quoteOrderPricing(
     }
 
     const unitPrice = Number(variant.price);
+    const productBasePrice = Number(variant.product?.basePrice ?? unitPrice);
+    if (productBasePrice > 0 && unitPrice < productBasePrice) {
+      cartHasSalePromotion = true;
+    }
     itemsSubtotal += unitPrice * item.quantity;
 
     const attrLabel = variant.variantAttributes
@@ -166,6 +171,13 @@ export async function quoteOrderPricing(
 
   if (couponCode) {
     const validation = await validateCoupon(couponCode, input.userId, itemsSubtotal, tx);
+    if (validation.coupon.source === 'REFUND_BENEFIT' && cartHasSalePromotion) {
+      throw new CouponError(
+        'REFUND_BENEFIT_NOT_COMBINABLE',
+        'Refund benefit vouchers cannot be combined with sale promotions.',
+        400,
+      );
+    }
     discountAmount = validation.discountAmount;
     coupon = validation.coupon;
   }

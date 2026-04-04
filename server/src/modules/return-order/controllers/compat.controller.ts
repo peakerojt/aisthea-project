@@ -16,6 +16,10 @@ export class ReturnRequestController {
   reject!: ReturnType<typeof createReturnRequestAdminHandlers>['reject'];
   markReceived!: ReturnType<typeof createReturnRequestAdminHandlers>['markReceived'];
   refund!: ReturnType<typeof createReturnRequestAdminHandlers>['refund'];
+  completeBankRefund!: ReturnType<typeof createReturnRequestAdminHandlers>['completeBankRefund'];
+  uploadPayoutProofImage!: ReturnType<typeof createReturnRequestAdminHandlers>['uploadPayoutProofImage'];
+  listRefundPayoutProofs!: ReturnType<typeof createReturnRequestAdminHandlers>['listRefundPayoutProofs'];
+  sendBankInfoReminder!: ReturnType<typeof createReturnRequestAdminHandlers>['sendBankInfoReminder'];
   updateRefundStatus!: ReturnType<typeof createReturnRequestAdminHandlers>['updateRefundStatus'];
 
   constructor(tools: ReturnRequestControllerTools = createReturnRequestControllerTools()) {

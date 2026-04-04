@@ -1,10 +1,22 @@
 import { Prisma } from '../../../generated/client';
 import { prisma } from '../../../utils/prisma';
 import { ReturnRequestRepository, TxClient } from '../repositories/request.repository';
-import { CreateReturnRequestDto } from '../validators/request.validator';
+import {
+  CompleteBankRefundDto,
+  CreateReturnRequestDto,
+  UploadPayoutProofImageDto,
+} from '../validators/request.validator';
 import { notifyCustomer } from '../../../utils/notification.util';
 import { buildLegacyCreateReturnDraft } from '../../../shared/legacy-returns.create.adapter';
 import { isSettledPaymentStatus } from '../../../config/paymentStatus.config';
+import { cloudinaryService } from '../../../services/cloudinary.service';
+import {
+  sendRefundAcceptedAwaitingPayoutEmail,
+  sendRefundAcceptedBankInfoRequiredEmail,
+  sendRefundCompletedBenefitIssuedEmail,
+} from '../../../services/email.service';
+import { env } from '../../../lib/env';
+import { logger } from '../../../lib/logger';
 import {
   RefundMethod,
   RefundWorkflowStatus,
@@ -14,7 +26,12 @@ import {
 } from '../types';
 
 const RETURN_WINDOW_DAYS = Number(process.env.RETURN_WINDOW_DAYS || 7);
+const REFUND_BENEFIT_VALID_DAYS = Number(process.env.REFUND_BENEFIT_VALID_DAYS || 14);
+const REFUND_BENEFIT_MIN_ORDER_VALUE = Number(process.env.REFUND_BENEFIT_MIN_ORDER_VALUE || 0);
+const DEFAULT_FREESHIP_COUPON_VALUE = Number(process.env.REFUND_FREESHIP_COUPON_VALUE || 30000);
 const DELIVERED_ORDER_STATUSES = ['delivered', 'đã giao', 'da giao', 'dagiao'] as const;
+const PROFILE_BANK_LINK = `${env.clientUrl}/profile`;
+const PROFILE_VOUCHER_LINK = `${env.clientUrl}/profile`;
 
 type ReturnOrder = NonNullable<Awaited<ReturnType<ReturnRequestRepository['findOrderForReturn']>>>;
 type ReturnTx = Extract<TxClient, Prisma.TransactionClient>;
@@ -25,6 +42,37 @@ type ReturnItemSnapshot = {
   orderItemGrossAmount?: unknown;
   orderItemAllocatedDiscountAmount?: unknown;
   orderItemNetPaidAmount?: unknown;
+};
+type RefundBenefitRule = {
+  benefitType: 'FREESHIP' | 'PERCENTAGE';
+  percentValue: Prisma.Decimal | null;
+  maxDiscountAmount: Prisma.Decimal | null;
+  minOrderValue: Prisma.Decimal;
+  summary: string;
+  couponType: 'FIXED_AMOUNT' | 'PERCENTAGE';
+  couponValue: Prisma.Decimal;
+  couponMaxDiscountAmount: Prisma.Decimal | null;
+};
+type BankAccountRecord = {
+  bankAccountId: number;
+  bankName: string;
+  bankCode: string | null;
+  accountNumber: string;
+  accountHolder: string;
+  qrImageUrl: string | null;
+  inputMethod: string;
+  isDefault: boolean;
+  updatedAt: Date;
+};
+type BankSnapshotRecord = {
+  bankAccountId: number | null;
+  bankName: string;
+  bankCode: string | null;
+  accountNumberMasked: string;
+  accountHolder: string;
+  qrImageUrl: string | null;
+  inputMethod: string;
+  capturedAt: Date;
 };
 
 export class ServiceError extends Error {
@@ -151,6 +199,368 @@ export class ReturnRequestService {
     return (REFUND_WORKFLOW_STATUSES as readonly string[]).includes(normalized)
       ? (normalized as RefundWorkflowStatus)
       : null;
+  }
+
+  private maskBankAccountNumber(accountNumber: string) {
+    const normalized = accountNumber.replace(/\s+/g, '');
+    if (normalized.length <= 4) {
+      return normalized;
+    }
+
+    return `****${normalized.slice(-4)}`;
+  }
+
+  private formatRefundBenefitSummary(input: {
+    benefitType: string;
+    percentValue?: Prisma.Decimal | null;
+    maxDiscountAmount?: Prisma.Decimal | null;
+  }) {
+    if (input.benefitType === 'FREESHIP') {
+      return 'Available voucher free shipping for your next order';
+    }
+
+    const percentValue = input.percentValue ? Number(input.percentValue) : 0;
+    const maxDiscountAmount = input.maxDiscountAmount ? Number(input.maxDiscountAmount) : 0;
+    return `Available voucher ${percentValue}%, max ${maxDiscountAmount.toLocaleString('vi-VN')} VND`;
+  }
+
+  private resolveRefundBenefitRule(refundAmount: Prisma.Decimal, shippingFee = 0): RefundBenefitRule {
+    const minOrderValue = new Prisma.Decimal(REFUND_BENEFIT_MIN_ORDER_VALUE);
+
+    if (refundAmount.lt(300000)) {
+      const couponValue = new Prisma.Decimal(
+        shippingFee > 0 ? shippingFee : DEFAULT_FREESHIP_COUPON_VALUE,
+      );
+
+      return {
+        benefitType: 'FREESHIP',
+        percentValue: null,
+        maxDiscountAmount: null,
+        minOrderValue,
+        summary: 'Available voucher free shipping for your next order',
+        couponType: 'FIXED_AMOUNT',
+        couponValue,
+        couponMaxDiscountAmount: null,
+      };
+    }
+
+    if (refundAmount.lt(800000)) {
+      return {
+        benefitType: 'PERCENTAGE',
+        percentValue: new Prisma.Decimal(10),
+        maxDiscountAmount: new Prisma.Decimal(50000),
+        minOrderValue,
+        summary: 'Available voucher 10%, max 50,000 VND',
+        couponType: 'PERCENTAGE',
+        couponValue: new Prisma.Decimal(10),
+        couponMaxDiscountAmount: new Prisma.Decimal(50000),
+      };
+    }
+
+    if (refundAmount.lt(1500000)) {
+      return {
+        benefitType: 'PERCENTAGE',
+        percentValue: new Prisma.Decimal(12),
+        maxDiscountAmount: new Prisma.Decimal(80000),
+        minOrderValue,
+        summary: 'Available voucher 12%, max 80,000 VND',
+        couponType: 'PERCENTAGE',
+        couponValue: new Prisma.Decimal(12),
+        couponMaxDiscountAmount: new Prisma.Decimal(80000),
+      };
+    }
+
+    return {
+      benefitType: 'PERCENTAGE',
+      percentValue: new Prisma.Decimal(15),
+      maxDiscountAmount: new Prisma.Decimal(120000),
+      minOrderValue,
+      summary: 'Available voucher 15%, max 120,000 VND',
+      couponType: 'PERCENTAGE',
+      couponValue: new Prisma.Decimal(15),
+      couponMaxDiscountAmount: new Prisma.Decimal(120000),
+    };
+  }
+
+  private buildRefundBenefitCouponCode(returnRequestId: number) {
+    const randomSuffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+    return `RFB-${returnRequestId}-${randomSuffix}`;
+  }
+
+  private extractMimeTypeFromUrl(fileUrl: string) {
+    const normalizedUrl = fileUrl.split('?')[0]?.toLowerCase() ?? '';
+    if (normalizedUrl.endsWith('.png')) return 'image/png';
+    if (normalizedUrl.endsWith('.webp')) return 'image/webp';
+    if (normalizedUrl.endsWith('.gif')) return 'image/gif';
+    return 'image/jpeg';
+  }
+
+  private mapRefundBankInfo(value: Record<string, any>) {
+    const latestSnapshot = Array.isArray(value.refundBankSnapshots) && value.refundBankSnapshots.length > 0
+      ? (value.refundBankSnapshots[0] as BankSnapshotRecord)
+      : null;
+    const currentBankAccount = Array.isArray(value.user?.customerBankAccounts)
+      ? (value.user.customerBankAccounts[0] as BankAccountRecord | undefined) ?? null
+      : null;
+
+    if (latestSnapshot) {
+      return {
+        available: true,
+        bankAccountId: latestSnapshot.bankAccountId,
+        bankName: latestSnapshot.bankName,
+        bankCode: latestSnapshot.bankCode,
+        accountNumber: null,
+        accountNumberMasked: latestSnapshot.accountNumberMasked,
+        accountHolder: latestSnapshot.accountHolder,
+        qrImageUrl: latestSnapshot.qrImageUrl,
+        inputMethod: latestSnapshot.inputMethod,
+        updatedAt: latestSnapshot.capturedAt,
+        source: 'SNAPSHOT',
+      };
+    }
+
+    if (currentBankAccount) {
+      return {
+        available: true,
+        bankAccountId: currentBankAccount.bankAccountId,
+        bankName: currentBankAccount.bankName,
+        bankCode: currentBankAccount.bankCode,
+        accountNumber: currentBankAccount.accountNumber,
+        accountNumberMasked: this.maskBankAccountNumber(currentBankAccount.accountNumber),
+        accountHolder: currentBankAccount.accountHolder,
+        qrImageUrl: currentBankAccount.qrImageUrl,
+        inputMethod: currentBankAccount.inputMethod,
+        updatedAt: currentBankAccount.updatedAt,
+        source: currentBankAccount.isDefault ? 'DEFAULT_ACCOUNT' : 'ACCOUNT',
+      };
+    }
+
+    return {
+      available: false,
+      bankAccountId: null,
+      bankName: null,
+      bankCode: null,
+      accountNumber: null,
+      accountNumberMasked: null,
+      accountHolder: null,
+      qrImageUrl: null,
+      inputMethod: null,
+      updatedAt: null,
+      source: null,
+    };
+  }
+
+  private mapRefundPayoutProofs(proofs: unknown) {
+    if (!Array.isArray(proofs)) {
+      return proofs;
+    }
+
+    return proofs.map((proof: any) => ({
+      refundPayoutProofId: proof.refundPayoutProofId,
+      refundTransactionId: proof.refundTransactionId ?? null,
+      fileUrl: proof.fileUrl,
+      fileName: proof.fileName ?? null,
+      mimeType: proof.mimeType ?? null,
+      note: proof.note ?? null,
+      createdAt: proof.createdAt,
+      uploadedBy: proof.uploadedByUser
+        ? {
+            userId: proof.uploadedByUser.userId,
+            fullName: proof.uploadedByUser.fullName ?? '',
+          }
+        : null,
+    }));
+  }
+
+  private mapRefundBenefit(value: Record<string, any>) {
+    if (!Array.isArray(value.refundBenefits) || value.refundBenefits.length === 0) {
+      return null;
+    }
+
+    const benefit = value.refundBenefits[0];
+    return {
+      refundBenefitId: benefit.refundBenefitId,
+      benefitType: benefit.benefitType,
+      percentValue: benefit.percentValue ? Number(benefit.percentValue) : null,
+      maxDiscountAmount: benefit.maxDiscountAmount ? Number(benefit.maxDiscountAmount) : null,
+      minOrderValue: Number(benefit.minOrderValue ?? 0),
+      status: benefit.status,
+      validFrom: benefit.validFrom,
+      validUntil: benefit.validUntil,
+      issuedAt: benefit.issuedAt ?? null,
+      usedAt: benefit.usedAt ?? null,
+      summary: this.formatRefundBenefitSummary(benefit),
+      couponId: benefit.couponId ?? benefit.coupon?.couponId ?? null,
+      couponSource: benefit.coupon?.source ?? null,
+    };
+  }
+
+  private async resolveBankAccountForRefund(
+    tx: ReturnTx,
+    userId: number,
+    selectedBankAccountId?: number,
+  ) {
+    if (selectedBankAccountId) {
+      const selectedBankAccount = await tx.customerBankAccount.findFirst({
+        where: {
+          bankAccountId: selectedBankAccountId,
+          userId,
+          isActive: true,
+        },
+      });
+
+      if (!selectedBankAccount) {
+        throw new ServiceError('BANK_ACCOUNT_NOT_FOUND', 'Bank account not found', 404);
+      }
+
+      return selectedBankAccount;
+    }
+
+    return tx.customerBankAccount.findFirst({
+      where: {
+        userId,
+        isActive: true,
+      },
+      orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
+    });
+  }
+
+  private async syncAcceptedRefundBankMarkers(
+    tx: ReturnTx,
+    params: { returnRequestId: number; userId: number; hasBankInfo: boolean },
+  ) {
+    const now = new Date();
+    return tx.returnRequest.update({
+      where: { returnRequestId: params.returnRequestId },
+      data: {
+        refundStatus: 'PENDING',
+        ...(params.hasBankInfo
+          ? {
+              bankInfoSubmittedAt: now,
+            }
+          : {
+              bankInfoRequestedAt: now,
+            }),
+      },
+    });
+  }
+
+  private async sendAcceptedRefundEmail(record: {
+    user?: { email?: string | null; fullName?: string | null } | null;
+    order?: { orderNumber?: string | null } | null;
+    bankInfo?: { available?: boolean } | null;
+  }) {
+    const email = record.user?.email?.trim();
+    if (!email) {
+      return;
+    }
+
+    const customerName = record.user?.fullName?.trim() || 'Customer';
+    const orderNumber = record.order?.orderNumber?.trim() || 'your order';
+
+    try {
+      if (record.bankInfo?.available) {
+        await sendRefundAcceptedAwaitingPayoutEmail(email, customerName, orderNumber);
+      } else {
+        await sendRefundAcceptedBankInfoRequiredEmail(
+          email,
+          customerName,
+          orderNumber,
+          PROFILE_BANK_LINK,
+        );
+      }
+    } catch (error) {
+      logger.warn('[ReturnRequestService] Failed to send refund accepted email', {
+        error,
+        email,
+        orderNumber,
+      });
+    }
+  }
+
+  private async issueRefundBenefit(
+    tx: ReturnTx,
+    input: {
+      returnRequestId: number;
+      orderId: number;
+      userId: number;
+      refundAmount: Prisma.Decimal;
+      shippingFee?: number;
+    },
+  ) {
+    const existingBenefit = await tx.refundBenefit.findUnique({
+      where: { returnRequestId: input.returnRequestId },
+      include: {
+        coupon: {
+          select: {
+            couponId: true,
+            source: true,
+          },
+        },
+      },
+    });
+
+    if (existingBenefit) {
+      return {
+        refundBenefitId: existingBenefit.refundBenefitId,
+        issued: true,
+        type: existingBenefit.benefitType,
+        summary: this.formatRefundBenefitSummary(existingBenefit),
+      };
+    }
+
+    const rule = this.resolveRefundBenefitRule(input.refundAmount, input.shippingFee ?? 0);
+    const now = new Date();
+    const validUntil = new Date(now.getTime() + REFUND_BENEFIT_VALID_DAYS * 24 * 60 * 60 * 1000);
+    const coupon = await tx.coupon.create({
+      data: {
+        code: this.buildRefundBenefitCouponCode(input.returnRequestId),
+        type: rule.couponType,
+        value: rule.couponValue,
+        maxDiscountAmount: rule.couponMaxDiscountAmount,
+        minOrderValue: rule.minOrderValue,
+        startDate: now,
+        endDate: validUntil,
+        usageLimit: 1,
+        usagePerUser: 1,
+        isActive: true,
+        isHidden: true,
+        source: 'REFUND_BENEFIT',
+        visibleInPublicList: false,
+      },
+    });
+
+    const createdBenefit = await tx.refundBenefit.create({
+      data: {
+        returnRequestId: input.returnRequestId,
+        orderId: input.orderId,
+        userId: input.userId,
+        benefitType: rule.benefitType,
+        percentValue: rule.percentValue,
+        maxDiscountAmount: rule.maxDiscountAmount,
+        minOrderValue: rule.minOrderValue,
+        couponId: coupon.couponId,
+        status: 'ACTIVE',
+        validFrom: now,
+        validUntil,
+        issuedAt: now,
+        usedAt: null,
+        ruleVersion: 'refund-benefit-v1',
+        source: 'REFUND',
+        metadataJson: JSON.stringify({
+          refundAmount: input.refundAmount.toNumber(),
+          shippingFee: input.shippingFee ?? 0,
+          couponType: rule.couponType,
+        }),
+      },
+    });
+
+    return {
+      refundBenefitId: createdBenefit.refundBenefitId,
+      issued: true,
+      type: createdBenefit.benefitType,
+      summary: rule.summary,
+    };
   }
 
   private resolveSnapshotItemsTotal(items?: ReturnItemSnapshot[] | null): Prisma.Decimal {
@@ -628,11 +1038,15 @@ export class ReturnRequestService {
       ? this.resolveRefundableCapFromItemSnapshots(value.totalRefundAmount, decoratedItems)
       : undefined;
     const workflowStatus = value.workflowStatus ?? value.status ?? null;
+    const bankInfo = this.mapRefundBankInfo(value);
+    const refundPayoutProofs = this.mapRefundPayoutProofs(value.refundPayoutProofs);
+    const refundBenefit = this.mapRefundBenefit(value);
     return {
       ...value,
       workflowStatus,
       statusBucket: this.bucketReturnStatus(workflowStatus),
       refundStatus: value.refundStatus ?? this.deriveRefundStatus(value),
+      bankInfo,
       ...(typeof refundableCapAmount !== 'undefined'
         ? { refundableCapAmount }
         : {}),
@@ -657,6 +1071,10 @@ export class ReturnRequestService {
       ...(typeof value.items !== 'undefined'
         ? { items: decoratedItems }
         : {}),
+      ...(typeof value.refundPayoutProofs !== 'undefined'
+        ? { refundPayoutProofs }
+        : {}),
+      ...(refundBenefit ? { refundBenefit } : {}),
     } as T;
   }
 
@@ -1078,7 +1496,7 @@ export class ReturnRequestService {
     if (detail.reason === this.preDeliveryCancellationReason) {
       this.assertModernStorageAvailable(['returnRequest', 'returnRequestStatusLog']);
 
-      return prisma.$transaction(async (tx: ReturnTx) => {
+      const approvedForRefund = await prisma.$transaction(async (tx: ReturnTx) => {
         const current = await tx.returnRequest.findUnique({
           where: { returnRequestId: id },
         });
@@ -1093,11 +1511,17 @@ export class ReturnRequestService {
           );
         }
 
+        const bankAccount = await this.resolveBankAccountForRefund(tx, detail.userId);
+        const now = new Date();
+
         const updated = await tx.returnRequest.update({
           where: { returnRequestId: id },
           data: {
             status: 'ACCEPTED_FOR_REFUND',
             refundStatus: 'PENDING',
+            ...(bankAccount
+              ? { bankInfoSubmittedAt: now }
+              : { bankInfoRequestedAt: now }),
             updatedAt: new Date(),
           },
         });
@@ -1112,8 +1536,24 @@ export class ReturnRequestService {
           },
         });
 
-        return this.decorateReturnRecord(updated);
+        return this.decorateReturnRecord({
+          ...updated,
+          user: detail.user,
+          order: detail.order,
+          refundBankSnapshots: detail.refundBankSnapshots ?? [],
+          refundPayoutProofs: detail.refundPayoutProofs ?? [],
+          refundBenefits: detail.refundBenefits ?? [],
+          statusLogs: detail.statusLogs ?? [],
+        });
       });
+
+      await this.sendAcceptedRefundEmail(approvedForRefund as {
+        user?: { email?: string | null; fullName?: string | null } | null;
+        order?: { orderNumber?: string | null } | null;
+        bankInfo?: { available?: boolean } | null;
+      });
+
+      return approvedForRefund;
     }
 
     return this.transitionAndNotify(
@@ -1156,12 +1596,57 @@ export class ReturnRequestService {
   }
 
   async acceptReturnForRefund(id: number, actorId: number) {
-    return this.transitionStatus(
-      id,
-      actorId,
-      'ACCEPTED_FOR_REFUND',
-      'Return accepted for refund after receive and inspection',
-    );
+    this.assertModernStorageAvailable(['returnRequest', 'returnRequestStatusLog']);
+
+    const acceptedRecord = await prisma.$transaction(async (tx: ReturnTx) => {
+      const current = await tx.returnRequest.findUnique({
+        where: { returnRequestId: id },
+      });
+      if (!current) {
+        throw new ServiceError('RETURN_REQUEST_NOT_FOUND', 'Return request not found', 404);
+      }
+
+      this.assertTransition(current.status, 'ACCEPTED_FOR_REFUND');
+
+      const bankAccount = await this.resolveBankAccountForRefund(tx, current.userId);
+      const now = new Date();
+      const updated = await tx.returnRequest.update({
+        where: { returnRequestId: id },
+        data: {
+          status: 'ACCEPTED_FOR_REFUND',
+          refundStatus: 'PENDING',
+          ...(bankAccount
+            ? { bankInfoSubmittedAt: now }
+            : { bankInfoRequestedAt: now }),
+          updatedAt: now,
+        },
+      });
+
+      await tx.returnRequestStatusLog.create({
+        data: {
+          returnRequestId: id,
+          fromStatus: current.status,
+          toStatus: 'ACCEPTED_FOR_REFUND',
+          changedBy: actorId,
+          comment: 'Return accepted for refund after receive and inspection',
+        },
+      });
+
+      return updated;
+    });
+
+    const detail = await this.repo.findById(id);
+    const decorated =
+      detail ??
+      this.decorateReturnRecord(acceptedRecord);
+
+    await this.sendAcceptedRefundEmail(decorated as {
+      user?: { email?: string | null; fullName?: string | null } | null;
+      order?: { orderNumber?: string | null } | null;
+      bankInfo?: { available?: boolean } | null;
+    });
+
+    return decorated;
   }
 
   // ─── Admin: Refund ─────────────────────────────────────────────────────────
@@ -1241,6 +1726,352 @@ export class ReturnRequestService {
     });
 
     return refund;
+  }
+
+  async uploadPayoutProofImage(actorId: number, payload: UploadPayoutProofImageDto) {
+    if (!payload.imageData.startsWith('data:image/')) {
+      throw new ServiceError('INVALID_PAYOUT_PROOF_FORMAT', 'Invalid payout proof image format', 400);
+    }
+
+    const mimeType = payload.imageData.split(';')[0]?.split(':')[1] ?? '';
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(mimeType)) {
+      throw new ServiceError('UNSUPPORTED_PAYOUT_PROOF_TYPE', 'Unsupported payout proof image type', 400);
+    }
+
+    const uploadResult = await cloudinaryService.uploadBase64(payload.imageData, {
+      folder: `refund-payout-proofs/admin-${actorId}`,
+      allowedFormats: ['jpg', 'jpeg', 'png', 'webp'],
+      maxSizeBytes: 5 * 1024 * 1024,
+    });
+
+    return {
+      fileUrl: uploadResult.secureUrl,
+      fileName: payload.fileName ?? null,
+    };
+  }
+
+  async listRefundPayoutProofs(id: number) {
+    this.assertModernStorageAvailable(['returnRequest', 'refundPayoutProof']);
+
+    const request = await prisma.returnRequest.findUnique({
+      where: { returnRequestId: id },
+      select: {
+        returnRequestId: true,
+        refundPayoutProofs: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            uploadedByUser: {
+              select: {
+                userId: true,
+                fullName: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!request) {
+      throw new ServiceError('RETURN_REQUEST_NOT_FOUND', 'Return request not found', 404);
+    }
+
+    return this.mapRefundPayoutProofs(request.refundPayoutProofs);
+  }
+
+  async sendBankInfoReminder(id: number, actorId: number) {
+    this.assertModernStorageAvailable(['returnRequest', 'returnRequestStatusLog']);
+
+    const request = await prisma.returnRequest.findUnique({
+      where: { returnRequestId: id },
+      select: {
+        returnRequestId: true,
+        status: true,
+        userId: true,
+        user: {
+          select: {
+            email: true,
+            fullName: true,
+            customerBankAccounts: {
+              where: {
+                isActive: true,
+                isDefault: true,
+              },
+              select: {
+                bankAccountId: true,
+              },
+              take: 1,
+            },
+          },
+        },
+        order: {
+          select: {
+            orderNumber: true,
+          },
+        },
+      },
+    });
+
+    if (!request) {
+      throw new ServiceError('RETURN_REQUEST_NOT_FOUND', 'Return request not found', 404);
+    }
+
+    if (request.status !== 'ACCEPTED_FOR_REFUND') {
+      throw new ServiceError(
+        'INVALID_STATE_TRANSITION',
+        'Reminder can only be sent for ACCEPTED_FOR_REFUND requests',
+        409,
+      );
+    }
+
+    const hasBankInfo = (request.user?.customerBankAccounts?.length ?? 0) > 0;
+    if (hasBankInfo) {
+      throw new ServiceError(
+        'BANK_INFO_ALREADY_AVAILABLE',
+        'Customer bank information is already available',
+        409,
+      );
+    }
+
+    await this.sendAcceptedRefundEmail({
+      user: request.user,
+      order: request.order,
+      bankInfo: { available: false },
+    });
+
+    await prisma.returnRequestStatusLog.create({
+      data: {
+        returnRequestId: id,
+        fromStatus: request.status,
+        toStatus: request.status,
+        changedBy: actorId,
+        comment: 'Refund bank information reminder email sent',
+        createdAt: new Date(),
+      },
+    });
+
+    return { reminded: true as const };
+  }
+
+  async completeManualBankRefund(
+    id: number,
+    actorId: number,
+    params: CompleteBankRefundDto,
+  ) {
+    this.assertModernStorageAvailable([
+      'refundTransaction',
+      'returnRequest',
+      'returnRequestStatusLog',
+      'refundBankSnapshot',
+      'refundPayoutProof',
+      'refundBenefit',
+      'coupon',
+    ]);
+
+    const normalizedFinanceNote = params.financeNote?.trim() || null;
+
+    const result = await prisma.$transaction(async (tx: ReturnTx) => {
+      const request = await tx.returnRequest.findUnique({
+        where: { returnRequestId: id },
+        include: {
+          order: {
+            select: {
+              orderId: true,
+              orderNumber: true,
+              shippingFee: true,
+            },
+          },
+          user: {
+            select: {
+              userId: true,
+              fullName: true,
+              email: true,
+            },
+          },
+          items: {
+            select: {
+              quantity: true,
+              unitPrice: true,
+            },
+          },
+          refundTransactions: {
+            orderBy: { createdAt: 'desc' },
+          },
+        },
+      });
+
+      if (!request) {
+        throw new ServiceError('RETURN_REQUEST_NOT_FOUND', 'Return request not found', 404);
+      }
+
+      if (request.status !== 'ACCEPTED_FOR_REFUND') {
+        throw new ServiceError(
+          'INVALID_STATE_TRANSITION',
+          'Refund can only be completed from ACCEPTED_FOR_REFUND',
+          409,
+        );
+      }
+
+      if (
+        request.refundCompletedAt ||
+        request.refundTransactions.some(
+          (transaction) => this.normalizeRefundTransactionStatus(transaction.status) === 'COMPLETED',
+        )
+      ) {
+        throw new ServiceError(
+          'REFUND_ALREADY_COMPLETED',
+          'This refund has already been completed',
+          409,
+        );
+      }
+
+      const bankAccount = await this.resolveBankAccountForRefund(
+        tx,
+        request.userId,
+        params.selectedBankAccountId,
+      );
+
+      if (!bankAccount) {
+        throw new ServiceError(
+          'BANK_INFO_REQUIRED',
+          'Customer bank information is required before completing refund',
+          409,
+        );
+      }
+
+      const refundableCap = this.resolveRefundableAmountCap(request);
+      const amount = this.resolveRefundAmount(request, params.amount);
+      const now = new Date();
+      const transactionRef = params.transactionRef?.trim() || `BANK-${id}-${Date.now()}`;
+
+      await tx.refundBankSnapshot.create({
+        data: {
+          returnRequestId: id,
+          bankAccountId: bankAccount.bankAccountId,
+          bankName: bankAccount.bankName,
+          bankCode: bankAccount.bankCode,
+          accountNumberMasked: this.maskBankAccountNumber(bankAccount.accountNumber),
+          accountHolder: bankAccount.accountHolder,
+          qrImageUrl: bankAccount.qrImageUrl,
+          inputMethod: bankAccount.inputMethod,
+          capturedAt: now,
+        },
+      });
+
+      const refundRecord = await tx.refundTransaction.create({
+        data: {
+          returnRequestId: id,
+          amount,
+          method: 'BANK_TRANSFER',
+          status: 'COMPLETED',
+          idempotencyKey: `bank-refund-${id}`,
+          transactionRef,
+          processedBy: actorId,
+        },
+      });
+
+      await tx.refundPayoutProof.createMany({
+        data: params.proofImageUrls.map((fileUrl, index) => ({
+          returnRequestId: id,
+          refundTransactionId: refundRecord.refundTransactionId,
+          uploadedBy: actorId,
+          fileUrl,
+          fileName: fileUrl.split('/').pop()?.split('?')[0] || `proof-${index + 1}.jpg`,
+          mimeType: this.extractMimeTypeFromUrl(fileUrl),
+          note: index === 0 ? normalizedFinanceNote : null,
+        })),
+      });
+
+      if (normalizedFinanceNote) {
+        await tx.returnRequestStatusLog.create({
+          data: {
+            returnRequestId: id,
+            fromStatus: request.status,
+            toStatus: request.status,
+            changedBy: actorId,
+            comment: normalizedFinanceNote,
+            createdAt: now,
+          },
+        });
+      }
+
+      const refundStatus: RefundWorkflowStatus =
+        amount.lt(refundableCap) ? 'PARTIALLY_REFUNDED' : 'REFUNDED';
+
+      await tx.returnRequest.update({
+        where: { returnRequestId: id },
+        data: {
+          status: 'CLOSED',
+          refundStatus,
+          financeNote: normalizedFinanceNote,
+          refundCompletedAt: now,
+          updatedAt: now,
+        },
+      });
+
+      await tx.returnRequestStatusLog.create({
+        data: {
+          returnRequestId: id,
+          fromStatus: request.status,
+          toStatus: 'CLOSED',
+          changedBy: actorId,
+          comment: `Đã hoàn tiền qua chuyển khoản ngân hàng - mã giao dịch ${transactionRef}`,
+          createdAt: now,
+        },
+      });
+
+      const benefit = await this.issueRefundBenefit(tx, {
+        returnRequestId: id,
+        orderId: request.orderId,
+        userId: request.userId,
+        refundAmount: amount,
+        shippingFee: Number(request.order?.shippingFee ?? 0),
+      });
+
+      return {
+        refundRecord,
+        refundStatus,
+        benefit,
+        requestUser: request.user,
+        requestOrder: request.order,
+      };
+    });
+
+    notifyCustomer('RETURN_REFUNDED', {
+      returnRequestId: id,
+      orderId: result.requestOrder?.orderId ?? 0,
+      refundAmount: Number(result.refundRecord.amount),
+      refundMethod: result.refundRecord.method,
+      customerEmail: result.requestUser?.email ?? undefined,
+      customerName: result.requestUser?.fullName ?? undefined,
+    });
+
+    if (result.requestUser?.email) {
+      await sendRefundCompletedBenefitIssuedEmail({
+        email: result.requestUser.email,
+        fullName: result.requestUser.fullName ?? 'Customer',
+        orderNumber: result.requestOrder?.orderNumber ?? `#${result.requestOrder?.orderId ?? id}`,
+        refundAmount: Number(result.refundRecord.amount),
+        refundDate: new Date(),
+        voucherSummary: result.benefit.summary,
+        profileLink: PROFILE_VOUCHER_LINK,
+      }).catch((error) => {
+        logger.warn('[ReturnRequestService] Failed to send refund completed email', {
+          error,
+          returnRequestId: id,
+        });
+      });
+    }
+
+    return {
+      refundTransactionId: result.refundRecord.refundTransactionId,
+      refundStatus: result.refundStatus,
+      benefit: {
+        issued: result.benefit.issued,
+        type: result.benefit.type,
+        summary: result.benefit.summary,
+      },
+    };
   }
 
   async updateRefundStatus(

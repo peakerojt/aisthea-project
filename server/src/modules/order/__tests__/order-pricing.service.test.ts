@@ -12,6 +12,16 @@ jest.mock('../../../utils/prisma', () => ({
 
 jest.mock('../../../services/coupon.service', () => ({
   validateCoupon: (...args: unknown[]) => validateCouponMock(...args),
+  CouponError: class CouponError extends Error {
+    code: string;
+    status: number;
+
+    constructor(code: string, message: string, status = 400) {
+      super(message);
+      this.code = code;
+      this.status = status;
+    }
+  },
 }));
 
 import { calculateShippingFee, quoteOrderPricing } from '../order-pricing.service';
@@ -38,7 +48,7 @@ describe('order-pricing.service', () => {
         sku: 'SKU-11',
         price: 300000,
         stockQuantity: 5,
-        product: { name: 'Bomber' },
+        product: { name: 'Bomber', basePrice: 320000 },
         variantAttributes: [{ value: { value: 'White' } }],
       },
       {
@@ -46,7 +56,7 @@ describe('order-pricing.service', () => {
         sku: 'SKU-22',
         price: 250000,
         stockQuantity: 4,
-        product: { name: 'Pants' },
+        product: { name: 'Pants', basePrice: 250000 },
         variantAttributes: [{ value: { value: 'M' } }],
       },
     ]);
@@ -59,6 +69,7 @@ describe('order-pricing.service', () => {
         value: 120000,
         maxDiscountAmount: null,
         minOrderValue: 0,
+        source: null,
       },
       discountAmount: 120000,
     });
@@ -81,7 +92,7 @@ describe('order-pricing.service', () => {
         sku: true,
         price: true,
         stockQuantity: true,
-        product: { select: { name: true } },
+        product: { select: { name: true, basePrice: true } },
         variantAttributes: {
           select: {
             value: {
@@ -101,6 +112,45 @@ describe('order-pricing.service', () => {
     expect(result.appliedCouponCode).toBe('SAVE120');
   });
 
+  it('blocks refund benefit vouchers from being combined with sale-priced items', async () => {
+    prismaMock.productVariant.findMany.mockResolvedValue([
+      {
+        variantId: 11,
+        sku: 'SKU-11',
+        price: 250000,
+        stockQuantity: 5,
+        product: { name: 'Bomber', basePrice: 300000 },
+        variantAttributes: [{ value: { value: 'White' } }],
+      },
+    ]);
+
+    validateCouponMock.mockResolvedValue({
+      coupon: {
+        couponId: 77,
+        code: 'REFUND77',
+        type: 'PERCENTAGE',
+        value: 10,
+        maxDiscountAmount: 50000,
+        minOrderValue: 0,
+        source: 'REFUND_BENEFIT',
+      },
+      discountAmount: 25000,
+    });
+
+    await expect(
+      quoteOrderPricing({
+        userId: 7,
+        items: [{ variantId: 11, quantity: 1 }],
+        couponCode: 'refund77',
+        shippingCityCode: '48',
+        shippingMethod: 'STANDARD',
+      }),
+    ).rejects.toMatchObject({
+      code: 'REFUND_BENEFIT_NOT_COMBINABLE',
+      status: 400,
+    });
+  });
+
   it('rejects malformed shipping city codes instead of trusting client input', async () => {
     prismaMock.productVariant.findMany.mockResolvedValue([
       {
@@ -108,7 +158,7 @@ describe('order-pricing.service', () => {
         sku: 'SKU-11',
         price: 300000,
         stockQuantity: 5,
-        product: { name: 'Bomber' },
+        product: { name: 'Bomber', basePrice: 300000 },
         variantAttributes: [],
       },
     ]);

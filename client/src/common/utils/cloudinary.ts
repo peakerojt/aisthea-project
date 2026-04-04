@@ -141,6 +141,21 @@ export function getCloudinaryFullSize(cloudinaryUrl: string): string {
 }
 
 /**
+ * QR / document-like images should keep full content visible.
+ */
+export function getCloudinaryQrImage(cloudinaryUrl: string, width: number = 900, height: number = 900): string {
+    return optimizeCloudinaryUrl(cloudinaryUrl, {
+        width,
+        height,
+        quality: 'auto:best',
+        crop: 'limit',
+        gravity: 'center',
+        dpr: 'auto',
+        sharpen: false,
+    });
+}
+
+/**
  * Generic image url alias
  */
 export function getImageUrl(imageUrl: string): string {

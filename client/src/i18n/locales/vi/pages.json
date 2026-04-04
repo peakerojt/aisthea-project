@@ -1049,18 +1049,25 @@
         "addNew": "Thêm mới",
         "edit": "Sửa địa chỉ",
         "save": "Lưu địa chỉ",
-        "setDefault": "Đặt mặc định"
+        "setDefault": "Đặt mặc định",
+        "useCurrentLocation": "Dùng vị trí hiện tại",
+        "locatingCurrentLocation": "Đang lấy vị trí..."
       },
       "messages": {
         "created": "Địa chỉ mới đã được lưu.",
         "updated": "Địa chỉ đã được cập nhật.",
         "deleted": "Địa chỉ đã được xóa.",
-        "defaultSet": "Đã đặt địa chỉ mặc định thành công."
+        "defaultSet": "Đã đặt địa chỉ mặc định thành công.",
+        "locationApplied": "Đã điền địa chỉ từ vị trí hiện tại."
       },
       "errors": {
         "saveFailed": "Không thể lưu địa chỉ.",
         "deleteFailed": "Không thể xóa địa chỉ.",
-        "defaultFailed": "Không thể đặt địa chỉ mặc định."
+        "defaultFailed": "Không thể đặt địa chỉ mặc định.",
+        "locationLookupFailed": "Không thể lấy địa chỉ từ vị trí hiện tại. Vui lòng thử lại.",
+        "locationPermissionDenied": "Bạn đã từ chối quyền truy cập vị trí. Vui lòng bật lại để tự động điền địa chỉ.",
+        "locationInsecureContext": "Trình duyệt chỉ cho phép lấy vị trí trên kết nối bảo mật.",
+        "locationUnsupported": "Thiết bị hoặc trình duyệt này chưa hỗ trợ lấy vị trí hiện tại."
       },
       "validation": {
         "recipientName": "Vui lòng nhập người nhận hợp lệ.",

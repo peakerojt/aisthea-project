@@ -1,4 +1,5 @@
 import React from 'react';
+import { Navigate } from 'react-router-dom';
 
 const Home = React.lazy(() => import('@/store/pages/Home').then((m) => ({ default: m.Home })));
 const Category = React.lazy(() => import('@/store/pages/Category').then((m) => ({ default: m.Category })));
@@ -30,7 +31,9 @@ export const storeRoutes = [
   { path: '/stylist', element: <Stylist /> },
   { path: '/weather-outfit', element: <WeatherOutfitPage /> },
   { path: '/support', element: <SupportPage /> },
-  { path: '/profile', element: <Profile /> },
+  { path: '/profile/*', element: <Profile /> },
+  { path: '/account/bank', element: <Navigate to="/profile/bank" replace /> },
+  { path: '/account/vouchers', element: <Navigate to="/profile/vouchers" replace /> },
   { path: '/my-orders', element: <MyOrdersPage /> },
   { path: '/checkout', element: <Checkout /> },
   { path: '/order-success', element: <OrderSuccess /> },

@@ -97,7 +97,7 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
         <>
             <div
                 aria-hidden="true"
-                className={`fixed inset-0 z-40 bg-slate-950/70 transition-all duration-200 ease-out ${
+                className={`fixed inset-0 z-40 bg-slate-950/58 transition-all duration-200 ease-out ${
                     isVisible ? 'opacity-100' : 'opacity-0'
                 }`}
                 onClick={onClose}
@@ -109,7 +109,7 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="coupon-modal-title"
-                        className={`flex max-h-[calc(100vh-1.5rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-gray-200/10 bg-[#0B0B0C] shadow-2xl shadow-black/40 transform-gpu transition-all duration-200 ease-out will-change-transform md:max-h-[calc(100vh-2rem)] ${
+                        className={`flex max-h-[calc(100vh-1.5rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-gray-200/8 bg-[#0B0B0C] shadow-2xl shadow-black/35 transform-gpu transition-all duration-200 ease-out will-change-transform md:max-h-[calc(100vh-2rem)] ${
                             isVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'
                         }`}
                     >
@@ -137,7 +137,7 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                                 <button
                                     onClick={handleApplyText}
                                     disabled={!inputCode.trim()}
-                                    className="rounded-lg bg-primary px-4 text-xs font-bold uppercase text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                                    className="rounded-lg bg-red-700/70 px-4 text-xs font-bold uppercase text-white transition-colors hover:bg-red-700/80 disabled:opacity-50"
                                 >
                                     Áp dụng
                                 </button>
@@ -171,13 +171,13 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                                         key={coupon.couponId}
                                         className={`relative flex overflow-hidden rounded-xl border transition-all duration-300 ${
                                             isEligible
-                                                ? 'border-primary/35 bg-white/[0.03] shadow-[0_0_20px_rgba(255,0,0,0.08)] hover:border-primary/60'
+                                                ? 'border-red-500/22 bg-[#151317] shadow-[0_0_10px_rgba(220,38,38,0.035)] hover:border-red-500/32'
                                                 : 'border-white/10 bg-white/[0.02] opacity-70 grayscale-[0.5]'
                                         }`}
                                     >
                                         <div
                                             className={`relative flex w-28 shrink-0 flex-col items-center justify-center border-r border-dashed border-white/12 p-3 ${
-                                                isEligible ? 'bg-primary/10 text-primary' : 'bg-white/5 text-gray-400'
+                                                isEligible ? 'bg-red-500/6 text-red-300' : 'bg-white/5 text-gray-400'
                                             }`}
                                         >
                                             <span className="material-symbols-outlined mb-1 text-3xl">local_offer</span>
@@ -191,8 +191,8 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                                         <div className="flex flex-1 flex-col justify-between p-3">
                                             <div className="flex items-start justify-between gap-2">
                                                 <div>
-                                                    <div className="mb-1 text-sm font-bold text-white">
-                                                        Mã: <span className={isEligible ? 'text-primary' : 'text-gray-300'}>{coupon.code}</span>
+                                                <div className="mb-1 text-sm font-bold text-white">
+                                                        Mã: <span className={isEligible ? 'text-red-300' : 'text-gray-300'}>{coupon.code}</span>
                                                     </div>
                                                     <div className="mb-[2px] text-xs text-gray-400">
                                                         Đơn tối thiểu {formatCurrency(coupon.minOrderValue)}₫
@@ -208,7 +208,7 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                                                     disabled={!isEligible}
                                                     className={`shrink-0 rounded-sm px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors ${
                                                         isEligible
-                                                            ? 'bg-primary text-white hover:bg-red-700'
+                                                            ? 'bg-red-700/72 text-white hover:bg-red-700/82'
                                                             : 'cursor-not-allowed bg-white/10 text-gray-500'
                                                     }`}
                                                 >

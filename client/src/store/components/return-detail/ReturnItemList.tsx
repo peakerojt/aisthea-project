@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ReturnRequestItem } from '@/common/services/return.types';
 import { summarizeReturnItemEconomics } from '@/common/utils/returnEconomics';
 import { toNumericAmount } from '@/common/utils/returnAmounts';
+import { translateLegacyReturnCopy } from '@/common/utils/returnCopy';
 
 const surfaceClassName =
   'rounded-3xl border border-white/10 bg-[#101214] shadow-[0_24px_64px_rgba(0,0,0,0.24)]';
@@ -154,6 +155,7 @@ export function ReturnItemList({ items }: { items: ReturnItemListItem[] }) {
           const itemAttachments = Array.isArray(item.attachments) ? item.attachments : [];
           const hasBreakdown = grossAmount > 0 || discountAmount > 0 || netPaidAmount > 0;
           const productTitle = item.orderItem?.productName ?? resolveItemFallback(item.orderItemId);
+          const translatedReasonText = translateLegacyReturnCopy(item.reasonText, resolveText);
           const productVariantLabel =
             item.orderItem?.variantName ??
             resolveText('itemsTable.rowFallbackMetaLabel', 'Dòng sản phẩm #{{id}}', {
@@ -226,7 +228,8 @@ export function ReturnItemList({ items }: { items: ReturnItemListItem[] }) {
                   </div>
                   {item.reasonText && (
                     <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs leading-5 text-white/64">
-                      {reasonNoteLabel}: <span className="text-white/82">{item.reasonText}</span>
+                      {reasonNoteLabel}:{' '}
+                      <span className="text-white/82">{translatedReasonText ?? item.reasonText}</span>
                     </div>
                   )}
                 </div>

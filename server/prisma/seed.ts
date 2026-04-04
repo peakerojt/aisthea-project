@@ -19,10 +19,15 @@ const DEFAULT_PERMISSIONS = [
   // CUSTOMER module
   { code: 'VIEW_CUSTOMER', module: 'CUSTOMER', description: 'Xem danh sách khách hàng' },
   { code: 'EDIT_CUSTOMER', module: 'CUSTOMER', description: 'Chỉnh sửa thông tin khách hàng' },
+  { code: 'CUSTOMER_BANK_ACCOUNT_MANAGE', module: 'CUSTOMER', description: 'Quản lý tài khoản ngân hàng nhận hoàn tiền của khách hàng' },
   // REVENUE module
   { code: 'VIEW_REVENUE', module: 'REVENUE', description: 'Xem báo cáo doanh thu và phân tích' },
   // COUPON module
   { code: 'MANAGE_COUPON', module: 'COUPON', description: 'Thêm, sửa, xóa mã giảm giá' },
+  { code: 'REFUND_BENEFIT_VIEW', module: 'COUPON', description: 'Xem danh sách ưu đãi hoàn tiền đã phát hành' },
+  // RETURN module
+  { code: 'RETURN_REFUND_FINANCE_VIEW', module: 'RETURN', description: 'Xem chi tiết thông tin tài chính của yêu cầu hoàn tiền' },
+  { code: 'RETURN_REFUND_FINANCE_COMPLETE', module: 'RETURN', description: 'Xác nhận hoàn tiền chuyển khoản và tải chứng từ' },
 ];
 
 async function main() {

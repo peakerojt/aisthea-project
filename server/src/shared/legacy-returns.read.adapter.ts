@@ -197,9 +197,19 @@ const mergeLegacyNormalizedRecord = (
       modernRecord.financeNoteUpdatedAt ?? legacyRecord.financeNoteUpdatedAt ?? null,
     financeNoteUpdatedBy:
       modernRecord.financeNoteUpdatedBy ?? legacyRecord.financeNoteUpdatedBy ?? null,
+    bankInfo: modernRecord.bankInfo ?? legacyRecord.bankInfo ?? null,
+    bankInfoRequestedAt:
+      modernRecord.bankInfoRequestedAt ?? legacyRecord.bankInfoRequestedAt ?? null,
+    bankInfoSubmittedAt:
+      modernRecord.bankInfoSubmittedAt ?? legacyRecord.bankInfoSubmittedAt ?? null,
+    refundCompletedAt:
+      modernRecord.refundCompletedAt ?? legacyRecord.refundCompletedAt ?? null,
     items: modernRecord.items ?? legacyRecord.items,
     refundTransactions:
       modernRecord.refundTransactions ?? legacyRecord.refundTransactions ?? undefined,
+    refundPayoutProofs:
+      modernRecord.refundPayoutProofs ?? legacyRecord.refundPayoutProofs ?? undefined,
+    refundBenefit: modernRecord.refundBenefit ?? legacyRecord.refundBenefit ?? null,
     adminNote: legacyRecord.adminNote ?? modernRecord.adminNote ?? null,
     createdAt: legacyRecord.createdAt ?? modernRecord.createdAt,
     updatedAt: legacyRecord.updatedAt ?? modernRecord.updatedAt,
@@ -246,8 +256,16 @@ export const mapReturnRequestDetailToLegacy = (record: any) => {
     financeNote: record.financeNote ?? null,
     financeNoteUpdatedAt: record.financeNoteUpdatedAt ?? null,
     financeNoteUpdatedBy: record.financeNoteUpdatedBy ?? null,
+    bankInfo: record.bankInfo ?? null,
+    bankInfoRequestedAt: record.bankInfoRequestedAt ?? null,
+    bankInfoSubmittedAt: record.bankInfoSubmittedAt ?? null,
+    refundCompletedAt: record.refundCompletedAt ?? null,
     items: mapReturnRequestItemsToLegacy(record.items),
     ...(typeof refundTransactions !== 'undefined' ? { refundTransactions } : {}),
+    ...(typeof record.refundPayoutProofs !== 'undefined'
+      ? { refundPayoutProofs: record.refundPayoutProofs }
+      : {}),
+    ...(record.refundBenefit ? { refundBenefit: record.refundBenefit } : {}),
     adminNote: getLatestMeaningfulComment(record.statusLogs) ?? record.note ?? null,
     ...(typeof record.createdAt !== 'undefined' ? { createdAt: record.createdAt } : {}),
     ...(typeof record.updatedAt !== 'undefined' || typeof record.createdAt !== 'undefined'
@@ -293,8 +311,16 @@ export const mapReturnRequestListItemToLegacy = (record: any) => {
     financeNote: record.financeNote ?? null,
     financeNoteUpdatedAt: record.financeNoteUpdatedAt ?? null,
     financeNoteUpdatedBy: record.financeNoteUpdatedBy ?? null,
+    bankInfo: record.bankInfo ?? null,
+    bankInfoRequestedAt: record.bankInfoRequestedAt ?? null,
+    bankInfoSubmittedAt: record.bankInfoSubmittedAt ?? null,
+    refundCompletedAt: record.refundCompletedAt ?? null,
     items: mapReturnRequestItemsToLegacy(record.items),
     ...(typeof refundTransactions !== 'undefined' ? { refundTransactions } : {}),
+    ...(typeof record.refundPayoutProofs !== 'undefined'
+      ? { refundPayoutProofs: record.refundPayoutProofs }
+      : {}),
+    ...(record.refundBenefit ? { refundBenefit: record.refundBenefit } : {}),
     adminNote: record.note ?? null,
     ...(typeof record.createdAt !== 'undefined' ? { createdAt: record.createdAt } : {}),
     ...(typeof record.updatedAt !== 'undefined' || typeof record.createdAt !== 'undefined'

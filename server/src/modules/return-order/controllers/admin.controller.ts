@@ -1,10 +1,12 @@
 import { Response } from 'express';
 import {
+  completeBankRefundSchema,
   idParamSchema,
   listAdminReturnsSchema,
   refundSchema,
   refundStatusSchema,
   rejectSchema,
+  uploadPayoutProofImageSchema,
 } from '../validators/request.validator';
 import {
   AuthenticatedRequest,
@@ -90,6 +92,47 @@ export const createReturnRequestAdminHandlers = (
       { failureCode: 'REFUND_RETURN_FAILED' },
     );
 
+  const completeBankRefund = async (req: AuthenticatedRequest, res: Response) =>
+    runAction(
+      res,
+      async () => {
+        const { id } = parseOrError(idParamSchema, req.params);
+        const body = parseOrError(completeBankRefundSchema, req.body);
+        return service.completeManualBankRefund(id, getUserId(req), body);
+      },
+      { failureCode: 'COMPLETE_BANK_REFUND_FAILED' },
+    );
+
+  const uploadPayoutProofImage = async (req: AuthenticatedRequest, res: Response) =>
+    runAction(
+      res,
+      async () => {
+        const body = parseOrError(uploadPayoutProofImageSchema, req.body);
+        return service.uploadPayoutProofImage(getUserId(req), body);
+      },
+      { failureCode: 'UPLOAD_PAYOUT_PROOF_IMAGE_FAILED' },
+    );
+
+  const listRefundPayoutProofs = async (req: AuthenticatedRequest, res: Response) =>
+    runAction(
+      res,
+      async () => {
+        const { id } = parseOrError(idParamSchema, req.params);
+        return service.listRefundPayoutProofs(id);
+      },
+      { failureCode: 'GET_REFUND_PAYOUT_PROOFS_FAILED' },
+    );
+
+  const sendBankInfoReminder = async (req: AuthenticatedRequest, res: Response) =>
+    runAction(
+      res,
+      async () => {
+        const { id } = parseOrError(idParamSchema, req.params);
+        return service.sendBankInfoReminder(id, getUserId(req));
+      },
+      { failureCode: 'SEND_BANK_INFO_REMINDER_FAILED' },
+    );
+
   const updateRefundStatus = async (req: AuthenticatedRequest, res: Response) =>
     runAction(
       res,
@@ -108,6 +151,10 @@ export const createReturnRequestAdminHandlers = (
     markInTransit,
     markReceived,
     refund,
+    completeBankRefund,
+    uploadPayoutProofImage,
+    listRefundPayoutProofs,
+    sendBankInfoReminder,
     updateRefundStatus,
     reject,
   };

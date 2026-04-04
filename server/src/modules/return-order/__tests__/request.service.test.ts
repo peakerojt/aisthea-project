@@ -4,6 +4,11 @@ const prismaMock: any = {
   returnRequestStatusLog: {},
   refundTransaction: {},
   returnRequestAttachment: {},
+  customerBankAccount: {},
+  refundBankSnapshot: {},
+  refundPayoutProof: {},
+  refundBenefit: {},
+  coupon: {},
 };
 
 const repoMock = {
@@ -18,6 +23,9 @@ const repoMock = {
 };
 
 const notifyCustomerMock = jest.fn();
+const sendRefundAcceptedBankInfoRequiredEmailMock = jest.fn().mockResolvedValue(undefined);
+const sendRefundAcceptedAwaitingPayoutEmailMock = jest.fn().mockResolvedValue(undefined);
+const sendRefundCompletedBenefitIssuedEmailMock = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('../../../utils/prisma', () => ({
   prisma: prismaMock,
@@ -31,24 +39,38 @@ jest.mock('../../../utils/notification.util', () => ({
   notifyCustomer: (...args: unknown[]) => notifyCustomerMock(...args),
 }));
 
+jest.mock('../../../services/email.service', () => ({
+  sendRefundAcceptedBankInfoRequiredEmail: (...args: unknown[]) =>
+    sendRefundAcceptedBankInfoRequiredEmailMock(...args),
+  sendRefundAcceptedAwaitingPayoutEmail: (...args: unknown[]) =>
+    sendRefundAcceptedAwaitingPayoutEmailMock(...args),
+  sendRefundCompletedBenefitIssuedEmail: (...args: unknown[]) =>
+    sendRefundCompletedBenefitIssuedEmailMock(...args),
+}));
+
 import { Prisma } from '../../../generated/client';
 import { ReturnRequestService, ServiceError } from '../services/request.service';
 
 describe('ReturnRequestService', () => {
   const service = new ReturnRequestService();
-  const createTransitionTx = (currentStatus = 'REQUESTED', orderId = 12) => ({
+  const createTransitionTx = (currentStatus = 'REQUESTED', orderId = 12, userId = 5) => ({
     returnRequest: {
       findUnique: jest.fn().mockResolvedValue({
         returnRequestId: 50,
         orderId,
+        userId,
         status: currentStatus,
       }),
       update: jest.fn().mockImplementation(({ data }: { data: { status: string } }) =>
         Promise.resolve({
           returnRequestId: 50,
           orderId,
+          userId,
           status: data.status,
         })),
+    },
+    customerBankAccount: {
+      findFirst: jest.fn().mockResolvedValue(null),
     },
     returnRequestStatusLog: {
       create: jest.fn().mockResolvedValue(undefined),
@@ -66,10 +88,18 @@ describe('ReturnRequestService', () => {
     repoMock.findByOrderId.mockReset();
     repoMock.findAllAdmin.mockReset();
     notifyCustomerMock.mockReset();
+    sendRefundAcceptedBankInfoRequiredEmailMock.mockReset().mockResolvedValue(undefined);
+    sendRefundAcceptedAwaitingPayoutEmailMock.mockReset().mockResolvedValue(undefined);
+    sendRefundCompletedBenefitIssuedEmailMock.mockReset().mockResolvedValue(undefined);
     prismaMock.returnRequest = {};
     prismaMock.returnRequestStatusLog = {};
     prismaMock.refundTransaction = {};
     prismaMock.returnRequestAttachment = {};
+    prismaMock.customerBankAccount = {};
+    prismaMock.refundBankSnapshot = {};
+    prismaMock.refundPayoutProof = {};
+    prismaMock.refundBenefit = {};
+    prismaMock.coupon = {};
   });
 
   it('throws ORDER_NOT_FOUND when the order does not exist', async () => {
@@ -322,7 +352,7 @@ describe('ReturnRequestService', () => {
       {},
     );
     expect(repoMock.createReturnRequest.mock.calls[0][0].items.create).toHaveLength(1);
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       returnRequestId: 44,
       orderId: 12,
       status: 'PENDING_ADMIN_REVIEW',
@@ -500,7 +530,7 @@ describe('ReturnRequestService', () => {
       }),
       {},
     );
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       returnRequestId: 47,
       orderId: 14,
       status: 'PENDING_PAYMENT_CONFIRMATION',
@@ -546,7 +576,7 @@ describe('ReturnRequestService', () => {
       }),
       {},
     );
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       returnRequestId: 470,
       orderId: 140,
       status: 'PENDING_ADMIN_REVIEW',
@@ -634,7 +664,7 @@ describe('ReturnRequestService', () => {
       reasonText: 'received wrong color',
     });
     expect(repoMock.createReturnRequest.mock.calls[0][0].items.create[0].unitPrice.toString()).toBe('190000');
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       returnRequestId: 45,
       orderId: 13,
       status: 'PENDING_ADMIN_REVIEW',
@@ -724,7 +754,7 @@ describe('ReturnRequestService', () => {
       reason: 'WRONG_ITEM',
     });
     expect(repoMock.createReturnRequest.mock.calls[0][0].items.create[0].unitPrice.toString()).toBe('175000');
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       returnRequestId: 45,
       orderId: 40,
       status: 'PENDING_ADMIN_REVIEW',
@@ -785,7 +815,7 @@ describe('ReturnRequestService', () => {
       reason: 'DEFECTIVE',
     });
     expect(repoMock.createReturnRequest.mock.calls[0][0].items.create[0].unitPrice.toString()).toBe('175000');
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       returnRequestId: 46,
       orderId: 41,
       status: 'PENDING_ADMIN_REVIEW',
@@ -914,7 +944,7 @@ describe('ReturnRequestService', () => {
         comment: 'Approved by support/admin',
       },
     });
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       returnRequestId: 50,
       orderId: 700,
       status: 'APPROVED',
@@ -942,11 +972,12 @@ describe('ReturnRequestService', () => {
 
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
       where: { returnRequestId: 60 },
-      data: {
+      data: expect.objectContaining({
         status: 'ACCEPTED_FOR_REFUND',
         updatedAt: expect.any(Date),
         refundStatus: 'PENDING',
-      },
+        bankInfoRequestedAt: expect.any(Date),
+      }),
     });
     expect(tx.returnRequestStatusLog.create).toHaveBeenCalledWith({
       data: {
@@ -957,7 +988,7 @@ describe('ReturnRequestService', () => {
         comment: 'Approved for refund queue after prepaid cancellation before fulfillment',
       },
     });
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       returnRequestId: 50,
       orderId: 710,
       status: 'ACCEPTED_FOR_REFUND',
@@ -991,7 +1022,7 @@ describe('ReturnRequestService', () => {
         comment: 'Out of policy',
       },
     });
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       returnRequestId: 50,
       orderId: 701,
       status: 'REJECTED',
@@ -1025,7 +1056,7 @@ describe('ReturnRequestService', () => {
         comment: 'Warehouse confirmed return package received and inspection started',
       },
     });
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       returnRequestId: 50,
       orderId: 702,
       status: 'RECEIVED_AND_INSPECTING',
@@ -1058,7 +1089,7 @@ describe('ReturnRequestService', () => {
         comment: 'Return package handed off for transit back to warehouse',
       },
     });
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       returnRequestId: 50,
       orderId: 704,
       status: 'IN_RETURN_TRANSIT',
@@ -1077,11 +1108,12 @@ describe('ReturnRequestService', () => {
 
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
       where: { returnRequestId: 53 },
-      data: {
+      data: expect.objectContaining({
         status: 'ACCEPTED_FOR_REFUND',
         updatedAt: expect.any(Date),
         refundStatus: 'PENDING',
-      },
+        bankInfoRequestedAt: expect.any(Date),
+      }),
     });
     expect(tx.returnRequestStatusLog.create).toHaveBeenCalledWith({
       data: {
@@ -1092,7 +1124,7 @@ describe('ReturnRequestService', () => {
         comment: 'Return accepted for refund after receive and inspection',
       },
     });
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       returnRequestId: 50,
       orderId: 703,
       status: 'ACCEPTED_FOR_REFUND',
@@ -1101,6 +1133,139 @@ describe('ReturnRequestService', () => {
       refundStatus: 'PENDING',
     });
     expect(notifyCustomerMock).not.toHaveBeenCalled();
+  });
+
+  it('sends the bank-info-required email when a refund is accepted without customer bank info', async () => {
+    const tx = {
+      returnRequest: {
+        findUnique: jest.fn().mockResolvedValue({
+          returnRequestId: 153,
+          orderId: 803,
+          userId: 17,
+          status: 'RECEIVED_AND_INSPECTING',
+        }),
+        update: jest.fn().mockResolvedValue({
+          returnRequestId: 153,
+          orderId: 803,
+          userId: 17,
+          status: 'ACCEPTED_FOR_REFUND',
+          refundStatus: 'PENDING',
+        }),
+      },
+      customerBankAccount: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      returnRequestStatusLog: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
+    repoMock.findById.mockResolvedValueOnce({
+      returnRequestId: 153,
+      orderId: 803,
+      status: 'ACCEPTED_FOR_REFUND',
+      user: {
+        email: 'customer@example.com',
+        fullName: 'Nguyen Van A',
+      },
+      order: {
+        orderNumber: 'OD-803',
+      },
+      bankInfo: {
+        available: false,
+      },
+    });
+
+    await service.acceptReturnForRefund(153, 91);
+
+    expect(tx.returnRequest.update).toHaveBeenCalledWith({
+      where: { returnRequestId: 153 },
+      data: expect.objectContaining({
+        status: 'ACCEPTED_FOR_REFUND',
+        refundStatus: 'PENDING',
+        bankInfoRequestedAt: expect.any(Date),
+        updatedAt: expect.any(Date),
+      }),
+    });
+    expect(sendRefundAcceptedBankInfoRequiredEmailMock).toHaveBeenCalledWith(
+      'customer@example.com',
+      'Nguyen Van A',
+      'OD-803',
+      expect.stringContaining('/profile'),
+    );
+    expect(sendRefundAcceptedAwaitingPayoutEmailMock).not.toHaveBeenCalled();
+  });
+
+  it('sends the awaiting-payout email when a refund is accepted with bank info already available', async () => {
+    const tx = {
+      returnRequest: {
+        findUnique: jest.fn().mockResolvedValue({
+          returnRequestId: 154,
+          orderId: 804,
+          userId: 18,
+          status: 'RECEIVED_AND_INSPECTING',
+        }),
+        update: jest.fn().mockResolvedValue({
+          returnRequestId: 154,
+          orderId: 804,
+          userId: 18,
+          status: 'ACCEPTED_FOR_REFUND',
+          refundStatus: 'PENDING',
+        }),
+      },
+      customerBankAccount: {
+        findFirst: jest.fn().mockResolvedValue({
+          bankAccountId: 41,
+          userId: 18,
+          bankName: 'Vietcombank',
+          bankCode: 'VCB',
+          accountNumber: '123456789',
+          accountHolder: 'Tran Thi B',
+          qrImageUrl: null,
+          inputMethod: 'MANUAL',
+          isActive: true,
+          isDefault: true,
+          updatedAt: new Date('2026-04-03T08:00:00.000Z'),
+        }),
+      },
+      returnRequestStatusLog: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
+    repoMock.findById.mockResolvedValueOnce({
+      returnRequestId: 154,
+      orderId: 804,
+      status: 'ACCEPTED_FOR_REFUND',
+      user: {
+        email: 'banked@example.com',
+        fullName: 'Tran Thi B',
+      },
+      order: {
+        orderNumber: 'OD-804',
+      },
+      bankInfo: {
+        available: true,
+      },
+    });
+
+    await service.acceptReturnForRefund(154, 91);
+
+    expect(tx.returnRequest.update).toHaveBeenCalledWith({
+      where: { returnRequestId: 154 },
+      data: expect.objectContaining({
+        status: 'ACCEPTED_FOR_REFUND',
+        refundStatus: 'PENDING',
+        bankInfoSubmittedAt: expect.any(Date),
+        updatedAt: expect.any(Date),
+      }),
+    });
+    expect(sendRefundAcceptedAwaitingPayoutEmailMock).toHaveBeenCalledWith(
+      'banked@example.com',
+      'Tran Thi B',
+      'OD-804',
+    );
+    expect(sendRefundAcceptedBankInfoRequiredEmailMock).not.toHaveBeenCalled();
   });
 
   it('throws INVALID_STATE_TRANSITION when mark-received is called before approval', async () => {
@@ -1507,6 +1672,236 @@ describe('ReturnRequestService', () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
+  it('rejects manual bank refund completion when no bank account is available', async () => {
+    const tx = {
+      returnRequest: {
+        findUnique: jest.fn().mockResolvedValue({
+          returnRequestId: 180,
+          orderId: 880,
+          userId: 28,
+          status: 'ACCEPTED_FOR_REFUND',
+          refundCompletedAt: null,
+          totalRefundAmount: new Prisma.Decimal(150000),
+          order: {
+            orderId: 880,
+            orderNumber: 'OD-880',
+            shippingFee: new Prisma.Decimal(30000),
+          },
+          user: {
+            userId: 28,
+            fullName: 'Customer Missing Bank',
+            email: 'missing-bank@example.com',
+          },
+          items: [{ quantity: 1, unitPrice: new Prisma.Decimal(150000) }],
+          refundTransactions: [],
+        }),
+      },
+      customerBankAccount: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    };
+    prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
+
+    await expect(
+      service.completeManualBankRefund(180, 501, {
+        amount: 150000,
+        proofImageUrls: ['https://cdn.example.com/refund-proof.jpg'],
+      }),
+    ).rejects.toMatchObject({
+      code: 'BANK_INFO_REQUIRED',
+      status: 409,
+    });
+  });
+
+  it('completes manual bank refund with snapshot, proofs, benefit issuance, hidden coupon, and success email', async () => {
+    const tx = {
+      returnRequest: {
+        findUnique: jest.fn().mockResolvedValue({
+          returnRequestId: 181,
+          orderId: 881,
+          userId: 29,
+          status: 'ACCEPTED_FOR_REFUND',
+          refundCompletedAt: null,
+          totalRefundAmount: new Prisma.Decimal(150000),
+          order: {
+            orderId: 881,
+            orderNumber: 'OD-881',
+            shippingFee: new Prisma.Decimal(30000),
+          },
+          user: {
+            userId: 29,
+            fullName: 'Refunded Customer',
+            email: 'refunded@example.com',
+          },
+          items: [{ quantity: 1, unitPrice: new Prisma.Decimal(150000) }],
+          refundTransactions: [],
+        }),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+      customerBankAccount: {
+        findFirst: jest.fn().mockResolvedValue({
+          bankAccountId: 77,
+          userId: 29,
+          bankName: 'Vietcombank',
+          bankCode: 'VCB',
+          accountNumber: '123456789',
+          accountHolder: 'Refunded Customer',
+          qrImageUrl: 'https://cdn.example.com/bank-qr.png',
+          inputMethod: 'QR_IMAGE',
+          isActive: true,
+          isDefault: true,
+          updatedAt: new Date('2026-04-03T08:00:00.000Z'),
+        }),
+      },
+      refundBankSnapshot: {
+        create: jest.fn().mockResolvedValue({ refundBankSnapshotId: 901 }),
+      },
+      refundTransaction: {
+        create: jest.fn().mockResolvedValue({
+          refundTransactionId: 902,
+          amount: new Prisma.Decimal(150000),
+          method: 'BANK_TRANSFER',
+          status: 'COMPLETED',
+        }),
+      },
+      refundPayoutProof: {
+        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+      returnRequestStatusLog: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+      refundBenefit: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({
+          refundBenefitId: 903,
+          benefitType: 'FREESHIP',
+        }),
+      },
+      coupon: {
+        create: jest.fn().mockResolvedValue({
+          couponId: 904,
+        }),
+      },
+    };
+    prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
+
+    const result = await service.completeManualBankRefund(181, 501, {
+      amount: 150000,
+      transactionRef: 'VCB-181',
+      financeNote: '  Da chuyen khoan hoan tien  ',
+      selectedBankAccountId: 77,
+      proofImageUrls: [
+        'https://cdn.example.com/proofs/refund-1.png',
+        'https://cdn.example.com/proofs/refund-2.jpg',
+      ],
+    });
+
+    expect(tx.refundBankSnapshot.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        returnRequestId: 181,
+        bankAccountId: 77,
+        bankName: 'Vietcombank',
+        bankCode: 'VCB',
+        accountNumberMasked: '****6789',
+        accountHolder: 'Refunded Customer',
+        qrImageUrl: 'https://cdn.example.com/bank-qr.png',
+        inputMethod: 'QR_IMAGE',
+        capturedAt: expect.any(Date),
+      }),
+    });
+    expect(tx.refundTransaction.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        returnRequestId: 181,
+        amount: new Prisma.Decimal(150000),
+        method: 'BANK_TRANSFER',
+        status: 'COMPLETED',
+        idempotencyKey: 'bank-refund-181',
+        transactionRef: 'VCB-181',
+        processedBy: 501,
+      }),
+    });
+    expect(tx.refundPayoutProof.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          returnRequestId: 181,
+          refundTransactionId: 902,
+          uploadedBy: 501,
+          fileUrl: 'https://cdn.example.com/proofs/refund-1.png',
+          fileName: 'refund-1.png',
+          mimeType: 'image/png',
+          note: 'Da chuyen khoan hoan tien',
+        }),
+        expect.objectContaining({
+          returnRequestId: 181,
+          refundTransactionId: 902,
+          uploadedBy: 501,
+          fileUrl: 'https://cdn.example.com/proofs/refund-2.jpg',
+          fileName: 'refund-2.jpg',
+          mimeType: 'image/jpeg',
+          note: null,
+        }),
+      ],
+    });
+    expect(tx.coupon.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        code: expect.stringMatching(/^RFB-181-/),
+        isHidden: true,
+        source: 'REFUND_BENEFIT',
+        visibleInPublicList: false,
+        usageLimit: 1,
+        usagePerUser: 1,
+      }),
+    });
+    expect(tx.refundBenefit.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        returnRequestId: 181,
+        orderId: 881,
+        userId: 29,
+        benefitType: 'FREESHIP',
+        status: 'ACTIVE',
+        source: 'REFUND',
+        couponId: 904,
+      }),
+    });
+    expect(tx.returnRequest.update).toHaveBeenCalledWith({
+      where: { returnRequestId: 181 },
+      data: expect.objectContaining({
+        status: 'CLOSED',
+        refundStatus: 'REFUNDED',
+        financeNote: 'Da chuyen khoan hoan tien',
+        refundCompletedAt: expect.any(Date),
+        updatedAt: expect.any(Date),
+      }),
+    });
+    expect(notifyCustomerMock).toHaveBeenCalledWith('RETURN_REFUNDED', {
+      returnRequestId: 181,
+      orderId: 881,
+      refundAmount: 150000,
+      refundMethod: 'BANK_TRANSFER',
+      customerEmail: 'refunded@example.com',
+      customerName: 'Refunded Customer',
+    });
+    expect(sendRefundCompletedBenefitIssuedEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'refunded@example.com',
+        fullName: 'Refunded Customer',
+        orderNumber: 'OD-881',
+        refundAmount: 150000,
+        voucherSummary: 'Available voucher free shipping for your next order',
+        profileLink: expect.stringContaining('/profile'),
+      }),
+    );
+    expect(result).toMatchObject({
+      refundTransactionId: 902,
+      refundStatus: 'REFUNDED',
+      benefit: {
+        issued: true,
+        type: 'FREESHIP',
+        summary: 'Available voucher free shipping for your next order',
+      },
+    });
+  });
+
   it('updates refundStatus for finance review checkpoints on accepted returns', async () => {
     const tx = {
       returnRequest: {
@@ -1610,7 +2005,7 @@ describe('ReturnRequestService', () => {
         userId: 88,
       },
     });
-    expect(result).toEqual(
+    expect(result).toMatchObject(
       expect.objectContaining({
         financeNoteUpdatedAt: expect.any(Date),
       }),
@@ -1744,7 +2139,7 @@ describe('ReturnRequestService', () => {
     const result = await service.getMyReturns(12, 2, 5);
 
     expect(repoMock.findByUser).toHaveBeenCalledWith(12, 2, 5, {});
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       data: [
         {
           returnRequestId: 91,
@@ -1830,7 +2225,7 @@ describe('ReturnRequestService', () => {
     const result = await service.getMyReturns(12, 1, 100, 'summary');
 
     expect(repoMock.findByUser).toHaveBeenCalledWith(12, 1, 100, {});
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       data: [
         {
           returnRequestId: 93,
@@ -1917,7 +2312,7 @@ describe('ReturnRequestService', () => {
     const result = await service.getReturnDetail(92);
 
     expect(repoMock.findById).toHaveBeenCalledWith(92);
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       returnRequestId: 92,
       orderId: 701,
       status: 'CLOSED',
@@ -2119,7 +2514,7 @@ describe('ReturnRequestService', () => {
     const result = await service.getReturnDetailByOrderId(702);
 
     expect(repoMock.findByOrderId).toHaveBeenCalledWith(702);
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       returnRequestId: 94,
       orderId: 702,
       status: 'ACCEPTED_FOR_REFUND',
@@ -2173,7 +2568,7 @@ describe('ReturnRequestService', () => {
     const result = await service.getAdminReturns(filters);
 
     expect(repoMock.findAllAdmin).toHaveBeenCalledWith(filters);
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       data: [
         {
           returnRequestId: 93,

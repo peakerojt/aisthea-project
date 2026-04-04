@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AdminReturnReviewActions } from '@/admin/services/types';
-import type { OrderReturn } from '@/common/services/return.types';
+import type { CompleteBankRefundPayload, OrderReturn } from '@/common/services/return.types';
 import { adminReturnReviewService } from '@/admin/services';
 import { dispatchReturnSummaryChanged } from '@/common/events/returnSummary.events';
 import {
@@ -15,6 +15,7 @@ import { bucketReturnStatus } from '@/common/utils/returnStatus';
 export type ReturnStatusFilter = 'ALL' | 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'RECEIVED' | 'REFUNDED';
 
 const FINANCE_ADMIN_ROLES = new Set(['admin', 'super admin']);
+const FINANCE_PERMISSION_CODES = new Set(['RETURN_REFUND_FINANCE_COMPLETE', '*']);
 
 const PAGE_SIZE = 15;
 
@@ -35,8 +36,14 @@ export const useAdminReturns = () => {
   );
   const canManageFinanceActions = useMemo(() => {
     const normalizedRoles = (user?.roles ?? []).map((role) => role.trim().toLowerCase());
+    const normalizedPermissions = (user?.permissions ?? []).map((permission) => permission.trim().toUpperCase());
+
+    if (normalizedPermissions.length > 0) {
+      return normalizedPermissions.some((permission) => FINANCE_PERMISSION_CODES.has(permission));
+    }
+
     return normalizedRoles.some((role) => FINANCE_ADMIN_ROLES.has(role));
-  }, [user?.roles]);
+  }, [user?.permissions, user?.roles]);
 
   const [returns, setReturns] = useState<OrderReturn[]>([]);
   const [loading, setLoading] = useState(false);
@@ -163,7 +170,14 @@ export const useAdminReturns = () => {
     markInTransit: (returnId) => runReviewAction(returnId, () => adminReturnReviewService.adminMarkInTransit(returnId)),
     markReceived: (returnId) => runReviewAction(returnId, () => adminReturnReviewService.adminMarkReceived(returnId)),
     reject: (returnId, note) => runReviewAction(returnId, () => adminReturnReviewService.adminReject(returnId, note)),
-    refund: (returnId) => runReviewAction(returnId, () => adminReturnReviewService.adminCompleteRefund(returnId)),
+    refund: (returnId, payload: CompleteBankRefundPayload) =>
+      runReviewAction(returnId, () => adminReturnReviewService.adminCompleteRefund(returnId, payload)),
+    sendBankInfoReminder: (returnId) =>
+      runReviewAction(
+        returnId,
+        () => adminReturnReviewService.adminSendBankInfoReminder(returnId),
+        { closeOnSuccess: false },
+      ),
     setRefundFailed: (returnId, note) =>
       runReviewAction(
         returnId,

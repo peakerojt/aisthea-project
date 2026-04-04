@@ -1,6 +1,8 @@
-import { api } from '@/common/utils/api';
+﻿import { api } from '@/common/utils/api';
 import type { AdminReturnListPayload } from '@/admin/services/types';
 import type {
+  CompleteBankRefundPayload,
+  ReturnRefundPayoutProof,
   RefundMethod,
   ReturnRequest,
   ReturnRequestDetail,
@@ -37,4 +39,27 @@ export const adminReturnApi = {
 
   refundReturnRequest: (returnId: number, data: { method: RefundMethod; idempotencyKey: string; amount?: number }) =>
     api.patch<ReturnServiceEnvelope<unknown>>(`/api/return-requests/admin/${returnId}/refund`, data),
+
+  uploadPayoutProofImage: (data: { imageData: string; fileName?: string }) =>
+    api.post<ReturnServiceEnvelope<{ fileUrl: string; fileName?: string | null }>>(
+      '/api/return-requests/admin/refund-payout-proofs/upload',
+      data,
+    ),
+
+  getRefundPayoutProofs: (returnId: number) =>
+    api.get<ReturnServiceEnvelope<ReturnRefundPayoutProof[]>>(
+      `/api/return-requests/admin/${returnId}/refund-payout-proofs`,
+    ),
+
+  completeBankRefund: (returnId: number, data: CompleteBankRefundPayload) =>
+    api.post<ReturnServiceEnvelope<{
+      refundTransactionId: number;
+      refundStatus: string;
+      benefit?: { issued?: boolean; type?: string; summary?: string };
+    }>>(`/api/return-requests/admin/${returnId}/complete-bank-refund`, data),
+
+  sendBankInfoReminder: (returnId: number) =>
+    api.post<ReturnServiceEnvelope<{ reminded: true }>>(
+      `/api/return-requests/admin/${returnId}/send-bank-info-reminder`,
+    ),
 };

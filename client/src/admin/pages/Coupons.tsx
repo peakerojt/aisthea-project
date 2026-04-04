@@ -492,6 +492,14 @@ export const Coupons: React.FC = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
+    const [summaryCounts, setSummaryCounts] = useState({
+        total: 0,
+        active: 0,
+        expired: 0,
+        depleted: 0,
+        upcoming: 0,
+        inactive: 0,
+    });
 
     const [dialogMode, setDialogMode] = useState<'create' | 'edit' | null>(null);
     const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
@@ -516,22 +524,27 @@ export const Coupons: React.FC = () => {
             const resp = await fetchCoupons({
                 page,
                 search: debouncedSearch || undefined,
+                includeHidden: true,
                 isActive:
-                    statusFilter === 'ACTIVE' || statusFilter === 'INACTIVE'
-                        ? statusFilter === 'ACTIVE'
+                    statusFilter === 'INACTIVE'
+                        ? false
                         : undefined,
             });
             if (requestIdRef.current !== requestId) return;
             let filtered = resp.coupons;
 
-            // Client-side status filter (for computed statuses like EXPIRED/DEPLETED)
-            if (statusFilter !== 'ALL' && statusFilter !== 'ACTIVE' && statusFilter !== 'INACTIVE') {
+            // Always filter by computed UI status so expired/upcoming/depleted coupons
+            // do not leak into the "active" tab just because isActive=true in DB.
+            if (statusFilter !== 'ALL') {
                 filtered = filtered.filter((c) => c.status === statusFilter);
             }
 
             setCoupons(filtered);
             setTotalPages(resp.pagination.totalPages);
             setTotal(resp.pagination.total);
+            if (resp.summary) {
+                setSummaryCounts(resp.summary);
+            }
             hasLoadedRef.current = true;
         } catch (err: unknown) {
             if (requestIdRef.current !== requestId) return;
@@ -598,16 +611,11 @@ export const Coupons: React.FC = () => {
         { key: 'INACTIVE', label: t('coupons:filters.inactive') },
     ];
 
-    // Summary counts
-    const activeCnt = coupons.filter((c) => c.status === 'ACTIVE').length;
-    const expiredCnt = coupons.filter((c) => c.status === 'EXPIRED').length;
-    const depletedCnt = coupons.filter((c) => c.status === 'DEPLETED').length;
-
     const statsBar = [
-        { key: 'total', label: t('coupons:stats.total'), value: loading ? '–' : total, icon: Tag, tone: 'default' as const },
-        { key: 'active', label: t('coupons:stats.active'), value: loading ? '–' : activeCnt, icon: CheckCircle2, tone: 'success' as const },
-        { key: 'expired', label: t('coupons:stats.expired'), value: loading ? '–' : expiredCnt, icon: Clock, tone: 'default' as const },
-        { key: 'depleted', label: t('coupons:stats.depleted'), value: loading ? '–' : depletedCnt, icon: Ban, tone: 'danger' as const },
+        { key: 'total', label: t('coupons:stats.total'), value: loading ? '–' : summaryCounts.total, icon: Tag, tone: 'default' as const },
+        { key: 'active', label: t('coupons:stats.active'), value: loading ? '–' : summaryCounts.active, icon: CheckCircle2, tone: 'success' as const },
+        { key: 'expired', label: t('coupons:stats.expired'), value: loading ? '–' : summaryCounts.expired, icon: Clock, tone: 'default' as const },
+        { key: 'depleted', label: t('coupons:stats.depleted'), value: loading ? '–' : summaryCounts.depleted, icon: Ban, tone: 'danger' as const },
     ];
 
     const pageControls = (
@@ -677,7 +685,6 @@ export const Coupons: React.FC = () => {
             {/* ── Table ── */}
             <AdminSectionCard className="flex-1 overflow-hidden bg-[#0e0e0e]" bodyClassName="flex h-full flex-col">
                 {pageControls}
-                {isRefreshing && !loading && <div className="h-px w-full bg-primary/60" />}
                 {error ? (
                     <div className="flex flex-col items-center justify-center py-24 text-center">
                         <AlertTriangle size={40} className="text-red-400 mb-4" />
@@ -690,17 +697,26 @@ export const Coupons: React.FC = () => {
                         </button>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                    <div className="overflow-x-hidden">
+                        <table className="w-full table-fixed border-collapse text-left">
+                            <colgroup>
+                                <col className="w-[14%]" />
+                                <col className="w-[18%]" />
+                                <col className="w-[19%]" />
+                                <col className="w-[13%]" />
+                                <col className="w-[11%]" />
+                                <col className="w-[16%]" />
+                                <col className="w-[9%]" />
+                            </colgroup>
                             <thead className={adminUiTokens.tableHeaderSurface}>
                                 <tr>
-                                    <th className={`px-5 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.code')}</th>
-                                    <th className={`px-5 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.type')}</th>
-                                    <th className={`px-5 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.condition')}</th>
-                                    <th className={`px-5 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.period')}</th>
-                                    <th className={`px-5 py-3.5 text-center ${adminUiTokens.tableHeader}`}>{t('coupons:table.usage')}</th>
-                                    <th className={`px-5 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.status')}</th>
-                                    <th className={`w-24 px-5 py-3.5 text-center ${adminUiTokens.tableHeader}`}>{t('coupons:table.actions')}</th>
+                                    <th className={`px-4 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.code')}</th>
+                                    <th className={`px-4 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.type')}</th>
+                                    <th className={`px-4 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.condition')}</th>
+                                    <th className={`px-4 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.period')}</th>
+                                    <th className={`px-4 py-3.5 text-center ${adminUiTokens.tableHeader}`}>{t('coupons:table.usage')}</th>
+                                    <th className={`px-4 py-3.5 ${adminUiTokens.tableHeader}`}>{t('coupons:table.status')}</th>
+                                    <th className={`px-4 py-3.5 text-center ${adminUiTokens.tableHeader}`}>{t('coupons:table.actions')}</th>
                                 </tr>
                             </thead>
                             <tbody className={adminUiTokens.tableBody}>
@@ -737,14 +753,14 @@ export const Coupons: React.FC = () => {
                                                 className={adminUiTokens.tableRowSoft}
                                             >
                                                 {/* Code */}
-                                                <td className="px-5 py-4">
+                                                <td className="px-4 py-4">
                                                     <code className="font-mono font-bold text-sm text-white bg-white/5 border border-white/[0.08] px-2.5 py-1 rounded-lg tracking-wider">
                                                         {c.code}
                                                     </code>
                                                 </td>
 
                                                 {/* Type + Value */}
-                                                <td className="px-5 py-4">
+                                                <td className="px-4 py-4">
                                                     <div>
                                                         <p className="text-sm font-semibold text-white">
                                                             {c.type === 'FIXED_AMOUNT'
@@ -761,7 +777,7 @@ export const Coupons: React.FC = () => {
                                                 </td>
 
                                                 {/* Conditions */}
-                                                <td className="px-5 py-4">
+                                                <td className="px-4 py-4">
                                                     <p className="text-xs text-white/60">
                                                         Đơn tối thiểu:{' '}
                                                         <span className="font-semibold text-white">
@@ -774,13 +790,13 @@ export const Coupons: React.FC = () => {
                                                 </td>
 
                                                 {/* Dates */}
-                                                <td className="px-5 py-4">
+                                                <td className="px-4 py-4">
                                                     <p className="text-xs text-white/60">{fmtDate(c.startDate)}</p>
                                                     <p className="text-[11px] text-white/30 mt-0.5">đến {fmtDate(c.endDate)}</p>
                                                 </td>
 
                                                 {/* Usage bar */}
-                                                <td className="px-5 py-4 text-center">
+                                                <td className="px-4 py-4 text-center">
                                                     <div className="flex flex-col items-center gap-1.5">
                                                         <span className="text-sm font-bold text-white tabular-nums">
                                                             {c.usedCount}
@@ -797,10 +813,10 @@ export const Coupons: React.FC = () => {
                                                 </td>
 
                                                 {/* Status */}
-                                                <td className="px-5 py-4">
+                                                <td className="px-4 py-4">
                                                     <AdminBadge
                                                         tone={getStatusBadgeTone(c.status)}
-                                                        className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider"
+                                                        className="max-w-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider"
                                                     >
                                                         <StatusIcon size={10} />
                                                         {statusLabel}
@@ -808,7 +824,7 @@ export const Coupons: React.FC = () => {
                                                 </td>
 
                                                 {/* Actions */}
-                                                <td className="px-5 py-4 text-center">
+                                                <td className="px-4 py-4 text-center">
                                                     <div className="flex items-center justify-center gap-1">
                                                         <AdminRowIconButton
                                                             onClick={() => openEdit(c)}

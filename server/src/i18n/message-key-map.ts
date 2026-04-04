@@ -129,6 +129,7 @@ const ERROR_CODE_TO_MESSAGE_KEY: Record<string, string> = {
   RECEIVE_PURCHASE_ORDER_FAILED: 'purchaseOrders:errors.receiveFailed',
   REFRESH_TOKEN_REVOKED: 'auth:errors.refreshTokenRevoked',
   REFRESH_TOKEN_REQUIRED: 'auth:errors.refreshTokenRequired',
+  REFUND_BENEFIT_NOT_COMBINABLE: 'orders:errors.refundBenefitNotCombinable',
   RESET_TOKEN_REQUIRED: 'auth:errors.resetTokenRequired',
   RETURN_ALREADY_EXISTS: 'returns:errors.alreadyExists',
   RETURN_NOT_FOUND: 'returns:errors.notFound',

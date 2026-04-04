@@ -10,6 +10,8 @@ const getProfile = vi.fn();
 const getAddresses = vi.fn();
 const getMyOrders = vi.fn();
 const getMyReturnSummaries = vi.fn();
+const getBankAccounts = vi.fn();
+const getRefundBenefits = vi.fn();
 
 vi.mock('react-i18next', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-i18next')>();
@@ -52,6 +54,8 @@ vi.mock('@/store/services/user.service', async () => {
       ...actual.userService,
       getProfile: (...args: any[]) => getProfile(...args),
       getAddresses: (...args: any[]) => getAddresses(...args),
+      getBankAccounts: (...args: any[]) => getBankAccounts(...args),
+      getRefundBenefits: (...args: any[]) => getRefundBenefits(...args),
       updateProfile: vi.fn(),
       uploadAvatar: vi.fn(),
       deleteAvatar: vi.fn(),
@@ -117,6 +121,8 @@ describe('Profile recent orders', () => {
       completeness: 100,
     });
     getAddresses.mockResolvedValue([]);
+    getBankAccounts.mockResolvedValue([]);
+    getRefundBenefits.mockResolvedValue([]);
     getMyOrders.mockResolvedValue({
       orders: [],
       pagination: { page: 1, pageSize: 5, total: 0, totalPages: 0 },
@@ -304,5 +310,67 @@ describe('Profile recent orders', () => {
     expect(screen.getByText('Hoàn tiền thất bại')).toBeInTheDocument();
     expect(screen.getByText('80.000đ')).toBeInTheDocument();
     expect(screen.getByText('Đang đối soát lại giao dịch hoàn tiền.')).toBeInTheDocument();
+  });
+
+  it('renders the bank accounts section when opening the refund bank tab', async () => {
+    render(
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>,
+    );
+
+    const bankButtons = await screen.findAllByRole('button', { name: 'Tài khoản' });
+    await userEvent.click(bankButtons[0]);
+
+    expect(await screen.findByRole('heading', { name: 'Tài khoản' })).toBeInTheDocument();
+    expect(getBankAccounts.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it('keeps the addresses tab active when navigating from the bank tab back to profile sections', async () => {
+    render(
+      <MemoryRouter initialEntries={['/profile/bank']}>
+        <Profile />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Tài khoản' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'sidebar.addresses' })[0]);
+
+    expect(await screen.findByText('sections.addresses')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Tài khoản' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the security tab active when navigating from the vouchers tab back to profile sections', async () => {
+    render(
+      <MemoryRouter initialEntries={['/profile/vouchers']}>
+        <Profile />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Mã giảm giá' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'sidebar.security' })[0]);
+
+    expect(await screen.findByText('security.passwordTitle')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Mã giảm giá' })).not.toBeInTheDocument();
+  });
+
+  it('preloads and switches between the new profile tabs correctly', async () => {
+    render(
+      <MemoryRouter initialEntries={['/profile']}>
+        <Profile />
+      </MemoryRouter>,
+    );
+
+    expect((await screen.findAllByRole('button', { name: 'Tài khoản' })).length).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Tài khoản' })[0]);
+    expect(await screen.findByRole('heading', { name: 'Tài khoản' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Mã giảm giá' })[0]);
+    expect(await screen.findByRole('heading', { name: 'Mã giảm giá' })).toBeInTheDocument();
+    expect(getBankAccounts.mock.calls.length).toBeGreaterThan(0);
+    expect(getRefundBenefits.mock.calls.length).toBeGreaterThan(0);
   });
 });

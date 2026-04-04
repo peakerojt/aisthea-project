@@ -54,6 +54,50 @@ export type RefundWorkflowStatus =
   | 'FAILED'
   | 'MANUAL_REVIEW';
 
+export interface ReturnBankInfo {
+  available: boolean;
+  bankAccountId: number | null;
+  bankName: string | null;
+  bankCode?: string | null;
+  accountNumber?: string | null;
+  accountNumberMasked: string | null;
+  accountHolder: string | null;
+  qrImageUrl: string | null;
+  inputMethod: string | null;
+  updatedAt: string | Date | null;
+  source?: string | null;
+}
+
+export interface ReturnRefundPayoutProof {
+  refundPayoutProofId: number;
+  refundTransactionId?: number | null;
+  fileUrl: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+  note?: string | null;
+  createdAt: string;
+  uploadedBy?: {
+    userId?: number;
+    fullName?: string | null;
+  } | null;
+}
+
+export interface ReturnRefundBenefit {
+  refundBenefitId: number;
+  benefitType: 'FREESHIP' | 'PERCENTAGE' | string;
+  percentValue?: number | null;
+  maxDiscountAmount?: number | null;
+  minOrderValue?: number | null;
+  status?: string | null;
+  validFrom?: string | null;
+  validUntil?: string | null;
+  issuedAt?: string | null;
+  usedAt?: string | null;
+  summary: string;
+  couponId?: number | null;
+  couponSource?: string | null;
+}
+
 export interface OrderReturn {
   returnId: number;
   orderId: number;
@@ -71,6 +115,11 @@ export interface OrderReturn {
     userId?: number;
     fullName?: string | null;
   } | null;
+  bankInfo?: ReturnBankInfo | null;
+  bankInfoRequestedAt?: string | null;
+  bankInfoSubmittedAt?: string | null;
+  refundCompletedAt?: string | null;
+  refundBenefit?: ReturnRefundBenefit | null;
   totalRefundAmount?: string | number | null;
   refundableCapAmount?: string | number | null;
   createdAt: string;
@@ -78,6 +127,7 @@ export interface OrderReturn {
   items?: ReturnRequestItem[];
   economicsSummary?: ReturnEconomicsSummary;
   refundTransactions?: ReturnRefundTransaction[];
+  refundPayoutProofs?: ReturnRefundPayoutProof[];
   order?: {
     orderNumber: string;
     totalAmount: string;
@@ -184,6 +234,11 @@ export interface ReturnRequest {
     userId?: number;
     fullName?: string | null;
   } | null;
+  bankInfo?: ReturnBankInfo | null;
+  bankInfoRequestedAt?: string | null;
+  bankInfoSubmittedAt?: string | null;
+  refundCompletedAt?: string | null;
+  refundBenefit?: ReturnRefundBenefit | null;
   note?: string | null;
   totalRefundAmount: string | number;
   refundableCapAmount?: string | number | null;
@@ -197,6 +252,7 @@ export interface ReturnRequestDetail extends ReturnRequest {
   attachments?: ReturnRequestAttachment[];
   statusLogs?: ReturnRequestStatusLog[];
   refundTransactions?: ReturnRefundTransaction[];
+  refundPayoutProofs?: ReturnRefundPayoutProof[];
 }
 
 export interface MyReturnListResponse {
@@ -239,4 +295,12 @@ export interface CreateReturnPayload {
     attachments?: Array<string | { url: string; type?: string }>;
   }>;
   attachments?: Array<string | { url: string; type?: string }>;
+}
+
+export interface CompleteBankRefundPayload {
+  amount: number;
+  transactionRef?: string;
+  financeNote?: string;
+  proofImageUrls: string[];
+  selectedBankAccountId?: number;
 }

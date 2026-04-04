@@ -15,6 +15,7 @@ export const createMockReviewActions = (
   markReceived: overrides.markReceived ?? createAsyncHandler<AdminReturnReviewActions['markReceived']>(),
   reject: overrides.reject ?? createAsyncHandler<AdminReturnReviewActions['reject']>(),
   refund: overrides.refund ?? createAsyncHandler<AdminReturnReviewActions['refund']>(),
+  sendBankInfoReminder: overrides.sendBankInfoReminder ?? createAsyncHandler<AdminReturnReviewActions['sendBankInfoReminder']>(),
   setRefundFailed: overrides.setRefundFailed ?? createAsyncHandler<AdminReturnReviewActions['setRefundFailed']>(),
   setRefundManualReview: overrides.setRefundManualReview ?? createAsyncHandler<AdminReturnReviewActions['setRefundManualReview']>(),
   setRefundPending: overrides.setRefundPending ?? createAsyncHandler<AdminReturnReviewActions['setRefundPending']>(),

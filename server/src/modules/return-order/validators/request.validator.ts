@@ -180,6 +180,19 @@ export const refundSchema = z.object({
   amount: z.number().positive().optional(),
 });
 
+export const completeBankRefundSchema = z.object({
+  amount: z.number().positive('Số tiền hoàn phải lớn hơn 0'),
+  transactionRef: z.string().trim().max(100).optional(),
+  financeNote: z.string().trim().max(1000).optional(),
+  proofImageUrls: z.array(z.string().trim().min(1).max(1000)).min(1, 'Cần ít nhất một ảnh minh chứng chuyển khoản'),
+  selectedBankAccountId: positiveCoercedInt.optional(),
+});
+
+export const uploadPayoutProofImageSchema = z.object({
+  imageData: z.string().trim().min(1, 'Thiếu dữ liệu ảnh'),
+  fileName: z.string().trim().max(255).optional(),
+});
+
 const AdminRefundStatusEnum = z.enum([
   'PENDING',
   'PROCESSING',
@@ -206,4 +219,6 @@ export const refundStatusSchema = z.object({
 export type ListAdminReturnsDto = z.infer<typeof listAdminReturnsSchema>;
 export type RejectDto = z.infer<typeof rejectSchema>;
 export type RefundDto = z.infer<typeof refundSchema>;
+export type CompleteBankRefundDto = z.infer<typeof completeBankRefundSchema>;
 export type RefundStatusDto = z.infer<typeof refundStatusSchema>;
+export type UploadPayoutProofImageDto = z.infer<typeof uploadPayoutProofImageSchema>;
