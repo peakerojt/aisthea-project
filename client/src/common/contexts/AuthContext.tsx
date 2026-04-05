@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService } from '@/common/services/auth.service';
-import { hasFullAdminAccess, hasSupportAdminAccess } from '@/common/utils/adminAccess';
+import { resolveAdminWorkflowAccess } from '@/common/utils/adminAccess';
 import { AuthSession } from '@/types';
 
 interface User {
@@ -20,17 +20,8 @@ const EXPECTED_SESSION_ERROR_CODES = new Set(['TOKEN_EXPIRED', 'INVALID_TOKEN'])
 
 export type UserRole = 'guest' | 'customer' | 'staff' | 'admin';
 
-const resolveUserRole = (roles?: string[] | null): UserRole => {
-  if (hasFullAdminAccess(roles)) {
-    return 'admin';
-  }
-
-  if (hasSupportAdminAccess(roles)) {
-    return 'staff';
-  }
-
-  return 'customer';
-};
+const resolveUserRole = (roles?: string[] | null): UserRole =>
+  resolveAdminWorkflowAccess(roles).businessRole;
 
 interface AuthContextType {
   user: User | null;

@@ -37,14 +37,16 @@ type PendingNoteAction = 'reject' | 'refundFailed' | 'refundManualReview';
 
 export interface AdminReturnReviewModalProps {
     actions: AdminReturnReviewActions;
-    canManageFinanceActions?: boolean;
+    canManageRefundWorkflow?: boolean;
+    canManageReturnWorkflow?: boolean;
     item: OrderReturn;
     onClose: () => void;
 }
 
 export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
     actions,
-    canManageFinanceActions = true,
+    canManageRefundWorkflow = true,
+    canManageReturnWorkflow = true,
     item,
     onClose,
 }) => {
@@ -123,7 +125,9 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
     const activeRefundStatus = activeItem.refundStatus ?? 'NOT_APPLICABLE';
     const isRefundLocked = activeRefundStatus === 'LOCKED_UNTIL_PAYMENT_CONFIRMED';
     const isTerminal = ['REJECTED', 'CLOSED', 'REFUNDED'].includes(workflowStatus);
-    const canReject = ['REQUESTED', 'PENDING_ADMIN_REVIEW', 'SUBMITTED', 'PENDING_PAYMENT_CONFIRMATION'].includes(workflowStatus);
+    const canReject =
+        canManageReturnWorkflow &&
+        ['REQUESTED', 'PENDING_ADMIN_REVIEW', 'SUBMITTED', 'PENDING_PAYMENT_CONFIRMATION'].includes(workflowStatus);
     const guestLabel = resolveText('table.guest', 'Khách vãng lai');
     const titleLabel = resolveText('modal.title', 'Xem xét yêu cầu trả hàng');
     const orderInfoLabel = resolveText('modal.orderInfo', 'Đơn hàng #{{orderNumber}} - {{customer}}', {
@@ -212,7 +216,7 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
         'modal.financeActionRestricted',
         'Bước hoàn tiền đang chờ bộ phận tài chính xử lý.',
     );
-    const primaryAction = !isRefundLocked
+    const primaryAction = canManageReturnWorkflow && !isRefundLocked
         ? (() => {
             if (['REQUESTED', 'PENDING_ADMIN_REVIEW', 'SUBMITTED'].includes(workflowStatus)) {
                 return { label: actionApproveLabel, onClick: actions.approve, tone: 'info' as const };
@@ -229,7 +233,7 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
             return null;
         })()
         : null;
-    const refundManagementActions = workflowStatus === 'ACCEPTED_FOR_REFUND' && !isRefundLocked && canManageFinanceActions
+    const refundManagementActions = workflowStatus === 'ACCEPTED_FOR_REFUND' && !isRefundLocked && canManageRefundWorkflow
         ? [
             {
                 key: 'refundPending' as const,
@@ -268,7 +272,7 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
     const bankInfo = activeItem.bankInfo ?? null;
     const bankAccountNumberDisplay = bankInfo?.accountNumber ?? bankInfo?.accountNumberMasked ?? '—';
     const hasAvailableBankInfo = Boolean(bankInfo?.available);
-    const requiresBankRefundCompletion = workflowStatus === 'ACCEPTED_FOR_REFUND' && canManageFinanceActions && !isRefundLocked;
+    const requiresBankRefundCompletion = workflowStatus === 'ACCEPTED_FOR_REFUND' && canManageRefundWorkflow && !isRefundLocked;
     const shouldDisableBankRefundSubmit = (
         processing ||
         isUploadingProofs ||
@@ -716,13 +720,13 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
                     </div>
                 )}
 
-                {workflowStatus === 'ACCEPTED_FOR_REFUND' && !isRefundLocked && !canManageFinanceActions && (
+                {workflowStatus === 'ACCEPTED_FOR_REFUND' && !isRefundLocked && !canManageRefundWorkflow && (
                     <div className={`${refundUi.info} p-4 text-sm text-sky-100`}>
                         {financeActionRestrictedLabel}
                     </div>
                 )}
 
-                {canManageFinanceActions && (workflowStatus === 'ACCEPTED_FOR_REFUND' || activeItem.bankInfo || activeItem.refundCompletedAt) && (
+                {canManageRefundWorkflow && (workflowStatus === 'ACCEPTED_FOR_REFUND' || activeItem.bankInfo || activeItem.refundCompletedAt) && (
                     <div className="space-y-3">
                         <div className={refundUi.eyeBrow}>
                             {resolveText('modal.bankInfoTitle', 'Thông tin nhận hoàn tiền')}

@@ -46,7 +46,8 @@
         "labels": {
             "admin": "Quản trị viên",
             "customer": "Khách hàng",
-            "staff": "Nhân viên"
+            "staff": "Nhân viên",
+            "support": "Nhân viên"
         }
     },
     "feedback": {

@@ -11,6 +11,7 @@ import {
 import {
   AuthenticatedRequest,
   ReturnRequestControllerTools,
+  getWorkflowActor,
   getUserId,
   parseOrError,
 } from './controller-tools';
@@ -25,7 +26,7 @@ export const createReturnRequestAdminHandlers = (
       res,
       async () => {
         const filters = parseOrError(listAdminReturnsSchema, req.query);
-        return service.getAdminReturns(filters);
+        return service.getAdminReturns(filters, getWorkflowActor(req));
       },
       { failureCode: 'GET_ADMIN_RETURNS_FAILED' },
     );
@@ -35,7 +36,7 @@ export const createReturnRequestAdminHandlers = (
       res,
       async () => {
         const { id } = parseOrError(idParamSchema, req.params);
-        return service.approveReturnRequest(id, getUserId(req));
+        return service.approveReturnRequest(id, getUserId(req), getWorkflowActor(req));
       },
       { failureCode: 'APPROVE_RETURN_FAILED' },
     );
@@ -46,7 +47,7 @@ export const createReturnRequestAdminHandlers = (
       async () => {
         const { id } = parseOrError(idParamSchema, req.params);
         const { reason } = parseOrError(rejectSchema, req.body);
-        return service.rejectReturnRequest(id, getUserId(req), reason);
+        return service.rejectReturnRequest(id, getUserId(req), reason, getWorkflowActor(req));
       },
       { failureCode: 'REJECT_RETURN_FAILED' },
     );
@@ -56,7 +57,7 @@ export const createReturnRequestAdminHandlers = (
       res,
       async () => {
         const { id } = parseOrError(idParamSchema, req.params);
-        return service.markReturnReceived(id, getUserId(req));
+        return service.markReturnReceived(id, getUserId(req), getWorkflowActor(req));
       },
       { failureCode: 'MARK_RECEIVED_FAILED' },
     );
@@ -66,7 +67,7 @@ export const createReturnRequestAdminHandlers = (
       res,
       async () => {
         const { id } = parseOrError(idParamSchema, req.params);
-        return service.markReturnInTransit(id, getUserId(req));
+        return service.markReturnInTransit(id, getUserId(req), getWorkflowActor(req));
       },
       { failureCode: 'MARK_IN_TRANSIT_FAILED' },
     );
@@ -76,7 +77,7 @@ export const createReturnRequestAdminHandlers = (
       res,
       async () => {
         const { id } = parseOrError(idParamSchema, req.params);
-        return service.acceptReturnForRefund(id, getUserId(req));
+        return service.acceptReturnForRefund(id, getUserId(req), getWorkflowActor(req));
       },
       { failureCode: 'ACCEPT_FOR_REFUND_FAILED' },
     );
@@ -87,7 +88,7 @@ export const createReturnRequestAdminHandlers = (
       async () => {
         const { id } = parseOrError(idParamSchema, req.params);
         const body = parseOrError(refundSchema, req.body);
-        return service.refundReturnRequest(id, getUserId(req), body);
+        return service.refundReturnRequest(id, getUserId(req), body, getWorkflowActor(req));
       },
       { failureCode: 'REFUND_RETURN_FAILED' },
     );
@@ -98,7 +99,7 @@ export const createReturnRequestAdminHandlers = (
       async () => {
         const { id } = parseOrError(idParamSchema, req.params);
         const body = parseOrError(completeBankRefundSchema, req.body);
-        return service.completeManualBankRefund(id, getUserId(req), body);
+        return service.completeManualBankRefund(id, getUserId(req), body, getWorkflowActor(req));
       },
       { failureCode: 'COMPLETE_BANK_REFUND_FAILED' },
     );
@@ -108,7 +109,7 @@ export const createReturnRequestAdminHandlers = (
       res,
       async () => {
         const body = parseOrError(uploadPayoutProofImageSchema, req.body);
-        return service.uploadPayoutProofImage(getUserId(req), body);
+        return service.uploadPayoutProofImage(getUserId(req), body, getWorkflowActor(req));
       },
       { failureCode: 'UPLOAD_PAYOUT_PROOF_IMAGE_FAILED' },
     );
@@ -118,7 +119,7 @@ export const createReturnRequestAdminHandlers = (
       res,
       async () => {
         const { id } = parseOrError(idParamSchema, req.params);
-        return service.listRefundPayoutProofs(id);
+        return service.listRefundPayoutProofs(id, getWorkflowActor(req));
       },
       { failureCode: 'GET_REFUND_PAYOUT_PROOFS_FAILED' },
     );
@@ -128,7 +129,7 @@ export const createReturnRequestAdminHandlers = (
       res,
       async () => {
         const { id } = parseOrError(idParamSchema, req.params);
-        return service.sendBankInfoReminder(id, getUserId(req));
+        return service.sendBankInfoReminder(id, getUserId(req), getWorkflowActor(req));
       },
       { failureCode: 'SEND_BANK_INFO_REMINDER_FAILED' },
     );
@@ -139,7 +140,7 @@ export const createReturnRequestAdminHandlers = (
       async () => {
         const { id } = parseOrError(idParamSchema, req.params);
         const body = parseOrError(refundStatusSchema, req.body);
-        return service.updateRefundStatus(id, getUserId(req), body);
+        return service.updateRefundStatus(id, getUserId(req), body, getWorkflowActor(req));
       },
       { failureCode: 'UPDATE_REFUND_STATUS_FAILED' },
     );

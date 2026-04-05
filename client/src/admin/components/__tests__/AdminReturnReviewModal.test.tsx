@@ -621,7 +621,7 @@ describe('AdminReturnReviewModal', () => {
     render(
       <AdminReturnReviewModal
         actions={createMockReviewActions()}
-        canManageFinanceActions={false}
+        canManageRefundWorkflow={false}
         item={createReturnItem({
           status: 'ACCEPTED_FOR_REFUND' as any,
           workflowStatus: 'ACCEPTED_FOR_REFUND',

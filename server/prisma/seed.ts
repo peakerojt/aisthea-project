@@ -32,7 +32,7 @@ const DEFAULT_PERMISSIONS = [
 
 async function main() {
   // ── 1. Ensure base roles exist ──────────────────────────────────────────────
-  const [customerRole, adminRole, superAdminRole] = await Promise.all([
+  const [customerRole, adminRole, supportRole, superAdminRole] = await Promise.all([
     prisma.role.upsert({
       where: { roleName: 'Customer' },
       update: {},
@@ -42,6 +42,11 @@ async function main() {
       where: { roleName: 'Admin' },
       update: {},
       create: { roleName: 'Admin' },
+    }),
+    prisma.role.upsert({
+      where: { roleName: 'Support' },
+      update: {},
+      create: { roleName: 'Support' },
     }),
     prisma.role.upsert({
       where: { roleName: 'Super Admin' },
@@ -107,6 +112,17 @@ async function main() {
     },
   });
 
+  const support = await prisma.user.upsert({
+    where: { email: 'support.returns@example.com' },
+    update: { passwordHash: defaultPasswordHash },
+    create: {
+      email: 'support.returns@example.com',
+      fullName: 'Support Returns Demo',
+      status: 'Active',
+      passwordHash: defaultPasswordHash,
+    },
+  });
+
   // ── 5. Attach roles ─────────────────────────────────────────────────────────
   await Promise.all([
     prisma.userRole.upsert({
@@ -133,6 +149,19 @@ async function main() {
       create: {
         userId: admin.userId,
         roleId: adminRole.roleId,
+      },
+    }),
+    prisma.userRole.upsert({
+      where: {
+        userId_roleId: {
+          userId: support.userId,
+          roleId: supportRole.roleId,
+        },
+      },
+      update: {},
+      create: {
+        userId: support.userId,
+        roleId: supportRole.roleId,
       },
     }),
   ]);

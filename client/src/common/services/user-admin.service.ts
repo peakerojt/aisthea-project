@@ -54,6 +54,14 @@ export const patchUserRole = async (
 
 // ─── Role display helpers ─────────────────────────────────────────────────────
 
+export const RAW_TO_DISPLAY_ROLE_NAME: Record<string, string> = {
+    Admin: 'Admin',
+    'Super Admin': 'Admin',
+    Customer: 'Customer',
+    Staff: 'Staff',
+    Support: 'Staff',
+};
+
 export const ROLE_LABELS: Record<string, string> = {
     Admin: 'Quản trị viên',
     Customer: 'Khách hàng',
@@ -66,7 +74,16 @@ export const STATUS_LABELS: Record<string, string> = {
     Pending: 'Chờ xác nhận',
 };
 
+export function getRoleDisplayName(roleName: string): string {
+    return RAW_TO_DISPLAY_ROLE_NAME[roleName] ?? roleName;
+}
+
+export function isAssignableAdminRole(roleName: string): boolean {
+    const normalized = roleName.trim().toLowerCase();
+    return normalized === 'admin' || normalized === 'customer' || normalized === 'support' || normalized === 'staff';
+}
+
 /** Get the display label for a role name */
 export function getRoleLabel(roleName: string): string {
-    return ROLE_LABELS[roleName] ?? roleName;
+    return ROLE_LABELS[getRoleDisplayName(roleName)] ?? roleName;
 }

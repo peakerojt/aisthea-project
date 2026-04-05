@@ -11,13 +11,29 @@ import { useReturnAutoRefresh } from '@/common/hooks/useReturnAutoRefresh';
 import { useToast } from '@/common/contexts/ToastContext';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { bucketReturnStatus } from '@/common/utils/returnStatus';
+import {
+  resolveAdminWorkflowAccess,
+} from '@/common/utils/adminAccess';
 
 export type ReturnStatusFilter = 'ALL' | 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'RECEIVED' | 'REFUNDED';
 
-const FINANCE_ADMIN_ROLES = new Set(['admin', 'super admin']);
-const FINANCE_PERMISSION_CODES = new Set(['RETURN_REFUND_FINANCE_COMPLETE', '*']);
-
 const PAGE_SIZE = 15;
+
+type AdminReturnActionError = Error & {
+  code?: string;
+  messageKey?: string;
+};
+
+const createForbiddenActionError = (
+  message: string,
+  messageKey: string,
+  code = 'FORBIDDEN',
+): AdminReturnActionError => {
+  const error = new Error(message) as AdminReturnActionError;
+  error.code = code;
+  error.messageKey = messageKey;
+  return error;
+};
 
 export const useAdminReturns = () => {
   const { t: rawT } = useTranslation('returns');
@@ -29,21 +45,23 @@ export const useAdminReturns = () => {
     return value === key ? interpolateFallback(fallback, options) : value;
   };
   const { showToast } = useToast();
-  const { user } = useAuth();
+  const { role, user } = useAuth();
   const getStatusBucket = useCallback(
     (item: OrderReturn) => item.statusBucket ?? bucketReturnStatus(item.workflowStatus ?? item.status),
     [],
   );
-  const canManageFinanceActions = useMemo(() => {
-    const normalizedRoles = (user?.roles ?? []).map((role) => role.trim().toLowerCase());
-    const normalizedPermissions = (user?.permissions ?? []).map((permission) => permission.trim().toUpperCase());
-
-    if (normalizedPermissions.length > 0) {
-      return normalizedPermissions.some((permission) => FINANCE_PERMISSION_CODES.has(permission));
-    }
-
-    return normalizedRoles.some((role) => FINANCE_ADMIN_ROLES.has(role));
-  }, [user?.permissions, user?.roles]);
+  const workflowAccess = useMemo(
+    () => resolveAdminWorkflowAccess(user?.roles ?? (role ? [role] : [])),
+    [role, user?.roles],
+  );
+  const canManageReturnWorkflow = useMemo(
+    () => workflowAccess.canManageReturnWorkflow,
+    [workflowAccess],
+  );
+  const canManageRefundWorkflow = useMemo(
+    () => workflowAccess.canManageRefundWorkflow,
+    [workflowAccess],
+  );
 
   const [returns, setReturns] = useState<OrderReturn[]>([]);
   const [loading, setLoading] = useState(false);
@@ -159,50 +177,109 @@ export const useAdminReturns = () => {
     }
   }, [load, resolveText, returns, selectedReturn, showToast, t]);
 
+  const ensureReturnWorkflowAccess = useCallback(() => {
+    if (canManageReturnWorkflow) {
+      return;
+    }
+
+    throw createForbiddenActionError(
+      resolveText('feedback.returnWorkflowForbidden', 'Bạn không có quyền xử lý quy trình trả hàng.'),
+      'feedback.returnWorkflowForbidden',
+    );
+  }, [canManageReturnWorkflow, resolveText]);
+
+  const ensureRefundWorkflowAccess = useCallback(() => {
+    if (canManageRefundWorkflow) {
+      return;
+    }
+
+    throw createForbiddenActionError(
+      resolveText('feedback.refundWorkflowForbidden', 'Chỉ quản trị viên được phép xử lý bước hoàn tiền.'),
+      'feedback.refundWorkflowForbidden',
+    );
+  }, [canManageRefundWorkflow, resolveText]);
+
   const reviewActions = useMemo<AdminReturnReviewActions>(() => ({
     acceptForRefund: (returnId) =>
       runReviewAction(
         returnId,
-        () => adminReturnReviewService.adminAcceptForRefund(returnId),
+        () => {
+          ensureReturnWorkflowAccess();
+          return adminReturnReviewService.adminAcceptForRefund(returnId);
+        },
         { closeOnSuccess: false },
       ),
-    approve: (returnId) => runReviewAction(returnId, () => adminReturnReviewService.adminApprove(returnId)),
-    markInTransit: (returnId) => runReviewAction(returnId, () => adminReturnReviewService.adminMarkInTransit(returnId)),
-    markReceived: (returnId) => runReviewAction(returnId, () => adminReturnReviewService.adminMarkReceived(returnId)),
-    reject: (returnId, note) => runReviewAction(returnId, () => adminReturnReviewService.adminReject(returnId, note)),
+    approve: (returnId) => runReviewAction(returnId, () => {
+      ensureReturnWorkflowAccess();
+      return adminReturnReviewService.adminApprove(returnId);
+    }),
+    markInTransit: (returnId) => runReviewAction(returnId, () => {
+      ensureReturnWorkflowAccess();
+      return adminReturnReviewService.adminMarkInTransit(returnId);
+    }),
+    markReceived: (returnId) => runReviewAction(returnId, () => {
+      ensureReturnWorkflowAccess();
+      return adminReturnReviewService.adminMarkReceived(returnId);
+    }),
+    reject: (returnId, note) => runReviewAction(returnId, () => {
+      ensureReturnWorkflowAccess();
+      return adminReturnReviewService.adminReject(returnId, note);
+    }),
     refund: (returnId, payload: CompleteBankRefundPayload) =>
-      runReviewAction(returnId, () => adminReturnReviewService.adminCompleteRefund(returnId, payload)),
+      runReviewAction(returnId, () => {
+        ensureRefundWorkflowAccess();
+        return adminReturnReviewService.adminCompleteRefund(returnId, payload);
+      }),
     sendBankInfoReminder: (returnId) =>
       runReviewAction(
         returnId,
-        () => adminReturnReviewService.adminSendBankInfoReminder(returnId),
+        () => {
+          ensureRefundWorkflowAccess();
+          return adminReturnReviewService.adminSendBankInfoReminder(returnId);
+        },
         { closeOnSuccess: false },
       ),
     setRefundFailed: (returnId, note) =>
       runReviewAction(
         returnId,
-        () => adminReturnReviewService.adminSetRefundFailed(returnId, note),
+        () => {
+          ensureRefundWorkflowAccess();
+          return adminReturnReviewService.adminSetRefundFailed(returnId, note);
+        },
         { closeOnSuccess: false },
       ),
     setRefundManualReview: (returnId, note) =>
       runReviewAction(
         returnId,
-        () => adminReturnReviewService.adminSetRefundManualReview(returnId, note),
+        () => {
+          ensureRefundWorkflowAccess();
+          return adminReturnReviewService.adminSetRefundManualReview(returnId, note);
+        },
         { closeOnSuccess: false },
       ),
     setRefundPending: (returnId) =>
       runReviewAction(
         returnId,
-        () => adminReturnReviewService.adminSetRefundPending(returnId),
+        () => {
+          ensureRefundWorkflowAccess();
+          return adminReturnReviewService.adminSetRefundPending(returnId);
+        },
         { closeOnSuccess: false },
       ),
     setRefundProcessing: (returnId) =>
       runReviewAction(
         returnId,
-        () => adminReturnReviewService.adminSetRefundProcessing(returnId),
+        () => {
+          ensureRefundWorkflowAccess();
+          return adminReturnReviewService.adminSetRefundProcessing(returnId);
+        },
         { closeOnSuccess: false },
       ),
-  }), [runReviewAction]);
+  }), [
+    ensureRefundWorkflowAccess,
+    ensureReturnWorkflowAccess,
+    runReviewAction,
+  ]);
 
   const pendingCount = useMemo(
     () => returns.filter((item) => getStatusBucket(item) === 'REQUESTED').length,
@@ -223,7 +300,8 @@ export const useAdminReturns = () => {
   }, []);
 
   return {
-    canManageFinanceActions,
+    canManageRefundWorkflow,
+    canManageReturnWorkflow,
     changeStatusFilter,
     isRefreshing,
     loading,

@@ -1,6 +1,11 @@
 import { Request, Response } from 'express';
 import { logger } from '../../../lib/logger';
-import { ReturnRequestService, ServiceError } from '../services/request.service';
+import { resolveWorkflowAccess } from '../../../shared/role-access';
+import {
+  ReturnRequestService,
+  ServiceError,
+  type ReturnWorkflowActor,
+} from '../services/request.service';
 
 export type AuthenticatedRequest = Request & {
   user?: {
@@ -51,6 +56,35 @@ export const parseOrError = <T>(schema: ParseableSchema<T>, input: unknown) => {
 };
 
 export const getUserId = (req: AuthenticatedRequest): number => Number(req.user?.userId);
+
+const getRawRoles = (req: AuthenticatedRequest): string[] => {
+  const directRoles = Array.isArray(req.user?.roles)
+    ? req.user.roles.filter((role): role is string => typeof role === 'string' && role.trim().length > 0)
+    : [];
+  const fallbackRole =
+    typeof req.user?.role === 'string' && req.user.role.trim().length > 0
+      ? [req.user.role]
+      : [];
+
+  return [...new Set([...directRoles, ...fallbackRole])];
+};
+
+export const getWorkflowActor = (req: AuthenticatedRequest): ReturnWorkflowActor => {
+  const actorId = getUserId(req);
+  const workflowAccess = resolveWorkflowAccess({
+    role: req.user?.role,
+    roles: req.user?.roles,
+  });
+  const rawRoles = getRawRoles(req);
+
+  return {
+    actorId,
+    rawRoles: workflowAccess.rawRoles.length > 0 ? workflowAccess.rawRoles : rawRoles,
+    businessRole: workflowAccess.businessRole,
+    canManageReturnWorkflow: workflowAccess.canManageReturnWorkflow,
+    canManageRefundWorkflow: workflowAccess.canManageRefundWorkflow,
+  };
+};
 
 export const createReturnRequestControllerTools = (
   service = new ReturnRequestService(),

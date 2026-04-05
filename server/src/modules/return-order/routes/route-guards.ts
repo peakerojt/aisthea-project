@@ -1,4 +1,9 @@
-import { hasAnyRole } from '../../../shared/role-access';
+import {
+  hasAnyRole,
+  hasRefundWorkflowAccess,
+  hasReturnRequestCreateAccess,
+  hasReturnWorkflowAccess,
+} from '../../../shared/role-access';
 import { requirePermission } from '../../../middlewares/auth.middleware';
 
 export const sendForbidden = (res: any) =>
@@ -28,4 +33,28 @@ export const requireRolesOrPermission = (
 
     return permissionGuard(req, res, next);
   };
+};
+
+export const requireReturnRequestCreateAccess = (req: any, res: any, next: any) => {
+  if (!hasReturnRequestCreateAccess(req.user)) {
+    return sendForbidden(res);
+  }
+
+  return next();
+};
+
+export const requireReturnWorkflowAccess = (req: any, res: any, next: any) => {
+  if (!hasReturnWorkflowAccess(req.user)) {
+    return sendForbidden(res);
+  }
+
+  return next();
+};
+
+export const requireRefundWorkflowAccess = (req: any, res: any, next: any) => {
+  if (!hasRefundWorkflowAccess(req.user)) {
+    return sendForbidden(res);
+  }
+
+  return next();
 };

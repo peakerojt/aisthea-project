@@ -17,6 +17,7 @@ import {
 } from '../../../services/email.service';
 import { env } from '../../../lib/env';
 import { logger } from '../../../lib/logger';
+import { sanitizeRefundLogContext, serializeRefundErrorForLogs } from '../../../shared/refund-log-sanitizer';
 import {
   RefundMethod,
   RefundWorkflowStatus,
@@ -75,6 +76,17 @@ type BankSnapshotRecord = {
   capturedAt: Date;
 };
 
+export type ReturnWorkflowAuditActor = {
+  rawRoles: string[];
+  businessRole: 'admin' | 'staff' | 'customer' | 'guest' | 'unknown';
+};
+
+export type ReturnWorkflowActor = ReturnWorkflowAuditActor & {
+  actorId: number;
+  canManageReturnWorkflow: boolean;
+  canManageRefundWorkflow: boolean;
+};
+
 export class ServiceError extends Error {
   constructor(
     public code: string,
@@ -110,6 +122,103 @@ export class ReturnRequestService {
     RECEIVED: 'RETURN_RECEIVED',
   } as const;
   private readonly preDeliveryCancellationReason = 'PRE_DELIVERY_CANCELLATION';
+
+  private logWorkflowAudit(input: {
+    action: string;
+    actorId: number;
+    actor?: ReturnWorkflowAuditActor;
+    returnRequestId: number;
+    orderId?: number | null;
+    oldState?: string | null;
+    newState?: string | null;
+    oldRefundStatus?: string | null;
+    newRefundStatus?: string | null;
+    note?: string | null;
+    idempotencyKey?: string | null;
+    externalRefundReference?: string | null;
+    metadata?: Record<string, unknown>;
+  }) {
+    logger.info(
+      '[returnWorkflowAudit]',
+      sanitizeRefundLogContext({
+        action: input.action,
+        actorUserId: input.actorId,
+        actorRawRoles: input.actor?.rawRoles ?? [],
+        actorBusinessRole: input.actor?.businessRole ?? 'unknown',
+        returnRequestId: input.returnRequestId,
+        orderId: input.orderId ?? null,
+        oldState: input.oldState ?? null,
+        newState: input.newState ?? null,
+        oldRefundStatus: input.oldRefundStatus ?? null,
+        newRefundStatus: input.newRefundStatus ?? null,
+        note: input.note ?? null,
+        idempotencyKey: input.idempotencyKey ?? null,
+        externalRefundReference: input.externalRefundReference ?? null,
+        occurredAt: new Date().toISOString(),
+        ...(input.metadata ? { metadata: input.metadata } : {}),
+      }),
+    );
+  }
+
+  private requireWorkflowActor(actor?: ReturnWorkflowActor): ReturnWorkflowActor {
+    if (!actor) {
+      throw new ServiceError('FORBIDDEN', 'Insufficient access rights', 403);
+    }
+
+    return actor;
+  }
+
+  private assertReturnWorkflowCapability(actor?: ReturnWorkflowActor): ReturnWorkflowActor {
+    const workflowActor = this.requireWorkflowActor(actor);
+    if (!workflowActor.canManageReturnWorkflow) {
+      throw new ServiceError('FORBIDDEN', 'Insufficient access rights', 403);
+    }
+
+    return workflowActor;
+  }
+
+  private assertRefundWorkflowCapability(actor?: ReturnWorkflowActor): ReturnWorkflowActor {
+    const workflowActor = this.requireWorkflowActor(actor);
+    if (!workflowActor.canManageRefundWorkflow) {
+      throw new ServiceError('FORBIDDEN', 'Insufficient access rights', 403);
+    }
+
+    return workflowActor;
+  }
+
+  private async claimReturnRequestMutation(
+    tx: ReturnTx,
+    request: {
+      returnRequestId: number;
+      status: ReturnRequestStatus | string;
+      updatedAt?: Date | null;
+    },
+    data: Record<string, unknown>,
+    reason: string,
+  ) {
+    const where: Record<string, unknown> = {
+      returnRequestId: request.returnRequestId,
+      status: request.status,
+    };
+
+    if (request.updatedAt instanceof Date) {
+      where.updatedAt = request.updatedAt;
+    }
+
+    const result = await tx.returnRequest.updateMany({
+      where,
+      data,
+    });
+
+    if (result.count !== 1) {
+      throw new ServiceError(
+        'CONFLICT',
+        'Return request was modified by another operator. Refresh and try again.',
+        409,
+        { reason },
+      );
+    }
+  }
 
   private normalizeStatus(value: unknown): string {
     return String(value ?? '').toLowerCase().trim();
@@ -470,11 +579,14 @@ export class ReturnRequestService {
         );
       }
     } catch (error) {
-      logger.warn('[ReturnRequestService] Failed to send refund accepted email', {
-        error,
-        email,
-        orderNumber,
-      });
+      logger.warn(
+        '[ReturnRequestService] Failed to send refund accepted email',
+        sanitizeRefundLogContext({
+          error: serializeRefundErrorForLogs(error),
+          email,
+          orderNumber,
+        }),
+      );
     }
   }
 
@@ -1487,7 +1599,8 @@ export class ReturnRequestService {
 
   // ─── Admin: Approve ────────────────────────────────────────────────────────
 
-  async approveReturnRequest(id: number, actorId: number) {
+  async approveReturnRequest(id: number, actorId: number, workflowActor?: ReturnWorkflowActor) {
+    const auditActor = this.assertReturnWorkflowCapability(workflowActor);
     const detail = await this.repo.findById(id);
     if (!detail) {
       throw new ServiceError('RETURN_REQUEST_NOT_FOUND', 'Return request not found', 404);
@@ -1536,24 +1649,45 @@ export class ReturnRequestService {
           },
         });
 
-        return this.decorateReturnRecord({
-          ...updated,
-          user: detail.user,
-          order: detail.order,
-          refundBankSnapshots: detail.refundBankSnapshots ?? [],
-          refundPayoutProofs: detail.refundPayoutProofs ?? [],
-          refundBenefits: detail.refundBenefits ?? [],
-          statusLogs: detail.statusLogs ?? [],
-        });
+        return {
+          record: this.decorateReturnRecord({
+            ...updated,
+            user: detail.user,
+            order: detail.order,
+            refundBankSnapshots: detail.refundBankSnapshots ?? [],
+            refundPayoutProofs: detail.refundPayoutProofs ?? [],
+            refundBenefits: detail.refundBenefits ?? [],
+            statusLogs: detail.statusLogs ?? [],
+          }),
+          audit: {
+            oldState: current.status,
+            newState: 'ACCEPTED_FOR_REFUND' as const,
+            oldRefundStatus: this.deriveRefundStatus(current),
+            newRefundStatus: 'PENDING' as const,
+          },
+        };
       });
 
-      await this.sendAcceptedRefundEmail(approvedForRefund as {
+      this.logWorkflowAudit({
+        action: 'approve_return_request',
+        actorId,
+        actor: auditActor,
+        returnRequestId: id,
+        orderId: approvedForRefund.record.orderId ?? detail.orderId ?? null,
+        oldState: approvedForRefund.audit.oldState,
+        newState: approvedForRefund.audit.newState,
+        oldRefundStatus: approvedForRefund.audit.oldRefundStatus,
+        newRefundStatus: approvedForRefund.audit.newRefundStatus,
+        note: 'Approved for refund queue after prepaid cancellation before fulfillment',
+      });
+
+      await this.sendAcceptedRefundEmail(approvedForRefund.record as {
         user?: { email?: string | null; fullName?: string | null } | null;
         order?: { orderNumber?: string | null } | null;
         bankInfo?: { available?: boolean } | null;
       });
 
-      return approvedForRefund;
+      return approvedForRefund.record;
     }
 
     return this.transitionAndNotify(
@@ -1561,32 +1695,56 @@ export class ReturnRequestService {
       actorId,
       'APPROVED',
       'Approved by support/admin',
+      undefined,
+      {
+        action: 'approve_return_request',
+        actor: auditActor,
+      },
     );
   }
 
   // ─── Admin: Reject ─────────────────────────────────────────────────────────
 
-  async rejectReturnRequest(id: number, actorId: number, reason: string) {
-    return this.transitionAndNotify(id, actorId, 'REJECTED', reason, { comment: reason });
+  async rejectReturnRequest(
+    id: number,
+    actorId: number,
+    reason: string,
+    workflowActor?: ReturnWorkflowActor,
+  ) {
+    const auditActor = this.assertReturnWorkflowCapability(workflowActor);
+    return this.transitionAndNotify(id, actorId, 'REJECTED', reason, { comment: reason }, {
+      action: 'reject_return_request',
+      actor: auditActor,
+    });
   }
 
   // ─── Admin: Mark Received ──────────────────────────────────────────────────
 
-  async markReturnInTransit(id: number, actorId: number) {
+  async markReturnInTransit(id: number, actorId: number, workflowActor?: ReturnWorkflowActor) {
+    const auditActor = this.assertReturnWorkflowCapability(workflowActor);
     return this.transitionStatus(
       id,
       actorId,
       'IN_RETURN_TRANSIT',
       'Return package handed off for transit back to warehouse',
+      {
+        action: 'mark_return_in_transit',
+        actor: auditActor,
+      },
     );
   }
 
-  async markReturnReceived(id: number, actorId: number) {
+  async markReturnReceived(id: number, actorId: number, workflowActor?: ReturnWorkflowActor) {
+    const auditActor = this.assertReturnWorkflowCapability(workflowActor);
     const result = await this.transitionStatus(
       id,
       actorId,
       'RECEIVED_AND_INSPECTING',
       'Warehouse confirmed return package received and inspection started',
+      {
+        action: 'mark_return_received',
+        actor: auditActor,
+      },
     );
     notifyCustomer('RETURN_RECEIVED', {
       returnRequestId: id,
@@ -1595,7 +1753,8 @@ export class ReturnRequestService {
     return this.decorateReturnRecord(result);
   }
 
-  async acceptReturnForRefund(id: number, actorId: number) {
+  async acceptReturnForRefund(id: number, actorId: number, workflowActor?: ReturnWorkflowActor) {
+    const auditActor = this.assertReturnWorkflowCapability(workflowActor);
     this.assertModernStorageAvailable(['returnRequest', 'returnRequestStatusLog']);
 
     const acceptedRecord = await prisma.$transaction(async (tx: ReturnTx) => {
@@ -1632,13 +1791,34 @@ export class ReturnRequestService {
         },
       });
 
-      return updated;
+      return {
+        record: updated,
+        audit: {
+          oldState: current.status,
+          newState: 'ACCEPTED_FOR_REFUND' as const,
+          oldRefundStatus: this.deriveRefundStatus(current),
+          newRefundStatus: 'PENDING' as const,
+        },
+      };
     });
 
     const detail = await this.repo.findById(id);
     const decorated =
       detail ??
-      this.decorateReturnRecord(acceptedRecord);
+      this.decorateReturnRecord(acceptedRecord.record);
+
+    this.logWorkflowAudit({
+      action: 'accept_return_for_refund',
+      actorId,
+      actor: auditActor,
+      returnRequestId: id,
+      orderId: decorated?.orderId ?? acceptedRecord.record.orderId ?? null,
+      oldState: acceptedRecord.audit.oldState,
+      newState: acceptedRecord.audit.newState,
+      oldRefundStatus: acceptedRecord.audit.oldRefundStatus,
+      newRefundStatus: acceptedRecord.audit.newRefundStatus,
+      note: 'Return accepted for refund after receive and inspection',
+    });
 
     await this.sendAcceptedRefundEmail(decorated as {
       user?: { email?: string | null; fullName?: string | null } | null;
@@ -1655,7 +1835,9 @@ export class ReturnRequestService {
     id: number,
     actorId: number,
     params: { method: RefundMethod; amount?: number; idempotencyKey: string },
+    workflowActor?: ReturnWorkflowActor,
   ) {
+    const auditActor = this.assertRefundWorkflowCapability(workflowActor);
     this.assertModernStorageAvailable([
       'refundTransaction',
       'returnRequest',
@@ -1676,13 +1858,42 @@ export class ReturnRequestService {
           throw new ServiceError('RETURN_REQUEST_NOT_FOUND', 'Return request not found', 404);
         }
 
+        const oldRefundStatus = this.deriveRefundStatus(request);
         await this.syncRequestRefundStatus(tx, request, [existing]);
-        return existing;
+        const newRefundStatus = this.normalizeRefundTransactionStatus(existing.status) === 'COMPLETED'
+          ? 'REFUNDED'
+          : oldRefundStatus;
+
+        return {
+          refundRecord: existing,
+          audit: {
+            oldState: request.status,
+            newState: request.status,
+            oldRefundStatus,
+            newRefundStatus,
+            orderId: request.orderId,
+            metadata: {
+              idempotentReplay: true,
+            },
+          },
+        };
       }
 
       const request = await this.loadRefundableRequest(tx, id);
       const refundableCap = this.resolveRefundableAmountCap(request);
       const amount = this.resolveRefundAmount(request, params.amount);
+      const oldRefundStatus = this.deriveRefundStatus(request);
+      const claimTimestamp = new Date();
+
+      await this.claimReturnRequestMutation(
+        tx,
+        request,
+        {
+          refundStatus: 'PROCESSING',
+          updatedAt: claimTimestamp,
+        },
+        'refund_execution_conflict',
+      );
 
       const refundRecord = await tx.refundTransaction.create({
         data: {
@@ -1714,21 +1925,54 @@ export class ReturnRequestService {
         },
       });
 
-      return refundRecord;
+      const refundStatus = amount.lt(refundableCap) ? 'PARTIALLY_REFUNDED' : 'REFUNDED';
+
+      return {
+        refundRecord,
+        audit: {
+          oldState: request.status,
+          newState: 'CLOSED' as const,
+          oldRefundStatus,
+          newRefundStatus: refundStatus,
+          orderId: request.orderId,
+        },
+      };
     });
 
     const request = await this.repo.findById(id);
     notifyCustomer('RETURN_REFUNDED', {
       returnRequestId: id,
       orderId: request?.orderId ?? 0,
-      refundAmount: Number(refund.amount),
-      refundMethod: refund.method,
+      refundAmount: Number(refund.refundRecord.amount),
+      refundMethod: refund.refundRecord.method,
     });
 
-    return refund;
+    this.logWorkflowAudit({
+      action: 'execute_refund',
+      actorId,
+      actor: auditActor,
+      returnRequestId: id,
+      orderId: refund.audit.orderId ?? request?.orderId ?? null,
+      oldState: refund.audit.oldState,
+      newState: refund.audit.newState,
+      oldRefundStatus: refund.audit.oldRefundStatus,
+      newRefundStatus: refund.audit.newRefundStatus,
+      note: `Refunded via ${params.method}`,
+      idempotencyKey: params.idempotencyKey,
+      externalRefundReference: refund.refundRecord.transactionRef ?? null,
+      metadata: refund.audit.metadata,
+    });
+
+    return refund.refundRecord;
   }
 
-  async uploadPayoutProofImage(actorId: number, payload: UploadPayoutProofImageDto) {
+  async uploadPayoutProofImage(
+    actorId: number,
+    payload: UploadPayoutProofImageDto,
+    workflowActor?: ReturnWorkflowActor,
+  ) {
+    this.assertRefundWorkflowCapability(workflowActor);
+
     if (!payload.imageData.startsWith('data:image/')) {
       throw new ServiceError('INVALID_PAYOUT_PROOF_FORMAT', 'Invalid payout proof image format', 400);
     }
@@ -1751,7 +1995,8 @@ export class ReturnRequestService {
     };
   }
 
-  async listRefundPayoutProofs(id: number) {
+  async listRefundPayoutProofs(id: number, workflowActor?: ReturnWorkflowActor) {
+    this.assertRefundWorkflowCapability(workflowActor);
     this.assertModernStorageAvailable(['returnRequest', 'refundPayoutProof']);
 
     const request = await prisma.returnRequest.findUnique({
@@ -1779,7 +2024,8 @@ export class ReturnRequestService {
     return this.mapRefundPayoutProofs(request.refundPayoutProofs);
   }
 
-  async sendBankInfoReminder(id: number, actorId: number) {
+  async sendBankInfoReminder(id: number, actorId: number, workflowActor?: ReturnWorkflowActor) {
+    const auditActor = this.assertRefundWorkflowCapability(workflowActor);
     this.assertModernStorageAvailable(['returnRequest', 'returnRequestStatusLog']);
 
     const request = await prisma.returnRequest.findUnique({
@@ -1850,6 +2096,19 @@ export class ReturnRequestService {
       },
     });
 
+    this.logWorkflowAudit({
+      action: 'send_bank_info_reminder',
+      actorId,
+      actor: auditActor,
+      returnRequestId: id,
+      orderId: null,
+      oldState: request.status,
+      newState: request.status,
+      oldRefundStatus: 'PENDING',
+      newRefundStatus: 'PENDING',
+      note: 'Refund bank information reminder email sent',
+    });
+
     return { reminded: true as const };
   }
 
@@ -1857,7 +2116,9 @@ export class ReturnRequestService {
     id: number,
     actorId: number,
     params: CompleteBankRefundDto,
+    workflowActor?: ReturnWorkflowActor,
   ) {
+    const auditActor = this.assertRefundWorkflowCapability(workflowActor);
     this.assertModernStorageAvailable([
       'refundTransaction',
       'returnRequest',
@@ -1943,6 +2204,16 @@ export class ReturnRequestService {
       const amount = this.resolveRefundAmount(request, params.amount);
       const now = new Date();
       const transactionRef = params.transactionRef?.trim() || `BANK-${id}-${Date.now()}`;
+
+      await this.claimReturnRequestMutation(
+        tx,
+        request,
+        {
+          refundStatus: 'PROCESSING',
+          updatedAt: now,
+        },
+        'complete_bank_refund_conflict',
+      );
 
       await tx.refundBankSnapshot.create({
         data: {
@@ -2034,6 +2305,13 @@ export class ReturnRequestService {
         benefit,
         requestUser: request.user,
         requestOrder: request.order,
+        audit: {
+          oldState: request.status,
+          newState: 'CLOSED' as const,
+          oldRefundStatus: this.deriveRefundStatus(request),
+          newRefundStatus: refundStatus,
+          orderId: request.orderId,
+        },
       };
     });
 
@@ -2056,12 +2334,34 @@ export class ReturnRequestService {
         voucherSummary: result.benefit.summary,
         profileLink: PROFILE_VOUCHER_LINK,
       }).catch((error) => {
-        logger.warn('[ReturnRequestService] Failed to send refund completed email', {
-          error,
-          returnRequestId: id,
-        });
+        logger.warn(
+          '[ReturnRequestService] Failed to send refund completed email',
+          sanitizeRefundLogContext({
+            error: serializeRefundErrorForLogs(error),
+            returnRequestId: id,
+          }),
+        );
       });
     }
+
+    this.logWorkflowAudit({
+      action: 'complete_bank_refund',
+      actorId,
+      actor: auditActor,
+      returnRequestId: id,
+      orderId: result.audit.orderId ?? result.requestOrder?.orderId ?? null,
+      oldState: result.audit.oldState,
+      newState: result.audit.newState,
+      oldRefundStatus: result.audit.oldRefundStatus,
+      newRefundStatus: result.audit.newRefundStatus,
+      note: normalizedFinanceNote ?? 'Manual bank refund completed',
+      idempotencyKey: `bank-refund-${id}`,
+      externalRefundReference: result.refundRecord.transactionRef ?? null,
+      metadata: {
+        proofImageCount: params.proofImageUrls.length,
+        benefitIssued: result.benefit.issued,
+      },
+    });
 
     return {
       refundTransactionId: result.refundRecord.refundTransactionId,
@@ -2078,7 +2378,9 @@ export class ReturnRequestService {
     id: number,
     actorId: number,
     params: { refundStatus: RefundWorkflowStatus; comment?: string },
+    workflowActor?: ReturnWorkflowActor,
   ) {
+    const auditActor = this.assertRefundWorkflowCapability(workflowActor);
     this.assertModernStorageAvailable(['returnRequest', 'returnRequestStatusLog']);
     const normalizedComment = params.comment?.trim();
 
@@ -2097,7 +2399,7 @@ export class ReturnRequestService {
       );
     }
 
-    return prisma.$transaction(async (tx: ReturnTx) => {
+    const result = await prisma.$transaction(async (tx: ReturnTx) => {
       const financeNoteUpdatedAt = normalizedComment ? new Date() : null;
       const current = await tx.returnRequest.findUnique({
         where: { returnRequestId: id },
@@ -2133,8 +2435,22 @@ export class ReturnRequestService {
         currentRefundStatus === params.refundStatus &&
         currentFinanceNote === (normalizedComment ?? null)
       ) {
-        return this.decorateReturnRecord(current);
+        return {
+          record: this.decorateReturnRecord(current),
+          audit: null,
+        };
       }
+
+      const claimTimestamp = new Date();
+
+      await this.claimReturnRequestMutation(
+        tx,
+        current,
+        {
+          updatedAt: claimTimestamp,
+        },
+        'refund_status_conflict',
+      );
 
       const updated = await tx.returnRequest.update({
         where: { returnRequestId: id },
@@ -2161,19 +2477,46 @@ export class ReturnRequestService {
         },
       });
 
-      return this.decorateReturnRecord({
-        ...updated,
-        ...(financeNoteUpdatedAt
-          ? {
-              financeNoteUpdatedAt,
-              financeNoteUpdatedBy: { userId: actorId },
-            }
-          : {
-              financeNoteUpdatedAt: null,
-              financeNoteUpdatedBy: null,
-            }),
-      });
+      return {
+        record: this.decorateReturnRecord({
+          ...updated,
+          ...(financeNoteUpdatedAt
+            ? {
+                financeNoteUpdatedAt,
+                financeNoteUpdatedBy: { userId: actorId },
+              }
+            : {
+                financeNoteUpdatedAt: null,
+                financeNoteUpdatedBy: null,
+              }),
+        }),
+        audit: {
+          oldState: current.status,
+          newState: current.status,
+          oldRefundStatus: currentRefundStatus,
+          newRefundStatus: params.refundStatus,
+        },
+      };
     });
+
+    if (result.audit) {
+      this.logWorkflowAudit({
+        action: 'update_refund_status',
+        actorId,
+        actor: auditActor,
+        returnRequestId: id,
+        orderId: result.record.orderId ?? null,
+        oldState: result.audit.oldState,
+        newState: result.audit.newState,
+        oldRefundStatus: result.audit.oldRefundStatus,
+        newRefundStatus: result.audit.newRefundStatus,
+        note:
+          normalizedComment ??
+          `Refund status updated: ${result.audit.oldRefundStatus} -> ${result.audit.newRefundStatus}`,
+      });
+    }
+
+    return result.record;
   }
 
   // ─── Shared: status transition ─────────────────────────────────────────────
@@ -2184,8 +2527,12 @@ export class ReturnRequestService {
     nextStatus: Extract<ReturnRequestStatus, 'APPROVED' | 'REJECTED'>,
     comment: string,
     extraPayload?: Record<string, unknown>,
+    audit?: {
+      action: string;
+      actor?: ReturnWorkflowAuditActor;
+    },
   ) {
-    const result = await this.transitionStatus(id, actorId, nextStatus, comment);
+    const result = await this.transitionStatus(id, actorId, nextStatus, comment, audit);
     notifyCustomer(this.transitionNotifications[nextStatus], {
       returnRequestId: id,
       orderId: result.orderId,
@@ -2199,10 +2546,14 @@ export class ReturnRequestService {
     actorId: number,
     nextStatus: ReturnRequestStatus,
     comment: string,
+    audit?: {
+      action: string;
+      actor?: ReturnWorkflowAuditActor;
+    },
   ) {
     this.assertModernStorageAvailable(['returnRequest', 'returnRequestStatusLog']);
 
-    return prisma.$transaction(async (tx: ReturnTx) => {
+    const result = await prisma.$transaction(async (tx: ReturnTx) => {
       const current = await tx.returnRequest.findUnique({
         where: { returnRequestId: id },
       });
@@ -2210,6 +2561,7 @@ export class ReturnRequestService {
         throw new ServiceError('RETURN_REQUEST_NOT_FOUND', 'Return request not found', 404);
 
       this.assertTransition(current.status, nextStatus);
+      const previousRefundStatus = this.deriveRefundStatus(current);
       const nextRefundStatus = this.resolveTransitionRefundStatus(current, nextStatus);
 
       const updated = await tx.returnRequest.update({
@@ -2231,8 +2583,32 @@ export class ReturnRequestService {
         },
       });
 
-      return this.decorateReturnRecord(updated);
+      return {
+        record: this.decorateReturnRecord(updated),
+        audit: {
+          orderId: updated.orderId ?? null,
+          oldState: current.status,
+          newState: nextStatus,
+          oldRefundStatus: previousRefundStatus,
+          newRefundStatus: nextRefundStatus ?? previousRefundStatus,
+        },
+      };
     });
+
+    this.logWorkflowAudit({
+      action: audit?.action ?? 'transition_return_request',
+      actorId,
+      actor: audit?.actor,
+      returnRequestId: id,
+      orderId: result.audit.orderId,
+      oldState: result.audit.oldState,
+      newState: result.audit.newState,
+      oldRefundStatus: result.audit.oldRefundStatus,
+      newRefundStatus: result.audit.newRefundStatus,
+      note: comment,
+    });
+
+    return result.record;
   }
 
   // ─── Queries ───────────────────────────────────────────────────────────────
@@ -2254,9 +2630,24 @@ export class ReturnRequestService {
       );
   }
 
-  getReturnDetail(id: number) {
+  async getReturnDetail(id: number, actor: ReturnWorkflowActor) {
     this.assertModernStorageAvailable(['returnRequest']);
-    return this.repo.findById(id).then((result: any) => this.decorateReturnRecord(result));
+    const workflowActor = this.requireWorkflowActor(actor);
+    const result = this.decorateReturnRecord(await this.repo.findById(id));
+
+    if (!result) {
+      return null;
+    }
+
+    if (workflowActor.canManageReturnWorkflow) {
+      return result;
+    }
+
+    if (workflowActor.businessRole === 'customer' && result.userId === workflowActor.actorId) {
+      return result;
+    }
+
+    throw new ServiceError('FORBIDDEN', 'Insufficient access rights', 403);
   }
 
   getReturnDetailByOrderId(orderId: number) {
@@ -2266,8 +2657,12 @@ export class ReturnRequestService {
       .then((result: any) => this.decorateReturnRecord(result));
   }
 
-  getAdminReturns(filters: Parameters<ReturnRequestRepository['findAllAdmin']>[0]) {
+  getAdminReturns(
+    filters: Parameters<ReturnRequestRepository['findAllAdmin']>[0],
+    actor: ReturnWorkflowActor,
+  ) {
     this.assertModernStorageAvailable(['returnRequest']);
+    this.assertReturnWorkflowCapability(actor);
     return this.repo
       .findAllAdmin(filters)
       .then((result: { data: any[] }) => this.decoratePagedResult(result));

@@ -53,6 +53,27 @@ const createResponse = () => {
 
 describe('ReturnRequestController', () => {
   const controller = new ReturnRequestController();
+  const adminWorkflowActor = {
+    actorId: 9,
+    rawRoles: ['admin'],
+    businessRole: 'admin',
+    canManageReturnWorkflow: true,
+    canManageRefundWorkflow: true,
+  } as const;
+  const customerWorkflowActor = {
+    actorId: 5,
+    rawRoles: ['customer'],
+    businessRole: 'customer',
+    canManageReturnWorkflow: false,
+    canManageRefundWorkflow: false,
+  } as const;
+  const staffWorkflowActor = {
+    actorId: 5,
+    rawRoles: ['support'],
+    businessRole: 'staff',
+    canManageReturnWorkflow: true,
+    canManageRefundWorkflow: false,
+  } as const;
 
   beforeEach(() => {
     serviceMock.createReturnRequest.mockReset();
@@ -278,11 +299,9 @@ describe('ReturnRequestController', () => {
   });
 
   it('blocks customers from viewing another user return detail', async () => {
-    serviceMock.getReturnDetail.mockResolvedValueOnce({
-      returnRequestId: 77,
-      userId: 99,
-      status: 'REQUESTED',
-    });
+    serviceMock.getReturnDetail.mockRejectedValueOnce(
+      new ServiceError('FORBIDDEN', 'Insufficient access rights', 403),
+    );
 
     const req: any = {
       params: { id: '77' },
@@ -299,6 +318,7 @@ describe('ReturnRequestController', () => {
       error: { code: 'FORBIDDEN', message: 'Insufficient access rights' },
     });
     expect(res.json).toHaveBeenCalledTimes(1);
+    expect(serviceMock.getReturnDetail).toHaveBeenCalledWith(77, customerWorkflowActor);
   });
 
   it('allows support users to view another customer return detail via role fallback', async () => {
@@ -316,6 +336,7 @@ describe('ReturnRequestController', () => {
 
     await controller.detail(req, res);
 
+    expect(serviceMock.getReturnDetail).toHaveBeenCalledWith(78, staffWorkflowActor);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       success: true,
@@ -338,7 +359,7 @@ describe('ReturnRequestController', () => {
 
     await controller.detail(req, res);
 
-    expect(serviceMock.getReturnDetail).toHaveBeenCalledWith(79);
+    expect(serviceMock.getReturnDetail).toHaveBeenCalledWith(79, customerWorkflowActor);
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({
       success: false,
@@ -357,16 +378,20 @@ describe('ReturnRequestController', () => {
 
     const req: any = {
       query: { page: '3', limit: '20', status: 'REQUESTED' },
+      user: { userId: 9, roles: ['Admin'] },
     };
     const res = createResponse();
 
     await controller.adminList(req, res);
 
-    expect(serviceMock.getAdminReturns).toHaveBeenCalledWith({
-      page: 3,
-      limit: 20,
-      status: 'REQUESTED',
-    });
+    expect(serviceMock.getAdminReturns).toHaveBeenCalledWith(
+      {
+        page: 3,
+        limit: 20,
+        status: 'REQUESTED',
+      },
+      adminWorkflowActor,
+    );
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       success: true,
@@ -414,7 +439,7 @@ describe('ReturnRequestController', () => {
 
     await controller.approve(req, res);
 
-    expect(serviceMock.approveReturnRequest).toHaveBeenCalledWith(15, 9);
+    expect(serviceMock.approveReturnRequest).toHaveBeenCalledWith(15, 9, adminWorkflowActor);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       success: true,
@@ -442,7 +467,7 @@ describe('ReturnRequestController', () => {
 
     await controller.reject(req, res);
 
-    expect(serviceMock.rejectReturnRequest).toHaveBeenCalledWith(17, 9, 'Out of policy');
+    expect(serviceMock.rejectReturnRequest).toHaveBeenCalledWith(17, 9, 'Out of policy', adminWorkflowActor);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       success: true,
@@ -469,7 +494,7 @@ describe('ReturnRequestController', () => {
 
     await controller.markReceived(req, res);
 
-    expect(serviceMock.markReturnReceived).toHaveBeenCalledWith(16, 9);
+    expect(serviceMock.markReturnReceived).toHaveBeenCalledWith(16, 9, adminWorkflowActor);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       success: true,
@@ -568,7 +593,7 @@ describe('ReturnRequestController', () => {
 
     await controller.markInTransit(req, res);
 
-    expect(serviceMock.markReturnInTransit).toHaveBeenCalledWith(19, 9);
+    expect(serviceMock.markReturnInTransit).toHaveBeenCalledWith(19, 9, adminWorkflowActor);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       success: true,
@@ -595,7 +620,7 @@ describe('ReturnRequestController', () => {
 
     await controller.acceptForRefund(req, res);
 
-    expect(serviceMock.acceptReturnForRefund).toHaveBeenCalledWith(18, 9);
+    expect(serviceMock.acceptReturnForRefund).toHaveBeenCalledWith(18, 9, adminWorkflowActor);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       success: true,
@@ -621,7 +646,7 @@ describe('ReturnRequestController', () => {
 
     await controller.reject(req, res);
 
-    expect(serviceMock.rejectReturnRequest).toHaveBeenCalledWith(15, 9, 'Out of policy');
+    expect(serviceMock.rejectReturnRequest).toHaveBeenCalledWith(15, 9, 'Out of policy', adminWorkflowActor);
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({
       success: false,
@@ -652,11 +677,22 @@ describe('ReturnRequestController', () => {
 
     await controller.refund(req, res);
 
-    expect(serviceMock.refundReturnRequest).toHaveBeenCalledWith(55, 88, {
-      method: 'ORIGINAL_PAYMENT',
-      idempotencyKey: 'refund-key-1234',
-      amount: 150000,
-    });
+    expect(serviceMock.refundReturnRequest).toHaveBeenCalledWith(
+      55,
+      88,
+      {
+        method: 'ORIGINAL_PAYMENT',
+        idempotencyKey: 'refund-key-1234',
+        amount: 150000,
+      },
+      {
+        actorId: 88,
+        rawRoles: ['admin'],
+        businessRole: 'admin',
+        canManageReturnWorkflow: true,
+        canManageRefundWorkflow: true,
+      },
+    );
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       success: true,
@@ -694,13 +730,24 @@ describe('ReturnRequestController', () => {
 
     await controller.completeBankRefund(req, res);
 
-    expect(serviceMock.completeManualBankRefund).toHaveBeenCalledWith(55, 88, {
-      amount: 150000,
-      transactionRef: 'VCB-REFUND-55',
-      financeNote: 'Da chuyen khoan',
-      proofImageUrls: ['https://cdn.example.com/refund-proof-55.png'],
-      selectedBankAccountId: 77,
-    });
+    expect(serviceMock.completeManualBankRefund).toHaveBeenCalledWith(
+      55,
+      88,
+      {
+        amount: 150000,
+        transactionRef: 'VCB-REFUND-55',
+        financeNote: 'Da chuyen khoan',
+        proofImageUrls: ['https://cdn.example.com/refund-proof-55.png'],
+        selectedBankAccountId: 77,
+      },
+      {
+        actorId: 88,
+        rawRoles: ['admin'],
+        businessRole: 'admin',
+        canManageReturnWorkflow: true,
+        canManageRefundWorkflow: true,
+      },
+    );
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       success: true,
@@ -757,10 +804,20 @@ describe('ReturnRequestController', () => {
 
     await controller.uploadPayoutProofImage(req, res);
 
-    expect(serviceMock.uploadPayoutProofImage).toHaveBeenCalledWith(88, {
-      imageData: 'data:image/png;base64,AAA',
-      fileName: 'refund-proof-88.png',
-    });
+    expect(serviceMock.uploadPayoutProofImage).toHaveBeenCalledWith(
+      88,
+      {
+        imageData: 'data:image/png;base64,AAA',
+        fileName: 'refund-proof-88.png',
+      },
+      {
+        actorId: 88,
+        rawRoles: ['admin'],
+        businessRole: 'admin',
+        canManageReturnWorkflow: true,
+        canManageRefundWorkflow: true,
+      },
+    );
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       success: true,
@@ -782,12 +839,19 @@ describe('ReturnRequestController', () => {
 
     const req: any = {
       params: { id: '55' },
+      user: { userId: 88, roles: ['Admin'] },
     };
     const res = createResponse();
 
     await controller.listRefundPayoutProofs(req, res);
 
-    expect(serviceMock.listRefundPayoutProofs).toHaveBeenCalledWith(55);
+    expect(serviceMock.listRefundPayoutProofs).toHaveBeenCalledWith(55, {
+      actorId: 88,
+      rawRoles: ['admin'],
+      businessRole: 'admin',
+      canManageReturnWorkflow: true,
+      canManageRefundWorkflow: true,
+    });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       success: true,
@@ -814,7 +878,13 @@ describe('ReturnRequestController', () => {
 
     await controller.sendBankInfoReminder(req, res);
 
-    expect(serviceMock.sendBankInfoReminder).toHaveBeenCalledWith(55, 88);
+    expect(serviceMock.sendBankInfoReminder).toHaveBeenCalledWith(55, 88, {
+      actorId: 88,
+      rawRoles: ['admin'],
+      businessRole: 'admin',
+      canManageReturnWorkflow: true,
+      canManageRefundWorkflow: true,
+    });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       success: true,
@@ -865,10 +935,21 @@ describe('ReturnRequestController', () => {
 
     await controller.refund(req, res);
 
-    expect(serviceMock.refundReturnRequest).toHaveBeenCalledWith(55, 88, {
-      method: 'ORIGINAL_PAYMENT',
-      idempotencyKey: 'refund-key-404',
-    });
+    expect(serviceMock.refundReturnRequest).toHaveBeenCalledWith(
+      55,
+      88,
+      {
+        method: 'ORIGINAL_PAYMENT',
+        idempotencyKey: 'refund-key-404',
+      },
+      {
+        actorId: 88,
+        rawRoles: ['admin'],
+        businessRole: 'admin',
+        canManageReturnWorkflow: true,
+        canManageRefundWorkflow: true,
+      },
+    );
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({
       success: false,
@@ -897,9 +978,20 @@ describe('ReturnRequestController', () => {
 
     await controller.updateRefundStatus(req, res);
 
-    expect(serviceMock.updateRefundStatus).toHaveBeenCalledWith(56, 88, {
-      refundStatus: 'PROCESSING',
-    });
+    expect(serviceMock.updateRefundStatus).toHaveBeenCalledWith(
+      56,
+      88,
+      {
+        refundStatus: 'PROCESSING',
+      },
+      {
+        actorId: 88,
+        rawRoles: ['admin'],
+        businessRole: 'admin',
+        canManageReturnWorkflow: true,
+        canManageRefundWorkflow: true,
+      },
+    );
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       success: true,

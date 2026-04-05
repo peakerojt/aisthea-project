@@ -61,7 +61,8 @@ const refundToneCardClasses: Record<
 export const Returns: React.FC = () => {
     const [expandedReturnIds, setExpandedReturnIds] = useState<Set<number>>(new Set());
     const {
-        canManageFinanceActions,
+        canManageRefundWorkflow,
+        canManageReturnWorkflow,
         changeStatusFilter,
         isRefreshing,
         loading,
@@ -388,7 +389,8 @@ export const Returns: React.FC = () => {
             {selectedReturn && (
                 <AdminReturnReviewModal
                     actions={reviewActions}
-                    canManageFinanceActions={canManageFinanceActions}
+                    canManageRefundWorkflow={canManageRefundWorkflow}
+                    canManageReturnWorkflow={canManageReturnWorkflow}
                     item={selectedReturn}
                     onClose={() => setSelectedReturn(null)}
                 />

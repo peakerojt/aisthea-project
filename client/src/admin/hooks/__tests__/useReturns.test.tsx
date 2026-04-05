@@ -39,6 +39,12 @@ vi.mock('react-i18next', async () => {
         if (key === 'feedback.refundRejected') {
           return 'Yêu cầu đã bị từ chối, không thể hoàn tiền.';
         }
+        if (key === 'feedback.refundWorkflowForbidden') {
+          return 'Chỉ quản trị viên được phép xử lý bước hoàn tiền.';
+        }
+        if (key === 'feedback.returnWorkflowForbidden') {
+          return 'Bạn không có quyền xử lý quy trình trả hàng.';
+        }
         return key;
       },
       i18n: { changeLanguage: vi.fn() },
@@ -110,6 +116,7 @@ describe('useAdminReturns', () => {
     adminSetRefundFailedMock.mockReset();
     adminSetRefundManualReviewMock.mockReset();
     useAuthMock.mockReturnValue({
+      role: 'admin',
       user: { roles: ['Admin'] },
     });
     vi.useRealTimers();
@@ -154,11 +161,13 @@ describe('useAdminReturns', () => {
       { key: 'REFUNDED', label: 'Đã hoàn tiền', count: 1 },
     ]);
     expect(result.current.totalPages).toBe(4);
-    expect(result.current.canManageFinanceActions).toBe(true);
+    expect(result.current.canManageReturnWorkflow).toBe(true);
+    expect(result.current.canManageRefundWorkflow).toBe(true);
   });
 
-  it('disables finance actions for support-only sessions', async () => {
+  it('keeps return workflow enabled but refund workflow disabled for staff sessions', async () => {
     useAuthMock.mockReturnValue({
+      role: 'staff',
       user: { roles: ['Support'] },
     });
     listMock.mockResolvedValue({
@@ -172,11 +181,13 @@ describe('useAdminReturns', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    expect(result.current.canManageFinanceActions).toBe(false);
+    expect(result.current.canManageReturnWorkflow).toBe(true);
+    expect(result.current.canManageRefundWorkflow).toBe(false);
   });
 
-  it('enables finance actions for support sessions with explicit finance permission', async () => {
+  it('does not grant refund workflow to staff sessions even with legacy finance permissions', async () => {
     useAuthMock.mockReturnValue({
+      role: 'staff',
       user: {
         roles: ['Support'],
         permissions: ['RETURN_REFUND_FINANCE_COMPLETE'],
@@ -193,7 +204,8 @@ describe('useAdminReturns', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    expect(result.current.canManageFinanceActions).toBe(true);
+    expect(result.current.canManageReturnWorkflow).toBe(true);
+    expect(result.current.canManageRefundWorkflow).toBe(false);
   });
 
   it('uses the explicit status bucket when the admin read model carries both raw and bucket statuses', async () => {
@@ -450,6 +462,35 @@ describe('useAdminReturns', () => {
       expect(showToastMock).toHaveBeenCalledWith({
         type: 'error',
         title: 'Yêu cầu đã bị từ chối, không thể hoàn tiền.',
+      });
+    });
+  });
+
+  it('blocks refund-only actions at the hook layer for staff sessions before any API call', async () => {
+    useAuthMock.mockReturnValue({
+      role: 'staff',
+      user: { roles: ['Support'] },
+    });
+    listMock.mockResolvedValue({
+      returns: [makeReturn({ returnId: 52, workflowStatus: 'ACCEPTED_FOR_REFUND', refundStatus: 'PENDING' })],
+      pagination: { page: 1, pageSize: 15, total: 1, totalPages: 1 },
+    });
+
+    const { result } = renderHook(() => useAdminReturns());
+
+    await waitFor(() => {
+      expect(result.current.returns).toHaveLength(1);
+    });
+
+    act(() => {
+      void result.current.reviewActions.refund(52);
+    });
+
+    await waitFor(() => {
+      expect(adminCompleteRefundMock).not.toHaveBeenCalled();
+      expect(showToastMock).toHaveBeenCalledWith({
+        type: 'error',
+        title: 'Chỉ quản trị viên được phép xử lý bước hoàn tiền.',
       });
     });
   });

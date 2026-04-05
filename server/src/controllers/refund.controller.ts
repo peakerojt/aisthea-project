@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { getRefundsForOrder, RefundError } from '../services/refund.service';
 import { logger } from '../lib/logger';
-import { hasAnyRole, RETURN_REQUEST_FINANCE_ROLES } from '../shared/role-access';
+import { hasRefundWorkflowAccess } from '../shared/role-access';
 
 type RefundRequest = Request & {
   user?: {
@@ -23,8 +23,8 @@ const sendError = (
   });
 
 const parseOrderId = (req: Request) => parseInt(req.params.id as string, 10);
-const hasFinanceAccess = (req: RefundRequest) =>
-  hasAnyRole(req.user, [...RETURN_REQUEST_FINANCE_ROLES]);
+const hasRefundHistoryAccess = (req: RefundRequest) =>
+  hasRefundWorkflowAccess(req.user);
 
 const handleRefundError = (
   res: Response,
@@ -50,7 +50,7 @@ export async function getOrderRefunds(req: Request, res: Response): Promise<void
     return;
   }
 
-  if (!hasFinanceAccess(authReq)) {
+  if (!hasRefundHistoryAccess(authReq)) {
     sendError(res, 403, 'ADMIN_REQUIRED');
     return;
   }

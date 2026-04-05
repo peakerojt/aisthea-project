@@ -9,7 +9,8 @@ const useAdminReturns = vi.fn();
 const adminReturnReviewModalMock = vi.fn();
 
 const createUseAdminReturnsState = (overrides: Record<string, unknown> = {}) => ({
-  canManageFinanceActions: true,
+  canManageRefundWorkflow: true,
+  canManageReturnWorkflow: true,
   changeStatusFilter: vi.fn(),
   isRefreshing: false,
   loading: false,
@@ -205,7 +206,8 @@ describe('Returns', () => {
     expect(adminReturnReviewModalMock).toHaveBeenCalledWith(
       expect.objectContaining({
         actions: reviewActions,
-        canManageFinanceActions: true,
+        canManageRefundWorkflow: true,
+        canManageReturnWorkflow: true,
         item: selectedReturn,
         onClose: expect.any(Function),
       }),

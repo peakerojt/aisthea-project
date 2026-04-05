@@ -1,4 +1,8 @@
-import { ServiceError } from '../modules/return-order/services/request.service';
+import {
+  type ReturnWorkflowActor,
+  ServiceError,
+} from '../modules/return-order/services/request.service';
+import { resolveWorkflowAccess } from './role-access';
 import {
   type LegacyProcessAction,
   type LegacyRefundStatusAction,
@@ -62,18 +66,40 @@ type LegacyCreateFallback = (
 ) => Promise<unknown>;
 
 type ReturnRequestWriteBridge = {
-  approveReturnRequest: (returnId: number, actorId: number) => Promise<unknown>;
-  rejectReturnRequest: (returnId: number, actorId: number, reason: string) => Promise<unknown>;
+  approveReturnRequest: (
+    returnId: number,
+    actorId: number,
+    actor: ReturnWorkflowActor,
+  ) => Promise<unknown>;
+  rejectReturnRequest: (
+    returnId: number,
+    actorId: number,
+    reason: string,
+    actor: ReturnWorkflowActor,
+  ) => Promise<unknown>;
   getReturnDetail: (
     returnId: number,
+    actor: ReturnWorkflowActor,
   ) => Promise<{
     status?: string;
     workflowStatus?: string;
     refundStatus?: string;
   } | null>;
-  markReturnInTransit: (returnId: number, actorId: number) => Promise<unknown>;
-  markReturnReceived: (returnId: number, actorId: number) => Promise<unknown>;
-  acceptReturnForRefund: (returnId: number, actorId: number) => Promise<unknown>;
+  markReturnInTransit: (
+    returnId: number,
+    actorId: number,
+    actor: ReturnWorkflowActor,
+  ) => Promise<unknown>;
+  markReturnReceived: (
+    returnId: number,
+    actorId: number,
+    actor: ReturnWorkflowActor,
+  ) => Promise<unknown>;
+  acceptReturnForRefund: (
+    returnId: number,
+    actorId: number,
+    actor: ReturnWorkflowActor,
+  ) => Promise<unknown>;
   updateRefundStatus: (
     returnId: number,
     actorId: number,
@@ -81,11 +107,13 @@ type ReturnRequestWriteBridge = {
       refundStatus: 'PENDING' | 'PROCESSING' | 'FAILED' | 'MANUAL_REVIEW';
       comment?: string;
     },
+    actor: ReturnWorkflowActor,
   ) => Promise<unknown>;
   refundReturnRequest: (
     returnId: number,
     actorId: number,
     params: { method: 'ORIGINAL_PAYMENT'; idempotencyKey: string },
+    actor: ReturnWorkflowActor,
   ) => Promise<unknown>;
 };
 
@@ -122,11 +150,24 @@ const ACTION_SUCCESS_CODES: Record<LegacyProcessAction, string> = {
   COMPLETE_REFUND: 'REFUND_COMPLETED',
 };
 
+const buildLegacyAdminWorkflowActor = (actorId: number): ReturnWorkflowActor => {
+  const workflowAccess = resolveWorkflowAccess(['admin']);
+
+  return {
+    actorId,
+    rawRoles: workflowAccess.rawRoles,
+    businessRole: workflowAccess.businessRole,
+    canManageReturnWorkflow: workflowAccess.canManageReturnWorkflow,
+    canManageRefundWorkflow: workflowAccess.canManageRefundWorkflow,
+  };
+};
+
 const getCanonicalFallbackDetail = async (
   service: ReturnRequestWriteBridge,
   returnId: number,
+  adminUserId: number,
 ) => {
-  const detail = await service.getReturnDetail(returnId);
+  const detail = await service.getReturnDetail(returnId, buildLegacyAdminWorkflowActor(adminUserId));
   if (!detail) {
     throw new ServiceError('RETURN_REQUEST_NOT_FOUND', 'Return request not found', 404);
   }
@@ -155,8 +196,9 @@ const advanceToApproved = async (
   adminUserId: number,
   currentStatus: string,
 ) => {
+  const workflowActor = buildLegacyAdminWorkflowActor(adminUserId);
   if (REQUESTED_WORKFLOW_STATUSES.has(currentStatus)) {
-    await service.approveReturnRequest(returnId, adminUserId);
+    await service.approveReturnRequest(returnId, adminUserId, workflowActor);
     return 'APPROVED';
   }
 
@@ -169,10 +211,11 @@ const advanceToInTransit = async (
   adminUserId: number,
   currentStatus: string,
 ) => {
+  const workflowActor = buildLegacyAdminWorkflowActor(adminUserId);
   const approvedStatus = await advanceToApproved(service, returnId, adminUserId, currentStatus);
 
   if (approvedStatus === 'APPROVED') {
-    await service.markReturnInTransit(returnId, adminUserId);
+    await service.markReturnInTransit(returnId, adminUserId, workflowActor);
     return 'IN_RETURN_TRANSIT';
   }
 
@@ -195,12 +238,20 @@ const advanceToRefundReady = async (
   );
 
   if (currentStatus === 'IN_RETURN_TRANSIT') {
-    await service.markReturnReceived(returnId, adminUserId);
+    await service.markReturnReceived(
+      returnId,
+      adminUserId,
+      buildLegacyAdminWorkflowActor(adminUserId),
+    );
     currentStatus = 'RECEIVED_AND_INSPECTING';
   }
 
   if (currentStatus === 'RECEIVED' || currentStatus === 'RECEIVED_AND_INSPECTING') {
-    await service.acceptReturnForRefund(returnId, adminUserId);
+    await service.acceptReturnForRefund(
+      returnId,
+      adminUserId,
+      buildLegacyAdminWorkflowActor(adminUserId),
+    );
     currentStatus = 'ACCEPTED_FOR_REFUND';
   }
 
@@ -212,7 +263,11 @@ export const approveLegacyReturnWithModernFallback = async (
   returnId: number,
   adminUserId: number,
 ) => {
-  await service.approveReturnRequest(returnId, adminUserId);
+  await service.approveReturnRequest(
+    returnId,
+    adminUserId,
+    buildLegacyAdminWorkflowActor(adminUserId),
+  );
   return { success: true, code: ACTION_SUCCESS_CODES.APPROVE };
 };
 
@@ -226,6 +281,7 @@ export const rejectLegacyReturnWithModernFallback = async (
     returnId,
     adminUserId,
     note ?? 'Return request rejected.',
+    buildLegacyAdminWorkflowActor(adminUserId),
   );
   return { success: true, code: ACTION_SUCCESS_CODES.REJECT };
 };
@@ -235,7 +291,7 @@ export const markLegacyReturnInTransitWithModernFallback = async (
   returnId: number,
   adminUserId: number,
 ) => {
-  const { currentStatus } = await getCanonicalFallbackDetail(service, returnId);
+  const { currentStatus } = await getCanonicalFallbackDetail(service, returnId, adminUserId);
   await advanceToInTransit(service, returnId, adminUserId, currentStatus);
   return { success: true, code: ACTION_SUCCESS_CODES.MARK_IN_TRANSIT };
 };
@@ -245,7 +301,7 @@ export const markLegacyReturnReceivedWithModernFallback = async (
   returnId: number,
   adminUserId: number,
 ) => {
-  const { detail } = await getCanonicalFallbackDetail(service, returnId);
+  const { detail } = await getCanonicalFallbackDetail(service, returnId, adminUserId);
   await advanceToRefundReady(service, returnId, adminUserId, detail);
   return { success: true, code: ACTION_SUCCESS_CODES.MARK_RECEIVED };
 };
@@ -255,7 +311,7 @@ export const acceptLegacyReturnForRefundWithModernFallback = async (
   returnId: number,
   adminUserId: number,
 ) => {
-  const { detail } = await getCanonicalFallbackDetail(service, returnId);
+  const { detail } = await getCanonicalFallbackDetail(service, returnId, adminUserId);
   await advanceToRefundReady(service, returnId, adminUserId, detail);
   return { success: true, code: ACTION_SUCCESS_CODES.ACCEPT_FOR_REFUND };
 };
@@ -267,12 +323,12 @@ export const updateLegacyReturnRefundStatusWithModernFallback = async (
   action: LegacyRefundStatusAction,
   note?: string,
 ) => {
-  const { detail } = await getCanonicalFallbackDetail(service, returnId);
+  const { detail } = await getCanonicalFallbackDetail(service, returnId, adminUserId);
   await advanceToRefundReady(service, returnId, adminUserId, detail);
   await service.updateRefundStatus(returnId, adminUserId, {
     refundStatus: REFUND_STATUS_ACTIONS[action],
     ...(note ? { comment: note } : {}),
-  });
+  }, buildLegacyAdminWorkflowActor(adminUserId));
 
   return { success: true, code: ACTION_SUCCESS_CODES[action] };
 };
@@ -282,12 +338,12 @@ export const completeLegacyReturnRefundWithModernFallback = async (
   returnId: number,
   adminUserId: number,
 ) => {
-  const { detail } = await getCanonicalFallbackDetail(service, returnId);
+  const { detail } = await getCanonicalFallbackDetail(service, returnId, adminUserId);
   await advanceToRefundReady(service, returnId, adminUserId, detail);
   await service.refundReturnRequest(returnId, adminUserId, {
     method: 'ORIGINAL_PAYMENT',
     idempotencyKey: `${LEGACY_REFUND_IDEMPOTENCY_PREFIX}-${returnId}`,
-  });
+  }, buildLegacyAdminWorkflowActor(adminUserId));
 
   return { success: true, code: ACTION_SUCCESS_CODES.COMPLETE_REFUND };
 };

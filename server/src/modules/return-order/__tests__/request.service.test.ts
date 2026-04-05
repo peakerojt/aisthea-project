@@ -26,6 +26,10 @@ const notifyCustomerMock = jest.fn();
 const sendRefundAcceptedBankInfoRequiredEmailMock = jest.fn().mockResolvedValue(undefined);
 const sendRefundAcceptedAwaitingPayoutEmailMock = jest.fn().mockResolvedValue(undefined);
 const sendRefundCompletedBenefitIssuedEmailMock = jest.fn().mockResolvedValue(undefined);
+const uploadBase64Mock = jest.fn();
+const loggerInfoMock = jest.fn();
+const loggerWarnMock = jest.fn();
+const loggerErrorMock = jest.fn();
 
 jest.mock('../../../utils/prisma', () => ({
   prisma: prismaMock,
@@ -48,11 +52,47 @@ jest.mock('../../../services/email.service', () => ({
     sendRefundCompletedBenefitIssuedEmailMock(...args),
 }));
 
+jest.mock('../../../services/cloudinary.service', () => ({
+  cloudinaryService: {
+    uploadBase64: (...args: unknown[]) => uploadBase64Mock(...args),
+  },
+}));
+
+jest.mock('../../../lib/logger', () => ({
+  logger: {
+    info: (...args: unknown[]) => loggerInfoMock(...args),
+    warn: (...args: unknown[]) => loggerWarnMock(...args),
+    error: (...args: unknown[]) => loggerErrorMock(...args),
+    debug: jest.fn(),
+  },
+}));
+
 import { Prisma } from '../../../generated/client';
 import { ReturnRequestService, ServiceError } from '../services/request.service';
 
 describe('ReturnRequestService', () => {
   const service = new ReturnRequestService();
+  const adminWorkflowActor = (actorId = 88) => ({
+    actorId,
+    rawRoles: ['admin'],
+    businessRole: 'admin' as const,
+    canManageReturnWorkflow: true,
+    canManageRefundWorkflow: true,
+  });
+  const staffWorkflowActor = (actorId = 90) => ({
+    actorId,
+    rawRoles: ['support'],
+    businessRole: 'staff' as const,
+    canManageReturnWorkflow: true,
+    canManageRefundWorkflow: false,
+  });
+  const customerWorkflowActor = (actorId = 5) => ({
+    actorId,
+    rawRoles: ['customer'],
+    businessRole: 'customer' as const,
+    canManageReturnWorkflow: false,
+    canManageRefundWorkflow: false,
+  });
   const createTransitionTx = (currentStatus = 'REQUESTED', orderId = 12, userId = 5) => ({
     returnRequest: {
       findUnique: jest.fn().mockResolvedValue({
@@ -76,6 +116,10 @@ describe('ReturnRequestService', () => {
       create: jest.fn().mockResolvedValue(undefined),
     },
   });
+  const withReturnRequestClaim = <T extends Record<string, any>>(tx: T, count = 1) => {
+    tx.returnRequest.updateMany = jest.fn().mockResolvedValue({ count });
+    return tx;
+  };
 
   beforeEach(() => {
     prismaMock.$transaction.mockReset();
@@ -91,6 +135,10 @@ describe('ReturnRequestService', () => {
     sendRefundAcceptedBankInfoRequiredEmailMock.mockReset().mockResolvedValue(undefined);
     sendRefundAcceptedAwaitingPayoutEmailMock.mockReset().mockResolvedValue(undefined);
     sendRefundCompletedBenefitIssuedEmailMock.mockReset().mockResolvedValue(undefined);
+    uploadBase64Mock.mockReset();
+    loggerInfoMock.mockReset();
+    loggerWarnMock.mockReset();
+    loggerErrorMock.mockReset();
     prismaMock.returnRequest = {};
     prismaMock.returnRequestStatusLog = {};
     prismaMock.refundTransaction = {};
@@ -929,7 +977,7 @@ describe('ReturnRequestService', () => {
     const tx = createTransitionTx('PENDING_ADMIN_REVIEW', 700);
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
-    const result = await service.approveReturnRequest(50, 88);
+    const result = await service.approveReturnRequest(50, 88, adminWorkflowActor(88));
 
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
       where: { returnRequestId: 50 },
@@ -956,6 +1004,22 @@ describe('ReturnRequestService', () => {
       returnRequestId: 50,
       orderId: 700,
     });
+    expect(loggerInfoMock).toHaveBeenCalledWith(
+      '[returnWorkflowAudit]',
+      expect.objectContaining({
+        action: 'approve_return_request',
+        actorUserId: 88,
+        actorRawRoles: ['admin'],
+        actorBusinessRole: 'admin',
+        returnRequestId: 50,
+        orderId: 700,
+        oldState: 'PENDING_ADMIN_REVIEW',
+        newState: 'APPROVED',
+        oldRefundStatus: 'NOT_APPLICABLE',
+        newRefundStatus: 'NOT_APPLICABLE',
+        note: 'Approved by support/admin',
+      }),
+    );
   });
 
   it('approves prepaid cancellation requests directly into the refund queue without customer approval notice', async () => {
@@ -968,7 +1032,7 @@ describe('ReturnRequestService', () => {
     const tx = createTransitionTx('PENDING_ADMIN_REVIEW', 710);
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
-    const result = await service.approveReturnRequest(60, 88);
+    const result = await service.approveReturnRequest(60, 88, adminWorkflowActor(88));
 
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
       where: { returnRequestId: 60 },
@@ -1003,7 +1067,12 @@ describe('ReturnRequestService', () => {
     const tx = createTransitionTx('PENDING_ADMIN_REVIEW', 701);
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
-    const result = await service.rejectReturnRequest(51, 89, 'Out of policy');
+    const result = await service.rejectReturnRequest(
+      51,
+      89,
+      'Out of policy',
+      adminWorkflowActor(89),
+    );
 
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
       where: { returnRequestId: 51 },
@@ -1041,7 +1110,7 @@ describe('ReturnRequestService', () => {
     const tx = createTransitionTx('APPROVED', 702);
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
-    const result = await service.markReturnReceived(52, 90);
+    const result = await service.markReturnReceived(52, 90, staffWorkflowActor(90));
 
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
       where: { returnRequestId: 52 },
@@ -1074,7 +1143,7 @@ describe('ReturnRequestService', () => {
     const tx = createTransitionTx('APPROVED', 704);
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
-    const result = await service.markReturnInTransit(54, 92);
+    const result = await service.markReturnInTransit(54, 92, staffWorkflowActor(92));
 
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
       where: { returnRequestId: 54 },
@@ -1104,7 +1173,7 @@ describe('ReturnRequestService', () => {
     const tx = createTransitionTx('RECEIVED_AND_INSPECTING', 703);
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
-    const result = await service.acceptReturnForRefund(53, 91);
+    const result = await service.acceptReturnForRefund(53, 91, staffWorkflowActor(91));
 
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
       where: { returnRequestId: 53 },
@@ -1176,7 +1245,7 @@ describe('ReturnRequestService', () => {
       },
     });
 
-    await service.acceptReturnForRefund(153, 91);
+    await service.acceptReturnForRefund(153, 91, staffWorkflowActor(91));
 
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
       where: { returnRequestId: 153 },
@@ -1249,7 +1318,7 @@ describe('ReturnRequestService', () => {
       },
     });
 
-    await service.acceptReturnForRefund(154, 91);
+    await service.acceptReturnForRefund(154, 91, staffWorkflowActor(91));
 
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
       where: { returnRequestId: 154 },
@@ -1272,7 +1341,7 @@ describe('ReturnRequestService', () => {
     const tx = createTransitionTx('REQUESTED', 702);
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
-    await expect(service.markReturnReceived(52, 90)).rejects.toMatchObject({
+    await expect(service.markReturnReceived(52, 90, staffWorkflowActor(90))).rejects.toMatchObject({
       code: 'INVALID_STATE_TRANSITION',
       status: 400,
     });
@@ -1312,10 +1381,15 @@ describe('ReturnRequestService', () => {
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
     repoMock.findById.mockResolvedValueOnce({ orderId: 12 });
 
-    const result = await service.refundReturnRequest(12, 99, {
-      method: 'WALLET_CREDIT',
-      idempotencyKey: 'dup-key-1234',
-    });
+    const result = await service.refundReturnRequest(
+      12,
+      99,
+      {
+        method: 'WALLET_CREDIT',
+        idempotencyKey: 'dup-key-1234',
+      },
+      adminWorkflowActor(99),
+    );
 
     expect(result).toBe(existingRefund);
     expect(tx.refundTransaction.create).not.toHaveBeenCalled();
@@ -1352,10 +1426,15 @@ describe('ReturnRequestService', () => {
     };
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
-    const result = await service.refundReturnRequest(12, 99, {
-      method: 'WALLET_CREDIT',
-      idempotencyKey: 'dup-key-processing',
-    });
+    const result = await service.refundReturnRequest(
+      12,
+      99,
+      {
+        method: 'WALLET_CREDIT',
+        idempotencyKey: 'dup-key-processing',
+      },
+      adminWorkflowActor(99),
+    );
 
     expect(result).toBe(existingRefund);
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
@@ -1396,10 +1475,15 @@ describe('ReturnRequestService', () => {
     };
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
-    const result = await service.refundReturnRequest(13, 99, {
-      method: 'WALLET_CREDIT',
-      idempotencyKey: 'dup-key-snapshot-complete',
-    });
+    const result = await service.refundReturnRequest(
+      13,
+      99,
+      {
+        method: 'WALLET_CREDIT',
+        idempotencyKey: 'dup-key-snapshot-complete',
+      },
+      adminWorkflowActor(99),
+    );
 
     expect(result).toBe(existingRefund);
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
@@ -1430,11 +1514,16 @@ describe('ReturnRequestService', () => {
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
     await expect(
-      service.refundReturnRequest(50, 99, {
-        method: 'ORIGINAL_PAYMENT',
-        amount: 200000,
-        idempotencyKey: 'refund-key-200000',
-      }),
+      service.refundReturnRequest(
+        50,
+        99,
+        {
+          method: 'ORIGINAL_PAYMENT',
+          amount: 200000,
+          idempotencyKey: 'refund-key-200000',
+        },
+        adminWorkflowActor(99),
+      ),
     ).rejects.toMatchObject({
       code: 'INVALID_REFUND_AMOUNT',
       status: 400,
@@ -1466,11 +1555,16 @@ describe('ReturnRequestService', () => {
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
     await expect(
-      service.refundReturnRequest(51, 99, {
-        method: 'ORIGINAL_PAYMENT',
-        amount: 90000,
-        idempotencyKey: 'refund-key-snapshot-cap',
-      }),
+      service.refundReturnRequest(
+        51,
+        99,
+        {
+          method: 'ORIGINAL_PAYMENT',
+          amount: 90000,
+          idempotencyKey: 'refund-key-snapshot-cap',
+        },
+        adminWorkflowActor(99),
+      ),
     ).rejects.toMatchObject({
       code: 'INVALID_REFUND_AMOUNT',
       status: 400,
@@ -1497,10 +1591,15 @@ describe('ReturnRequestService', () => {
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
     await expect(
-      service.refundReturnRequest(404, 99, {
-        method: 'ORIGINAL_PAYMENT',
-        idempotencyKey: 'refund-key-missing',
-      }),
+      service.refundReturnRequest(
+        404,
+        99,
+        {
+          method: 'ORIGINAL_PAYMENT',
+          idempotencyKey: 'refund-key-missing',
+        },
+        adminWorkflowActor(99),
+      ),
     ).rejects.toMatchObject({
       code: 'RETURN_REQUEST_NOT_FOUND',
       status: 404,
@@ -1531,10 +1630,15 @@ describe('ReturnRequestService', () => {
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
     await expect(
-      service.refundReturnRequest(50, 99, {
-        method: 'ORIGINAL_PAYMENT',
-        idempotencyKey: 'refund-key-requested',
-      }),
+      service.refundReturnRequest(
+        50,
+        99,
+        {
+          method: 'ORIGINAL_PAYMENT',
+          idempotencyKey: 'refund-key-requested',
+        },
+        adminWorkflowActor(99),
+      ),
     ).rejects.toMatchObject({
       code: 'INVALID_STATE_TRANSITION',
       status: 400,
@@ -1545,7 +1649,7 @@ describe('ReturnRequestService', () => {
   });
 
   it('creates a refund transaction, updates status, and notifies the customer', async () => {
-    const tx = {
+    const tx = withReturnRequestClaim({
       refundTransaction: {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({
@@ -1569,15 +1673,20 @@ describe('ReturnRequestService', () => {
       returnRequestStatusLog: {
         create: jest.fn().mockResolvedValue(undefined),
       },
-    };
+    });
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
     repoMock.findById.mockResolvedValueOnce({ orderId: 700 });
 
-    const result = await service.refundReturnRequest(55, 88, {
-      method: 'ORIGINAL_PAYMENT',
-      amount: 150000,
-      idempotencyKey: 'refund-key-1234',
-    });
+    const result = await service.refundReturnRequest(
+      55,
+      88,
+      {
+        method: 'ORIGINAL_PAYMENT',
+        amount: 150000,
+        idempotencyKey: 'refund-key-1234',
+      },
+      adminWorkflowActor(88),
+    );
 
     expect(tx.refundTransaction.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -1611,10 +1720,27 @@ describe('ReturnRequestService', () => {
       refundAmount: 150000,
       refundMethod: 'ORIGINAL_PAYMENT',
     });
+    expect(loggerInfoMock).toHaveBeenCalledWith(
+      '[returnWorkflowAudit]',
+      expect.objectContaining({
+        action: 'execute_refund',
+        actorUserId: 88,
+        actorRawRoles: ['admin'],
+        actorBusinessRole: 'admin',
+        returnRequestId: 55,
+        orderId: 700,
+        oldState: 'ACCEPTED_FOR_REFUND',
+        newState: 'CLOSED',
+        oldRefundStatus: 'PENDING',
+        newRefundStatus: 'REFUNDED',
+        idempotencyKey: expect.stringContaining('***'),
+        externalRefundReference: expect.stringContaining('***'),
+      }),
+    );
   });
 
   it('marks refund as fully refunded when amount matches the persisted item snapshot cap', async () => {
-    const tx = {
+    const tx = withReturnRequestClaim({
       refundTransaction: {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({
@@ -1639,15 +1765,20 @@ describe('ReturnRequestService', () => {
       returnRequestStatusLog: {
         create: jest.fn().mockResolvedValue(undefined),
       },
-    };
+    });
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
     repoMock.findById.mockResolvedValueOnce({ orderId: 701 });
 
-    await service.refundReturnRequest(56, 88, {
-      method: 'ORIGINAL_PAYMENT',
-      amount: 80000,
-      idempotencyKey: 'refund-key-snapshot-full',
-    });
+    await service.refundReturnRequest(
+      56,
+      88,
+      {
+        method: 'ORIGINAL_PAYMENT',
+        amount: 80000,
+        idempotencyKey: 'refund-key-snapshot-full',
+      },
+      adminWorkflowActor(88),
+    );
 
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
       where: { returnRequestId: 56 },
@@ -1655,15 +1786,64 @@ describe('ReturnRequestService', () => {
     });
   });
 
+  it('returns CONFLICT when a simultaneous operator claims the refund execution first', async () => {
+    const tx = withReturnRequestClaim({
+      refundTransaction: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn(),
+      },
+      returnRequest: {
+        findUnique: jest.fn().mockResolvedValue({
+          returnRequestId: 75,
+          orderId: 715,
+          status: 'ACCEPTED_FOR_REFUND',
+          refundStatus: 'PENDING',
+          totalRefundAmount: new Prisma.Decimal(150000),
+          updatedAt: new Date('2026-04-05T08:00:00.000Z'),
+        }),
+        update: jest.fn(),
+      },
+      returnRequestStatusLog: {
+        create: jest.fn(),
+      },
+    }, 0);
+    prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
+
+    await expect(
+      service.refundReturnRequest(
+        75,
+        88,
+        {
+          method: 'ORIGINAL_PAYMENT',
+          amount: 150000,
+          idempotencyKey: 'refund-key-conflict-75',
+        },
+        adminWorkflowActor(88),
+      ),
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      status: 409,
+      details: { reason: 'refund_execution_conflict' },
+    });
+
+    expect(tx.refundTransaction.create).not.toHaveBeenCalled();
+    expect(tx.returnRequest.update).not.toHaveBeenCalled();
+  });
+
   it('throws RETURN_REQUEST_STORAGE_UNAVAILABLE when refund delegates are missing', async () => {
     prismaMock.refundTransaction = undefined;
 
     await expect(
-      service.refundReturnRequest(55, 88, {
-        method: 'ORIGINAL_PAYMENT',
-        amount: 150000,
-        idempotencyKey: 'refund-key-missing-storage',
-      }),
+      service.refundReturnRequest(
+        55,
+        88,
+        {
+          method: 'ORIGINAL_PAYMENT',
+          amount: 150000,
+          idempotencyKey: 'refund-key-missing-storage',
+        },
+        adminWorkflowActor(88),
+      ),
     ).rejects.toMatchObject({
       code: 'RETURN_REQUEST_STORAGE_UNAVAILABLE',
       status: 503,
@@ -1673,7 +1853,7 @@ describe('ReturnRequestService', () => {
   });
 
   it('rejects manual bank refund completion when no bank account is available', async () => {
-    const tx = {
+    const tx = withReturnRequestClaim({
       returnRequest: {
         findUnique: jest.fn().mockResolvedValue({
           returnRequestId: 180,
@@ -1699,14 +1879,19 @@ describe('ReturnRequestService', () => {
       customerBankAccount: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
-    };
+    });
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
     await expect(
-      service.completeManualBankRefund(180, 501, {
-        amount: 150000,
-        proofImageUrls: ['https://cdn.example.com/refund-proof.jpg'],
-      }),
+      service.completeManualBankRefund(
+        180,
+        501,
+        {
+          amount: 150000,
+          proofImageUrls: ['https://cdn.example.com/refund-proof.jpg'],
+        },
+        adminWorkflowActor(501),
+      ),
     ).rejects.toMatchObject({
       code: 'BANK_INFO_REQUIRED',
       status: 409,
@@ -1714,7 +1899,7 @@ describe('ReturnRequestService', () => {
   });
 
   it('completes manual bank refund with snapshot, proofs, benefit issuance, hidden coupon, and success email', async () => {
-    const tx = {
+    const tx = withReturnRequestClaim({
       returnRequest: {
         findUnique: jest.fn().mockResolvedValue({
           returnRequestId: 181,
@@ -1762,6 +1947,7 @@ describe('ReturnRequestService', () => {
           amount: new Prisma.Decimal(150000),
           method: 'BANK_TRANSFER',
           status: 'COMPLETED',
+          transactionRef: 'VCB-181',
         }),
       },
       refundPayoutProof: {
@@ -1782,19 +1968,24 @@ describe('ReturnRequestService', () => {
           couponId: 904,
         }),
       },
-    };
+    });
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
-    const result = await service.completeManualBankRefund(181, 501, {
-      amount: 150000,
-      transactionRef: 'VCB-181',
-      financeNote: '  Da chuyen khoan hoan tien  ',
-      selectedBankAccountId: 77,
-      proofImageUrls: [
-        'https://cdn.example.com/proofs/refund-1.png',
-        'https://cdn.example.com/proofs/refund-2.jpg',
-      ],
-    });
+    const result = await service.completeManualBankRefund(
+      181,
+      501,
+      {
+        amount: 150000,
+        transactionRef: 'VCB-181',
+        financeNote: '  Da chuyen khoan hoan tien  ',
+        selectedBankAccountId: 77,
+        proofImageUrls: [
+          'https://cdn.example.com/proofs/refund-1.png',
+          'https://cdn.example.com/proofs/refund-2.jpg',
+        ],
+      },
+      adminWorkflowActor(501),
+    );
 
     expect(tx.refundBankSnapshot.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -1900,10 +2091,116 @@ describe('ReturnRequestService', () => {
         summary: 'Available voucher free shipping for your next order',
       },
     });
+    expect(loggerInfoMock).toHaveBeenCalledWith(
+      '[returnWorkflowAudit]',
+      expect.objectContaining({
+        action: 'complete_bank_refund',
+        actorUserId: 501,
+        actorRawRoles: ['admin'],
+        actorBusinessRole: 'admin',
+        returnRequestId: 181,
+        orderId: 881,
+        oldState: 'ACCEPTED_FOR_REFUND',
+        newState: 'CLOSED',
+        oldRefundStatus: 'PENDING',
+        newRefundStatus: 'REFUNDED',
+        note: 'Da chuyen khoan hoan tien',
+        idempotencyKey: expect.stringContaining('***'),
+        externalRefundReference: expect.stringContaining('***'),
+        metadata: {
+          proofImageCount: 2,
+          benefitIssued: true,
+        },
+      }),
+    );
+  });
+
+  it('returns CONFLICT when another operator completes the manual bank refund first', async () => {
+    const tx = withReturnRequestClaim({
+      returnRequest: {
+        findUnique: jest.fn().mockResolvedValue({
+          returnRequestId: 182,
+          orderId: 882,
+          userId: 30,
+          status: 'ACCEPTED_FOR_REFUND',
+          refundStatus: 'PENDING',
+          refundCompletedAt: null,
+          updatedAt: new Date('2026-04-05T08:00:00.000Z'),
+          totalRefundAmount: new Prisma.Decimal(150000),
+          order: {
+            orderId: 882,
+            orderNumber: 'OD-882',
+            shippingFee: new Prisma.Decimal(30000),
+          },
+          user: {
+            userId: 30,
+            fullName: 'Concurrent Customer',
+            email: 'concurrent@example.com',
+          },
+          items: [{ quantity: 1, unitPrice: new Prisma.Decimal(150000) }],
+          refundTransactions: [],
+        }),
+        update: jest.fn(),
+      },
+      customerBankAccount: {
+        findFirst: jest.fn().mockResolvedValue({
+          bankAccountId: 78,
+          bankName: 'Vietcombank',
+          bankCode: 'VCB',
+          accountNumber: '123456789',
+          accountHolder: 'Concurrent Customer',
+          qrImageUrl: null,
+          inputMethod: 'MANUAL',
+          isActive: true,
+          isDefault: true,
+          updatedAt: new Date('2026-04-03T08:00:00.000Z'),
+        }),
+      },
+      refundBankSnapshot: {
+        create: jest.fn(),
+      },
+      refundTransaction: {
+        create: jest.fn(),
+      },
+      refundPayoutProof: {
+        createMany: jest.fn(),
+      },
+      returnRequestStatusLog: {
+        create: jest.fn(),
+      },
+      refundBenefit: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+      },
+      coupon: {
+        create: jest.fn(),
+      },
+    }, 0);
+    prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
+
+    await expect(
+      service.completeManualBankRefund(
+        182,
+        501,
+        {
+          amount: 150000,
+          transactionRef: 'VCB-182',
+          proofImageUrls: ['https://cdn.example.com/proofs/refund-182.png'],
+        },
+        adminWorkflowActor(501),
+      ),
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      status: 409,
+      details: { reason: 'complete_bank_refund_conflict' },
+    });
+
+    expect(tx.refundTransaction.create).not.toHaveBeenCalled();
+    expect(tx.refundPayoutProof.createMany).not.toHaveBeenCalled();
   });
 
   it('updates refundStatus for finance review checkpoints on accepted returns', async () => {
-    const tx = {
+    const tx = withReturnRequestClaim({
       returnRequest: {
         findUnique: jest.fn().mockResolvedValue({
           returnRequestId: 56,
@@ -1924,12 +2221,17 @@ describe('ReturnRequestService', () => {
       returnRequestStatusLog: {
         create: jest.fn().mockResolvedValue(undefined),
       },
-    };
+    });
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
-    const result = await service.updateRefundStatus(56, 88, {
-      refundStatus: 'PROCESSING',
-    });
+    const result = await service.updateRefundStatus(
+      56,
+      88,
+      {
+        refundStatus: 'PROCESSING',
+      },
+      adminWorkflowActor(88),
+    );
 
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
       where: { returnRequestId: 56 },
@@ -1957,10 +2259,26 @@ describe('ReturnRequestService', () => {
       financeNoteUpdatedBy: null,
       workflowStatus: 'ACCEPTED_FOR_REFUND',
     });
+    expect(loggerInfoMock).toHaveBeenCalledWith(
+      '[returnWorkflowAudit]',
+      expect.objectContaining({
+        action: 'update_refund_status',
+        actorUserId: 88,
+        actorRawRoles: ['admin'],
+        actorBusinessRole: 'admin',
+        returnRequestId: 56,
+        orderId: 710,
+        oldState: 'ACCEPTED_FOR_REFUND',
+        newState: 'ACCEPTED_FOR_REFUND',
+        oldRefundStatus: 'PENDING',
+        newRefundStatus: 'PROCESSING',
+        note: 'Refund status updated: PENDING -> PROCESSING',
+      }),
+    );
   });
 
   it('persists financeNote for failed refund checkpoints', async () => {
-    const tx = {
+    const tx = withReturnRequestClaim({
       returnRequest: {
         findUnique: jest.fn().mockResolvedValue({
           returnRequestId: 60,
@@ -1981,13 +2299,18 @@ describe('ReturnRequestService', () => {
       returnRequestStatusLog: {
         create: jest.fn().mockResolvedValue(undefined),
       },
-    };
+    });
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
-    const result = await service.updateRefundStatus(60, 88, {
-      refundStatus: 'FAILED',
-      comment: '  Gateway timeout while issuing refund  ',
-    });
+    const result = await service.updateRefundStatus(
+      60,
+      88,
+      {
+        refundStatus: 'FAILED',
+        comment: '  Gateway timeout while issuing refund  ',
+      },
+      adminWorkflowActor(88),
+    );
 
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
       where: { returnRequestId: 60 },
@@ -2013,7 +2336,7 @@ describe('ReturnRequestService', () => {
   });
 
   it('clears financeNote when refund returns to processing', async () => {
-    const tx = {
+    const tx = withReturnRequestClaim({
       returnRequest: {
         findUnique: jest.fn().mockResolvedValue({
           returnRequestId: 61,
@@ -2034,12 +2357,17 @@ describe('ReturnRequestService', () => {
       returnRequestStatusLog: {
         create: jest.fn().mockResolvedValue(undefined),
       },
-    };
+    });
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
-    const result = await service.updateRefundStatus(61, 88, {
-      refundStatus: 'PROCESSING',
-    });
+    const result = await service.updateRefundStatus(
+      61,
+      88,
+      {
+        refundStatus: 'PROCESSING',
+      },
+      adminWorkflowActor(88),
+    );
 
     expect(tx.returnRequest.update).toHaveBeenCalledWith({
       where: { returnRequestId: 61 },
@@ -2058,6 +2386,45 @@ describe('ReturnRequestService', () => {
     });
   });
 
+  it('returns CONFLICT when refund status is changed from a stale operator snapshot', async () => {
+    const tx = withReturnRequestClaim({
+      returnRequest: {
+        findUnique: jest.fn().mockResolvedValue({
+          returnRequestId: 62,
+          orderId: 713,
+          status: 'ACCEPTED_FOR_REFUND',
+          refundStatus: 'PENDING',
+          financeNote: null,
+          updatedAt: new Date('2026-04-05T08:00:00.000Z'),
+          totalRefundAmount: new Prisma.Decimal(150000),
+        }),
+        update: jest.fn(),
+      },
+      returnRequestStatusLog: {
+        create: jest.fn(),
+      },
+    }, 0);
+    prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
+
+    await expect(
+      service.updateRefundStatus(
+        62,
+        88,
+        {
+          refundStatus: 'PROCESSING',
+        },
+        adminWorkflowActor(88),
+      ),
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      status: 409,
+      details: { reason: 'refund_status_conflict' },
+    });
+
+    expect(tx.returnRequest.update).not.toHaveBeenCalled();
+    expect(tx.returnRequestStatusLog.create).not.toHaveBeenCalled();
+  });
+
   it('blocks refund status updates while refund is locked by payment confirmation', async () => {
     const tx = {
       returnRequest: {
@@ -2074,9 +2441,14 @@ describe('ReturnRequestService', () => {
     prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 
     await expect(
-      service.updateRefundStatus(57, 88, {
-        refundStatus: 'PROCESSING',
-      }),
+      service.updateRefundStatus(
+        57,
+        88,
+        {
+          refundStatus: 'PROCESSING',
+        },
+        adminWorkflowActor(88),
+      ),
     ).rejects.toMatchObject({
       code: 'RETURN_REFUND_LOCKED',
       status: 409,
@@ -2085,9 +2457,14 @@ describe('ReturnRequestService', () => {
 
   it('requires a comment for failed refund status updates', async () => {
     await expect(
-      service.updateRefundStatus(58, 88, {
-        refundStatus: 'FAILED',
-      }),
+      service.updateRefundStatus(
+        58,
+        88,
+        {
+          refundStatus: 'FAILED',
+        },
+        adminWorkflowActor(88),
+      ),
     ).rejects.toMatchObject({
       code: 'REFUND_STATUS_COMMENT_REQUIRED',
       status: 400,
@@ -2098,10 +2475,15 @@ describe('ReturnRequestService', () => {
 
   it('requires a non-empty comment for manual-review refund status updates', async () => {
     await expect(
-      service.updateRefundStatus(59, 88, {
-        refundStatus: 'MANUAL_REVIEW',
-        comment: '   ',
-      }),
+      service.updateRefundStatus(
+        59,
+        88,
+        {
+          refundStatus: 'MANUAL_REVIEW',
+          comment: '   ',
+        },
+        adminWorkflowActor(88),
+      ),
     ).rejects.toMatchObject({
       code: 'REFUND_STATUS_COMMENT_REQUIRED',
       status: 400,
@@ -2291,6 +2673,162 @@ describe('ReturnRequestService', () => {
     expect(repoMock.findByUser).toHaveBeenCalledWith(12, 1, 20, { updatedSince });
   });
 
+  it('rejects operational workflow mutations when actor lacks return workflow capability', async () => {
+    await expect(
+      service.approveReturnRequest(50, 5, customerWorkflowActor(5)),
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      status: 403,
+    });
+
+    expect(repoMock.findById).not.toHaveBeenCalled();
+  });
+
+  it('rejects refund workflow mutations when actor lacks refund workflow capability', async () => {
+    await expect(
+      service.refundReturnRequest(
+        55,
+        90,
+        {
+          method: 'ORIGINAL_PAYMENT',
+          idempotencyKey: 'staff-refund-blocked',
+        },
+        staffWorkflowActor(90),
+      ),
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      status: 403,
+    });
+
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects payout proof upload when actor lacks refund workflow capability', async () => {
+    await expect(
+      service.uploadPayoutProofImage(
+        90,
+        {
+          imageData: 'data:image/png;base64,AAA',
+          fileName: 'refund-proof.png',
+        },
+        staffWorkflowActor(90),
+      ),
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      status: 403,
+    });
+
+    expect(uploadBase64Mock).not.toHaveBeenCalled();
+  });
+
+  it('rejects refund payout proof listing when actor lacks refund workflow capability', async () => {
+    await expect(
+      service.listRefundPayoutProofs(55, staffWorkflowActor(90)),
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      status: 403,
+    });
+
+    expect(prismaMock.returnRequest.findUnique).toBeUndefined();
+  });
+
+  it('allows admins to upload payout proof images through the refund workflow gate', async () => {
+    uploadBase64Mock.mockResolvedValueOnce({
+      secureUrl: 'https://cdn.example.com/refund-proof-admin.png',
+    });
+
+    await expect(
+      service.uploadPayoutProofImage(
+        88,
+        {
+          imageData: 'data:image/png;base64,AAA',
+          fileName: 'refund-proof-admin.png',
+        },
+        adminWorkflowActor(88),
+      ),
+    ).resolves.toEqual({
+      fileUrl: 'https://cdn.example.com/refund-proof-admin.png',
+      fileName: 'refund-proof-admin.png',
+    });
+
+    expect(uploadBase64Mock).toHaveBeenCalledWith('data:image/png;base64,AAA', {
+      folder: 'refund-payout-proofs/admin-88',
+      allowedFormats: ['jpg', 'jpeg', 'png', 'webp'],
+      maxSizeBytes: 5 * 1024 * 1024,
+    });
+  });
+
+  it('allows admins to list refund payout proofs through the refund workflow gate', async () => {
+    prismaMock.returnRequest.findUnique = jest.fn().mockResolvedValue({
+      returnRequestId: 55,
+      refundPayoutProofs: [
+        {
+          refundPayoutProofId: 401,
+          refundTransactionId: 301,
+          fileUrl: 'https://cdn.example.com/refund-proof-1.png',
+          fileName: 'refund-proof-1.png',
+          mimeType: 'image/png',
+          note: 'Uploaded',
+          createdAt: new Date('2026-04-05T08:00:00.000Z'),
+          uploadedByUser: {
+            userId: 88,
+            fullName: 'Admin User',
+          },
+        },
+      ],
+    });
+
+    await expect(
+      service.listRefundPayoutProofs(55, adminWorkflowActor(88)),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        refundPayoutProofId: 401,
+        refundTransactionId: 301,
+        fileUrl: 'https://cdn.example.com/refund-proof-1.png',
+        fileName: 'refund-proof-1.png',
+      }),
+    ]);
+  });
+
+  it('allows customers to view their own return detail but blocks other customer records', async () => {
+    repoMock.findById
+      .mockResolvedValueOnce({
+        returnRequestId: 91,
+        orderId: 700,
+        userId: 5,
+        status: 'REQUESTED',
+      })
+      .mockResolvedValueOnce({
+        returnRequestId: 92,
+        orderId: 701,
+        userId: 8,
+        status: 'REQUESTED',
+      });
+
+    await expect(service.getReturnDetail(91, customerWorkflowActor(5))).resolves.toMatchObject({
+      returnRequestId: 91,
+      userId: 5,
+    });
+
+    await expect(
+      service.getReturnDetail(92, customerWorkflowActor(5)),
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      status: 403,
+    });
+  });
+
+  it('rejects admin return list queries when actor lacks return workflow capability', async () => {
+    expect(() =>
+      service.getAdminReturns({ page: 1, limit: 20 }, customerWorkflowActor(5)),
+    ).toThrow(expect.objectContaining({
+      code: 'FORBIDDEN',
+      status: 403,
+    }));
+
+    expect(repoMock.findAllAdmin).not.toHaveBeenCalled();
+  });
+
   it('decorates return detail lookups with workflow and refund state', async () => {
     repoMock.findById.mockResolvedValueOnce({
       returnRequestId: 92,
@@ -2309,7 +2847,7 @@ describe('ReturnRequestService', () => {
       ],
     });
 
-    const result = await service.getReturnDetail(92);
+    const result = await service.getReturnDetail(92, adminWorkflowActor(88));
 
     expect(repoMock.findById).toHaveBeenCalledWith(92);
     expect(result).toMatchObject({
@@ -2368,7 +2906,7 @@ describe('ReturnRequestService', () => {
       ],
     });
 
-    const result = await service.getReturnDetail(96);
+    const result = await service.getReturnDetail(96, adminWorkflowActor(88));
 
     expect(result).toMatchObject({
       returnRequestId: 96,
@@ -2423,7 +2961,7 @@ describe('ReturnRequestService', () => {
       ],
     });
 
-    const result = await service.getReturnDetail(98);
+    const result = await service.getReturnDetail(98, adminWorkflowActor(88));
 
     expect(result).toMatchObject({
       returnRequestId: 98,
@@ -2474,7 +3012,7 @@ describe('ReturnRequestService', () => {
       ],
     });
 
-    const result = await service.getReturnDetail(99);
+    const result = await service.getReturnDetail(99, adminWorkflowActor(88));
 
     expect(result).toMatchObject({
       returnRequestId: 99,
@@ -2565,7 +3103,7 @@ describe('ReturnRequestService', () => {
       pagination: { page: 1, limit: 20, total: 1 },
     });
 
-    const result = await service.getAdminReturns(filters);
+    const result = await service.getAdminReturns(filters, staffWorkflowActor(90));
 
     expect(repoMock.findAllAdmin).toHaveBeenCalledWith(filters);
     expect(result).toMatchObject({

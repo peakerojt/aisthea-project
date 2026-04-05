@@ -233,7 +233,7 @@ describe('return request routes', () => {
     expect(controllerMock.refund).not.toHaveBeenCalled();
   });
 
-  it('accepts support access on the admin refund route when finance permission is present', async () => {
+  it('keeps the admin refund route blocked for support even with legacy finance permissions', async () => {
     const response = await request(app)
       .patch('/admin/55/refund')
       .set('x-user-id', '203')
@@ -241,9 +241,15 @@ describe('return request routes', () => {
       .set('x-user-permissions', 'RETURN_REFUND_FINANCE_COMPLETE')
       .send({ method: 'ORIGINAL_PAYMENT', idempotencyKey: 'refund-key-203' });
 
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({ route: 'refund' });
-    expect(controllerMock.refund).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({
+      success: false,
+      error: {
+        code: 'FORBIDDEN',
+        message: 'Insufficient access rights',
+      },
+    });
+    expect(controllerMock.refund).not.toHaveBeenCalled();
   });
 
   it('keeps admin refund-status route owned by the module controller', async () => {
@@ -276,19 +282,25 @@ describe('return request routes', () => {
     expect(controllerMock.updateRefundStatus).not.toHaveBeenCalled();
   });
 
-  it('accepts support access on refund proof listing when finance view permission is present', async () => {
+  it('keeps refund proof listing admin-only even when support has legacy finance view permissions', async () => {
     const response = await request(app)
       .get('/admin/55/refund-payout-proofs')
       .set('x-user-id', '204')
       .set('x-user-roles', 'support')
       .set('x-user-permissions', 'RETURN_REFUND_FINANCE_VIEW');
 
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({ route: 'refund-payout-proofs' });
-    expect(controllerMock.listRefundPayoutProofs).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({
+      success: false,
+      error: {
+        code: 'FORBIDDEN',
+        message: 'Insufficient access rights',
+      },
+    });
+    expect(controllerMock.listRefundPayoutProofs).not.toHaveBeenCalled();
   });
 
-  it('accepts support access on complete-bank-refund when finance permission is present', async () => {
+  it('keeps complete-bank-refund admin-only even when support has legacy finance permissions', async () => {
     const response = await request(app)
       .post('/admin/55/complete-bank-refund')
       .set('x-user-id', '205')
@@ -300,21 +312,33 @@ describe('return request routes', () => {
         payoutProofs: [{ imageUrl: 'https://cdn.example.com/proofs/refund-proof.jpg' }],
       });
 
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({ route: 'complete-bank-refund' });
-    expect(controllerMock.completeBankRefund).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({
+      success: false,
+      error: {
+        code: 'FORBIDDEN',
+        message: 'Insufficient access rights',
+      },
+    });
+    expect(controllerMock.completeBankRefund).not.toHaveBeenCalled();
   });
 
-  it('accepts support access on bank-info reminder when finance permission is present', async () => {
+  it('keeps bank-info reminder admin-only even when support has legacy finance permissions', async () => {
     const response = await request(app)
       .post('/admin/55/send-bank-info-reminder')
       .set('x-user-id', '206')
       .set('x-user-roles', 'support')
       .set('x-user-permissions', 'RETURN_REFUND_FINANCE_COMPLETE');
 
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({ route: 'send-bank-info-reminder' });
-    expect(controllerMock.sendBankInfoReminder).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({
+      success: false,
+      error: {
+        code: 'FORBIDDEN',
+        message: 'Insufficient access rights',
+      },
+    });
+    expect(controllerMock.sendBankInfoReminder).not.toHaveBeenCalled();
   });
 
   it('rate limits create requests after the tenth request in the burst window', async () => {

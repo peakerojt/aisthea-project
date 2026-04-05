@@ -332,6 +332,47 @@ describe('vnpay.service', () => {
     expect(prismaMock.payment.create).not.toHaveBeenCalled();
   });
 
+  it('masks checksum material when VNPay IPN signature verification fails', async () => {
+    prismaMock.order.findUnique.mockResolvedValueOnce({
+      orderId: 36,
+      totalAmount: 326000,
+      payments: [],
+    });
+
+    const result = await handleVnpayIpn({
+      vnp_TxnRef: '36',
+      vnp_Amount: '32600000',
+      vnp_ResponseCode: '00',
+      vnp_TransactionNo: 'TXN-IPN-36',
+      vnp_SecureHash: 'raw-checksum-value',
+    });
+
+    expect(result).toEqual({
+      status: 200,
+      body: { RspCode: '97', Message: 'Checksum failed' },
+    });
+    expect(loggerMock.error).toHaveBeenCalledWith(
+      'VNPay IPN Checksum failed',
+      expect.objectContaining({
+        orderId: '36',
+        secureHash: expect.stringContaining('***'),
+        signed: expect.stringContaining('***'),
+      }),
+    );
+
+    const payload = loggerMock.error.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.secureHash).not.toBe('raw-checksum-value');
+    expect(payload.signed).not.toBe(createVnpSecureHash(
+      {
+        vnp_TxnRef: '36',
+        vnp_Amount: '32600000',
+        vnp_ResponseCode: '00',
+        vnp_TransactionNo: 'TXN-IPN-36',
+      },
+      process.env.VNP_HASH_SECRET as string,
+    ));
+  });
+
   it('maps successful VNPay query fallback responses to the canonical paid outcome', async () => {
     prismaMock.order.findUnique.mockResolvedValueOnce({
       orderId: 37,
@@ -373,6 +414,13 @@ describe('vnpay.service', () => {
         queryStatus: '00',
       },
     });
+    expect(loggerMock.info).toHaveBeenCalledWith(
+      'VNPay payment completed from query fallback',
+      expect.objectContaining({
+        orderId: 37,
+        transactionCode: expect.stringContaining('***'),
+      }),
+    );
   });
 
   it('marks payment as failed when VNPay query fallback reports a terminal failure status', async () => {
@@ -500,6 +548,13 @@ describe('vnpay.service', () => {
         paymentStatus: 'PAID',
       },
     });
+    expect(loggerMock.info).toHaveBeenCalledWith(
+      'VNPay payment completed from return fallback',
+      expect.objectContaining({
+        orderId: 42,
+        transactionCode: expect.stringContaining('***'),
+      }),
+    );
   });
 
   it('marks payment as failed when VNPay return amount mismatches order total', async () => {

@@ -1,6 +1,7 @@
 import moment from 'moment';
 import { isSettledPaymentStatus } from '../../config/paymentStatus.config';
 import { logger } from '../../lib/logger';
+import { sanitizeRefundLogContext, serializeRefundErrorForLogs } from '../../shared/refund-log-sanitizer';
 import { prisma } from '../../utils/prisma';
 import { buildSignedVnpUrl, createVnpSecureHash, extractSignedVnpQuery, type VnpParamRecord } from './vnpay.utils';
 
@@ -320,10 +321,13 @@ export const handleVnpayReturn = async (
     note: 'Confirmed from VNPay return fallback',
   });
 
-  logger.info('VNPay payment completed from return fallback', {
-    orderId: order.orderId,
-    transactionCode,
-  });
+  logger.info(
+    'VNPay payment completed from return fallback',
+    sanitizeRefundLogContext({
+      orderId: order.orderId,
+      transactionCode,
+    }),
+  );
 
   return {
     status: 200,
@@ -362,7 +366,10 @@ export const handleVnpayIpn = async (
     }
 
     if (secureHash !== signed) {
-      logger.error('VNPay IPN Checksum failed', { orderId, secureHash, signed });
+      logger.error(
+        'VNPay IPN Checksum failed',
+        sanitizeRefundLogContext({ orderId, secureHash, signed }),
+      );
       return { status: 200, body: { RspCode: '97', Message: 'Checksum failed' } };
     }
 
@@ -407,10 +414,13 @@ export const handleVnpayIpn = async (
         note: null,
       });
 
-      logger.info('VNPay payment successful', {
-        orderId: order.orderId,
-        transactionCode: params.vnp_TransactionNo,
-      });
+      logger.info(
+        'VNPay payment successful',
+        sanitizeRefundLogContext({
+          orderId: order.orderId,
+          transactionCode: params.vnp_TransactionNo,
+        }),
+      );
 
       return { status: 200, body: { RspCode: '00', Message: 'Confirm Success' } };
     }
@@ -427,9 +437,10 @@ export const handleVnpayIpn = async (
     logger.warn('VNPay payment failed reported by IPN', { orderId: order.orderId, rspCode });
     return { status: 200, body: { RspCode: '00', Message: 'Confirm Success' } };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    const stack = error instanceof Error ? error.stack : undefined;
-    logger.error('VNPay IPN Error', { error: message, stack });
+    logger.error(
+      'VNPay IPN Error',
+      sanitizeRefundLogContext({ error: serializeRefundErrorForLogs(error) }),
+    );
     return { status: 200, body: { RspCode: '99', Message: 'Unknow error' } };
   }
 };
@@ -555,10 +566,13 @@ export const handleVnpayQueryResult = async (
       note: 'Confirmed from VNPay query fallback',
     });
 
-    logger.info('VNPay payment completed from query fallback', {
-      orderId: order.orderId,
-      transactionCode,
-    });
+    logger.info(
+      'VNPay payment completed from query fallback',
+      sanitizeRefundLogContext({
+        orderId: order.orderId,
+        transactionCode,
+      }),
+    );
 
     return {
       status: 200,

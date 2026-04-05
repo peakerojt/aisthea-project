@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import { hasSupportAccess } from '../../../shared/role-access';
 import {
   createReturnRequestSchema,
   idParamSchema,
@@ -7,6 +6,7 @@ import {
 import {
   AuthenticatedRequest,
   ReturnRequestControllerTools,
+  getWorkflowActor,
   getUserId,
   parseOrError,
   sendError,
@@ -68,17 +68,9 @@ export const createReturnRequestCustomerHandlers = (
       res,
       async () => {
         const { id } = parseOrError(idParamSchema, req.params);
-        const data = await service.getReturnDetail(id);
+        const data = await service.getReturnDetail(id, getWorkflowActor(req));
         if (!data) {
           throw new ServiceError('NOT_FOUND', 'Return request not found', 404);
-        }
-
-        if (!hasSupportAccess(req.user) && data.userId !== getUserId(req)) {
-          throw new ServiceError(
-            'FORBIDDEN',
-            'Insufficient access rights',
-            403,
-          );
         }
 
         return data;

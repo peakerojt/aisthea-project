@@ -6,7 +6,7 @@ import { useCart } from '@/common/contexts/CartContext';
 import { fetchProducts, Product } from '@/common/services/product.service';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
 import { matchesSearchQuery } from '@/common/utils/search';
-import { getAdminLandingPath } from '@/common/utils/adminAccess';
+import { getAdminLandingPath, hasAdminShellAccess } from '@/common/utils/adminAccess';
 import { useTranslation } from 'react-i18next';
 
 const STYLIST_LABEL = 'T\u01b0 v\u1ea5n';
@@ -25,7 +25,7 @@ const SEARCH_PANEL_WIDTH_CLASS = 'w-[min(20rem,calc(100vw-2rem))] sm:w-[20rem]';
 export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = false }) => {
   const { t } = useTranslation('pages', { keyPrefix: 'home' });
   const navigate = useNavigate();
-  const { user, role } = useAuth();
+  const { user } = useAuth();
   const { totalItems } = useCart();
 
   const [isScrolled, setIsScrolled] = useState(false);
@@ -191,7 +191,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
       return;
     }
 
-    if (role === 'admin' || role === 'staff') {
+    if (hasAdminShellAccess(user.roles)) {
       navigate(getAdminLandingPath(user.roles));
       return;
     }

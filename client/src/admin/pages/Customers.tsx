@@ -21,12 +21,14 @@ import {
     fetchAdminUsers,
     patchUserStatus,
     patchUserRole,
+    getRoleDisplayName,
     getRoleLabel,
+    isAssignableAdminRole,
     STATUS_LABELS,
-    ROLE_LABELS,
 } from '@/common/services/user-admin.service';
 import { UserActionMenu } from '@/admin/components/UserActionMenu';
 import { getImageUrl } from '@/common/utils/cloudinary';
+import { roleService, type RoleItem } from '@/admin/services/role.service';
 
 // ─── Avatar Helpers ────────────────────────────────────────────────────────────
 
@@ -57,15 +59,16 @@ function getAvatarColor(userId: number): string {
 
 function RoleBadge({ roleName }: { roleName: string }) {
     const { t } = useTranslation(['customers']);
+    const displayRoleName = getRoleDisplayName(roleName);
     const styles: Record<string, string> = {
         Admin: 'bg-teal-500/15 text-teal-300 border-teal-500/25',
         Customer: 'bg-blue-500/15 text-blue-300 border-blue-500/25',
         Staff: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
     };
-    const cls = styles[roleName] ?? 'bg-white/5 text-white/40 border-white/10';
+    const cls = styles[displayRoleName] ?? 'bg-white/5 text-white/40 border-white/10';
     return (
         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[11px] font-bold uppercase tracking-wide ${cls}`}>
-            {t(`role.labels.${roleName.toLowerCase()}`, { defaultValue: getRoleLabel(roleName) })}
+            {t(`role.labels.${displayRoleName.toLowerCase()}`, { defaultValue: getRoleLabel(roleName) })}
         </span>
     );
 }
@@ -121,6 +124,7 @@ export const Customers: React.FC = () => {
     const [roleTarget, setRoleTarget] = useState<AdminUser | null>(null);
     const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
     const [roleLoading, setRoleLoading] = useState(false);
+    const [availableRoles, setAvailableRoles] = useState<RoleItem[]>([]);
 
     // Debounce search
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -160,6 +164,29 @@ export const Customers: React.FC = () => {
     useEffect(() => {
         loadUsers();
     }, [loadUsers]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadAvailableRoles = async () => {
+            try {
+                const roles = await roleService.getRoles();
+                if (!cancelled) {
+                    setAvailableRoles(roles.filter((role) => !role.isProtected && isAssignableAdminRole(role.roleName)));
+                }
+            } catch {
+                if (!cancelled) {
+                    setAvailableRoles([]);
+                }
+            }
+        };
+
+        void loadAvailableRoles();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     // ─── Toast ────────────────────────────────────────────────────────────────
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -218,12 +245,14 @@ export const Customers: React.FC = () => {
         return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
     };
 
-    // Known roles for the role modal (matching DB)
-    const KNOWN_ROLES = [
-        { roleId: 1, roleName: 'Admin' },
-        { roleId: 2, roleName: 'Customer' },
-        { roleId: 3, roleName: 'Staff' },
-    ];
+    const fallbackAssignableRoles = users
+        .flatMap((user) => user.roles)
+        .filter((role, index, allRoles) =>
+            isAssignableAdminRole(role.roleName) &&
+            allRoles.findIndex((candidate) => candidate.roleId === role.roleId) === index,
+        );
+
+    const assignableRoles = availableRoles.length > 0 ? availableRoles : fallbackAssignableRoles;
 
     const pageControls = (
         <div className="space-y-5 border-b border-white/5 p-5 lg:p-6">
@@ -255,8 +284,12 @@ export const Customers: React.FC = () => {
                         className={`appearance-none cursor-pointer pl-4 pr-9 ${adminUiTokens.fieldControl}`}
                     >
                         <option value="all">{t('filters.allRoles')}</option>
-                        {Object.entries(ROLE_LABELS).map(([key]) => (
-                            <option key={key} value={key}>{t(`role.labels.${key.toLowerCase()}`, { defaultValue: getRoleLabel(key) })}</option>
+                        {assignableRoles.map((role) => (
+                            <option key={role.roleId} value={role.roleName}>
+                                {t(`role.labels.${getRoleDisplayName(role.roleName).toLowerCase()}`, {
+                                    defaultValue: getRoleLabel(role.roleName),
+                                })}
+                            </option>
                         ))}
                     </select>
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
@@ -359,7 +392,16 @@ export const Customers: React.FC = () => {
                     )}
                 >
                         <div className="space-y-2">
-                            {KNOWN_ROLES.map((r) => (
+                            {assignableRoles.map((r) => {
+                                const displayRoleName = getRoleDisplayName(r.roleName);
+                                const roleToneClass =
+                                    displayRoleName === 'Admin'
+                                        ? 'bg-teal-500/20 text-teal-300'
+                                        : displayRoleName === 'Customer'
+                                            ? 'bg-blue-500/20 text-blue-300'
+                                            : 'bg-amber-500/20 text-amber-300';
+
+                                return (
                                 <button
                                     key={r.roleId}
                                     onClick={() => setSelectedRoleId(r.roleId)}
@@ -368,15 +410,13 @@ export const Customers: React.FC = () => {
                                         : 'border-white/10 bg-white/[0.02] text-white/60 hover:border-white/20 hover:text-white/80'
                                         }`}
                                 >
-                                    <span>{t(`role.labels.${r.roleName.toLowerCase()}`, { defaultValue: getRoleLabel(r.roleName) })}</span>
-                                    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${r.roleName === 'Admin' ? 'bg-teal-500/20 text-teal-300' :
-                                        r.roleName === 'Customer' ? 'bg-blue-500/20 text-blue-300' :
-                                            'bg-amber-500/20 text-amber-300'
-                                        }`}>
-                                        {r.roleName}
+                                    <span>{t(`role.labels.${displayRoleName.toLowerCase()}`, { defaultValue: getRoleLabel(r.roleName) })}</span>
+                                    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${roleToneClass}`}>
+                                        {displayRoleName.toUpperCase()}
                                     </span>
                                 </button>
-                            ))}
+                                );
+                            })}
                         </div>
                 </AdminModalShell>
             )}
