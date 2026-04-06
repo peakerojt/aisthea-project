@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { buildSessionCookieOptions } from '../lib/cookies';
 import { prisma } from '../lib/prisma';
 import { env } from '../lib/env';
 import { logger } from '../lib/logger';
@@ -57,7 +58,7 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
 
             if (dbUser.status === 'Banned') {
                 // Clear the auth cookie so the client logs out automatically
-                res.clearCookie('accessToken');
+                res.clearCookie('accessToken', buildSessionCookieOptions());
                 return res.status(403).json({
                     success: false,
                     errorCode: 'ACCOUNT_BANNED',

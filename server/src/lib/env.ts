@@ -4,6 +4,8 @@ import { loadEnv } from './load-env';
 
 loadEnv();
 
+type CookieSameSite = 'lax' | 'strict' | 'none';
+
 const stripWrappingQuotes = (value: string) => value.replace(/^['"]|['"]$/g, '');
 const normalizeOptionalEnvValue = (value: string) => stripWrappingQuotes(value).trim();
 const normalizeSmtpPassword = (value: string) => normalizeOptionalEnvValue(value).replace(/\s+/g, '');
@@ -11,6 +13,38 @@ const resolvePreferredEnvValue = (preferred: string, fallback: string) =>
     normalizeOptionalEnvValue(preferred || fallback);
 const resolvePreferredSmtpPassword = (preferred: string, fallback: string) =>
     normalizeSmtpPassword(preferred || fallback);
+const normalizeOrigin = (value: string) => {
+    const normalizedValue = normalizeOptionalEnvValue(value);
+    if (!normalizedValue) return '';
+
+    try {
+        return new URL(normalizedValue).origin;
+    } catch {
+        return normalizedValue;
+    }
+};
+const parseCsvOrigins = (value: string) =>
+    normalizeOptionalEnvValue(value)
+        .split(',')
+        .map(normalizeOrigin)
+        .filter(Boolean);
+const parseBooleanEnv = (value: string, fallback: boolean) => {
+    const normalizedValue = normalizeOptionalEnvValue(value).toLowerCase();
+    if (!normalizedValue) return fallback;
+
+    if (['1', 'true', 'yes', 'on'].includes(normalizedValue)) return true;
+    if (['0', 'false', 'no', 'off'].includes(normalizedValue)) return false;
+
+    return fallback;
+};
+const parseCookieSameSite = (value: string, fallback: CookieSameSite): CookieSameSite => {
+    const normalizedValue = normalizeOptionalEnvValue(value).toLowerCase();
+    if (normalizedValue === 'lax' || normalizedValue === 'strict' || normalizedValue === 'none') {
+        return normalizedValue;
+    }
+
+    return fallback;
+};
 
 const envSchema = z.object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -27,7 +61,11 @@ const envSchema = z.object({
 
     // Client
     CLIENT_URL: z.string().default('http://localhost:3000'),
+    ALLOWED_ORIGINS: z.string().optional().default(''),
     SERVER_URL: z.string().default('http://localhost:5000'),
+    TRUST_PROXY: z.string().optional().default(''),
+    COOKIE_SECURE: z.string().optional().default(''),
+    COOKIE_SAME_SITE: z.string().optional().default(''),
 
     // Cloudinary
     CLOUDINARY_CLOUD_NAME: z.string().optional().default(''),
@@ -73,6 +111,24 @@ if (!_parsedEnv.success) {
     throw new Error('Invalid environment variables');
 }
 
+const normalizedClientUrl = normalizeOptionalEnvValue(_parsedEnv.data.CLIENT_URL);
+const normalizedServerUrl = normalizeOptionalEnvValue(_parsedEnv.data.SERVER_URL);
+const allowedOrigins = Array.from(
+    new Set([
+        normalizeOrigin(normalizedClientUrl),
+        ...parseCsvOrigins(_parsedEnv.data.ALLOWED_ORIGINS),
+    ].filter(Boolean)),
+);
+const cookieSameSite = parseCookieSameSite(
+    _parsedEnv.data.COOKIE_SAME_SITE,
+    _parsedEnv.data.NODE_ENV === 'production' ? 'none' : 'lax',
+);
+const cookieSecure =
+    cookieSameSite === 'none'
+        ? true
+        : parseBooleanEnv(_parsedEnv.data.COOKIE_SECURE, _parsedEnv.data.NODE_ENV === 'production');
+const trustProxy = parseBooleanEnv(_parsedEnv.data.TRUST_PROXY, _parsedEnv.data.NODE_ENV === 'production');
+
 export const env = {
     nodeEnv: _parsedEnv.data.NODE_ENV,
     port: _parsedEnv.data.PORT,
@@ -81,8 +137,12 @@ export const env = {
     refreshSecret: _parsedEnv.data.REFRESH_SECRET,
     jwtExpiresIn: _parsedEnv.data.JWT_EXPIRES_IN,
     refreshExpiresIn: _parsedEnv.data.REFRESH_EXPIRES_IN,
-    clientUrl: _parsedEnv.data.CLIENT_URL,
-    serverUrl: _parsedEnv.data.SERVER_URL,
+    clientUrl: normalizedClientUrl,
+    allowedOrigins,
+    serverUrl: normalizedServerUrl,
+    trustProxy,
+    cookieSecure,
+    cookieSameSite,
     cloudinaryCloudName: _parsedEnv.data.CLOUDINARY_CLOUD_NAME,
     cloudinaryApiKey: _parsedEnv.data.CLOUDINARY_API_KEY,
     cloudinaryApiSecret: _parsedEnv.data.CLOUDINARY_API_SECRET,

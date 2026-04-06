@@ -3,6 +3,7 @@ import rateLimit, { RateLimitRequestHandler } from 'express-rate-limit';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { NextFunction, Request, Response } from 'express';
+import { buildCsrfCookieOptions } from '../lib/cookies';
 import { env } from '../lib/env';
 import { logger } from '../lib/logger';
 import {
@@ -25,6 +26,12 @@ const normalizeOrigin = (value: string) => {
     return value;
   }
 };
+const normalizeAllowedOrigins = (allowedOrigins: string[] | string) =>
+  new Set(
+    (Array.isArray(allowedOrigins) ? allowedOrigins : [allowedOrigins])
+      .map(normalizeOrigin)
+      .filter(Boolean),
+  );
 
 const readHeaderValue = (value: string | string[] | undefined): string | undefined => {
   if (Array.isArray(value)) return value[0];
@@ -161,13 +168,8 @@ const createDualRateLimiters = (bucket: RateLimitBucketName, resource: string) =
 
 export const setCsrfCookie = (res: Response, nodeEnv: string, token?: string) => {
   const csrfToken = token || generateCsrfToken();
-  res.cookie(CSRF_COOKIE_NAME, csrfToken, {
-    httpOnly: false,
-    secure: nodeEnv === 'production',
-    sameSite: 'lax',
-    maxAge: CSRF_COOKIE_MAX_AGE_MS,
-    path: '/',
-  });
+  void nodeEnv;
+  res.cookie(CSRF_COOKIE_NAME, csrfToken, buildCsrfCookieOptions(CSRF_COOKIE_MAX_AGE_MS));
   return csrfToken;
 };
 
@@ -179,8 +181,8 @@ export const ensureCsrfCookie = (req: Request, res: Response, nodeEnv: string) =
   return setCsrfCookie(res, nodeEnv);
 };
 
-export const applyCsrfProtection = (clientUrl: string, nodeEnv: string) => {
-  const allowedOrigin = normalizeOrigin(clientUrl);
+export const applyCsrfProtection = (allowedOrigins: string[] | string, nodeEnv: string) => {
+  const allowedOriginSet = normalizeAllowedOrigins(allowedOrigins);
 
   return (req: Request, res: Response, next: NextFunction) => {
     const csrfToken = ensureCsrfCookie(req, res, nodeEnv);
@@ -199,7 +201,7 @@ export const applyCsrfProtection = (clientUrl: string, nodeEnv: string) => {
     const originHeader = readHeaderValue(req.headers.origin) || readHeaderValue(req.headers.referer);
     if (originHeader) {
       const requestOrigin = normalizeOrigin(originHeader);
-      if (requestOrigin !== allowedOrigin) {
+      if (allowedOriginSet.size > 0 && !allowedOriginSet.has(requestOrigin)) {
         return res.status(403).json({
           success: false,
           errorCode: 'CSRF_ORIGIN_FORBIDDEN',

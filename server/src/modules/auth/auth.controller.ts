@@ -12,6 +12,13 @@ import { logger } from '../../lib/logger';
 import { prisma } from '../../lib/prisma';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import {
+    buildResetCookieOptions,
+    buildSessionCookieOptions,
+    clearCsrfCookie,
+    clearResetCookie,
+    clearSessionCookies,
+} from '../../lib/cookies';
 import { setCsrfCookie } from '../../middlewares/security.middleware';
 import { AppError } from '../../middlewares/error.middleware';
 
@@ -46,12 +53,7 @@ export const authController = {
         try {
             const result = await loginUser(req.body);
 
-            const cookieOpts = {
-                httpOnly: true,
-                secure: env.nodeEnv === 'production',
-                sameSite: 'lax' as const,
-                path: '/',
-            };
+            const cookieOpts = buildSessionCookieOptions();
 
             const { refreshToken: _rt, ...user } = result as any;
 
@@ -79,7 +81,7 @@ export const authController = {
             // Store hashed refresh token for reuse detection
             await persistRefreshToken(result.userId, result.refreshToken);
 
-            const cookieOpts = { httpOnly: true, secure: env.nodeEnv === 'production', sameSite: 'lax' as const, path: '/' };
+            const cookieOpts = buildSessionCookieOptions();
             res.cookie('accessToken', result.accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 });
             res.cookie('refreshToken', result.refreshToken, { ...cookieOpts, maxAge: 7 * 24 * 60 * 60 * 1000 });
             setCsrfCookie(res, env.nodeEnv);
@@ -129,13 +131,7 @@ export const authController = {
             const isValid = await validatePasswordResetToken(token);
             if (!isValid) return res.redirect(`${clientUrl}/reset-password?error=expired_token`);
 
-            res.cookie('resetToken', token, {
-                httpOnly: true,
-                secure: env.nodeEnv === 'production',
-                sameSite: 'strict',
-                maxAge: 60 * 60 * 1000,
-                path: '/',
-            });
+            res.cookie('resetToken', token, { ...buildResetCookieOptions(), maxAge: 60 * 60 * 1000 });
             res.redirect(`${clientUrl}/reset-password`);
         } catch (err) {
             next(err);
@@ -154,14 +150,14 @@ export const authController = {
             }
             const { resetPassword: resetPasswordService } = await import('../../services/password.service');
             await resetPasswordService(token, req.body.newPassword);
-            res.clearCookie('resetToken', { path: '/' });
+            clearResetCookie(res);
             res.json({
                 success: true,
                 messageKey: 'auth:success.passwordReset',
             });
         } catch (err: any) {
             if (err instanceof AppError && ['INVALID_TOKEN', 'TOKEN_EXPIRED'].includes(err.errorCode)) {
-                res.clearCookie('resetToken', { path: '/' });
+                clearResetCookie(res);
             }
             next(err);
         }
@@ -208,19 +204,14 @@ export const authController = {
 
             await persistRefreshToken(user.userId, newRefreshToken);
 
+            const cookieOpts = buildSessionCookieOptions();
             res.cookie('accessToken', newAccessToken, {
-                httpOnly: true,
-                secure: env.nodeEnv === 'production',
-                sameSite: 'lax',
+                ...cookieOpts,
                 maxAge: 15 * 60 * 1000,
-                path: '/',
             });
             res.cookie('refreshToken', newRefreshToken, {
-                httpOnly: true,
-                secure: env.nodeEnv === 'production',
-                sameSite: 'lax',
+                ...cookieOpts,
                 maxAge: 7 * 24 * 60 * 60 * 1000,
-                path: '/',
             });
             setCsrfCookie(res, env.nodeEnv);
 
@@ -299,9 +290,8 @@ export const authController = {
             }
         }
 
-        res.clearCookie('accessToken', { path: '/' });
-        res.clearCookie('refreshToken', { path: '/' });
-        res.clearCookie('csrfToken', { path: '/' });
+        clearSessionCookies(res);
+        clearCsrfCookie(res);
         res.json({
             success: true,
             messageKey: 'auth:success.loggedOut',
@@ -323,7 +313,7 @@ export const authController = {
 
         await persistRefreshToken(user.userId, refreshToken);
 
-        const cookieOpts = { httpOnly: true, secure: env.nodeEnv === 'production', sameSite: 'lax' as const, path: '/' };
+        const cookieOpts = buildSessionCookieOptions();
         res.cookie('accessToken', accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 });
         res.cookie('refreshToken', refreshToken, { ...cookieOpts, maxAge: 7 * 24 * 60 * 60 * 1000 });
         setCsrfCookie(res, env.nodeEnv);

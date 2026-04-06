@@ -1,12 +1,13 @@
 import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
+import { env } from './lib/env';
 
 let io: Server | null = null;
 
 export function initSocket(server: HttpServer): Server {
   io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL || 'http://localhost:5173',
+      origin: env.allowedOrigins,
       credentials: true,
     },
   });

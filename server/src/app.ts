@@ -56,6 +56,7 @@ import { queryCountMiddleware } from './lib/query-monitor';
 
 export function createApp() {
   const app = express();
+  app.set('trust proxy', env.trustProxy ? 1 : false);
   const adminOrderStatusRateLimiters = createAdminRateLimiters('admin.orders.status');
   const legacyOrderReturnRoute = markLegacyCompatibilityRoute({
     successor: '/api/return-requests',
@@ -77,7 +78,13 @@ export function createApp() {
   // ── CORS ─────────────────────────────────────────────────────────────────────
   app.use(
     cors({
-      origin: env.clientUrl,
+      origin: (origin, callback) => {
+        if (!origin || env.allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+
+        return callback(null, false);
+      },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'x-lang', 'accept-language', 'x-csrf-token'],
@@ -88,7 +95,7 @@ export function createApp() {
   app.use(cookieParser());
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
-  app.use(applyCsrfProtection(env.clientUrl, env.nodeEnv));
+  app.use(applyCsrfProtection(env.allowedOrigins, env.nodeEnv));
 
   // ── Locale ────────────────────────────────────────────────────────────────────
   app.use(requestIdMiddleware);
@@ -144,6 +151,9 @@ export function createApp() {
   // ── Health check ──────────────────────────────────────────────────────────────
   app.get('/', (_req: Request, res: Response) => {
     res.json({ success: true, message: 'AISTHEA API Server 🚀', version: '2.2.0' });
+  });
+  app.get('/healthz', (_req: Request, res: Response) => {
+    res.json({ success: true, status: 'ok' });
   });
 
   // ── Error handling (must be last) ─────────────────────────────────────────────

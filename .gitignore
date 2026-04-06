@@ -35,6 +35,8 @@ aisthea-project@*
 # OS generated files
 .DS_Store
 Thumbs.db
+.vscode/
+scripts/
 
 # Agent Skills
 .agent/
