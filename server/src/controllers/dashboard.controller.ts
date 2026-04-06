@@ -85,7 +85,7 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
           FROM Orders
           WHERE CreatedAt >= ${start} AND CreatedAt <= ${end}
             AND UPPER(Status) IN ('DELIVERED', 'COMPLETED')
-          GROUP BY YEAR(CreatedAt), MONTH(CreatedAt)
+          GROUP BY DATE_FORMAT(CreatedAt, '%Y-%m')
           ORDER BY label ASC
         `;
                 return rows.map((r) => ({ label: r.label, revenue: Number(r.revenue ?? 0) }));
@@ -97,7 +97,7 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
           FROM Orders
           WHERE CreatedAt >= ${start} AND CreatedAt <= ${end}
             AND UPPER(Status) IN ('DELIVERED', 'COMPLETED')
-          GROUP BY DATE(CreatedAt)
+          GROUP BY DATE_FORMAT(CreatedAt, '%Y-%m-%d')
           ORDER BY label ASC
         `;
                 return rows.map((r) => ({ label: r.label, revenue: Number(r.revenue ?? 0) }));

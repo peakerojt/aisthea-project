@@ -793,7 +793,7 @@ export const chatService = {
           SUM(CASE WHEN Event IN ('chat_cta_click', 'chat_product_click') THEN 1 ELSE 0 END) AS clicks
         FROM ChatTelemetryEvents
         WHERE CreatedAt >= ${start} AND CreatedAt <= ${end}
-        GROUP BY DATE(CreatedAt)
+        GROUP BY DATE_FORMAT(CreatedAt, '%Y-%m-%d')
         ORDER BY label ASC
       `,
     ]);

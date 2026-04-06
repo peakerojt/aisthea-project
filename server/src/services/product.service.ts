@@ -1,8 +1,7 @@
-
-import { Prisma } from '../generated/client';
 import { prisma } from '../utils/prisma';
 import { cloudinaryService } from './cloudinary.service';
 import { logger } from '../lib/logger';
+import { productService as moduleProductService } from '../modules/products/product.service';
 
 // ─── Types for createProduct ──────────────────────────────────────────────────
 export interface CreateVariantPayload {
@@ -48,104 +47,16 @@ export const getProducts = async (filters?: {
     limit?: number;
     sort?: string;
 }) => {
-    // Build WHERE clause with parameterized SQL to prevent injection
-    const conditions: Prisma.Sql[] = [Prisma.sql`1=1`];
-
-    if (filters?.categorySlug) {
-        conditions.push(Prisma.sql`categorySlug = ${filters.categorySlug}`);
-    }
-
-    if (filters?.brandId) {
-        // View currently lacks BrandId; keep existing behaviour but still parameterize when available
-        conditions.push(Prisma.sql`brandName IS NOT NULL`);
-    }
-
-    if (filters?.search) {
-        // Use fn_RemoveDiacritics while keeping search term parameterized
-        const term = filters.search;
-        conditions.push(
-            Prisma.sql`(NameNormalized LIKE '%' + dbo.fn_RemoveDiacritics(${term}) + '%' OR DescriptionNormalized LIKE '%' + dbo.fn_RemoveDiacritics(${term}) + '%')`,
-        );
-    }
-
-    if (filters?.minPrice !== undefined) {
-        conditions.push(Prisma.sql`minPrice >= ${filters.minPrice}`);
-    }
-
-    if (filters?.maxPrice !== undefined) {
-        conditions.push(Prisma.sql`maxPrice <= ${filters.maxPrice}`);
-    }
-
-    const whereClause = Prisma.join(conditions, ' AND ');
-
-    // Allowlist sorting to avoid raw ORDER BY injection
-    const [sortFieldRaw, sortDirRaw] = (filters?.sort ?? '').split('_');
-    const sortColumn =
-        sortFieldRaw === 'price'
-            ? Prisma.sql`minPrice`
-            : sortFieldRaw === 'name'
-                ? Prisma.sql`name`
-                : Prisma.sql`createdAt`;
-    const sortDirection = sortDirRaw === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
-    const orderByClause = Prisma.sql`${sortColumn} ${sortDirection}`;
-
-    const page = filters?.page || 1;
-    const limit = filters?.limit || 20;
-    const offset = (page - 1) * limit;
-
-    const totalResult = await prisma.$queryRaw<{ total: bigint }[]>`
-        SELECT COUNT(*) as total
-        FROM vw_ProductCatalog
-        WHERE ${whereClause}
-    `;
-    const total = Number(totalResult[0]?.total || 0);
-
-    const products = await prisma.$queryRaw<any[]>`
-        SELECT * FROM vw_ProductCatalog
-        WHERE ${whereClause}
-        ORDER BY ${orderByClause}
-        OFFSET ${offset} ROWS
-        FETCH NEXT ${limit} ROWS ONLY
-    `;
-
-    // Transform data to match frontend expectations
-    const data = products.map(p => ({
-        productId: p.productId,
-        name: p.name,
-        slug: p.slug,
-        description: p.description,
-        basePrice: p.basePrice,
-        status: p.status,
-        createdAt: p.createdAt,
-        // Transform view fields to Prisma-like nested structure
-        category: p.categoryName ? {
-            name: p.categoryName,
-            slug: p.categorySlug
-        } : null,
-        brand: p.brandName ? {
-            name: p.brandName
-        } : null,
-        images: p.primaryImageUrl ? [{
-            imageUrl: p.primaryImageUrl,
-            thumbnailUrl: p.primaryThumbnailUrl,
-            isPrimary: true
-        }] : [],
-        // Variants info from aggregation
-        variants: [{
-            price: p.minPrice || p.basePrice,
-            stockQuantity: p.totalStock || 0
-        }]
-    }));
-
-    return {
-        data,
-        meta: {
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
-        },
-    };
+    return moduleProductService.getProducts({
+        categorySlug: filters?.categorySlug,
+        brandId: filters?.brandId,
+        search: filters?.search,
+        minPrice: filters?.minPrice,
+        maxPrice: filters?.maxPrice,
+        sort: filters?.sort,
+        page: filters?.page,
+        limit: filters?.limit,
+    });
 };
 
 export const searchProducts = async (
@@ -153,52 +64,19 @@ export const searchProducts = async (
     maxResults: number = 50,
     sort: "ASC" | "DESC" | null = null
 ) => {
+    const sortToken = sort === 'ASC' ? 'price_asc' : sort === 'DESC' ? 'price_desc' : 'createdAt_desc';
+    const results = await moduleProductService.getProducts({
+        search: searchTerm,
+        limit: maxResults,
+        sort: sortToken,
+        status: 'Active',
+    });
 
-    const results: any[] = await prisma.$queryRaw`
-        EXEC sp_SearchProducts @SearchTerm = ${searchTerm}, @MaxResults = ${maxResults}
-    `;
-
-    if (sort === "ASC") {
-        results.sort((a, b) => Number(a.basePrice) - Number(b.basePrice));
-    }
-
-    if (sort === "DESC") {
-        results.sort((a, b) => Number(b.basePrice) - Number(a.basePrice));
-    }
-
-    return results.slice(0, maxResults);
+    return results.data.slice(0, maxResults);
 };
 
 export const getProductById = async (id: number) => {
-    // Call Stored Procedure
-    // Note: SQL Server FOR JSON output is usually split across multiple rows if very large, 
-    // but for typical product details it fits in one.
-    // However, Prisma raw query with SQL Server returns an array of objects. 
-    // If we use FOR JSON without array wrapper, we get a single object with a long JSON string.
-    // The column name is usually weird, so we should rely on Object.values().
-
-    try {
-        const result: any[] = await prisma.$queryRaw`EXEC sp_GetProductDetails @ProductId = ${id}`;
-
-        if (!result || result.length === 0) {
-            return null;
-        }
-
-        // Concatenate JSON chunks if multiple rows returned (rare but possible with FOR JSON)
-        let jsonString = '';
-        result.forEach(row => {
-            const val = Object.values(row)[0];
-            if (val) jsonString += val;
-        });
-
-        if (!jsonString) return null;
-
-        const product = JSON.parse(jsonString);
-        return product;
-    } catch (error) {
-        logger.error('[productService] sp_GetProductDetails failed', { error });
-        throw error;
-    }
+    return moduleProductService.getProductById(id);
 };
 
 // ─── Create Product (Prisma Transaction) ─────────────────────────────────────

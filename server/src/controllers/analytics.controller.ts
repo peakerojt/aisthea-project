@@ -131,7 +131,7 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
       FROM Orders o
       WHERE o.CreatedAt >= ${start}
         AND o.CreatedAt <= ${end}
-      GROUP BY YEAR(o.CreatedAt), MONTH(o.CreatedAt)
+      GROUP BY DATE_FORMAT(o.CreatedAt, '%Y-%m')
       ORDER BY label ASC
     `;
 
