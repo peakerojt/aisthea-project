@@ -61,5 +61,14 @@
         "loadingList": "Đang tải danh sách người dùng...",
         "notFound": "Không tìm thấy người dùng",
         "changeFilter": "Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm"
+    },
+    "actions": {
+        "refresh": "Làm mới",
+        "reset": "Đặt lại"
+    },
+    "pagination": {
+        "perPageOption": "{{count}} / trang",
+        "rangeSummary": "Hiển thị {{start}}-{{end}} / {{total}} tài khoản",
+        "summary": "Trang {{page}} / {{totalPages}} · {{total}} tài khoản"
     }
 }

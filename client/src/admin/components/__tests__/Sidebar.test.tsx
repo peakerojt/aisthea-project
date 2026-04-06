@@ -51,6 +51,7 @@ describe('Sidebar', () => {
       user: {
         name: 'Support User',
         roles: ['Support'],
+        permissions: [],
       },
     });
   });
@@ -60,12 +61,57 @@ describe('Sidebar', () => {
     vi.useRealTimers();
   });
 
-  it('shows only the returns entry for support users and preloads it', () => {
+  it('shows no admin entries for support users without explicit admin route permissions', () => {
+    render(<Sidebar />);
+
+    expect(screen.queryByText('Hoàn trả')).not.toBeInTheDocument();
+    expect(screen.queryByText('sidebar:nav.dashboard')).not.toBeInTheDocument();
+    expect(screen.queryByText('sidebar:nav.products')).not.toBeInTheDocument();
+    expect(screen.queryByText('sidebar:nav.orders')).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(preloadAdminRouteMock).not.toHaveBeenCalled();
+  });
+
+  it('matches sidebar visibility to explicit staff route permissions', () => {
+    useAuthMock.mockReturnValue({
+      logout: logoutMock,
+      user: {
+        name: 'Support User',
+        roles: ['Support'],
+        permissions: ['VIEW_ORDER'],
+      },
+    });
+
+    render(<Sidebar />);
+
+    expect(screen.getByText('sidebar:nav.orders')).toBeInTheDocument();
+    expect(screen.queryByText('Hoàn trả')).not.toBeInTheDocument();
+    expect(screen.queryByText('sidebar:nav.products')).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(preloadAdminRouteMock).toHaveBeenCalledWith('/admin/orders');
+  });
+
+  it('shows the returns entry only when an explicit returns permission exists', () => {
+    useAuthMock.mockReturnValue({
+      logout: logoutMock,
+      user: {
+        name: 'Support User',
+        roles: ['Support'],
+        permissions: ['VIEW_RETURNS'],
+      },
+    });
+
     render(<Sidebar />);
 
     expect(screen.getByText('Hoàn trả')).toBeInTheDocument();
-    expect(screen.queryByText('sidebar:nav.dashboard')).not.toBeInTheDocument();
-    expect(screen.queryByText('sidebar:nav.products')).not.toBeInTheDocument();
     expect(screen.queryByText('sidebar:nav.orders')).not.toBeInTheDocument();
 
     act(() => {

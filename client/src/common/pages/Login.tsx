@@ -64,8 +64,8 @@ export const Login: React.FC = () => {
           // Keep login flow resilient even if cart merge fails.
         }
 
-        if (hasAdminShellAccess(user.roles)) {
-          navigate(getAdminLandingPath(user.roles));
+        if (hasAdminShellAccess(user.roles, user.permissions)) {
+          navigate(getAdminLandingPath(user.roles, user.permissions));
         } else {
           navigate('/');
         }

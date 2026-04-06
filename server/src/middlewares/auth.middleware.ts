@@ -126,11 +126,29 @@ async function fetchUserPermissions(userId: number): Promise<string[]> {
     return permissions;
 }
 
-/**
- * Middleware factory for granular permission checks.
- * Usage: router.delete('/products/:id', authenticateToken, requirePermission('DELETE_PRODUCT'), handler)
- */
-export const requirePermission = (requiredPermissionCode: string) => {
+const ADMIN_BYPASS_ROLES = new Set(['Admin', 'Super Admin']);
+
+const hasAdminBypassRole = (roles: string[]) =>
+    roles.some((role) => ADMIN_BYPASS_ROLES.has(role));
+
+const buildPermissionDeniedResponse = (
+    res: Response,
+    requiredPermissionCodes: string[],
+    mode: 'all' | 'any',
+) =>
+    res.status(403).json({
+        success: false,
+        errorCode: 'PERMISSION_DENIED',
+        messageKey: 'common:errors.forbidden',
+        ...(mode === 'all'
+            ? { required: requiredPermissionCodes[0] }
+            : { requiredAny: requiredPermissionCodes }),
+    });
+
+const createPermissionMiddleware = (
+    requiredPermissionCodes: string[],
+    mode: 'all' | 'any',
+) => {
     return async (req: AuthRequest, res: Response, next: NextFunction) => {
         if (!req.user?.userId) {
             return res.status(401).json({
@@ -140,26 +158,22 @@ export const requirePermission = (requiredPermissionCode: string) => {
             });
         }
 
-        // Bypass granular permission checks for Admin & Super Admin to avoid "Permission denied" bugs
         const userRoles: string[] = req.user.roles || [];
-        if (userRoles.includes('Admin') || userRoles.includes('Super Admin')) {
+        if (hasAdminBypassRole(userRoles)) {
             req.user.permissions = ['*'];
             return next();
         }
 
         try {
             const permissions = await fetchUserPermissions(req.user.userId);
+            const hasAccess = mode === 'all'
+                ? requiredPermissionCodes.every((requiredPermissionCode) => permissions.includes(requiredPermissionCode))
+                : requiredPermissionCodes.some((requiredPermissionCode) => permissions.includes(requiredPermissionCode));
 
-            if (!permissions.includes(requiredPermissionCode)) {
-                return res.status(403).json({
-                    success: false,
-                    errorCode: 'PERMISSION_DENIED',
-                    messageKey: 'common:errors.forbidden',
-                    required: requiredPermissionCode,
-                });
+            if (!hasAccess) {
+                return buildPermissionDeniedResponse(res, requiredPermissionCodes, mode);
             }
 
-            // Attach permissions to request for downstream use
             req.user.permissions = permissions;
             next();
         } catch (error) {
@@ -172,6 +186,21 @@ export const requirePermission = (requiredPermissionCode: string) => {
         }
     };
 };
+
+/**
+ * Middleware factory for granular permission checks.
+ * Usage: router.delete('/products/:id', authenticateToken, requirePermission('DELETE_PRODUCT'), handler)
+ */
+export const requirePermission = (requiredPermissionCode: string) => {
+    return createPermissionMiddleware([requiredPermissionCode], 'all');
+};
+
+/**
+ * Middleware factory for routes that should be unlocked by any one matching permission.
+ * Usage: router.get('/inventory', authenticateToken, requireAnyPermission(['VIEW_INVENTORY', 'EDIT_INVENTORY']), handler)
+ */
+export const requireAnyPermission = (requiredPermissionCodes: string[]) =>
+    createPermissionMiddleware(requiredPermissionCodes, 'any');
 
 /**
  * Middleware factory for role-based checks.

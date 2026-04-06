@@ -20,7 +20,7 @@ A comprehensive E-commerce application built with a modern stack.
 - **Node.js** + **Express**
 - **TypeScript**
 - **Prisma ORM**
-- **Microsoft SQL Server** (Database)
+- **MySQL** (Railway-ready)
 - **JWT** + **Cookies** for authentication
 - **Multer** for file uploads
 
@@ -28,23 +28,41 @@ A comprehensive E-commerce application built with a modern stack.
 
 ### Prerequisites
 - [Node.js](https://nodejs.org/) (v16+)
-- [SQL Server](https://www.microsoft.com/en-us/sql-server/sql-server-downloads) (or Azure SQL)
+- [MySQL](https://dev.mysql.com/downloads/mysql/) for local development
+- A Railway project with a MySQL service for production deployment
 
 ### Configuration
 1. Clone the repository
-2. Create `server/.env` with your SQL Server credentials and secrets:
+2. Create `server/.env` with your database URL and secrets:
    ```env
-   DATABASE_URL="sqlserver://localhost;database=AISTHEA_DB;user=sa;password=YourStrongPassword;encrypt=true;trustServerCertificate=true"
+   DATABASE_URL="mysql://root:password@127.0.0.1:3306/aisthea"
    JWT_SECRET="your-secret-key"
    REFRESH_SECRET="your-refresh-secret"
    ```
-3. Copy `server/.env.example` and fill in weather + AI keys if you want live data.
+3. Copy `server/.env.example` and fill in OAuth, SMTP, Cloudinary, weather, and AI keys if you want live integrations.
 
 ### Database Setup
-1. Open SQL Server Management Studio (SSMS)
-2. Run the scripts in the `database` folder in order:
-   - `00_schema_all.sql` (Creates all tables and relationships)
-   - `01_seed_data.sql` (Inserts initial application data)
+1. Ensure `DATABASE_URL` points to a MySQL database.
+2. Push the Prisma schema:
+   - `cd server`
+   - `npx prisma db push`
+3. Seed or import data:
+   - Run `npx prisma db seed` for the Prisma seed data.
+   - Import `server/database/03_seed_data_standard_fixed.mysql.bulk.sql` if you want the converted catalog data prepared for Railway/MySQL.
+
+### Railway Deployment
+1. Create a Railway service that points to the repo folder `server` as the `Root Directory`.
+2. Provision a Railway MySQL service in the same project.
+3. In the server service variables, set `DATABASE_URL` to the Railway MySQL connection string and update:
+   - `CLIENT_URL`
+   - `SERVER_URL`
+   - `JWT_SECRET`
+   - `REFRESH_SECRET`
+   - any OAuth, SMTP, Cloudinary, VNPay, or AI secrets you use
+4. Railway will run the server package scripts:
+   - build: `npm run build`
+   - start: `npm run start`
+5. After the first deploy, run `npx prisma db push` against the Railway database, then import the MySQL seed file if needed.
 
 ### Run Server
 ```bash
@@ -112,9 +130,10 @@ Use these files as the current source of truth before continuing cleanup or chec
 Để chạy được chức năng Phân Quyền (RBAC) mới nhất, các thành viên cần thực hiện **3 bước** sau sau khi pull code về:
 
 ### Bước 1: Cập nhật Database
-Chạy file SQL migration bằng SSMS trên SQL Server cục bộ của bạn (`rbac_migration.sql` đã được tích hợp vào file chạy chung nếu bạn cài lại từ đầu):
-```sql
-database/rbac_migration.sql
+Đồng bộ schema Prisma với database MySQL hiện tại:
+```bash
+cd server
+npx prisma db push
 ```
 
 ### Bước 2: Cập nhật Prisma Client

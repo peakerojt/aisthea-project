@@ -3,7 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getAllMock = vi.hoisted(() => vi.fn());
+const getTabCountsMock = vi.hoisted(() => vi.fn());
 const navigateMock = vi.hoisted(() => vi.fn());
+const searchParamsState = vi.hoisted(() => ({ value: '' }));
+const setSearchParamsMock = vi.hoisted(() => vi.fn());
 const i18nMode = vi.hoisted(() => ({ rawKeys: false }));
 const interpolateMock = (template: string, options?: Record<string, unknown>) =>
   template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, token: string) => String(options?.[token] ?? ''));
@@ -31,11 +34,13 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => navigateMock,
+  useSearchParams: () => [new URLSearchParams(searchParamsState.value), setSearchParamsMock],
 }));
 
 vi.mock('@/common/services/order.service', () => ({
   adminOrderService: {
     getAll: (...args: unknown[]) => getAllMock(...args),
+    getTabCounts: (...args: unknown[]) => getTabCountsMock(...args),
   },
 }));
 
@@ -56,6 +61,21 @@ vi.mock('@/admin/components/AdminUI', () => ({
   ),
   AdminTabs: ({ items }: { items: Array<{ label: React.ReactNode; count?: number }> }) => (
     <div>
+      {items.map((item, index) => (
+        <span key={index}>
+          {item.label} {item.count}
+        </span>
+      ))}
+    </div>
+  ),
+  AdminStatusFilterBar: ({
+    items,
+    isRefreshing,
+  }: {
+    items: Array<{ label: React.ReactNode; count?: number }>;
+    isRefreshing?: boolean;
+  }) => (
+    <div data-testid="status-filter-bar" data-refreshing={isRefreshing ? 'true' : 'false'}>
       {items.map((item, index) => (
         <span key={index}>
           {item.label} {item.count}
@@ -85,6 +105,7 @@ describe('Admin Orders page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     i18nMode.rawKeys = false;
+    searchParamsState.value = '';
     getAllMock.mockResolvedValue({
       orders: [
         {
@@ -108,6 +129,14 @@ describe('Admin Orders page', () => {
         total: 1,
         totalPages: 1,
       },
+    });
+    getTabCountsMock.mockResolvedValue({
+      ALL: 1,
+      Pending: 0,
+      Processing: 0,
+      Shipping: 0,
+      Delivered: 1,
+      Cancelled: 0,
     });
   });
 
@@ -139,7 +168,7 @@ describe('Admin Orders page', () => {
     expect(screen.getByText('Hiển thị 1-1 / 1 đơn')).toBeInTheDocument();
   });
 
-  it('loads the main list plus one count request per tab without re-triggering an infinite refresh loop', async () => {
+  it('loads the main list plus one aggregated tab-count request without re-triggering an infinite refresh loop', async () => {
     render(<Orders />);
 
     await waitFor(() => {
@@ -147,8 +176,44 @@ describe('Admin Orders page', () => {
     });
 
     await waitFor(() => {
-      expect(getAllMock).toHaveBeenCalledTimes(7);
+      expect(getAllMock).toHaveBeenCalledTimes(1);
     });
+
+    expect(getTabCountsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('hydrates tab, filter, and paging state from the URL query before loading data', async () => {
+    searchParamsState.value = 'status=Processing&q=Nguyen&startDate=2026-03-01&endDate=2026-03-31&sort=createdAt_asc&page=2&pageSize=20';
+
+    render(<Orders />);
+
+    await waitFor(() => {
+      expect(getAllMock).toHaveBeenCalledWith({
+        status: 'Processing',
+        page: 2,
+        pageSize: 20,
+        search: 'Nguyen',
+        startDate: '2026-03-01',
+        endDate: '2026-03-31',
+        sort: 'createdAt_asc',
+      });
+    });
+
+    expect(getTabCountsMock).toHaveBeenCalledWith({
+      search: 'Nguyen',
+      startDate: '2026-03-01',
+      endDate: '2026-03-31',
+    });
+  });
+
+  it('keeps the shared status filter bar mounted while refresh state is idle', async () => {
+    render(<Orders />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('status-filter-bar')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('status-filter-bar')).toHaveAttribute('data-refreshing', 'false');
   });
 
   it('normalizes hyphenated return requested statuses before rendering compact labels', async () => {

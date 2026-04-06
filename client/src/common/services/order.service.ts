@@ -251,6 +251,8 @@ export interface AdminOrdersResponse {
   };
 }
 
+export type AdminOrderTabCounts = Record<string, number>;
+
 export interface UpdateStatusPayload {
   status: string;
   note?: string;
@@ -522,6 +524,21 @@ export const adminOrderService = {
       orders: response.data || [],
       pagination: response.meta || { page: 1, pageSize: 20, total: 0, totalPages: 1 },
     };
+  },
+
+  async getTabCounts(params?: {
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<AdminOrderTabCounts> {
+    const q = new URLSearchParams();
+    if (params?.search) q.append('search', params.search);
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate) q.append('endDate', params.endDate);
+
+    const query = q.toString();
+    const response = await orderApi.getAdminOrderTabCounts(query ? `?${query}` : '');
+    return response.data || {};
   },
 
   /**

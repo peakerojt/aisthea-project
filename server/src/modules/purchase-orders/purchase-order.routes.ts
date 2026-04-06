@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken, checkRole } from '../../middlewares/auth.middleware';
+import { authenticateToken, requireAnyPermission, requirePermission } from '../../middlewares/auth.middleware';
 import {
   cancelPurchaseOrder,
   createPurchaseOrder,
@@ -9,12 +9,13 @@ import {
 } from './purchase-order.controller';
 
 const router = Router();
-const adminGuard = [authenticateToken, checkRole(['Admin', 'Super Admin'])];
+const purchaseOrderReadGuard = [authenticateToken, requireAnyPermission(['VIEW_INVENTORY', 'EDIT_INVENTORY'])];
+const purchaseOrderWriteGuard = [authenticateToken, requirePermission('EDIT_INVENTORY')];
 
-router.get('/', ...adminGuard, listPurchaseOrders);
-router.post('/', ...adminGuard, createPurchaseOrder);
-router.patch('/:id/receive', ...adminGuard, receivePurchaseOrder);
-router.patch('/:id/cancel', ...adminGuard, cancelPurchaseOrder);
-router.get('/:id', ...adminGuard, getPurchaseOrderById);
+router.get('/', ...purchaseOrderReadGuard, listPurchaseOrders);
+router.post('/', ...purchaseOrderWriteGuard, createPurchaseOrder);
+router.patch('/:id/receive', ...purchaseOrderWriteGuard, receivePurchaseOrder);
+router.patch('/:id/cancel', ...purchaseOrderWriteGuard, cancelPurchaseOrder);
+router.get('/:id', ...purchaseOrderReadGuard, getPurchaseOrderById);
 
 export default router;

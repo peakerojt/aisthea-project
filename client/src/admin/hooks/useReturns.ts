@@ -19,6 +19,11 @@ export type ReturnStatusFilter = 'ALL' | 'REQUESTED' | 'APPROVED' | 'REJECTED' |
 
 const PAGE_SIZE = 15;
 
+type UseAdminReturnsOptions = {
+  initialStatusFilter?: ReturnStatusFilter;
+  initialPage?: number;
+};
+
 type AdminReturnActionError = Error & {
   code?: string;
   messageKey?: string;
@@ -35,7 +40,7 @@ const createForbiddenActionError = (
   return error;
 };
 
-export const useAdminReturns = () => {
+export const useAdminReturns = (options: UseAdminReturnsOptions = {}) => {
   const { t: rawT } = useTranslation('returns');
   const t = rawT as (key: string, options?: Record<string, unknown>) => string;
   const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
@@ -45,14 +50,17 @@ export const useAdminReturns = () => {
     return value === key ? interpolateFallback(fallback, options) : value;
   };
   const { showToast } = useToast();
-  const { role, user } = useAuth();
+  const { permissions, role, user } = useAuth();
   const getStatusBucket = useCallback(
     (item: OrderReturn) => item.statusBucket ?? bucketReturnStatus(item.workflowStatus ?? item.status),
     [],
   );
   const workflowAccess = useMemo(
-    () => resolveAdminWorkflowAccess(user?.roles ?? (role ? [role] : [])),
-    [role, user?.roles],
+    () => resolveAdminWorkflowAccess(
+      user?.roles ?? (role ? [role] : []),
+      user?.permissions ?? permissions,
+    ),
+    [permissions, role, user?.permissions, user?.roles],
   );
   const canManageReturnWorkflow = useMemo(
     () => workflowAccess.canManageReturnWorkflow,
@@ -66,12 +74,17 @@ export const useAdminReturns = () => {
   const [returns, setReturns] = useState<OrderReturn[]>([]);
   const [loading, setLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<ReturnStatusFilter>('ALL');
-  const [page, setPage] = useState(1);
+  const normalizedInitialPage = Number.isFinite(options.initialPage) && (options.initialPage ?? 0) > 0
+    ? Math.floor(options.initialPage as number)
+    : 1;
+  const [statusFilter, setStatusFilter] = useState<ReturnStatusFilter>(options.initialStatusFilter ?? 'ALL');
+  const [page, setPage] = useState(normalizedInitialPage);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedReturn, setSelectedReturn] = useState<OrderReturn | null>(null);
   const hasLoadedRef = useRef(false);
   const requestIdRef = useRef(0);
+  const previousInitialStatusFilterRef = useRef<ReturnStatusFilter | undefined>(options.initialStatusFilter);
+  const previousInitialPageRef = useRef<number | undefined>(options.initialPage);
 
   const statusFilters = useMemo<{ label: string; value: ReturnStatusFilter }[]>(() => [
     { label: resolveText('filters.all', 'Tất cả'), value: 'ALL' },
@@ -128,6 +141,20 @@ export const useAdminReturns = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (previousInitialStatusFilterRef.current !== options.initialStatusFilter) {
+      previousInitialStatusFilterRef.current = options.initialStatusFilter;
+      setStatusFilter(options.initialStatusFilter ?? 'ALL');
+    }
+  }, [options.initialStatusFilter]);
+
+  useEffect(() => {
+    if (previousInitialPageRef.current !== options.initialPage) {
+      previousInitialPageRef.current = options.initialPage;
+      setPage(normalizedInitialPage);
+    }
+  }, [normalizedInitialPage, options.initialPage]);
 
   useReturnAutoRefresh({
     enabled: returns.some((item) => shouldAutoRefreshRefundState(item.refundStatus)),

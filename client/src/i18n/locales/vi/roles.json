@@ -9,7 +9,11 @@
         "INVENTORY": "Quản lý tồn kho",
         "CUSTOMER": "Quản lý khách hàng",
         "REVENUE": "Báo cáo doanh thu",
-        "COUPON": "Quản lý mã giảm giá"
+        "COUPON": "Quản lý mã giảm giá",
+        "RETURNS": "Quản lý hoàn trả"
+    },
+    "moduleHints": {
+        "RETURNS": "Nhóm quyền này mở trang Hoàn trả và các bước vận hành trả hàng. Không bao gồm thao tác hoàn tiền nhạy cảm."
     },
     "actions": {
         "VIEW": "Xem",
@@ -17,6 +21,41 @@
         "EDIT": "Sửa",
         "DELETE": "Xóa",
         "MANAGE": "Quản lý"
+    },
+    "sections": {
+        "moduleAccess": {
+            "title": "Quyền truy cập phân hệ",
+            "description": "Quyết định vai trò có nhìn thấy hoặc đi vào phân hệ nào trong admin. Đây là lớp quyền dùng cho điều hướng và thao tác vận hành thông thường.",
+            "heading": "Quyền truy cập & vận hành theo phân hệ",
+            "note": "Các ô trong bảng dưới đây dùng để mở phân hệ và cho phép thao tác vận hành thông thường. Riêng Hoàn trả tại đây chỉ bao gồm truy cập module và quy trình trả hàng, không bao gồm thao tác hoàn tiền nhạy cảm."
+        },
+        "sensitiveOperations": {
+            "title": "Thao tác hoàn tiền nhạy cảm",
+            "description": "Tách riêng khỏi quyền truy cập phân hệ để dễ nhận biết các quyền liên quan đến tài chính, hoàn tiền và chứng từ.",
+            "heading": "Quyền hoàn tiền nhạy cảm",
+            "note": "Nhóm quyền này không tự mở menu hoặc cấp quyền điều hướng. Chúng chỉ cho phép xem hoặc thực hiện các bước hoàn tiền/tài chính nhạy cảm bên trong quy trình."
+        },
+        "specializedOperations": {
+            "heading": "Quyền chuyên biệt khác",
+            "note": "Các quyền dưới đây là quyền dữ liệu/chức năng chuyên biệt. Chúng không phải là quyền mở menu điều hướng của admin shell."
+        }
+    },
+    "badges": {
+        "refundSensitive": "Nhạy cảm",
+        "noNavigation": "Không mở menu",
+        "specialized": "Chuyên biệt"
+    },
+    "permissionTitles": {
+        "RETURN_REFUND_FINANCE_VIEW": "Xem tài chính hoàn tiền",
+        "RETURN_REFUND_FINANCE_COMPLETE": "Xác nhận hoàn tiền & chứng từ",
+        "CUSTOMER_BANK_ACCOUNT_MANAGE": "Quản lý tài khoản nhận hoàn tiền",
+        "REFUND_BENEFIT_VIEW": "Xem ưu đãi hoàn tiền"
+    },
+    "permissionDescriptions": {
+        "RETURN_REFUND_FINANCE_VIEW": "Cho phép xem thông tin tài chính, số tiền và ghi chú đối soát hoàn tiền. Không tự mở menu điều hướng.",
+        "RETURN_REFUND_FINANCE_COMPLETE": "Cho phép xác nhận hoàn tiền chuyển khoản và quản lý chứng từ/payout proof. Không tự mở menu điều hướng.",
+        "CUSTOMER_BANK_ACCOUNT_MANAGE": "Cho phép xem và cập nhật tài khoản ngân hàng khách hàng dùng để nhận hoàn tiền.",
+        "REFUND_BENEFIT_VIEW": "Cho phép xem các ưu đãi hoàn tiền đã phát hành. Đây là quyền chuyên biệt, không quyết định điều hướng."
     },
     "table": {
         "module": "Phân hệ"

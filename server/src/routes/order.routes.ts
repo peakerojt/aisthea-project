@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken, checkRole } from '../middlewares/auth.middleware';
+import { authenticateToken, requirePermission } from '../middlewares/auth.middleware';
 import { upload } from '../middlewares/upload.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import {
@@ -8,6 +8,7 @@ import {
     createOrder,
     quoteOrder,
     getAllOrders,
+    getAdminOrderTabCounts,
     getAdminOrderDetail,
     updateOrderStatus,
     confirmReceipt,
@@ -35,11 +36,13 @@ router.patch('/:id/confirm-receipt', authenticateToken, validate(orderIdParamSch
 router.post('/:id/return-proof-images', authenticateToken, validate(orderIdParamSchema, 'params'), upload.array('files', 5), uploadReturnProofImages);
 
 // ── Admin Routes ─────────────────────────────────────────────────────────────
-const adminGuard = [authenticateToken, checkRole(['Admin', 'Super Admin'])];
+const orderReadGuard = [authenticateToken, requirePermission('VIEW_ORDER')];
+const orderWriteGuard = [authenticateToken, requirePermission('EDIT_ORDER')];
 // NOTE: /admin must come BEFORE /:id to avoid route collisions
-router.get('/admin', ...adminGuard, getAllOrders);
-router.get('/admin/:id', ...adminGuard, validate(orderIdParamSchema, 'params'), getAdminOrderDetail);
-router.post('/:id/delivery-proof-images', ...adminGuard, validate(orderIdParamSchema, 'params'), upload.array('files', 5), uploadDeliveryProofImages);
-router.patch('/:id/status', ...adminGuard, validate(orderIdParamSchema, 'params'), validate(updateOrderStatusSchema), updateOrderStatus);
+router.get('/admin', ...orderReadGuard, getAllOrders);
+router.get('/admin/tab-counts', ...orderReadGuard, getAdminOrderTabCounts);
+router.get('/admin/:id', ...orderReadGuard, validate(orderIdParamSchema, 'params'), getAdminOrderDetail);
+router.post('/:id/delivery-proof-images', ...orderWriteGuard, validate(orderIdParamSchema, 'params'), upload.array('files', 5), uploadDeliveryProofImages);
+router.patch('/:id/status', ...orderWriteGuard, validate(orderIdParamSchema, 'params'), validate(updateOrderStatusSchema), updateOrderStatus);
 
 export default router;

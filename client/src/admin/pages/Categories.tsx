@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import {
     AdminEmptyState,
+    AdminRefreshState,
     AdminModalShell,
     AdminPageHeader,
     AdminPageShell,
@@ -27,6 +28,10 @@ import {
     CreateCategoryPayload,
 } from '@/common/services/category.service';
 import { CategoryFormModal } from '@/admin/components/CategoryFormModal';
+import {
+    getDefaultExpandedCategoryIds,
+    getRetainedExpandedCategoryIds,
+} from '@/admin/utils/categoryTreeState';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -233,8 +238,11 @@ export const Categories: React.FC<AdminCategoriesProps> = () => {
             if (requestIdRef.current !== requestId) return;
             setTree(treeData);
             setFlat(flatData);
-            // Auto-expand all roots
-            setExpandedIds(new Set(treeData.map(n => n.categoryId)));
+            setExpandedIds((previousExpandedIds) =>
+                isFirstLoad
+                    ? getDefaultExpandedCategoryIds(treeData)
+                    : getRetainedExpandedCategoryIds(previousExpandedIds, treeData),
+            );
             hasLoadedRef.current = true;
         } catch (error) {
             if (requestIdRef.current !== requestId) return;
@@ -249,6 +257,10 @@ export const Categories: React.FC<AdminCategoriesProps> = () => {
 
     useEffect(() => {
         loadData();
+    }, [loadData]);
+
+    const refreshCategories = useCallback(() => {
+        void loadData();
     }, [loadData]);
 
     const handleToggle = (id: number) => {
@@ -376,6 +388,10 @@ export const Categories: React.FC<AdminCategoriesProps> = () => {
                             </AdminPrimaryButton>
                         )}
                     />
+                    <AdminRefreshState
+                        isRefreshing={isRefreshing && !loading}
+                        label={t('feedback.loading')}
+                    />
                 </div>
 
             {/* ── Loading ──────────────────────────────────────────────────── */}
@@ -401,7 +417,7 @@ export const Categories: React.FC<AdminCategoriesProps> = () => {
                             <p className="text-sm text-white/50">{error}</p>
                         </div>
                         <button
-                            onClick={loadData}
+                            onClick={refreshCategories}
                             className="text-xs text-primary font-bold uppercase tracking-wider hover:underline"
                         >
                             {t('actions.retry')}
@@ -414,7 +430,6 @@ export const Categories: React.FC<AdminCategoriesProps> = () => {
             {/* ── Tree Table ───────────────────────────────────────────────── */}
             {!loading && !error && (
                 <div className="flex-1 overflow-hidden">
-                    {isRefreshing && <div className="h-px w-full bg-primary/60" />}
                     {tree.length === 0 ? (
                         <AdminEmptyState
                             icon={Tag}

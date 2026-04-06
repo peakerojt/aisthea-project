@@ -1,6 +1,11 @@
+import {
+  getAdminRoutePermissionCodes,
+  normalizeAdminPath,
+  STAFF_ADMIN_LANDING_PATHS,
+} from '@/common/utils/adminRoutePermissions';
+
 const ADMIN_ROLES = new Set(['admin', 'super admin']);
 const SUPPORT_ROLES = new Set(['support', 'staff']);
-const SUPPORT_ADMIN_PATHS = new Set(['/admin/returns']);
 
 export type AdminBusinessRole = 'guest' | 'customer' | 'staff' | 'admin';
 export type AdminWorkflowAccess = {
@@ -12,12 +17,35 @@ export type AdminWorkflowAccess = {
 };
 
 const normalizeRole = (role: string) => role.trim().toLowerCase();
+const normalizePermissionCode = (permissionCode: string) => permissionCode.trim().toUpperCase();
 
 export const normalizeRoles = (roles?: string[] | null) =>
   [...new Set((roles ?? []).map(normalizeRole).filter(Boolean))];
 
-export const resolveAdminWorkflowAccess = (roles?: string[] | null): AdminWorkflowAccess => {
+export const normalizePermissionCodes = (permissionCodes?: string[] | null) =>
+  [...new Set((permissionCodes ?? []).map(normalizePermissionCode).filter(Boolean))];
+
+const hasAnyPermission = (permissionCodes: string[], requiredCodes: string[]) =>
+  requiredCodes.some((requiredCode) => permissionCodes.includes(requiredCode));
+
+const canAccessMappedStaffAdminPath = (path: string, permissionCodes: string[]) => {
+  const requiredPermissionCodes = getAdminRoutePermissionCodes(path);
+  if (requiredPermissionCodes.length === 0) {
+    return false;
+  }
+
+  return hasAnyPermission(permissionCodes, requiredPermissionCodes);
+};
+
+const getFirstAccessibleStaffAdminPath = (permissionCodes: string[]) =>
+  STAFF_ADMIN_LANDING_PATHS.find((path) => canAccessMappedStaffAdminPath(path, permissionCodes)) ?? null;
+
+export const resolveAdminWorkflowAccess = (
+  roles?: string[] | null,
+  permissions?: string[] | null,
+): AdminWorkflowAccess => {
   const rawRoles = normalizeRoles(roles);
+  const permissionCodes = normalizePermissionCodes(permissions);
 
   let businessRole: AdminBusinessRole = 'guest';
   if (rawRoles.some((role) => ADMIN_ROLES.has(role))) {
@@ -28,15 +56,20 @@ export const resolveAdminWorkflowAccess = (roles?: string[] | null): AdminWorkfl
     businessRole = 'customer';
   }
 
-  const canManageReturnWorkflow = businessRole === 'staff' || businessRole === 'admin';
+  const canManageReturnWorkflow =
+    businessRole === 'admin' ||
+    (businessRole === 'staff' && permissionCodes.includes('MANAGE_RETURNS'));
   const canManageRefundWorkflow = businessRole === 'admin';
+  const canAccessAdminShell =
+    businessRole === 'admin' ||
+    (businessRole === 'staff' && getFirstAccessibleStaffAdminPath(permissionCodes) !== null);
 
   return {
     rawRoles,
     businessRole,
     canManageReturnWorkflow,
     canManageRefundWorkflow,
-    canAccessAdminShell: canManageReturnWorkflow,
+    canAccessAdminShell,
   };
 };
 
@@ -55,13 +88,32 @@ export const canManageReturnWorkflow = (role: AdminBusinessRole) =>
 export const canManageRefundWorkflow = (role: AdminBusinessRole) =>
   role === 'admin';
 
-export const hasAdminShellAccess = (roles?: string[] | null) =>
-  resolveAdminWorkflowAccess(roles).canAccessAdminShell;
+export const hasAdminShellAccess = (roles?: string[] | null, permissions?: string[] | null) =>
+  resolveAdminWorkflowAccess(roles, permissions).canAccessAdminShell;
 
-export const getAdminLandingPath = (roles?: string[] | null) =>
-  hasFullAdminAccess(roles) ? '/admin' : '/admin/returns';
+export const getAdminLandingPath = (roles?: string[] | null, permissions?: string[] | null) => {
+  if (hasFullAdminAccess(roles)) {
+    return '/admin';
+  }
 
-export const canAccessAdminPath = (path: string, roles?: string[] | null) => {
+  if (!hasSupportAdminAccess(roles)) {
+    return '/';
+  }
+
+  const permissionCodes = normalizePermissionCodes(permissions);
+  const firstAccessiblePath = getFirstAccessibleStaffAdminPath(permissionCodes);
+  if (firstAccessiblePath) {
+    return firstAccessiblePath;
+  }
+
+  return '/';
+};
+
+export const canAccessAdminPath = (
+  path: string,
+  roles?: string[] | null,
+  permissions?: string[] | null,
+) => {
   if (hasFullAdminAccess(roles)) {
     return true;
   }
@@ -70,5 +122,6 @@ export const canAccessAdminPath = (path: string, roles?: string[] | null) => {
     return false;
   }
 
-  return SUPPORT_ADMIN_PATHS.has(path);
+  const permissionCodes = normalizePermissionCodes(permissions);
+  return canAccessMappedStaffAdminPath(path, permissionCodes);
 };

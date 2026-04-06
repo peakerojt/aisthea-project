@@ -117,7 +117,8 @@ describe('useAdminReturns', () => {
     adminSetRefundManualReviewMock.mockReset();
     useAuthMock.mockReturnValue({
       role: 'admin',
-      user: { roles: ['Admin'] },
+      permissions: [],
+      user: { roles: ['Admin'], permissions: [] },
     });
     vi.useRealTimers();
   });
@@ -165,10 +166,36 @@ describe('useAdminReturns', () => {
     expect(result.current.canManageRefundWorkflow).toBe(true);
   });
 
-  it('keeps return workflow enabled but refund workflow disabled for staff sessions', async () => {
+  it('hydrates the initial status filter and page from the caller options', async () => {
+    listMock.mockResolvedValue({
+      returns: [makeReturn({ returnId: 7, status: 'APPROVED' })],
+      pagination: {
+        page: 3,
+        pageSize: 15,
+        total: 1,
+        totalPages: 5,
+      },
+    });
+
+    const { result } = renderHook(() => useAdminReturns({
+      initialStatusFilter: 'APPROVED',
+      initialPage: 3,
+    }));
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(listMock).toHaveBeenCalledWith({ status: 'APPROVED', page: 3, pageSize: 15 });
+    expect(result.current.statusFilter).toBe('APPROVED');
+    expect(result.current.page).toBe(3);
+  });
+
+  it('keeps both return and refund workflow actions disabled for staff sessions without explicit returns permissions', async () => {
     useAuthMock.mockReturnValue({
       role: 'staff',
-      user: { roles: ['Support'] },
+      permissions: [],
+      user: { roles: ['Support'], permissions: [] },
     });
     listMock.mockResolvedValue({
       returns: [makeReturn({ returnId: 30, workflowStatus: 'ACCEPTED_FOR_REFUND' })],
@@ -181,13 +208,14 @@ describe('useAdminReturns', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    expect(result.current.canManageReturnWorkflow).toBe(true);
+    expect(result.current.canManageReturnWorkflow).toBe(false);
     expect(result.current.canManageRefundWorkflow).toBe(false);
   });
 
-  it('does not grant refund workflow to staff sessions even with legacy finance permissions', async () => {
+  it('does not grant return or refund workflow to staff sessions with adjacent finance permissions only', async () => {
     useAuthMock.mockReturnValue({
       role: 'staff',
+      permissions: ['RETURN_REFUND_FINANCE_COMPLETE'],
       user: {
         roles: ['Support'],
         permissions: ['RETURN_REFUND_FINANCE_COMPLETE'],
@@ -195,6 +223,54 @@ describe('useAdminReturns', () => {
     });
     listMock.mockResolvedValue({
       returns: [makeReturn({ returnId: 31, workflowStatus: 'ACCEPTED_FOR_REFUND' })],
+      pagination: { page: 1, pageSize: 15, total: 1, totalPages: 1 },
+    });
+
+    const { result } = renderHook(() => useAdminReturns());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.canManageReturnWorkflow).toBe(false);
+    expect(result.current.canManageRefundWorkflow).toBe(false);
+  });
+
+  it('uses explicit returns permissions to determine staff workflow capability', async () => {
+    useAuthMock.mockReturnValue({
+      role: 'staff',
+      permissions: ['VIEW_RETURNS'],
+      user: {
+        roles: ['Support'],
+        permissions: ['VIEW_RETURNS'],
+      },
+    });
+    listMock.mockResolvedValue({
+      returns: [makeReturn({ returnId: 32, workflowStatus: 'REQUESTED' })],
+      pagination: { page: 1, pageSize: 15, total: 1, totalPages: 1 },
+    });
+
+    const { result } = renderHook(() => useAdminReturns());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.canManageReturnWorkflow).toBe(false);
+    expect(result.current.canManageRefundWorkflow).toBe(false);
+  });
+
+  it('enables staff return workflow when MANAGE_RETURNS is assigned', async () => {
+    useAuthMock.mockReturnValue({
+      role: 'staff',
+      permissions: ['MANAGE_RETURNS'],
+      user: {
+        roles: ['Support'],
+        permissions: ['MANAGE_RETURNS'],
+      },
+    });
+    listMock.mockResolvedValue({
+      returns: [makeReturn({ returnId: 33, workflowStatus: 'REQUESTED' })],
       pagination: { page: 1, pageSize: 15, total: 1, totalPages: 1 },
     });
 
@@ -469,7 +545,8 @@ describe('useAdminReturns', () => {
   it('blocks refund-only actions at the hook layer for staff sessions before any API call', async () => {
     useAuthMock.mockReturnValue({
       role: 'staff',
-      user: { roles: ['Support'] },
+      permissions: [],
+      user: { roles: ['Support'], permissions: [] },
     });
     listMock.mockResolvedValue({
       returns: [makeReturn({ returnId: 52, workflowStatus: 'ACCEPTED_FOR_REFUND', refundStatus: 'PENDING' })],

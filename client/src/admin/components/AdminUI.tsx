@@ -18,6 +18,23 @@ export type AdminTabItem = {
   count?: number | React.ReactNode;
 };
 
+export interface AdminStatusFilterBarProps {
+  items: AdminTabItem[];
+  activeKey: string;
+  onChange: (key: string) => void;
+  isRefreshing?: boolean;
+  className?: string;
+  tabsClassName?: string;
+  refreshLabel?: React.ReactNode;
+}
+
+export interface AdminRefreshStateProps {
+  isRefreshing?: boolean;
+  className?: string;
+  label?: React.ReactNode;
+  align?: 'start' | 'end';
+}
+
 export type AdminTableColumn<T> = {
   key: string;
   header: React.ReactNode;
@@ -273,6 +290,98 @@ export const AdminTabs: React.FC<{
         </button>
       );
     })}
+  </div>
+);
+
+export const AdminStatusFilterBar: React.FC<AdminStatusFilterBarProps> = ({
+  items,
+  activeKey,
+  onChange,
+  isRefreshing = false,
+  className = '',
+  tabsClassName = '',
+  refreshLabel = 'Dang cap nhat',
+}) => (
+  <div data-testid="admin-status-filter-bar" className={`relative pb-3 ${className}`}>
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <AdminTabs
+        items={items}
+        activeKey={activeKey}
+        onChange={onChange}
+        className={`min-w-0 flex-1 ${tabsClassName}`}
+      />
+      <div className="flex min-h-[36px] items-center lg:justify-end">
+        <span
+          aria-live="polite"
+          data-admin-status-refresh-badge="true"
+          data-refreshing={isRefreshing ? 'true' : 'false'}
+          className={`inline-flex min-w-[9.5rem] items-center justify-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition-[opacity,border-color,background-color,color] duration-200 ${
+            isRefreshing
+              ? 'border-primary/25 bg-primary/10 text-primary opacity-100'
+              : 'border-white/[0.08] bg-white/[0.03] text-white/28 opacity-0'
+          }`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${isRefreshing ? 'bg-primary animate-pulse' : 'bg-white/25'}`} />
+          <span>{refreshLabel}</span>
+        </span>
+      </div>
+    </div>
+
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-full"
+    >
+      <div className="absolute inset-0 rounded-full bg-white/[0.04]" />
+      <div
+        data-admin-status-refresh-rail="true"
+        data-refreshing={isRefreshing ? 'true' : 'false'}
+        className={`absolute inset-y-0 left-0 w-1/3 rounded-full bg-primary/75 transition-[opacity,transform] duration-200 ${
+          isRefreshing ? 'animate-pulse opacity-100 translate-x-0' : 'opacity-0 -translate-y-1'
+        }`}
+      />
+    </div>
+  </div>
+);
+
+export const AdminRefreshState: React.FC<AdminRefreshStateProps> = ({
+  isRefreshing = false,
+  className = '',
+  label = 'Dang cap nhat',
+  align = 'end',
+}) => (
+  <div
+    data-testid="admin-refresh-state"
+    className={`relative min-h-[40px] pb-3 ${className}`}
+  >
+    <div className={`flex min-h-[36px] items-center ${align === 'start' ? 'justify-start' : 'justify-end'}`}>
+      <span
+        aria-live="polite"
+        data-admin-refresh-badge="true"
+        data-refreshing={isRefreshing ? 'true' : 'false'}
+        className={`inline-flex min-w-[9.5rem] items-center justify-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition-[opacity,border-color,background-color,color] duration-200 ${
+          isRefreshing
+            ? 'border-primary/25 bg-primary/10 text-primary opacity-100'
+            : 'border-white/[0.08] bg-white/[0.03] text-white/28 opacity-0'
+        }`}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${isRefreshing ? 'bg-primary animate-pulse' : 'bg-white/25'}`} />
+        <span>{label}</span>
+      </span>
+    </div>
+
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-full"
+    >
+      <div className="absolute inset-0 rounded-full bg-white/[0.04]" />
+      <div
+        data-admin-refresh-rail="true"
+        data-refreshing={isRefreshing ? 'true' : 'false'}
+        className={`absolute inset-y-0 left-0 w-1/3 rounded-full bg-primary/75 transition-[opacity,transform] duration-200 ${
+          isRefreshing ? 'animate-pulse opacity-100 translate-x-0' : 'opacity-0 -translate-y-1'
+        }`}
+      />
+    </div>
   </div>
 );
 

@@ -7,28 +7,29 @@ import {
   getInventorySummary,
   getStockMovements,
 } from '../../controllers/inventory.controller';
-import { authenticateToken, checkRole } from '../../middlewares/auth.middleware';
+import { authenticateToken, requireAnyPermission, requirePermission } from '../../middlewares/auth.middleware';
 
 const router = Router();
 
-const adminGuard = [authenticateToken, checkRole(['Admin', 'Super Admin'])];
+const inventoryReadGuard = [authenticateToken, requireAnyPermission(['VIEW_INVENTORY', 'EDIT_INVENTORY'])];
+const inventoryWriteGuard = [authenticateToken, requirePermission('EDIT_INVENTORY')];
 
 // GET  /api/inventory            — list all variants with stock info (Admin only)
-router.get('/', ...adminGuard, getInventory);
+router.get('/', ...inventoryReadGuard, getInventory);
 
 // PATCH /api/inventory/update    — bulk update stock quantities (Admin, logs MANUAL_ADJUST)
-router.patch('/update', ...adminGuard, bulkUpdateStock);
+router.patch('/update', ...inventoryWriteGuard, bulkUpdateStock);
 
 // GET  /api/inventory/alerts     — top-20 low stock variants (Admin only)
-router.get('/alerts', ...adminGuard, getLowStockAlerts);
+router.get('/alerts', ...inventoryReadGuard, getLowStockAlerts);
 
 // GET /api/inventory/summary      — KPI summary for restock dashboard
-router.get('/summary', ...adminGuard, getInventorySummary);
+router.get('/summary', ...inventoryReadGuard, getInventorySummary);
 
 // GET /api/inventory/:variantId/movements — paginated stock movement ledger
-router.get('/:variantId/movements', ...adminGuard, getStockMovements);
+router.get('/:variantId/movements', ...inventoryReadGuard, getStockMovements);
 
 // GET  /api/inventory/:variantId/logs — paginated InventoryLog history (Admin only)
-router.get('/:variantId/logs', ...adminGuard, getInventoryLogs);
+router.get('/:variantId/logs', ...inventoryReadGuard, getInventoryLogs);
 
 export default router;

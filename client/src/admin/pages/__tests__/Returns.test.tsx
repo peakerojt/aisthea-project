@@ -7,6 +7,8 @@ import { createMockReviewActions } from '@/admin/test-utils/createMockReviewActi
 
 const useAdminReturns = vi.fn();
 const adminReturnReviewModalMock = vi.fn();
+const searchParamsState = vi.hoisted(() => ({ value: '' }));
+const setSearchParamsMock = vi.hoisted(() => vi.fn());
 
 const createUseAdminReturnsState = (overrides: Record<string, unknown> = {}) => ({
   canManageRefundWorkflow: true,
@@ -29,7 +31,11 @@ const createUseAdminReturnsState = (overrides: Record<string, unknown> = {}) => 
 });
 
 vi.mock('@/admin/hooks/useReturns', () => ({
-  useAdminReturns: () => useAdminReturns(),
+  useAdminReturns: (options?: Record<string, unknown>) => useAdminReturns(options),
+}));
+
+vi.mock('react-router-dom', () => ({
+  useSearchParams: () => [new URLSearchParams(searchParamsState.value), setSearchParamsMock],
 }));
 
 vi.mock('@/admin/components/AdminUI', () => ({
@@ -52,8 +58,16 @@ vi.mock('@/admin/components/AdminUI', () => ({
   ),
   AdminPageShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   AdminSectionCard: ({ children }: { children: React.ReactNode }) => <section>{children}</section>,
-  AdminTabs: ({ items }: { items: Array<{ label: React.ReactNode }> }) => (
-    <div>{items.map((item, index) => <span key={index}>{item.label}</span>)}</div>
+  AdminStatusFilterBar: ({
+    items,
+    isRefreshing,
+  }: {
+    items: Array<{ label: React.ReactNode }>;
+    isRefreshing?: boolean;
+  }) => (
+    <div data-testid="status-filter-bar" data-refreshing={isRefreshing ? 'true' : 'false'}>
+      {items.map((item, index) => <span key={index}>{item.label}</span>)}
+    </div>
   ),
 }));
 
@@ -80,6 +94,7 @@ describe('Returns', () => {
   afterEach(() => {
     cleanup();
     adminReturnReviewModalMock.mockReset();
+    searchParamsState.value = '';
   });
 
   it('renders fallback-safe page chrome and row details', async () => {
@@ -128,6 +143,7 @@ describe('Returns', () => {
     render(<Returns />);
 
     expect(screen.getByText('Quản lý trả hàng')).toBeInTheDocument();
+    expect(screen.getByTestId('status-filter-bar')).toHaveAttribute('data-refreshing', 'false');
     expect(screen.getByText('Xem xét và xử lý các yêu cầu trả hàng, hoàn tiền')).toBeInTheDocument();
     expect(screen.getByText('3 chờ duyệt')).toBeInTheDocument();
     expect(screen.queryByText(/^#$/)).not.toBeInTheDocument();
@@ -210,6 +226,20 @@ describe('Returns', () => {
         canManageReturnWorkflow: true,
         item: selectedReturn,
         onClose: expect.any(Function),
+      }),
+    );
+  });
+
+  it('hydrates initial status filter and page from the URL query', () => {
+    searchParamsState.value = 'status=APPROVED&page=3';
+    useAdminReturns.mockReturnValue(createUseAdminReturnsState());
+
+    render(<Returns />);
+
+    expect(useAdminReturns).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialStatusFilter: 'APPROVED',
+        initialPage: 3,
       }),
     );
   });

@@ -19,8 +19,8 @@ export const OAuthCallback: React.FC = () => {
 
         if (session.isAuthenticated && session.user) {
           setUserFromSession(session);
-          if (hasAdminShellAccess(session.user.roles)) {
-            navigate(getAdminLandingPath(session.user.roles));
+          if (hasAdminShellAccess(session.user.roles, session.user.permissions)) {
+            navigate(getAdminLandingPath(session.user.roles, session.user.permissions));
           } else {
             navigate('/');
           }

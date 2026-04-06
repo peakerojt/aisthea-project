@@ -6,6 +6,7 @@ import {
   updateRolePermissions,
 } from '../services/permission.service';
 import { logger } from '../lib/logger';
+import { getRoleCatalogMetadata } from '../shared/role-catalog';
 
 export const listRoles = async (_req: Request, res: Response) => {
   try {
@@ -13,7 +14,7 @@ export const listRoles = async (_req: Request, res: Response) => {
     const result = roles.map((role) => ({
       roleId: role.roleId,
       roleName: role.roleName,
-      isProtected: role.roleName === 'Super Admin',
+      ...getRoleCatalogMetadata(role.roleName),
       permissionIds: role.rolePermissions.map((permission) => permission.permissionId),
     }));
     res.json({ success: true, data: result });

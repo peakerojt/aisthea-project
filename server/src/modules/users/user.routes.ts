@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { userController } from './user.controller';
-import { authenticateToken, checkRole } from '../../middlewares/auth.middleware';
+import { authenticateToken, checkRole, requirePermission } from '../../middlewares/auth.middleware';
 import {
   createAdminRateLimiters,
   createCustomerMutationRateLimiters,
@@ -87,8 +87,8 @@ router.get('/refund-benefits', userController.getRefundBenefits);
 router.get('/recent-orders', userController.getRecentOrders);
 
 // ── Admin routes ──────────────────────────────────────────────────────────────
-router.get('/', checkRole(['Admin', 'Super Admin']), userController.getAllUsers);
-router.patch('/:id/status', checkRole(['Admin', 'Super Admin']), ...adminUserMutationRateLimiters, userController.updateUserStatus);
+router.get('/', requirePermission('VIEW_CUSTOMER'), userController.getAllUsers);
+router.patch('/:id/status', requirePermission('EDIT_CUSTOMER'), ...adminUserMutationRateLimiters, userController.updateUserStatus);
 router.patch('/:id/role', checkRole(['Admin', 'Super Admin']), ...adminUserMutationRateLimiters, userController.updateUserRole);
 
 export default router;

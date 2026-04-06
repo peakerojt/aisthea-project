@@ -9,7 +9,10 @@
     "start": "node dist/src/index.js",
     "studio": "prisma studio",
     "postinstall": "prisma generate",
+    "repair:permission-catalog": "tsx src/scripts/repair-permission-catalog.ts",
+    "repair:role-catalog": "tsx src/scripts/repair-role-catalog.ts",
     "repair:cod-return-locks": "tsx src/scripts/reconcile-cod-return-locks.ts",
+    "seed:convert:mysql": "tsx src/scripts/convert-seed-sqlserver-to-mysql.ts",
     "test": "jest --runInBand",
     "test:watch": "jest --watch"
   },

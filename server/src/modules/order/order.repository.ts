@@ -160,20 +160,14 @@ export interface OrderFilter {
   sort?: string;
 }
 
-export async function findManyOrders(filters: OrderFilter) {
+const buildOrderWhere = (filters: Pick<OrderFilter, 'userId' | 'status' | 'search' | 'startDate' | 'endDate'>) => {
   const {
     userId,
     status,
     search,
     startDate,
     endDate,
-    page = 1,
-    limit = 15,
-    sort = 'createdAt_desc',
   } = filters;
-
-  const skip = (page - 1) * limit;
-  const size = Math.min(limit, 100);
 
   const where: any = {};
 
@@ -202,6 +196,45 @@ export async function findManyOrders(filters: OrderFilter) {
       where.createdAt.lte = end;
     }
   }
+
+  return where;
+};
+
+export async function countOrdersByStatus(filters: Pick<OrderFilter, 'userId' | 'search' | 'startDate' | 'endDate'>) {
+  const where = buildOrderWhere(filters);
+
+  const [total, groupedCounts] = await Promise.all([
+    prisma.order.count({ where }),
+    prisma.order.groupBy({
+      by: ['status'],
+      where,
+      _count: {
+        _all: true,
+      },
+    }),
+  ]);
+
+  return {
+    total,
+    counts: Object.fromEntries(
+      groupedCounts
+        .filter((item) => typeof item.status === 'string' && item.status.length > 0)
+        .map((item) => [item.status as string, item._count._all]),
+    ) as Record<string, number>,
+  };
+}
+
+export async function findManyOrders(filters: OrderFilter) {
+  const {
+    page = 1,
+    limit = 15,
+    sort = 'createdAt_desc',
+  } = filters;
+
+  const skip = (page - 1) * limit;
+  const size = Math.min(limit, 100);
+
+  const where = buildOrderWhere(filters);
 
   const orderBy: any = {};
   const [sortField, sortDir] = sort.split('_');

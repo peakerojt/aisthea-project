@@ -14,6 +14,7 @@ import {
     AdminPageHeader,
     AdminPageShell,
     AdminPrimaryButton,
+    AdminRefreshState,
     AdminSecondaryButton,
 } from '@/admin/components/AdminUI';
 import {
@@ -342,8 +343,6 @@ export const Analytics: React.FC = () => {
 
     return (
         <AdminPageShell>
-            {isRefreshing && !loading && <div className="h-px w-full bg-primary/60" />}
-
             {/* ── Header ──────────────────────────────────────────────────────── */}
             <div className="border-b border-white/15 pb-5">
                 <AdminPageHeader
@@ -382,6 +381,11 @@ export const Analytics: React.FC = () => {
                             </AdminSecondaryButton>
                         </div>
                     )}
+                />
+                <AdminRefreshState
+                    className="mt-3"
+                    isRefreshing={isRefreshing && !loading}
+                    label={t('page.apply')}
                 />
             </div>
 

@@ -52,6 +52,11 @@ describe('role.controller', () => {
         roleName: 'Admin',
         rolePermissions: [{ permissionId: 12 }],
       },
+      {
+        roleId: 3,
+        roleName: 'Support',
+        rolePermissions: [],
+      },
     ]);
 
     const res = createResponse();
@@ -64,14 +69,26 @@ describe('role.controller', () => {
         {
           roleId: 1,
           roleName: 'Super Admin',
+          displayName: 'Super Admin',
           isProtected: true,
+          assignable: false,
           permissionIds: [10, 11],
         },
         {
           roleId: 2,
           roleName: 'Admin',
+          displayName: 'Admin',
           isProtected: false,
+          assignable: true,
           permissionIds: [12],
+        },
+        {
+          roleId: 3,
+          roleName: 'Support',
+          displayName: 'Staff',
+          isProtected: false,
+          assignable: true,
+          permissionIds: [],
         },
       ],
     });

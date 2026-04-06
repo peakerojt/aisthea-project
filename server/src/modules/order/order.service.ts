@@ -20,6 +20,7 @@ export type Role = 'Admin' | 'Customer' | string;
 export interface CurrentUser {
   userId: number;
   roles: Role[];
+  permissions?: string[];
 }
 
 export interface OrderTimelineItem {
@@ -318,6 +319,10 @@ const buildCancellationStatusHistoryNote = (
 };
 
 const isAdmin = (user: CurrentUser) => user.roles.includes('Admin');
+const hasPermission = (user: CurrentUser, permissionCode: string) =>
+  user.permissions?.includes('*') || user.permissions?.includes(permissionCode);
+const canEditOrders = (user: CurrentUser) =>
+  isAdmin(user) || hasPermission(user, 'EDIT_ORDER');
 const CUSTOMER_CANCELLABLE_STATUSES = new Set(['pending', 'processing']);
 
 type OrderItemEconomicsSnapshot = {
@@ -568,7 +573,7 @@ export async function updateOrderStatusAdmin(
     estimatedDeliveryDate?: string;
   },
 ) {
-  if (!isAdmin(currentUser)) {
+  if (!canEditOrders(currentUser)) {
     throw new AppError(403, 'FORBIDDEN', 'orders:errors.forbidden');
   }
 
@@ -779,7 +784,12 @@ export async function updateOrderStatusAdmin(
     logger.warn('[updateOrderStatusAdmin] Socket emit failed (non-critical):', socketErr.message);
   }
 
-  logger.info('Order status updated by admin', { orderId: parsedId, oldStatus: currentStatus, newStatus, adminId: currentUser.userId });
+  logger.info('Order status updated by operator', {
+    orderId: parsedId,
+    oldStatus: currentStatus,
+    newStatus,
+    actorId: currentUser.userId,
+  });
 
   return {
     orderId: parsedId,

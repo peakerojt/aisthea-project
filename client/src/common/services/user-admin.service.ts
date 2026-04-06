@@ -22,21 +22,42 @@ export interface FetchAdminUsersParams {
     search?: string;
     role?: string;
     status?: string;
+    page?: number;
+    limit?: number;
 }
 
+export interface AdminUserListResult {
+    users: AdminUser[];
+    pagination: {
+        total: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    };
+}
 
 // ─── API Calls ───────────────────────────────────────────────────────────────
 
 export const fetchAdminUsers = async (
     params: FetchAdminUsersParams = {}
-): Promise<AdminUser[]> => {
+): Promise<AdminUserListResult> => {
     const query: Record<string, string> = {};
     if (params.search) query.search = params.search;
     if (params.role && params.role !== 'all') query.role = params.role;
     if (params.status && params.status !== 'all') query.status = params.status;
+    if (params.page && params.page > 1) query.page = params.page.toString();
+    if (params.limit) query.limit = params.limit.toString();
 
     const res = await userAdminApi.fetchUsers(query);
-    return res.data;
+    return {
+        users: res.data,
+        pagination: {
+            total: res.meta?.total ?? res.data.length,
+            page: res.meta?.page ?? params.page ?? 1,
+            pageSize: res.meta?.limit ?? params.limit ?? res.data.length,
+            totalPages: res.meta?.totalPages ?? 1,
+        },
+    };
 };
 
 export const patchUserStatus = async (

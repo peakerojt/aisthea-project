@@ -25,6 +25,9 @@ export const orderApi = {
     // ---- Admin Endpoints ----
     getAdminOrders: <T>(query: string) => api.get<{ data: T; meta?: AdminOrdersResponse['pagination'] }>(`/api/orders/admin${query}`),
 
+    getAdminOrderTabCounts: (query: string) =>
+        api.get<{ data: Record<string, number> }>(`/api/orders/admin/tab-counts${query}`),
+
     getAdminOrderDetail: <T>(id: string | number) => api.get<T>(`/api/orders/admin/${id}`),
 
     uploadDeliveryProofImages: (id: string | number, payload: FormData) =>

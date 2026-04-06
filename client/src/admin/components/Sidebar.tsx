@@ -25,8 +25,8 @@ export const Sidebar: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const visibleMenuItems = React.useMemo(
-    () => menuItems.filter((item) => canAccessAdminPath(item.path, user?.roles)),
-    [user?.roles],
+    () => menuItems.filter((item) => canAccessAdminPath(item.path, user?.roles, user?.permissions)),
+    [user?.permissions, user?.roles],
   );
 
   const handleLogout = async () => {

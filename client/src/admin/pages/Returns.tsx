@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, ClipboardList, ImageIcon } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import {
     AdminActionButton,
     AdminBadge,
@@ -7,7 +8,7 @@ import {
     AdminPageHeader,
     AdminPageShell,
     AdminSectionCard,
-    AdminTabs,
+    AdminStatusFilterBar,
 } from '@/admin/components/AdminUI';
 import { AdminReturnReviewModal } from '@/admin/components/AdminReturnReviewModal';
 import {
@@ -21,6 +22,18 @@ import { ReturnStatusFilter, useAdminReturns } from '@/admin/hooks/useReturns';
 import { ReasonLabel } from '@/common/components/ReasonLabel';
 import { resolveExpectedRefundEconomics } from '@/common/utils/returnEconomics';
 import { translateLegacyReturnCopy } from '@/common/utils/returnCopy';
+
+const RETURN_STATUS_QUERY_VALUES = new Set<ReturnStatusFilter>(['ALL', 'REQUESTED', 'APPROVED', 'REJECTED', 'RECEIVED', 'REFUNDED']);
+
+const parseReturnStatusFilter = (value: string | null): ReturnStatusFilter =>
+    value && RETURN_STATUS_QUERY_VALUES.has(value as ReturnStatusFilter)
+        ? (value as ReturnStatusFilter)
+        : 'ALL';
+
+const parsePositivePage = (value: string | null) => {
+    const parsed = Number.parseInt(value ?? '', 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+};
 
 const refundToneCardClasses: Record<
     string,
@@ -60,6 +73,9 @@ const refundToneCardClasses: Record<
 
 export const Returns: React.FC = () => {
     const [expandedReturnIds, setExpandedReturnIds] = useState<Set<number>>(new Set());
+    const [searchParams, setSearchParams] = useSearchParams();
+    const initialStatusFilter = parseReturnStatusFilter(searchParams.get('status'));
+    const initialPage = parsePositivePage(searchParams.get('page'));
     const {
         canManageRefundWorkflow,
         canManageReturnWorkflow,
@@ -77,7 +93,10 @@ export const Returns: React.FC = () => {
         statusTabs,
         totalPages,
         t,
-    } = useAdminReturns();
+    } = useAdminReturns({
+        initialStatusFilter,
+        initialPage,
+    });
     const interpolateFallback = (template: string, options?: Record<string, unknown>) =>
         template.replace(/\{\{(\w+)\}\}/g, (_, token) => String(options?.[token] ?? `{{${token}}}`));
     const resolveText = (key: string, fallback: string, options?: Record<string, unknown>) => {
@@ -141,6 +160,21 @@ export const Returns: React.FC = () => {
         });
     };
 
+    React.useEffect(() => {
+        const nextSearchParams = new URLSearchParams();
+
+        if (statusFilter !== 'ALL') {
+            nextSearchParams.set('status', statusFilter);
+        }
+        if (page > 1) {
+            nextSearchParams.set('page', page.toString());
+        }
+
+        if (nextSearchParams.toString() !== searchParams.toString()) {
+            setSearchParams(nextSearchParams);
+        }
+    }, [page, searchParams, setSearchParams, statusFilter]);
+
     const pageControls = (
         <div className="space-y-5 border-b border-white/[0.06] p-5 lg:p-6">
             <AdminPageHeader
@@ -154,11 +188,13 @@ export const Returns: React.FC = () => {
                 ) : undefined}
             />
 
-            <AdminTabs
+            <AdminStatusFilterBar
                 items={statusTabs}
                 activeKey={statusFilter}
                 onChange={(key) => changeStatusFilter(key as ReturnStatusFilter)}
-                className="gap-2.5 [&_button]:px-4 [&_button]:py-2 [&_button]:text-[15px] [&_button]:font-semibold [&_button]:text-white/58 [&_button]:shadow-none [&_button>span:last-child]:px-1.5 [&_button>span:last-child]:py-0.5 [&_button>span:last-child]:text-[10px] [&_[data-admin-tab-active='true']]:border-primary/35 [&_[data-admin-tab-active='true']]:bg-primary/10 [&_[data-admin-tab-active='true']]:text-white [&_[data-admin-tab-active='false']]:border-white/[0.08] [&_[data-admin-tab-active='false']]:bg-white/[0.025]"
+                isRefreshing={isRefreshing && !loading}
+                refreshLabel={resolveText('page.refreshing', 'Đang cập nhật')}
+                tabsClassName="gap-2.5 [&_button]:px-4 [&_button]:py-2 [&_button]:text-[15px] [&_button]:font-semibold [&_button]:text-white/58 [&_button]:shadow-none [&_button>span:last-child]:px-1.5 [&_button>span:last-child]:py-0.5 [&_button>span:last-child]:text-[10px] [&_[data-admin-tab-active='true']]:border-primary/35 [&_[data-admin-tab-active='true']]:bg-primary/10 [&_[data-admin-tab-active='true']]:text-white [&_[data-admin-tab-active='false']]:border-white/[0.08] [&_[data-admin-tab-active='false']]:bg-white/[0.025]"
             />
         </div>
     );
@@ -167,7 +203,6 @@ export const Returns: React.FC = () => {
         <AdminPageShell className="min-h-screen bg-bg-dark text-white">
             <AdminSectionCard className="overflow-hidden" bodyClassName="h-full">
                 {pageControls}
-                {isRefreshing && !loading && <div className="h-px w-full bg-primary/60" />}
                 {loading ? (
                     <div className="p-8 space-y-3 animate-pulse">
                         {[...Array(5)].map((_, index) => (

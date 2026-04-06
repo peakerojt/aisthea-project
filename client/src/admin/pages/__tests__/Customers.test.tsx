@@ -8,6 +8,8 @@ const patchUserRoleMock = vi.fn();
 const patchUserStatusMock = vi.fn();
 const getRolesMock = vi.fn();
 const showToastMock = vi.fn();
+const searchParamsState = vi.hoisted(() => ({ value: '' }));
+const setSearchParamsMock = vi.hoisted(() => vi.fn());
 
 vi.mock('react-i18next', async () => {
   const actual = await vi.importActual<typeof import('react-i18next')>('react-i18next');
@@ -16,11 +18,6 @@ vi.mock('react-i18next', async () => {
     ...actual,
     useTranslation: () => ({
       t: (key: string, options?: Record<string, unknown>) => {
-        const fallback = options?.defaultValue;
-        if (typeof fallback === 'string') {
-          return fallback;
-        }
-
         const table: Record<string, string> = {
           'page.title': 'Quản lý người dùng',
           'page.loading': 'Đang tải...',
@@ -28,6 +25,9 @@ vi.mock('react-i18next', async () => {
           'filters.searchPlaceholder': 'Tìm theo tên, email, số điện thoại...',
           'filters.allRoles': 'Tất cả vai trò',
           'filters.allStatuses': 'Tất cả trạng thái',
+          'filters.statusActive': 'Hoạt động',
+          'filters.statusBanned': 'Đã khóa',
+          'filters.statusPending': 'Chờ xác nhận',
           'table.customer': 'Người dùng',
           'table.contact': 'Liên hệ',
           'table.role': 'Vai trò',
@@ -44,9 +44,24 @@ vi.mock('react-i18next', async () => {
           'role.labels.staff': 'Nhân viên',
           'role.labels.support': 'Nhân viên',
           'status.active': 'Hoạt động',
+          'actions.refresh': 'Làm mới',
+          'actions.reset': 'Đặt lại',
+          'pagination.rangeSummary': `Hiển thị ${String(options?.start ?? 0)}-${String(options?.end ?? 0)} / ${String(options?.total ?? 0)} tài khoản`,
+          'pagination.summary': `Trang ${String(options?.page ?? 1)} / ${String(options?.totalPages ?? 1)} · ${String(options?.total ?? 0)} tài khoản`,
+          'pagination.perPageOption': `${String(options?.count ?? 0)} / trang`,
           'feedback.roleUpdated': 'Đã cập nhật vai trò',
         };
-        return table[key] ?? key;
+
+        if (table[key]) {
+          return table[key];
+        }
+
+        const fallback = options?.defaultValue;
+        if (typeof fallback === 'string') {
+          return fallback;
+        }
+
+        return key;
       },
     }),
   };
@@ -56,6 +71,10 @@ vi.mock('@/common/contexts/ToastContext', () => ({
   useToast: () => ({
     showToast: showToastMock,
   }),
+}));
+
+vi.mock('react-router-dom', () => ({
+  useSearchParams: () => [new URLSearchParams(searchParamsState.value), setSearchParamsMock],
 }));
 
 vi.mock('@/common/services/user-admin.service', async () => {
@@ -135,6 +154,9 @@ vi.mock('@/admin/components/AdminUI', () => ({
     children,
     ...props
   }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props}>{children}</button>,
+  AdminRefreshState: ({ isRefreshing }: { isRefreshing?: boolean }) => (
+    <div data-testid="admin-refresh-state" data-refreshing={isRefreshing ? 'true' : 'false'} />
+  ),
   AdminSectionCard: ({ children }: { children: React.ReactNode }) => <section>{children}</section>,
   AdminToolbar: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   adminUiTokens: {
@@ -152,24 +174,33 @@ let Customers: typeof import('@/admin/pages/Customers').Customers;
 describe('Customers role mapping', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    fetchAdminUsersMock.mockResolvedValue([
-      {
-        userId: 8,
-        email: 'support@example.com',
-        fullName: 'Support Demo',
-        phone: null,
-        avatarUrl: null,
-        status: 'Active',
-        createdAt: '2026-04-04T10:00:00.000Z',
-        roles: [{ roleId: 77, roleName: 'Support' }],
-        totalOrders: 0,
+    searchParamsState.value = '';
+    fetchAdminUsersMock.mockResolvedValue({
+      users: [
+        {
+          userId: 8,
+          email: 'support@example.com',
+          fullName: 'Support Demo',
+          phone: null,
+          avatarUrl: null,
+          status: 'Active',
+          createdAt: '2026-04-04T10:00:00.000Z',
+          roles: [{ roleId: 77, roleName: 'Support' }],
+          totalOrders: 0,
+        },
+      ],
+      pagination: {
+        total: 21,
+        page: 1,
+        pageSize: 20,
+        totalPages: 2,
       },
-    ]);
+    });
     getRolesMock.mockResolvedValue([
-      { roleId: 11, roleName: 'Admin', isProtected: false, permissionIds: [] },
-      { roleId: 12, roleName: 'Customer', isProtected: false, permissionIds: [] },
-      { roleId: 13, roleName: 'Support', isProtected: false, permissionIds: [] },
-      { roleId: 14, roleName: 'Super Admin', isProtected: true, permissionIds: [] },
+      { roleId: 11, roleName: 'Admin', displayName: 'Admin', isProtected: false, assignable: true, permissionIds: [] },
+      { roleId: 12, roleName: 'Customer', displayName: 'Customer', isProtected: false, assignable: true, permissionIds: [] },
+      { roleId: 13, roleName: 'Support', displayName: 'Staff', isProtected: false, assignable: true, permissionIds: [] },
+      { roleId: 14, roleName: 'Super Admin', displayName: 'Super Admin', isProtected: true, assignable: false, permissionIds: [] },
     ]);
     patchUserRoleMock.mockResolvedValue({ success: true, message: 'Đã cập nhật vai trò' });
     patchUserStatusMock.mockResolvedValue({ success: true, message: 'ok' });
@@ -189,8 +220,11 @@ describe('Customers role mapping', () => {
     });
 
     expect(await screen.findAllByText('Nhân viên')).not.toHaveLength(0);
+    expect(screen.getByTestId('admin-refresh-state')).toHaveAttribute('data-refreshing', 'false');
     expect(screen.getByRole('option', { name: 'Nhân viên' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Support' })).not.toBeInTheDocument();
+    expect(screen.getByText('21 tài khoản')).toBeInTheDocument();
+    expect(screen.getByText('Hiển thị 1-20 / 21 tài khoản')).toBeInTheDocument();
   });
 
   it('uses fetched backend role ids instead of hardcoded role ids when saving role changes', async () => {
@@ -213,6 +247,36 @@ describe('Customers role mapping', () => {
       expect(showToastMock).toHaveBeenCalledWith({
         type: 'success',
         title: 'Đã cập nhật vai trò',
+      });
+    });
+  });
+
+  it('excludes protected runtime roles from the assignment flow', async () => {
+    render(<Customers />);
+
+    await waitFor(() => {
+      expect(getRolesMock).toHaveBeenCalled();
+    });
+
+    expect(screen.queryByRole('option', { name: 'Super Admin' })).not.toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'change-role-8' }));
+
+    expect(screen.queryByText('Super Admin')).not.toBeInTheDocument();
+  });
+
+  it('requests server-side pagination and filters from URL-backed state', async () => {
+    searchParamsState.value = 'q=demo&role=Support&status=Active&page=2&pageSize=10';
+
+    render(<Customers />);
+
+    await waitFor(() => {
+      expect(fetchAdminUsersMock).toHaveBeenCalledWith({
+        search: 'demo',
+        role: 'Support',
+        status: 'Active',
+        page: 2,
+        limit: 10,
       });
     });
   });

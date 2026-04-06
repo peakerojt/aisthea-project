@@ -3,14 +3,16 @@ import { useTranslation } from 'react-i18next';
 import { useToast } from '@/common/contexts/ToastContext';
 import {
     Search, Users, AlertCircle, Loader2, Shield,
-    ShieldCheck, ChevronDown,
+    ShieldCheck, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, FilterX,
 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import {
     AdminEmptyState,
     AdminModalShell,
     AdminPageHeader,
     AdminPageShell,
     AdminPrimaryButton,
+    AdminRefreshState,
     AdminSecondaryButton,
     AdminSectionCard,
     AdminToolbar,
@@ -25,10 +27,28 @@ import {
     getRoleLabel,
     isAssignableAdminRole,
     STATUS_LABELS,
+    type FetchAdminUsersParams,
 } from '@/common/services/user-admin.service';
 import { UserActionMenu } from '@/admin/components/UserActionMenu';
 import { getImageUrl } from '@/common/utils/cloudinary';
 import { roleService, type RoleItem } from '@/admin/services/role.service';
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+const DEFAULT_PAGE_SIZE = 20;
+
+const parsePositiveInt = (value: string | null, fallback: number) => {
+    const parsed = Number.parseInt(value ?? '', 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const getVisiblePages = (page: number, totalPages: number) => {
+    const maxVisible = 5;
+    const start = Math.max(1, Math.min(page - 2, totalPages - (maxVisible - 1)));
+    return Array.from(
+        { length: Math.min(maxVisible, totalPages) },
+        (_, index) => start + index,
+    );
+};
 
 // ─── Avatar Helpers ────────────────────────────────────────────────────────────
 
@@ -53,6 +73,10 @@ const AVATAR_COLORS = [
 
 function getAvatarColor(userId: number): string {
     return AVATAR_COLORS[userId % AVATAR_COLORS.length];
+}
+
+function getAssignableRoleDisplayName(role: Pick<RoleItem, 'roleName' | 'displayName'>) {
+    return role.displayName ?? getRoleDisplayName(role.roleName);
 }
 
 // ─── Badge helpers ─────────────────────────────────────────────────────────────
@@ -104,6 +128,12 @@ function StatusBadge({ status }: { status: string }) {
 export const Customers: React.FC = () => {
     const { t } = useTranslation(['customers']);
     const { showToast: fireToast } = useToast();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const initialSearch = searchParams.get('q') ?? '';
+    const initialRoleFilter = searchParams.get('role') ?? 'all';
+    const initialStatusFilter = searchParams.get('status') ?? 'all';
+    const initialPage = parsePositiveInt(searchParams.get('page'), 1);
+    const initialPageSize = parsePositiveInt(searchParams.get('pageSize'), DEFAULT_PAGE_SIZE);
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -112,10 +142,14 @@ export const Customers: React.FC = () => {
     const requestIdRef = useRef(0);
 
     // Filters
-    const [searchInput, setSearchInput] = useState('');
-    const [search, setSearch] = useState('');
-    const [roleFilter, setRoleFilter] = useState('all');
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [searchInput, setSearchInput] = useState(initialSearch);
+    const [search, setSearch] = useState(initialSearch);
+    const [roleFilter, setRoleFilter] = useState(initialRoleFilter);
+    const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
+    const [page, setPage] = useState(initialPage);
+    const [pageSize, setPageSize] = useState(initialPageSize);
+    const [total, setTotal] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
 
     // Modals
     const [banTarget, setBanTarget] = useState<AdminUser | null>(null);
@@ -131,7 +165,10 @@ export const Customers: React.FC = () => {
     const handleSearchChange = (v: string) => {
         setSearchInput(v);
         if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(() => setSearch(v), 500);
+        debounceRef.current = setTimeout(() => {
+            setSearch(v);
+            setPage(1);
+        }, 500);
     };
 
     // ─── Data loading ─────────────────────────────────────────────────────────
@@ -142,13 +179,17 @@ export const Customers: React.FC = () => {
         else setIsRefreshing(true);
         setError(null);
         try {
-            const data = await fetchAdminUsers({
+            const result = await fetchAdminUsers({
                 search: search || undefined,
                 role: roleFilter !== 'all' ? roleFilter : undefined,
                 status: statusFilter !== 'all' ? statusFilter : undefined,
+                page,
+                limit: pageSize,
             });
             if (requestIdRef.current !== requestId) return;
-            setUsers(data);
+            setUsers(result.users);
+            setTotal(result.pagination.total);
+            setTotalPages(result.pagination.totalPages);
             hasLoadedRef.current = true;
         } catch (error) {
             if (requestIdRef.current !== requestId) return;
@@ -159,11 +200,43 @@ export const Customers: React.FC = () => {
             if (isFirstLoad) setLoading(false);
             else setIsRefreshing(false);
         }
-    }, [search, roleFilter, statusFilter]);
+    }, [page, pageSize, roleFilter, search, statusFilter, t]);
 
     useEffect(() => {
-        loadUsers();
+        void loadUsers();
     }, [loadUsers]);
+
+    useEffect(() => () => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+    }, []);
+
+    useEffect(() => {
+        const nextSearch = searchParams.get('q') ?? '';
+        const nextRoleFilter = searchParams.get('role') ?? 'all';
+        const nextStatusFilter = searchParams.get('status') ?? 'all';
+        const nextPage = parsePositiveInt(searchParams.get('page'), 1);
+        const nextPageSize = parsePositiveInt(searchParams.get('pageSize'), DEFAULT_PAGE_SIZE);
+
+        setSearch((current) => (current === nextSearch ? current : nextSearch));
+        setSearchInput((current) => (current === nextSearch ? current : nextSearch));
+        setRoleFilter((current) => (current === nextRoleFilter ? current : nextRoleFilter));
+        setStatusFilter((current) => (current === nextStatusFilter ? current : nextStatusFilter));
+        setPage((current) => (current === nextPage ? current : nextPage));
+        setPageSize((current) => (current === nextPageSize ? current : nextPageSize));
+    }, [searchParams]);
+
+    useEffect(() => {
+        const nextSearchParams = new URLSearchParams();
+        if (search) nextSearchParams.set('q', search);
+        if (roleFilter !== 'all') nextSearchParams.set('role', roleFilter);
+        if (statusFilter !== 'all') nextSearchParams.set('status', statusFilter);
+        if (page > 1) nextSearchParams.set('page', page.toString());
+        if (pageSize !== DEFAULT_PAGE_SIZE) nextSearchParams.set('pageSize', pageSize.toString());
+
+        if (nextSearchParams.toString() !== searchParams.toString()) {
+            setSearchParams(nextSearchParams);
+        }
+    }, [page, pageSize, roleFilter, search, searchParams, setSearchParams, statusFilter]);
 
     useEffect(() => {
         let cancelled = false;
@@ -172,7 +245,13 @@ export const Customers: React.FC = () => {
             try {
                 const roles = await roleService.getRoles();
                 if (!cancelled) {
-                    setAvailableRoles(roles.filter((role) => !role.isProtected && isAssignableAdminRole(role.roleName)));
+                    setAvailableRoles(
+                        roles.filter(
+                            (role) =>
+                                (role.assignable ?? isAssignableAdminRole(role.roleName)) &&
+                                !role.isProtected,
+                        ),
+                    );
                 }
             } catch {
                 if (!cancelled) {
@@ -245,24 +324,74 @@ export const Customers: React.FC = () => {
         return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
     };
 
-    const fallbackAssignableRoles = users
+    const fallbackAssignableRoles: RoleItem[] = users
         .flatMap((user) => user.roles)
         .filter((role, index, allRoles) =>
             isAssignableAdminRole(role.roleName) &&
             allRoles.findIndex((candidate) => candidate.roleId === role.roleId) === index,
-        );
+        )
+        .map((role) => ({
+            roleId: role.roleId,
+            roleName: role.roleName,
+            displayName: getRoleDisplayName(role.roleName),
+            isProtected: false,
+            assignable: true,
+            permissionIds: [],
+        }));
 
     const assignableRoles = availableRoles.length > 0 ? availableRoles : fallbackAssignableRoles;
+    const hasFilters = !!search || roleFilter !== 'all' || statusFilter !== 'all';
+    const rangeStart = total === 0 ? 0 : ((page - 1) * pageSize) + 1;
+    const rangeEnd = Math.min(total, page * pageSize);
+    const visiblePages = getVisiblePages(page, totalPages);
+
+    const refreshUsers = () => {
+        void loadUsers();
+    };
+
+    const handleClearFilters = () => {
+        setSearch('');
+        setSearchInput('');
+        setRoleFilter('all');
+        setStatusFilter('all');
+        setPage(1);
+        setPageSize(DEFAULT_PAGE_SIZE);
+    };
+
+    const updateFilters = (next: Partial<Pick<FetchAdminUsersParams, 'role' | 'status'>>) => {
+        if (typeof next.role === 'string') {
+            setRoleFilter(next.role);
+        }
+        if (typeof next.status === 'string') {
+            setStatusFilter(next.status);
+        }
+        setPage(1);
+    };
 
     const pageControls = (
         <div className="space-y-5 border-b border-white/5 p-5 lg:p-6">
             <AdminPageHeader
                 icon={Users}
                 title={t('page.title')}
-                meta={loading ? t('page.loading') : t('page.userCount', { count: users.length })}
+                meta={loading ? t('page.loading') : t('page.userCount', { count: total })}
             />
 
-            <AdminToolbar>
+            <AdminToolbar
+                actions={(
+                    <>
+                        <AdminSecondaryButton type="button" onClick={refreshUsers}>
+                            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+                            {t('actions.refresh', { defaultValue: 'Làm mới' })}
+                        </AdminSecondaryButton>
+                        {hasFilters && (
+                            <AdminSecondaryButton type="button" onClick={handleClearFilters}>
+                                <FilterX size={14} />
+                                {t('actions.reset', { defaultValue: 'Đặt lại' })}
+                            </AdminSecondaryButton>
+                        )}
+                    </>
+                )}
+            >
                 <div className="relative group flex-1 min-w-[240px] max-w-sm">
                     <Search
                         className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-white/60 transition-colors"
@@ -280,14 +409,14 @@ export const Customers: React.FC = () => {
                 <div className="relative">
                     <select
                         value={roleFilter}
-                        onChange={(e) => setRoleFilter(e.target.value)}
+                        onChange={(e) => updateFilters({ role: e.target.value })}
                         className={`appearance-none cursor-pointer pl-4 pr-9 ${adminUiTokens.fieldControl}`}
                     >
                         <option value="all">{t('filters.allRoles')}</option>
                         {assignableRoles.map((role) => (
                             <option key={role.roleId} value={role.roleName}>
-                                {t(`role.labels.${getRoleDisplayName(role.roleName).toLowerCase()}`, {
-                                    defaultValue: getRoleLabel(role.roleName),
+                                {t(`role.labels.${getAssignableRoleDisplayName(role).toLowerCase()}`, {
+                                    defaultValue: role.displayName ?? getRoleLabel(role.roleName),
                                 })}
                             </option>
                         ))}
@@ -298,7 +427,7 @@ export const Customers: React.FC = () => {
                 <div className="relative">
                     <select
                         value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
+                        onChange={(e) => updateFilters({ status: e.target.value })}
                         className={`appearance-none cursor-pointer pl-4 pr-9 ${adminUiTokens.fieldControl}`}
                     >
                         <option value="all">{t('filters.allStatuses')}</option>
@@ -308,7 +437,30 @@ export const Customers: React.FC = () => {
                     </select>
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
                 </div>
+
+                <div className="relative">
+                    <select
+                        value={pageSize}
+                        onChange={(e) => {
+                            setPageSize(Number(e.target.value));
+                            setPage(1);
+                        }}
+                        className={`appearance-none cursor-pointer pl-4 pr-9 ${adminUiTokens.fieldControl}`}
+                    >
+                        {PAGE_SIZE_OPTIONS.map((option) => (
+                            <option key={option} value={option}>
+                                {t('pagination.perPageOption', { count: option, defaultValue: `${option} / trang` })}
+                            </option>
+                        ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
+                </div>
             </AdminToolbar>
+
+            <AdminRefreshState
+                isRefreshing={isRefreshing && !loading}
+                label={t('page.loading')}
+            />
         </div>
     );
 
@@ -393,7 +545,7 @@ export const Customers: React.FC = () => {
                 >
                         <div className="space-y-2">
                             {assignableRoles.map((r) => {
-                                const displayRoleName = getRoleDisplayName(r.roleName);
+                                const displayRoleName = getAssignableRoleDisplayName(r);
                                 const roleToneClass =
                                     displayRoleName === 'Admin'
                                         ? 'bg-teal-500/20 text-teal-300'
@@ -446,7 +598,7 @@ export const Customers: React.FC = () => {
                             <p className="text-sm text-white/50">{error}</p>
                         </div>
                         <button
-                            onClick={loadUsers}
+                            onClick={refreshUsers}
                             className="text-xs text-primary font-bold uppercase tracking-wider hover:underline cursor-pointer"
                         >
                             {t('feedback.retry')}
@@ -460,7 +612,6 @@ export const Customers: React.FC = () => {
             {!loading && !error && (
                 <AdminSectionCard className="flex-1 overflow-hidden">
                     {pageControls}
-                    {isRefreshing && <div className="h-px w-full bg-primary/60" />}
                     {users.length === 0 ? (
                         <AdminEmptyState
                             icon={Users}
@@ -468,6 +619,15 @@ export const Customers: React.FC = () => {
                             description={t('feedback.changeFilter')}
                         />
                     ) : (
+                        <>
+                        <div className="border-b border-white/[0.06] px-5 py-3 text-xs text-white/45 lg:px-6">
+                            {t('pagination.rangeSummary', {
+                                start: rangeStart,
+                                end: rangeEnd,
+                                total,
+                                defaultValue: 'Hiển thị {{start}}-{{end}} / {{total}} tài khoản',
+                            })}
+                        </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead className={adminUiTokens.tableHeaderSurface}>
@@ -563,6 +723,54 @@ export const Customers: React.FC = () => {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                        </>
+                    )}
+                    {users.length > 0 && totalPages > 1 && (
+                        <div className="flex flex-col gap-3 border-t border-white/[0.06] px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
+                            <p className="text-xs text-white/42">
+                                {t('pagination.summary', {
+                                    page,
+                                    totalPages,
+                                    total,
+                                    defaultValue: 'Trang {{page}} / {{totalPages}} · {{total}} tài khoản',
+                                })}
+                            </p>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+                                    disabled={page <= 1}
+                                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 text-white/55 transition-colors duration-150 hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                                >
+                                    <ChevronLeft size={15} />
+                                </button>
+
+                                {visiblePages.map((visiblePage) => (
+                                    <button
+                                        key={visiblePage}
+                                        type="button"
+                                        onClick={() => setPage(visiblePage)}
+                                        className={`h-9 min-w-9 rounded-xl px-3 text-xs font-bold transition-colors duration-150 ${
+                                            visiblePage === page
+                                                ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                                                : 'border border-white/10 text-white/55 hover:border-white/20 hover:text-white'
+                                        }`}
+                                    >
+                                        {visiblePage}
+                                    </button>
+                                ))}
+
+                                <button
+                                    type="button"
+                                    onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}
+                                    disabled={page >= totalPages}
+                                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 text-white/55 transition-colors duration-150 hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                                >
+                                    <ChevronRight size={15} />
+                                </button>
+                            </div>
                         </div>
                     )}
                 </AdminSectionCard>

@@ -40,11 +40,11 @@ const AdminRouteAccessGate: React.FC<{ path: string; children: React.ReactNode }
     return null;
   }
 
-  if (canAccessAdminPath(path, user?.roles)) {
+  if (canAccessAdminPath(path, user?.roles, user?.permissions)) {
     return <>{children}</>;
   }
 
-  return <Navigate to={getAdminLandingPath(user?.roles)} replace />;
+  return <Navigate to={getAdminLandingPath(user?.roles, user?.permissions)} replace />;
 };
 
 const withAdminRouteAccess = (path: string, element: React.ReactNode) => (

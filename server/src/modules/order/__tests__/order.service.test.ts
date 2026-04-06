@@ -906,6 +906,65 @@ describe('order.service integration guards', () => {
     expect(emitOrderStatusUpdatedMock).not.toHaveBeenCalled();
   });
 
+  it('allows support operators with EDIT_ORDER permission to update order status', async () => {
+    const orderUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const orderStatusHistoryCreate = jest.fn().mockResolvedValue(undefined);
+
+    prismaMock.order.findUnique
+      .mockResolvedValueOnce({
+        orderId: 21,
+        orderNumber: 'ORD-0021',
+        status: ORDER_STATUS.PROCESSING,
+        userId: 77,
+        paymentMethod: 'COD',
+        totalAmount: 120000,
+        items: [],
+      })
+      .mockResolvedValueOnce({
+        orderId: 21,
+        orderNumber: 'ORD-0021',
+        userId: 77,
+        shipment: null,
+        statusHistory: [],
+      });
+
+    prismaMock.$transaction.mockImplementation(async (fn: any) =>
+      fn({
+        order: { updateMany: orderUpdateMany },
+        orderStatusHistory: { create: orderStatusHistoryCreate },
+      }),
+    );
+
+    const result = await updateOrderStatusAdmin(
+      '21',
+      { userId: 15, roles: ['Support'], permissions: ['EDIT_ORDER'] },
+      { status: ORDER_STATUS.SHIPPING },
+    );
+
+    expect(result).toMatchObject({
+      orderId: 21,
+      previousStatus: ORDER_STATUS.PROCESSING,
+      newStatus: ORDER_STATUS.SHIPPING,
+    });
+    expect(orderUpdateMany).toHaveBeenCalledTimes(1);
+    expect(orderStatusHistoryCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks support operators from updating order status without EDIT_ORDER permission', async () => {
+    await expect(
+      updateOrderStatusAdmin(
+        '21',
+        { userId: 15, roles: ['Support'], permissions: ['VIEW_ORDER'] },
+        { status: ORDER_STATUS.SHIPPING },
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      errorCode: 'FORBIDDEN',
+    });
+
+    expect(prismaMock.order.findUnique).not.toHaveBeenCalled();
+  });
+
   it('requires delivery proof images and review confirmation before marking delivered', async () => {
     prismaMock.order.findUnique.mockResolvedValue({
       orderId: 3,

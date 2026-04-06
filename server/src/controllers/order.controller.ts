@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { prisma } from '../utils/prisma';
-import { findManyOrders } from '../modules/order/order.repository';
+import { countOrdersByStatus, findManyOrders } from '../modules/order/order.repository';
 import { updateOrderStatusAdmin, createOrder as createOrderService } from '../modules/order/order.service';
 import { quoteOrderPricing, ShippingMethod } from '../modules/order/order-pricing.service';
 import { reconcileCodReturnUnlockAfterDeliveryConfirmation } from '../modules/order/cod-return-reconciliation';
@@ -25,6 +25,8 @@ import type { CreateOrderInput, QuoteOrderInput } from '../modules/order/order.v
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
+const ORDER_TAB_STATUS_KEYS = ['Pending', 'Processing', 'Shipping', 'Delivered', 'Cancelled'] as const;
+
 const firstQueryValue = (value: unknown): string | undefined => {
   if (typeof value === 'string') return value;
   if (Array.isArray(value)) {
@@ -39,6 +41,16 @@ function parseIdParam(param: string | string[]): number | null {
   const id = parseInt(raw, 10);
   return isNaN(id) ? null : id;
 }
+
+const parseAdminOrderFilters = (query: AuthRequest['query']) => ({
+  status: firstQueryValue(query.status),
+  search: firstQueryValue(query.search),
+  startDate: firstQueryValue(query.startDate),
+  endDate: firstQueryValue(query.endDate),
+  page: parseInt(firstQueryValue(query.page) || '1', 10) || 1,
+  limit: parseInt(firstQueryValue(query.pageSize) || '15', 10) || 15,
+  sort: firstQueryValue(query.sort),
+});
 
 function resolveVariantImage(item: any): string | null {
   const variantImage =
@@ -132,20 +144,39 @@ function parseDeliveryProofImages(value: string | null | undefined): string[] {
 
 export const getAllOrders = async (req: AuthRequest, res: Response) => {
   try {
-    const { status, page, pageSize, search, startDate, endDate, sort } = req.query;
-    const filters = {
-      status: firstQueryValue(status),
-      search: firstQueryValue(search),
-      startDate: firstQueryValue(startDate),
-      endDate: firstQueryValue(endDate),
-      page: parseInt(firstQueryValue(page) || '1', 10) || 1,
-      limit: parseInt(firstQueryValue(pageSize) || '15', 10) || 15,
-      sort: firstQueryValue(sort),
-    };
+    const filters = parseAdminOrderFilters(req.query);
     const { data: orders, meta } = await findManyOrders(filters);
     res.json({ data: orders.map(buildOrderSummaryRow), meta });
   } catch (error: any) {
     logger.error('[getAllOrders] Failed', { message: error?.message, prismaCode: error?.code, meta: error?.meta, url: req.originalUrl });
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR' });
+  }
+};
+
+export const getAdminOrderTabCounts = async (req: AuthRequest, res: Response) => {
+  try {
+    const filters = parseAdminOrderFilters(req.query);
+    const { total, counts } = await countOrdersByStatus({
+      search: filters.search,
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+    });
+
+    res.json({
+      data: {
+        ALL: total,
+        ...Object.fromEntries(
+          ORDER_TAB_STATUS_KEYS.map((statusKey) => [statusKey, counts[statusKey] ?? 0]),
+        ),
+      },
+    });
+  } catch (error: any) {
+    logger.error('[getAdminOrderTabCounts] Failed', {
+      message: error?.message,
+      prismaCode: error?.code,
+      meta: error?.meta,
+      url: req.originalUrl,
+    });
     res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR' });
   }
 };

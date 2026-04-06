@@ -15,9 +15,16 @@ const createOrderServiceMock = jest.fn();
 const emitNewOrderMock = jest.fn();
 const getRefundsForOrderMock = jest.fn();
 const uploadBase64Mock = jest.fn();
+const findManyOrdersMock = jest.fn();
+const countOrdersByStatusMock = jest.fn();
 
 jest.mock('../../utils/prisma', () => ({
   prisma: prismaMock,
+}));
+
+jest.mock('../../modules/order/order.repository', () => ({
+  findManyOrders: (...args: unknown[]) => findManyOrdersMock(...args),
+  countOrdersByStatus: (...args: unknown[]) => countOrdersByStatusMock(...args),
 }));
 
 jest.mock('../../modules/order/order.service', () => ({
@@ -39,7 +46,13 @@ jest.mock('../../services/cloudinary.service', () => ({
   },
 }));
 
-import { confirmReceipt, createOrder, getAdminOrderDetail, uploadReturnProofImages } from '../order.controller';
+import {
+  confirmReceipt,
+  createOrder,
+  getAdminOrderDetail,
+  getAdminOrderTabCounts,
+  uploadReturnProofImages,
+} from '../order.controller';
 
 const createResponse = () => {
   const res: any = {};
@@ -51,6 +64,8 @@ const createResponse = () => {
 describe('order.controller confirmReceipt', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    findManyOrdersMock.mockReset();
+    countOrdersByStatusMock.mockReset();
     prismaMock.cart.findFirst.mockResolvedValue(null);
     prismaMock.cartItem.deleteMany.mockResolvedValue({ count: 0 });
     getRefundsForOrderMock.mockResolvedValue({
@@ -65,6 +80,46 @@ describe('order.controller confirmReceipt', () => {
       secureUrl: 'https://cdn.example.com/proof-1.jpg',
       width: 1200,
       height: 900,
+    });
+  });
+
+  it('returns aggregated admin tab counts from one repository call', async () => {
+    countOrdersByStatusMock.mockResolvedValue({
+      total: 12,
+      counts: {
+        Pending: 4,
+        Processing: 3,
+        Shipping: 2,
+        Delivered: 2,
+      },
+    });
+
+    const req: any = {
+      query: {
+        search: 'ORD',
+        startDate: '2026-01-01',
+        endDate: '2026-01-31',
+      },
+      originalUrl: '/api/orders/admin/tab-counts?search=ORD',
+    };
+    const res = createResponse();
+
+    await getAdminOrderTabCounts(req, res);
+
+    expect(countOrdersByStatusMock).toHaveBeenCalledWith({
+      search: 'ORD',
+      startDate: '2026-01-01',
+      endDate: '2026-01-31',
+    });
+    expect(res.json).toHaveBeenCalledWith({
+      data: {
+        ALL: 12,
+        Pending: 4,
+        Processing: 3,
+        Shipping: 2,
+        Delivered: 2,
+        Cancelled: 0,
+      },
     });
   });
 

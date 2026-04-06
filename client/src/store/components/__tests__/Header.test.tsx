@@ -55,9 +55,22 @@ describe('Header', () => {
     cleanup();
   });
 
-  it('sends support users to admin returns from the account button', async () => {
+  it('sends support users without explicit admin route permissions to the profile page from the account button', async () => {
     useAuthMock.mockReturnValue({
-      user: { roles: ['Support'], name: 'Support User' },
+      user: { roles: ['Support'], permissions: [], name: 'Support User' },
+      role: 'staff',
+    });
+
+    render(<Header />);
+
+    await userEvent.click(screen.getByTitle('Hồ sơ'));
+
+    expect(navigateMock).toHaveBeenCalledWith('/profile');
+  });
+
+  it('sends support users with explicit returns access to the returns admin screen from the account button', async () => {
+    useAuthMock.mockReturnValue({
+      user: { roles: ['Support'], permissions: ['VIEW_RETURNS'], name: 'Support User' },
       role: 'staff',
     });
 

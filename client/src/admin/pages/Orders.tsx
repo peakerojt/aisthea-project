@@ -4,7 +4,7 @@ import {
   AlertCircle, FilterX, Calendar, Copy, RefreshCw,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { adminOrderService, AdminOrder } from '@/common/services/order.service';
 import { getPaymentMethodMeta, getPaymentStatusMeta } from '@/common/utils/paymentStatus';
 import { getOrderStatusDisplayMeta } from '@/common/utils/orderUiStatus';
@@ -15,14 +15,47 @@ import {
   AdminPageShell,
   AdminSectionCard,
   AdminSecondaryButton,
-  AdminTabs,
+  AdminStatusFilterBar,
   AdminToolbar,
   adminUiTokens,
 } from '@/admin/components/AdminUI';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 type StatusTabKey = 'ALL' | 'Pending' | 'Processing' | 'Shipping' | 'Delivered' | 'Cancelled';
+type OrderSortValue =
+  | 'createdAt_desc'
+  | 'createdAt_asc'
+  | 'totalAmount_desc'
+  | 'totalAmount_asc'
+  | 'status_asc'
+  | 'paymentStatus_desc';
 type OrdersTranslator = (key: string, options?: Record<string, unknown>) => string;
+const DEFAULT_SORT: OrderSortValue = 'createdAt_desc';
+const DEFAULT_PAGE_SIZE = 15;
+const ORDER_STATUS_QUERY_VALUES = new Set<StatusTabKey>(['ALL', 'Pending', 'Processing', 'Shipping', 'Delivered', 'Cancelled']);
+const ORDER_SORT_QUERY_VALUES = new Set<OrderSortValue>([
+  'createdAt_desc',
+  'createdAt_asc',
+  'totalAmount_desc',
+  'totalAmount_asc',
+  'status_asc',
+  'paymentStatus_desc',
+]);
+
+const parseStatusTab = (value: string | null): StatusTabKey =>
+  value && ORDER_STATUS_QUERY_VALUES.has(value as StatusTabKey)
+    ? (value as StatusTabKey)
+    : 'ALL';
+
+const parsePositiveInt = (value: string | null, fallback: number) => {
+  const parsed = Number.parseInt(value ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const parseSortValue = (value: string | null): OrderSortValue =>
+  value && ORDER_SORT_QUERY_VALUES.has(value as OrderSortValue)
+    ? (value as OrderSortValue)
+    : DEFAULT_SORT;
 
 export const formatVND = (amount: string | number): string => {
   return formatCurrencyFullVND(amount);
@@ -226,6 +259,7 @@ const OrderTableRow = React.memo(({
 export const Orders: React.FC = () => {
   const { t } = useTranslation(['orders']);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const interpolateFallback = useCallback(
     (template: string, options?: Record<string, unknown>) =>
       template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, token: string) => String(options?.[token] ?? '')),
@@ -249,27 +283,34 @@ export const Orders: React.FC = () => {
   );
   const sortOptions = useMemo(
     () => ([
-      { value: 'createdAt_desc', label: resolveText('sortOptions.createdAtDesc', { defaultValue: 'Mới nhất' }) },
-      { value: 'createdAt_asc', label: resolveText('sortOptions.createdAtAsc', { defaultValue: 'Cũ nhất' }) },
-      { value: 'totalAmount_desc', label: resolveText('sortOptions.totalAmountDesc', { defaultValue: 'Giá trị cao nhất' }) },
-      { value: 'totalAmount_asc', label: resolveText('sortOptions.totalAmountAsc', { defaultValue: 'Giá trị thấp nhất' }) },
-      { value: 'status_asc', label: resolveText('sortOptions.statusAsc', { defaultValue: 'Theo trạng thái' }) },
-      { value: 'paymentStatus_desc', label: resolveText('sortOptions.paymentStatusDesc', { defaultValue: 'Theo thanh toán' }) },
+      { value: 'createdAt_desc' as const, label: resolveText('sortOptions.createdAtDesc', { defaultValue: 'Mới nhất' }) },
+      { value: 'createdAt_asc' as const, label: resolveText('sortOptions.createdAtAsc', { defaultValue: 'Cũ nhất' }) },
+      { value: 'totalAmount_desc' as const, label: resolveText('sortOptions.totalAmountDesc', { defaultValue: 'Giá trị cao nhất' }) },
+      { value: 'totalAmount_asc' as const, label: resolveText('sortOptions.totalAmountAsc', { defaultValue: 'Giá trị thấp nhất' }) },
+      { value: 'status_asc' as const, label: resolveText('sortOptions.statusAsc', { defaultValue: 'Theo trạng thái' }) },
+      { value: 'paymentStatus_desc' as const, label: resolveText('sortOptions.paymentStatusDesc', { defaultValue: 'Theo thanh toán' }) },
     ] as const),
     [resolveText],
   );
+  const initialActiveTab = parseStatusTab(searchParams.get('status'));
+  const initialSearch = searchParams.get('q') ?? '';
+  const initialStartDate = searchParams.get('startDate') ?? '';
+  const initialEndDate = searchParams.get('endDate') ?? '';
+  const initialSort = parseSortValue(searchParams.get('sort'));
+  const initialPage = parsePositiveInt(searchParams.get('page'), 1);
+  const initialPageSize = parsePositiveInt(searchParams.get('pageSize'), DEFAULT_PAGE_SIZE);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<StatusTabKey>('ALL');
-  const [search, setSearch] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [sort, setSort] = useState('createdAt_desc');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(15);
+  const [activeTab, setActiveTab] = useState<StatusTabKey>(initialActiveTab);
+  const [search, setSearch] = useState(initialSearch);
+  const [searchInput, setSearchInput] = useState(initialSearch);
+  const [startDate, setStartDate] = useState(initialStartDate);
+  const [endDate, setEndDate] = useState(initialEndDate);
+  const [sort, setSort] = useState<OrderSortValue>(initialSort);
+  const [page, setPage] = useState(initialPage);
+  const [pageSize, setPageSize] = useState<number>(initialPageSize);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [tabCounts, setTabCounts] = useState<Record<StatusTabKey, number>>({
@@ -284,6 +325,7 @@ export const Orders: React.FC = () => {
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoadedRef = useRef(false);
   const requestIdRef = useRef(0);
+  const tabCountsRequestIdRef = useRef(0);
 
   const loadOrders = useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -320,27 +362,29 @@ export const Orders: React.FC = () => {
   }, [activeTab, endDate, page, pageSize, search, sort, startDate]);
 
   const loadTabCounts = useCallback(async () => {
+    const requestId = ++tabCountsRequestIdRef.current;
+
     try {
-      const counts = await Promise.all(
-        statusTabs.map(async (tab) => {
-          const res = await adminOrderService.getAll({
-            status: tab.key === 'ALL' ? undefined : tab.key,
-            page: 1,
-            pageSize: 1,
-            search: search || undefined,
-            startDate: startDate || undefined,
-            endDate: endDate || undefined,
-          });
+      const counts = await adminOrderService.getTabCounts({
+        search: search || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      });
 
-          return [tab.key, res.pagination.total] as const;
-        }),
-      );
+      if (tabCountsRequestIdRef.current !== requestId) return;
 
-      setTabCounts(Object.fromEntries(counts) as Record<StatusTabKey, number>);
+      setTabCounts({
+        ALL: counts.ALL ?? 0,
+        Pending: counts.Pending ?? 0,
+        Processing: counts.Processing ?? 0,
+        Shipping: counts.Shipping ?? 0,
+        Delivered: counts.Delivered ?? 0,
+        Cancelled: counts.Cancelled ?? 0,
+      });
     } catch {
       // Keep the previous counts if the auxiliary request fails.
     }
-  }, [endDate, search, startDate, statusTabs]);
+  }, [endDate, search, startDate]);
 
   useEffect(() => {
     void loadOrders();
@@ -355,6 +399,55 @@ export const Orders: React.FC = () => {
       clearTimeout(searchDebounce.current);
     }
   }, []);
+
+  useEffect(() => {
+    const nextActiveTab = parseStatusTab(searchParams.get('status'));
+    const nextSearch = searchParams.get('q') ?? '';
+    const nextStartDate = searchParams.get('startDate') ?? '';
+    const nextEndDate = searchParams.get('endDate') ?? '';
+    const nextSort = parseSortValue(searchParams.get('sort'));
+    const nextPage = parsePositiveInt(searchParams.get('page'), 1);
+    const nextPageSize = parsePositiveInt(searchParams.get('pageSize'), DEFAULT_PAGE_SIZE);
+
+    setActiveTab((current) => (current === nextActiveTab ? current : nextActiveTab));
+    setSearch((current) => (current === nextSearch ? current : nextSearch));
+    setSearchInput((current) => (current === nextSearch ? current : nextSearch));
+    setStartDate((current) => (current === nextStartDate ? current : nextStartDate));
+    setEndDate((current) => (current === nextEndDate ? current : nextEndDate));
+    setSort((current) => (current === nextSort ? current : nextSort));
+    setPage((current) => (current === nextPage ? current : nextPage));
+    setPageSize((current) => (current === nextPageSize ? current : nextPageSize));
+  }, [searchParams]);
+
+  useEffect(() => {
+    const nextSearchParams = new URLSearchParams();
+
+    if (activeTab !== 'ALL') {
+      nextSearchParams.set('status', activeTab);
+    }
+    if (search) {
+      nextSearchParams.set('q', search);
+    }
+    if (startDate) {
+      nextSearchParams.set('startDate', startDate);
+    }
+    if (endDate) {
+      nextSearchParams.set('endDate', endDate);
+    }
+    if (sort !== DEFAULT_SORT) {
+      nextSearchParams.set('sort', sort);
+    }
+    if (page > 1) {
+      nextSearchParams.set('page', page.toString());
+    }
+    if (pageSize !== DEFAULT_PAGE_SIZE) {
+      nextSearchParams.set('pageSize', pageSize.toString());
+    }
+
+    if (nextSearchParams.toString() !== searchParams.toString()) {
+      setSearchParams(nextSearchParams);
+    }
+  }, [activeTab, endDate, page, pageSize, search, searchParams, setSearchParams, sort, startDate]);
 
   const handleTabChange = (tab: StatusTabKey) => {
     setActiveTab(tab);
@@ -381,7 +474,7 @@ export const Orders: React.FC = () => {
     setStartDate('');
     setEndDate('');
     setActiveTab('ALL');
-    setSort('createdAt_desc');
+    setSort(DEFAULT_SORT);
     setPage(1);
   };
 
@@ -401,7 +494,7 @@ export const Orders: React.FC = () => {
     }
   }, []);
 
-  const hasFilters = !!search || !!startDate || !!endDate || sort !== 'createdAt_desc';
+  const hasFilters = !!search || !!startDate || !!endDate || sort !== DEFAULT_SORT;
   const rangeStart = total === 0 ? 0 : ((page - 1) * pageSize) + 1;
   const rangeEnd = Math.min(total, page * pageSize);
   const visiblePages = getVisiblePages(page, totalPages);
@@ -485,7 +578,7 @@ export const Orders: React.FC = () => {
                 <select
                   value={sort}
                   onChange={(e) => {
-                    setSort(e.target.value);
+                    setSort(parseSortValue(e.target.value));
                     setPage(1);
                   }}
                   className={adminUiTokens.fieldControl}
@@ -522,7 +615,7 @@ export const Orders: React.FC = () => {
             </div>
         </AdminToolbar>
 
-        <AdminTabs
+        <AdminStatusFilterBar
           items={statusTabs.map((tab) => ({
             key: tab.key,
             label: tab.label,
@@ -530,6 +623,8 @@ export const Orders: React.FC = () => {
           }))}
           activeKey={activeTab}
           onChange={(key) => handleTabChange(key as StatusTabKey)}
+          isRefreshing={isRefreshing && !loading}
+          refreshLabel={resolveText('page.refreshing', { defaultValue: 'Đang cập nhật' })}
         />
       </AdminSectionCard>
 
@@ -537,7 +632,6 @@ export const Orders: React.FC = () => {
         className="flex min-h-0 flex-1 flex-col bg-[#0f1014]"
         bodyClassName="flex min-h-0 flex-1 flex-col"
       >
-        {isRefreshing && !loading && <div className="h-px w-full bg-primary/60" />}
         {loading ? (
           <div className="flex flex-1 items-center justify-center">
               <div className="flex flex-col items-center gap-4">

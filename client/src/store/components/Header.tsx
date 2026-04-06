@@ -191,8 +191,8 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
       return;
     }
 
-    if (hasAdminShellAccess(user.roles)) {
-      navigate(getAdminLandingPath(user.roles));
+    if (hasAdminShellAccess(user.roles, user.permissions)) {
+      navigate(getAdminLandingPath(user.roles, user.permissions));
       return;
     }
 

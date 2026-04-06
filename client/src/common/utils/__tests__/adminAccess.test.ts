@@ -17,8 +17,9 @@ describe('adminAccess', () => {
     expect(hasFullAdminAccess(['Admin'])).toBe(true);
     expect(hasSupportAdminAccess(['Support'])).toBe(true);
     expect(hasSupportAdminAccess(['Staff'])).toBe(true);
-    expect(hasAdminShellAccess(['Support'])).toBe(true);
-    expect(hasAdminShellAccess(['Staff'])).toBe(true);
+    expect(hasAdminShellAccess(['Support'])).toBe(false);
+    expect(hasAdminShellAccess(['Staff'])).toBe(false);
+    expect(hasAdminShellAccess(['Support'], ['VIEW_RETURNS'])).toBe(true);
     expect(hasAdminShellAccess(['Customer'])).toBe(false);
   });
 
@@ -29,6 +30,20 @@ describe('adminAccess', () => {
     expect(resolveAdminBusinessRole(['Admin'])).toBe('admin');
     expect(resolveAdminBusinessRole(['Customer'])).toBe('customer');
     expect(resolveAdminWorkflowAccess(['Support'])).toEqual({
+      rawRoles: ['support'],
+      businessRole: 'staff',
+      canManageReturnWorkflow: false,
+      canManageRefundWorkflow: false,
+      canAccessAdminShell: false,
+    });
+    expect(resolveAdminWorkflowAccess(['Support'], ['VIEW_RETURNS'])).toEqual({
+      rawRoles: ['support'],
+      businessRole: 'staff',
+      canManageReturnWorkflow: false,
+      canManageRefundWorkflow: false,
+      canAccessAdminShell: true,
+    });
+    expect(resolveAdminWorkflowAccess(['Support'], ['MANAGE_RETURNS'])).toEqual({
       rawRoles: ['support'],
       businessRole: 'staff',
       canManageReturnWorkflow: true,
@@ -50,17 +65,40 @@ describe('adminAccess', () => {
   });
 
   it('routes support users to the returns landing page', () => {
-    expect(getAdminLandingPath(['Support'])).toBe('/admin/returns');
-    expect(getAdminLandingPath(['Staff'])).toBe('/admin/returns');
+    expect(getAdminLandingPath(['Support'])).toBe('/');
+    expect(getAdminLandingPath(['Staff'])).toBe('/');
     expect(getAdminLandingPath(['Admin'])).toBe('/admin');
+    expect(getAdminLandingPath(['Support'], ['VIEW_RETURNS'])).toBe('/admin/returns');
+    expect(getAdminLandingPath(['Support'], ['VIEW_ORDER'])).toBe('/admin/orders');
+    expect(getAdminLandingPath(['Customer'])).toBe('/');
   });
 
-  it('restricts support access to the returns route only', () => {
-    expect(canAccessAdminPath('/admin/returns', ['Support'])).toBe(true);
-    expect(canAccessAdminPath('/admin/returns', ['Staff'])).toBe(true);
+  it('requires explicit returns permissions for staff returns access', () => {
+    expect(canAccessAdminPath('/admin/returns', ['Support'])).toBe(false);
+    expect(canAccessAdminPath('/admin/returns', ['Staff'])).toBe(false);
     expect(canAccessAdminPath('/admin/orders', ['Support'])).toBe(false);
     expect(canAccessAdminPath('/admin/orders', ['Staff'])).toBe(false);
     expect(canAccessAdminPath('/admin/orders/:id', ['Support'])).toBe(false);
+    expect(canAccessAdminPath('/admin/returns', ['Support'], ['VIEW_ORDER'])).toBe(false);
+    expect(canAccessAdminPath('/admin/returns', ['Support'], ['VIEW_RETURNS'])).toBe(true);
+    expect(canAccessAdminPath('/admin/returns', ['Support'], ['MANAGE_RETURNS'])).toBe(true);
+  });
+
+  it('uses assigned permission codes to resolve staff route access', () => {
+    expect(canAccessAdminPath('/admin/returns', ['Support'], ['VIEW_RETURNS'])).toBe(true);
+    expect(canAccessAdminPath('/admin/returns', ['Support'], ['MANAGE_RETURNS'])).toBe(true);
+    expect(canAccessAdminPath('/admin/orders', ['Support'], ['VIEW_ORDER'])).toBe(true);
+    expect(canAccessAdminPath('/admin/orders/:id', ['Support'], ['VIEW_ORDER'])).toBe(true);
+    expect(canAccessAdminPath('/admin/customers', ['Support'], ['VIEW_CUSTOMER'])).toBe(true);
+    expect(canAccessAdminPath('/admin/restock', ['Support'], ['VIEW_INVENTORY'])).toBe(true);
+    expect(canAccessAdminPath('/admin/restock', ['Support'], ['EDIT_INVENTORY'])).toBe(true);
+    expect(canAccessAdminPath('/admin/coupons', ['Support'], ['MANAGE_COUPON'])).toBe(true);
+    expect(canAccessAdminPath('/admin/analytics', ['Support'], ['VIEW_REVENUE'])).toBe(true);
+    expect(canAccessAdminPath('/admin/products', ['Support'], ['VIEW_PRODUCT'])).toBe(true);
+    expect(canAccessAdminPath('/admin/products/create', ['Support'], ['CREATE_PRODUCT'])).toBe(true);
+    expect(canAccessAdminPath('/admin/products/12/edit', ['Support'], ['EDIT_PRODUCT'])).toBe(true);
+    expect(canAccessAdminPath('/admin/categories', ['Support'], ['EDIT_PRODUCT'])).toBe(true);
+    expect(canAccessAdminPath('/admin/roles', ['Support'], ['MANAGE_RETURNS'])).toBe(false);
     expect(canAccessAdminPath('/admin/products', ['Admin'])).toBe(true);
   });
 });
