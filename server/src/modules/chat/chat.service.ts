@@ -580,47 +580,25 @@ const ensureTelemetryTable = async () => {
   if (!telemetryTableReady) {
     telemetryTableReady = (async () => {
       await prisma.$executeRawUnsafe(`
-        IF OBJECT_ID(N'dbo.${CHAT_TELEMETRY_TABLE}', N'U') IS NULL
-        BEGIN
-          CREATE TABLE dbo.${CHAT_TELEMETRY_TABLE} (
-            ChatTelemetryEventId INT IDENTITY(1,1) PRIMARY KEY,
-            Event NVARCHAR(40) NOT NULL,
-            Page NVARCHAR(20) NOT NULL,
-            SessionId NVARCHAR(64) NOT NULL,
-            ProductId INT NULL,
-            MessageLength INT NULL,
-            ConversationLength INT NULL,
-            Target NVARCHAR(200) NULL,
-            Label NVARCHAR(80) NULL,
-            Placement NVARCHAR(30) NULL,
-            HasContextSummary BIT NOT NULL CONSTRAINT DF_${CHAT_TELEMETRY_TABLE}_HasContextSummary DEFAULT 0,
-            IpAddress NVARCHAR(64) NULL,
-            UserAgent NVARCHAR(200) NULL,
-            CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_${CHAT_TELEMETRY_TABLE}_CreatedAt DEFAULT SYSUTCDATETIME()
-          );
-        END;
-
-        IF NOT EXISTS (
-          SELECT 1
-          FROM sys.indexes
-          WHERE name = N'IX_${CHAT_TELEMETRY_TABLE}_CreatedAt'
-            AND object_id = OBJECT_ID(N'dbo.${CHAT_TELEMETRY_TABLE}')
-        )
-        BEGIN
-          CREATE INDEX IX_${CHAT_TELEMETRY_TABLE}_CreatedAt
-          ON dbo.${CHAT_TELEMETRY_TABLE}(CreatedAt);
-        END;
-
-        IF NOT EXISTS (
-          SELECT 1
-          FROM sys.indexes
-          WHERE name = N'IX_${CHAT_TELEMETRY_TABLE}_EventPage'
-            AND object_id = OBJECT_ID(N'dbo.${CHAT_TELEMETRY_TABLE}')
-        )
-        BEGIN
-          CREATE INDEX IX_${CHAT_TELEMETRY_TABLE}_EventPage
-          ON dbo.${CHAT_TELEMETRY_TABLE}(Event, Page);
-        END;
+        CREATE TABLE IF NOT EXISTS ${CHAT_TELEMETRY_TABLE} (
+          ChatTelemetryEventId BIGINT NOT NULL AUTO_INCREMENT,
+          Event VARCHAR(40) NOT NULL,
+          Page VARCHAR(20) NOT NULL,
+          SessionId VARCHAR(64) NOT NULL,
+          ProductId INT NULL,
+          MessageLength INT NULL,
+          ConversationLength INT NULL,
+          Target VARCHAR(200) NULL,
+          Label VARCHAR(80) NULL,
+          Placement VARCHAR(30) NULL,
+          HasContextSummary BOOLEAN NOT NULL DEFAULT FALSE,
+          IpAddress VARCHAR(64) NULL,
+          UserAgent VARCHAR(200) NULL,
+          CreatedAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+          PRIMARY KEY (ChatTelemetryEventId),
+          INDEX IX_${CHAT_TELEMETRY_TABLE}_CreatedAt (CreatedAt),
+          INDEX IX_${CHAT_TELEMETRY_TABLE}_EventPage (Event, Page)
+        );
       `);
     })().catch((error) => {
       telemetryTableReady = null;
@@ -697,10 +675,10 @@ export const chatService = {
       userAgent: requestMeta?.userAgent ? trimText(requestMeta.userAgent, 200) : null,
     };
 
-    try {
+      try {
       await ensureTelemetryTable();
       await prisma.$executeRaw`
-        INSERT INTO dbo.ChatTelemetryEvents (
+        INSERT INTO ChatTelemetryEvents (
           Event,
           Page,
           SessionId,
@@ -763,7 +741,7 @@ export const chatService = {
           SUM(CASE WHEN Event = 'chat_cta_click' THEN 1 ELSE 0 END) AS ctaClicks,
           SUM(CASE WHEN Event = 'chat_product_click' THEN 1 ELSE 0 END) AS productClicks,
           COUNT(DISTINCT SessionId) AS uniqueSessions
-        FROM dbo.ChatTelemetryEvents
+        FROM ChatTelemetryEvents
         WHERE CreatedAt >= ${start} AND CreatedAt <= ${end}
       `,
       prisma.$queryRaw<Array<{
@@ -779,7 +757,7 @@ export const chatService = {
           SUM(CASE WHEN Event = 'chat_send' THEN 1 ELSE 0 END) AS sends,
           SUM(CASE WHEN Event = 'chat_cta_click' THEN 1 ELSE 0 END) AS ctaClicks,
           SUM(CASE WHEN Event = 'chat_product_click' THEN 1 ELSE 0 END) AS productClicks
-        FROM dbo.ChatTelemetryEvents
+        FROM ChatTelemetryEvents
         WHERE CreatedAt >= ${start} AND CreatedAt <= ${end}
         GROUP BY Page
         ORDER BY Page ASC
@@ -789,17 +767,18 @@ export const chatService = {
         label: string | null;
         clicks: number | bigint | null;
       }>>`
-        SELECT TOP 6
+        SELECT
           Target AS target,
           MAX(Label) AS label,
           COUNT(*) AS clicks
-        FROM dbo.ChatTelemetryEvents
+        FROM ChatTelemetryEvents
         WHERE CreatedAt >= ${start}
           AND CreatedAt <= ${end}
           AND Event IN ('chat_cta_click', 'chat_product_click')
           AND Target IS NOT NULL
         GROUP BY Target
         ORDER BY clicks DESC, target ASC
+        LIMIT 6
       `,
       prisma.$queryRaw<Array<{
         label: string;
@@ -808,13 +787,13 @@ export const chatService = {
         clicks: number | bigint | null;
       }>>`
         SELECT
-          CONVERT(VARCHAR(10), CreatedAt, 23) AS label,
+          DATE_FORMAT(CreatedAt, '%Y-%m-%d') AS label,
           SUM(CASE WHEN Event = 'chat_open' THEN 1 ELSE 0 END) AS opens,
           SUM(CASE WHEN Event = 'chat_send' THEN 1 ELSE 0 END) AS sends,
           SUM(CASE WHEN Event IN ('chat_cta_click', 'chat_product_click') THEN 1 ELSE 0 END) AS clicks
-        FROM dbo.ChatTelemetryEvents
+        FROM ChatTelemetryEvents
         WHERE CreatedAt >= ${start} AND CreatedAt <= ${end}
-        GROUP BY CONVERT(VARCHAR(10), CreatedAt, 23)
+        GROUP BY DATE(CreatedAt)
         ORDER BY label ASC
       `,
     ]);

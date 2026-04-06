@@ -80,8 +80,8 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
             if (isYearRange) {
                 const rows: Array<{ label: string; revenue: string | number }> = await prisma.$queryRaw`
           SELECT
-            CONVERT(char(7), DATEFROMPARTS(YEAR(CreatedAt), MONTH(CreatedAt), 1), 120) AS label,
-            SUM(CAST(TotalAmount AS FLOAT)) AS revenue
+            DATE_FORMAT(CreatedAt, '%Y-%m') AS label,
+            SUM(TotalAmount) AS revenue
           FROM Orders
           WHERE CreatedAt >= ${start} AND CreatedAt <= ${end}
             AND UPPER(Status) IN ('DELIVERED', 'COMPLETED')
@@ -92,12 +92,12 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
             } else {
                 const rows: Array<{ label: string; revenue: string | number }> = await prisma.$queryRaw`
           SELECT
-            CONVERT(char(10), CAST(CreatedAt AS date), 23) AS label,
-            SUM(CAST(TotalAmount AS FLOAT)) AS revenue
+            DATE_FORMAT(CreatedAt, '%Y-%m-%d') AS label,
+            SUM(TotalAmount) AS revenue
           FROM Orders
           WHERE CreatedAt >= ${start} AND CreatedAt <= ${end}
             AND UPPER(Status) IN ('DELIVERED', 'COMPLETED')
-          GROUP BY CAST(CreatedAt AS date)
+          GROUP BY DATE(CreatedAt)
           ORDER BY label ASC
         `;
                 return rows.map((r) => ({ label: r.label, revenue: Number(r.revenue ?? 0) }));
@@ -117,14 +117,15 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
                 TotalSold: string | number;
                 ImageUrl: string | null;
             }> = await prisma.$queryRaw`
-        SELECT TOP 5
+        SELECT
           p.ProductId,
           p.Name AS ProductName,
           SUM(oi.Quantity) AS TotalSold,
           (
-            SELECT TOP 1 pi2.ImageUrl
+            SELECT pi2.ImageUrl
             FROM ProductImages pi2
             WHERE pi2.ProductId = p.ProductId AND pi2.IsPrimary = 1
+            LIMIT 1
           ) AS ImageUrl
         FROM OrderItems oi
         INNER JOIN Orders o ON oi.OrderId = o.OrderId
@@ -134,6 +135,7 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
           AND UPPER(o.Status) IN ('DELIVERED', 'COMPLETED')
         GROUP BY p.ProductId, p.Name
         ORDER BY TotalSold DESC
+        LIMIT 5
       `;
             return rows.map((r) => ({
                 productId: r.ProductId,

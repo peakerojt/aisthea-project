@@ -78,8 +78,8 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
             orders: number | string;
         }> = await prisma.$queryRaw`
       SELECT
-        COALESCE(c.Name, N'Chưa phân loại') AS category,
-        SUM(CAST(oi.UnitPrice AS FLOAT) * oi.Quantity) AS revenue,
+        COALESCE(c.Name, 'Chưa phân loại') AS category,
+        SUM(oi.UnitPrice * oi.Quantity) AS revenue,
         COUNT(DISTINCT o.OrderId) AS orders
       FROM OrderItems oi
       INNER JOIN Orders o        ON oi.OrderId    = o.OrderId
@@ -89,7 +89,7 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
       WHERE o.CreatedAt >= ${start}
         AND o.CreatedAt <= ${end}
         AND UPPER(o.Status) IN ('DELIVERED', 'COMPLETED')
-      GROUP BY COALESCE(c.Name, N'Chưa phân loại')
+      GROUP BY COALESCE(c.Name, 'Chưa phân loại')
       ORDER BY revenue DESC
     `;
 
@@ -125,13 +125,13 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
             orders: number | string;
         }> = await prisma.$queryRaw`
       SELECT
-        FORMAT(o.CreatedAt, 'yyyy-MM') AS label,
-        SUM(CASE WHEN UPPER(o.Status) IN ('DELIVERED', 'COMPLETED') THEN CAST(o.TotalAmount AS FLOAT) ELSE 0 END) AS revenue,
+        DATE_FORMAT(o.CreatedAt, '%Y-%m') AS label,
+        SUM(CASE WHEN UPPER(o.Status) IN ('DELIVERED', 'COMPLETED') THEN o.TotalAmount ELSE 0 END) AS revenue,
         COUNT(o.OrderId) AS orders
       FROM Orders o
       WHERE o.CreatedAt >= ${start}
         AND o.CreatedAt <= ${end}
-      GROUP BY FORMAT(o.CreatedAt, 'yyyy-MM')
+      GROUP BY YEAR(o.CreatedAt), MONTH(o.CreatedAt)
       ORDER BY label ASC
     `;
 
@@ -143,11 +143,11 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
             totalSpent: number | string;
             orderCount: number | string;
         }> = await prisma.$queryRaw`
-      SELECT TOP 5
+      SELECT
         u.UserId      AS userId,
         u.FullName    AS fullName,
         u.Email       AS email,
-        SUM(CAST(o.TotalAmount AS FLOAT)) AS totalSpent,
+        SUM(o.TotalAmount) AS totalSpent,
         COUNT(o.OrderId) AS orderCount
       FROM Orders o
       INNER JOIN Users u ON o.UserId = u.UserId
@@ -157,6 +157,7 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
         AND o.UserId IS NOT NULL
       GROUP BY u.UserId, u.FullName, u.Email
       ORDER BY totalSpent DESC
+      LIMIT 5
     `;
 
         // ── 5. Most Cancelled Products ────────────────────────────────────────
@@ -166,11 +167,11 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
             cancelCount: number | string;
             lostRevenue: number | string;
         }> = await prisma.$queryRaw`
-      SELECT TOP 5
+      SELECT
         MIN(COALESCE(p.ProductId, -oi.OrderItemId)) AS productId,
         COALESCE(MAX(p.Name), MAX(oi.ProductName)) AS productName,
         COUNT(oi.OrderItemId) AS cancelCount,
-        SUM(CAST(oi.UnitPrice AS FLOAT) * oi.Quantity) AS lostRevenue
+        SUM(oi.UnitPrice * oi.Quantity) AS lostRevenue
       FROM OrderItems oi
       INNER JOIN Orders o           ON oi.OrderId   = o.OrderId
       LEFT JOIN ProductVariants pv  ON oi.VariantId = pv.VariantId
@@ -178,8 +179,9 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
       WHERE o.CreatedAt >= ${start}
         AND o.CreatedAt <= ${end}
         AND UPPER(o.Status) IN ('CANCELLED', 'CANCELED')
-      GROUP BY COALESCE(CAST(p.ProductId AS NVARCHAR(50)), CONCAT(N'SNAPSHOT:', oi.ProductName))
+      GROUP BY COALESCE(CAST(p.ProductId AS CHAR(50)), CONCAT('SNAPSHOT:', oi.ProductName))
       ORDER BY cancelCount DESC, productName ASC
+      LIMIT 5
     `;
 
         // ── 6. MoM Revenue Growth ─────────────────────────────────────────────
