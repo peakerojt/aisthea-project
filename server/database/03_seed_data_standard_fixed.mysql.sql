@@ -10,7 +10,8 @@
 -- - Converts Unicode string prefix N'...' -> '...'.
 -- =============================================================
 
--- Railway-ready import target: use the existing schema provisioned by Railway.
+-- Railway-ready import target: use the existing Railway MySQL schema.
+-- Application hosting can remain on Vercel or another platform.
 USE `railway`;
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;

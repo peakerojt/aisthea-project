@@ -29,7 +29,8 @@ A comprehensive E-commerce application built with a modern stack.
 ### Prerequisites
 - [Node.js](https://nodejs.org/) (v16+)
 - [MySQL](https://dev.mysql.com/downloads/mysql/) for local development
-- A Railway project with a MySQL service for production deployment
+- A Railway MySQL service for the database
+- A Vercel project for the frontend application
 
 ### Configuration
 1. Clone the repository
@@ -40,6 +41,7 @@ A comprehensive E-commerce application built with a modern stack.
    REFRESH_SECRET="your-refresh-secret"
    ```
 3. Copy `server/.env.example` and fill in OAuth, SMTP, Cloudinary, weather, and AI keys if you want live integrations.
+4. For the Vercel frontend, set `VITE_SERVER_URL` to your deployed backend URL.
 
 ### Database Setup
 1. Ensure `DATABASE_URL` points to a MySQL database.
@@ -50,19 +52,15 @@ A comprehensive E-commerce application built with a modern stack.
    - Run `npx prisma db seed` for the Prisma seed data.
    - Import `server/database/03_seed_data_standard_fixed.mysql.bulk.sql` if you want the converted catalog data prepared for Railway/MySQL.
 
-### Railway Deployment
-1. Create a Railway service that points to the repo folder `server` as the `Root Directory`.
-2. Provision a Railway MySQL service in the same project.
-3. In the server service variables, set `DATABASE_URL` to the Railway MySQL connection string and update:
-   - `CLIENT_URL`
-   - `SERVER_URL`
-   - `JWT_SECRET`
-   - `REFRESH_SECRET`
-   - any OAuth, SMTP, Cloudinary, VNPay, or AI secrets you use
-4. Railway will run the server package scripts:
-   - build: `npm run build`
-   - start: `npm run start`
-5. After the first deploy, run `npx prisma db push` against the Railway database, then import the MySQL seed file if needed.
+### Deployment Split
+1. Deploy the frontend from the `client` folder to Vercel.
+2. Use Railway only for the MySQL database.
+3. Point the backend `DATABASE_URL` to the Railway MySQL connection string.
+4. Set `CLIENT_URL` in the backend to your Vercel domain, for example `https://your-app.vercel.app`.
+5. Set `VITE_SERVER_URL` in Vercel to your deployed backend URL.
+6. After the first database provision, run `npx prisma db push` against the Railway database, then import the MySQL seed file if needed.
+
+> Assumption: Vercel is used for the frontend application. The current `server` folder is still a standalone Express backend and has not been refactored into a Vercel serverless API.
 
 ### Run Server
 ```bash
