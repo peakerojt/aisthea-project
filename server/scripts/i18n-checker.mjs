@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ROOT = path.resolve(__dirname, '..');
-const BASELINE_FILE = path.join(ROOT, 'scripts', 'i18n-unused-baseline.json');
+const ROOT = path.resolve(__dirname, '..', '..');
+const BASELINE_FILE = path.join(ROOT, 'server', 'scripts', 'i18n-unused-baseline.json');
 const UPDATE_BASELINE = process.argv.includes('--update-baseline');
 const ACTIVE_ROUTE_FILES = [
   path.join(ROOT, 'client', 'src', 'app', 'routes', 'storeRoutes.tsx'),
