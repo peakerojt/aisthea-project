@@ -445,7 +445,7 @@ export const Collection: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-16 pb-32">
               {[...Array(8)].map((_, i) => (
                 <div key={i} className="flex flex-col gap-4 animate-pulse">
-                  <div className="aspect-[3/4] w-full bg-white/5 rounded-sm" />
+                  <div className="aspect-square w-full bg-white/5" />
                   <div className="py-2 flex flex-col gap-2">
                     <div className="h-4 bg-white/5 rounded w-3/4" />
                     <div className="h-3 bg-white/5 rounded w-1/3" />
