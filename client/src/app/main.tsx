@@ -93,6 +93,7 @@ root.render(
               <RouteTreeSwitch />
               <SpeedInsights />
             </BrowserRouter>
+            <SpeedInsights />
           </QueryClientProvider>
         </CartProvider>
       </AuthProvider>
