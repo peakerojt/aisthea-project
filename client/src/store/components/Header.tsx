@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { History, Search as SearchIcon, SearchX, ShoppingBag, User, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Logo } from '@/common/components/Logo';
 import { useAuth } from '@/common/contexts/AuthContext';
@@ -40,6 +41,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [isSearchMounted, setIsSearchMounted] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const isLoadingSearchCatalogRef = React.useRef(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('recentSearches');
@@ -71,34 +73,29 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
     localStorage.removeItem('recentSearches');
   };
 
-  useEffect(() => {
-    if (hasLoadedSearchCatalog) return;
+  const ensureSearchCatalogLoaded = async () => {
+    if (hasLoadedSearchCatalog || isLoadingSearchCatalogRef.current) {
+      return;
+    }
 
-    let isMounted = true;
+    isLoadingSearchCatalogRef.current = true;
+    setIsSearching(true);
 
-    const loadSearchCatalog = async () => {
-      setIsSearching(true);
+    try {
+      const data = await fetchProducts({ limit: 100, status: 'Active' });
+      setSearchCatalog(data);
+      setHasLoadedSearchCatalog(true);
+    } catch {
+    } finally {
+      isLoadingSearchCatalogRef.current = false;
+      setIsSearching(false);
+    }
+  };
 
-      try {
-        const data = await fetchProducts({ limit: 100, status: 'Active' });
-        if (!isMounted) return;
-
-        setSearchCatalog(data);
-        setHasLoadedSearchCatalog(true);
-      } catch {
-      } finally {
-        if (isMounted) {
-          setIsSearching(false);
-        }
-      }
-    };
-
-    loadSearchCatalog();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [hasLoadedSearchCatalog]);
+  const openSearchPanel = () => {
+    setIsSearchActive(true);
+    void ensureSearchCatalogLoaded();
+  };
 
   useEffect(() => {
     if (!searchTerm.trim()) {
@@ -249,7 +246,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
               >
                 <div className="border-b border-white/8 px-4">
                   <div className="flex h-14 items-center gap-3">
-                    <span className="material-symbols-outlined text-xl text-white/45">search</span>
+                    <SearchIcon size={18} className="text-white/45" aria-hidden="true" />
                     <input
                       ref={inputRef}
                       type="text"
@@ -266,7 +263,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
                         onClick={() => setSearchTerm('')}
                         className="rounded-full p-1 text-white/40 transition-colors duration-150 hover:bg-white/8 hover:text-white"
                       >
-                        <span className="material-symbols-outlined text-lg">close</span>
+                        <X size={16} aria-hidden="true" />
                       </button>
                     )}
                   </div>
@@ -306,9 +303,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
                               }}
                               className="flex flex-1 items-center gap-3 px-4 py-4 text-left"
                             >
-                              <span className="material-symbols-outlined text-sm text-gray-500 transition-colors duration-150 group-hover:text-white/70">
-                                history
-                              </span>
+                              <History size={14} className="text-gray-500 transition-colors duration-150 group-hover:text-white/70" aria-hidden="true" />
                               <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white">{term}</span>
                             </button>
 
@@ -316,7 +311,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
                               onClick={() => removeRecentSearch(term)}
                               className="px-4 py-4 text-gray-500 transition-colors duration-150 hover:text-white"
                             >
-                              <span className="material-symbols-outlined text-sm">close</span>
+                              <X size={14} aria-hidden="true" />
                             </button>
                           </div>
                         ))}
@@ -360,7 +355,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
                       </div>
                     ) : searchTerm.trim() !== '' && hasLoadedSearchCatalog && !isSearching ? (
                       <div className="flex flex-col items-center gap-3 px-6 py-8 text-center">
-                        <span className="material-symbols-outlined text-3xl text-white/20">sentiment_dissatisfied</span>
+                        <SearchX size={30} className="text-white/20" aria-hidden="true" />
                         <p className="text-[10px] font-bold uppercase tracking-[0.18em] leading-relaxed text-gray-500">
                           {EMPTY_RESULTS_LABEL}
                         </p>
@@ -381,16 +376,23 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
             )}
 
             <button
-              onClick={() => setIsSearchActive((current) => !current)}
+              onClick={() => {
+                if (isSearchActive) {
+                  setIsSearchActive(false);
+                  return;
+                }
+
+                openSearchPanel();
+              }}
               className={`relative z-20 rounded-full p-2 text-white/90 transition-all duration-150 hover:bg-white/8 hover:text-white ${isSearchActive ? 'bg-white/10 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)]' : ''}`}
             >
-              <span className="material-symbols-outlined text-2xl">search</span>
+              <SearchIcon size={22} aria-hidden="true" />
             </button>
 
           </div>
 
           <button onClick={() => navigate('/cart')} className="relative p-2 text-white/90 hover:text-white">
-            <span className="material-symbols-outlined text-2xl">shopping_bag</span>
+            <ShoppingBag size={22} aria-hidden="true" />
             {totalItems > 0 && (
               <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-black text-white ring-2 ring-bg-dark">
                 {totalItems}
@@ -403,7 +405,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
             className="p-2 text-white/90 hover:text-white"
             title={user ? PROFILE_TITLE : LOGIN_TITLE}
           >
-            <span className="material-symbols-outlined text-2xl">person</span>
+            <User size={22} aria-hidden="true" />
           </button>
         </div>
       </div>

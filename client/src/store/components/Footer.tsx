@@ -113,7 +113,7 @@ export const Footer: React.FC = () => {
             </ul>
           </div>
 
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6 lg:min-h-[24rem]">
             <h3 className="text-sm font-bold uppercase tracking-widest text-white">{t('footer.contact_newsletter')}</h3>
 
             <ul className="flex flex-col gap-4 text-sm text-gray-400">
@@ -146,38 +146,40 @@ export const Footer: React.FC = () => {
               {t('footer.newsletter.copy')}
             </p>
 
-            {submitted ? (
-              <div className="flex items-center gap-2 text-emerald-400 text-sm py-2">
-                <CheckCircle size={16} />
-                <span>{t('footer.newsletter.success')}</span>
-              </div>
-            ) : (
-              <form onSubmit={handleSubscribe}>
-                <div className="relative flex items-center">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder={t('footer.email_placeholder')}
-                    required
-                    disabled={loading}
-                    className="w-full bg-white/5 border border-white/10 text-white text-sm px-4 py-3 rounded-sm focus:outline-none focus:border-white/30 transition-colors pr-12 placeholder:text-gray-500 disabled:opacity-60"
-                  />
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    aria-label={t('footer.newsletter.subscribeAria')}
-                    className="absolute right-0 h-full px-4 text-gray-400 hover:text-white transition-colors flex items-center justify-center disabled:opacity-40"
-                  >
-                    {loading ? (
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <ArrowRight size={18} />
-                    )}
-                  </button>
+            <div className="min-h-[56px]">
+              {submitted ? (
+                <div className="flex min-h-[56px] items-center gap-2 py-2 text-sm text-emerald-400">
+                  <CheckCircle size={16} />
+                  <span>{t('footer.newsletter.success')}</span>
                 </div>
-              </form>
-            )}
+              ) : (
+                <form onSubmit={handleSubscribe}>
+                  <div className="relative flex items-center">
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder={t('footer.email_placeholder')}
+                      required
+                      disabled={loading}
+                      className="w-full bg-white/5 border border-white/10 text-white text-sm px-4 py-3 rounded-sm focus:outline-none focus:border-white/30 transition-colors pr-12 placeholder:text-gray-500 disabled:opacity-60"
+                    />
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      aria-label={t('footer.newsletter.subscribeAria')}
+                      className="absolute right-0 flex h-full items-center justify-center px-4 text-gray-400 transition-colors hover:text-white disabled:opacity-40"
+                    >
+                      {loading ? (
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <ArrowRight size={18} />
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       </div>

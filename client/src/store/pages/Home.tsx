@@ -1,13 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, ChevronRight, Layers3, MessageCircleMore, ShieldCheck, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
 import { useProductsAPI } from '@/common/hooks/useProducts';
 import { ProductCard } from '@/common/components/ProductCard';
-import { ChatWidget } from '@/common/components/ChatWidget';
 import { ProductItem } from '@/types';
 import { Product } from '@/common/services/product.service';
 import { useTranslation } from 'react-i18next';
+
+const ChatWidget = React.lazy(() => import('@/common/components/ChatWidget').then((m) => ({ default: m.ChatWidget })));
 
 type HomeTabKey = 'Unisex' | 'Men' | 'Women';
 
@@ -57,6 +58,7 @@ export const Home: React.FC = () => {
   const navigate = useNavigate();
   const { data: rawProducts = [], isLoading: loading } = useProductsAPI();
   const [selectedGender, setSelectedGender] = useState<HomeTabKey>('Unisex');
+  const [shouldRenderChatWidget, setShouldRenderChatWidget] = useState(false);
   const sectionBorderClass = 'border-white/6';
   const cardBorderClass = 'border-white/12';
   const chipBorderClass = 'border-white/8';
@@ -198,7 +200,7 @@ export const Home: React.FC = () => {
         label: t('category.cards.men.label'),
         title: t('category.cards.men.title'),
         description: t('category.cards.men.description'),
-        image: 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?q=80&w=1600&auto=format&fit=crop',
+        image: '/images/home/category-men-960.webp',
         links: [
           { label: t('category.cards.men.links.tailoring'), collection: 'Outerwear' as const },
           { label: t('category.cards.men.links.shirts'), collection: 'Tops' as const },
@@ -210,7 +212,7 @@ export const Home: React.FC = () => {
         label: t('category.cards.women.label'),
         title: t('category.cards.women.title'),
         description: t('category.cards.women.description'),
-        image: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=1600&auto=format&fit=crop',
+        image: '/images/home/category-women-960.webp',
         links: [
           { label: t('category.cards.women.links.outerwear'), collection: 'Outerwear' as const },
           { label: t('category.cards.women.links.knitwear'), collection: 'Tops' as const },
@@ -238,6 +240,30 @@ export const Home: React.FC = () => {
     ],
     [t]
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    if ('requestIdleCallback' in window) {
+      const idleId = window.requestIdleCallback(() => {
+        setShouldRenderChatWidget(true);
+      }, { timeout: 1800 });
+
+      return () => {
+        window.cancelIdleCallback(idleId);
+      };
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setShouldRenderChatWidget(true);
+    }, 1200);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   const skeletonGrid = (
     <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
@@ -302,14 +328,27 @@ export const Home: React.FC = () => {
 
             <div className="relative mx-auto w-full max-w-[42rem] lg:mx-0 lg:justify-self-end">
               <div className="relative h-[27rem] overflow-hidden rounded-[2.5rem] border border-white/10 bg-black md:h-[34rem] lg:h-[min(70vh,42rem)]">
-                <img
-                  src="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2500&auto=format&fit=crop"
-                  alt="Luxury fashion editorial"
-                  width={2500}
-                  height={3125}
-                  fetchPriority="high"
-                  className="absolute inset-0 h-full w-full object-cover object-center"
-                />
+                <picture className="absolute inset-0 block h-full w-full">
+                  <source
+                    type="image/avif"
+                    srcSet="/images/home/hero-960.avif 960w, /images/home/hero-1440.avif 1440w"
+                    sizes="(min-width: 1280px) 42rem, (min-width: 768px) 34rem, calc(100vw - 3rem)"
+                  />
+                  <source
+                    type="image/webp"
+                    srcSet="/images/home/hero-960.webp 960w, /images/home/hero-1440.webp 1440w"
+                    sizes="(min-width: 1280px) 42rem, (min-width: 768px) 34rem, calc(100vw - 3rem)"
+                  />
+                  <img
+                    src="/images/home/hero-960.webp"
+                    alt="Luxury fashion editorial"
+                    width={960}
+                    height={1200}
+                    fetchPriority="high"
+                    decoding="async"
+                    className="absolute inset-0 h-full w-full object-cover object-center"
+                  />
+                </picture>
                 <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,8,8,0.1),rgba(8,8,8,0.32)_56%,rgba(8,8,8,0.54)_100%)]" />
                 <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.18),transparent_34%,rgba(0,0,0,0.26))]" />
 
@@ -330,7 +369,10 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      <section className={`border-b bg-bg-dark ${sectionBorderClass}`}>
+      <section
+        className={`border-b bg-bg-dark ${sectionBorderClass}`}
+        style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 1120px' }}
+      >
         <div className="mx-auto w-full max-w-[1440px] px-6 py-24 md:px-12">
           <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-8">
             <div className="max-w-2xl">
@@ -413,7 +455,10 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      <section className={`border-b bg-[#090909] ${sectionBorderClass}`}>
+      <section
+        className={`border-b bg-[#090909] ${sectionBorderClass}`}
+        style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 560px' }}
+      >
         <div className="mx-auto w-full max-w-[1440px] px-6 py-24 md:px-12">
           <div className="group/brand-marquee relative py-4">
             <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-7 bg-gradient-to-r from-[#090909] via-[#090909]/94 to-transparent md:w-16" />
@@ -461,7 +506,10 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      <section className={`border-b bg-bg-dark ${sectionBorderClass}`}>
+      <section
+        className={`border-b bg-bg-dark ${sectionBorderClass}`}
+        style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 1080px' }}
+      >
         <div className="mx-auto w-full max-w-[1440px] px-6 py-24 md:px-12">
           <div className="max-w-2xl">
             <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-primary/90">
@@ -481,9 +529,14 @@ export const Home: React.FC = () => {
                 key={card.key}
                 className={`group relative min-h-[27rem] overflow-hidden rounded-[2rem] border bg-black/25 ${cardBorderClass}`}
               >
-                <div
-                  className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                  style={{ backgroundImage: `url(${card.image})` }}
+                <img
+                  src={card.image}
+                  alt={card.title}
+                  loading="lazy"
+                  decoding="async"
+                  width={960}
+                  height={1200}
+                  className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/50 to-black/18" />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/68 via-black/24 to-transparent" />
@@ -524,7 +577,10 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      <section className="bg-[#070707]">
+      <section
+        className="bg-[#070707]"
+        style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 840px' }}
+      >
         <div className="mx-auto w-full max-w-[1440px] px-6 py-24 md:px-12">
           <div className={`overflow-hidden rounded-[2rem] border bg-[linear-gradient(135deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] shadow-[0_30px_90px_rgba(0,0,0,0.35)] ${cardBorderClass}`}>
             <div className="grid gap-10 p-8 md:p-10 lg:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)] lg:p-12">
@@ -598,7 +654,11 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      <ChatWidget page="home" />
+      {shouldRenderChatWidget ? (
+        <Suspense fallback={null}>
+          <ChatWidget page="home" />
+        </Suspense>
+      ) : null}
     </div>
   );
 };

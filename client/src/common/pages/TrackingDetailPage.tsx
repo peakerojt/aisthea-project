@@ -309,7 +309,6 @@ export function TrackingDetailPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center"
         style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-        <style>{`@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');`}</style>
         <div className="flex flex-col items-center gap-4">
           <div className="size-12 rounded-full border-4 border-blue-500/30 border-t-blue-500 animate-spin" />
           <span className="text-slate-400 text-sm">{resolveText('page.loadingOrder', 'Đang tải thông tin đơn hàng...')}</span>
@@ -323,7 +322,6 @@ export function TrackingDetailPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center px-4"
         style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-        <style>{`@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');`}</style>
         <div className="bg-white/5 border border-red-500/20 rounded-2xl p-8 max-w-sm text-center">
           <AlertTriangle className="size-10 text-red-400 mx-auto mb-3" />
           <p className="text-white font-semibold mb-2">{resolveText('page.genericError', 'Có lỗi xảy ra')}</p>
@@ -352,7 +350,6 @@ export function TrackingDetailPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
       style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');`}</style>
 
       <div className="mx-auto max-w-2xl px-4 py-8 space-y-4">
 

@@ -87,12 +87,13 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
             role="alert"
             aria-live="polite"
             style={{
-                transform: visible ? 'translateX(0) scale(1)' : 'translateX(100%) scale(0.95)',
+                transform: visible ? 'translate3d(0, 0, 0) scale(1)' : 'translate3d(100%, 0, 0) scale(0.95)',
                 opacity: visible ? 1 : 0,
                 transition: 'transform 350ms cubic-bezier(0.34,1.56,0.64,1), opacity 300ms ease',
+                contain: 'layout paint',
             }}
             className={`
-                relative flex items-start gap-3 w-80
+                relative flex min-h-[88px] items-start gap-3 w-80
                 ${cfg.bg} backdrop-blur-2xl
                 border ${cfg.border}
                 rounded-sm px-4 py-3.5
@@ -117,11 +118,13 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
                 <p className="text-white font-bold text-sm leading-snug tracking-wide">
                     {toast.title}
                 </p>
-                {toast.subtitle && (
-                    <p className="text-gray-400 text-xs mt-0.5 leading-relaxed truncate">
-                        {toast.subtitle}
-                    </p>
-                )}
+                <div className="mt-0.5 min-h-[1.25rem]">
+                    {toast.subtitle ? (
+                        <p className="text-gray-400 text-xs leading-relaxed truncate">
+                            {toast.subtitle}
+                        </p>
+                    ) : null}
+                </div>
             </div>
 
             {/* Dismiss button */}
@@ -163,7 +166,7 @@ const ToastContainer: React.FC<{
     <div
         aria-label="Thông báo"
         className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none"
-        style={{ maxWidth: '320px' }}
+        style={{ maxWidth: '320px', contain: 'layout paint' }}
     >
         {toasts.map(t => (
             <div key={t.id} className="pointer-events-auto">
@@ -210,7 +213,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return (
         <ToastContext.Provider value={{ showToast, showCartToast }}>
             {children}
-            <ToastContainer toasts={toasts} onDismiss={dismiss} />
+            {toasts.length > 0 ? <ToastContainer toasts={toasts} onDismiss={dismiss} /> : null}
             {/* Inject keyframe animation */}
             <style>{`
                 @keyframes toast-progress {

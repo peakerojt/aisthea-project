@@ -118,7 +118,6 @@ export function TrackingLookupPage() {
       className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center px-4 py-12"
       style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}
     >
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');`}</style>
       <div className="fixed top-5 left-5 z-10">
         <button
           onClick={() => navigate('/', { replace: true, state: { initialView: 'STORE_MY_ORDERS' } })}
