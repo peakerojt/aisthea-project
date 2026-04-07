@@ -1,36 +1,13 @@
-import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma';
-import { sendVerificationEmail } from './email.service';
+import { notificationService } from '../modules/notifications/notification.service';
+import { serializeMailError } from '../modules/notifications/email.providers';
 import { logger } from '../lib/logger';
 import { AppError } from '../middlewares/error.middleware';
 
 const TOKEN_EXPIRY_HOURS = 24;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const REFRESH_SECRET = process.env.REFRESH_SECRET || 'your-refresh-secret';
-
-const serializeVerificationError = (error: unknown) => {
-    if (error instanceof Error) {
-        const detailedError = error as Error & {
-            code?: string;
-            command?: string;
-            response?: string;
-            responseCode?: number;
-        };
-
-        return {
-            name: detailedError.name,
-            message: detailedError.message,
-            code: detailedError.code,
-            command: detailedError.command,
-            responseCode: detailedError.responseCode,
-            response: detailedError.response,
-            stack: detailedError.stack,
-        };
-    }
-
-    return { value: error };
-};
 
 /**
  * Generate a 6-digit verification code
@@ -41,36 +18,43 @@ const generateVerificationCode = (): string => {
 };
 
 /**
- * Create a verification token for a user and send verification email
+ * Create a verification token for a user and enqueue verification email delivery.
  */
 export const createVerificationToken = async (userId: number, email: string, fullName: string) => {
-    // Delete any existing tokens for this user
-    await prisma.emailVerificationToken.deleteMany({
-        where: { userId },
-    });
-
-    // Generate new 6-digit verification code
     const token = generateVerificationCode();
     const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
 
-    // Save token to database FIRST
-    await prisma.emailVerificationToken.create({
-        data: {
-            userId,
-            token,
-            expiresAt,
-        },
-    });
-
     try {
-        await sendVerificationEmail(email, token, fullName);
+        await prisma.$transaction(async (tx) => {
+            await tx.emailVerificationToken.deleteMany({
+                where: { userId },
+            });
+
+            await tx.emailVerificationToken.create({
+                data: {
+                    userId,
+                    token,
+                    expiresAt,
+                },
+            });
+
+            await notificationService.enqueueVerificationEmail(
+                {
+                    userId,
+                    email,
+                    fullName,
+                    code: token,
+                },
+                tx,
+            );
+        });
     } catch (error) {
-        logger.error('[verificationService] Failed to send verification email', {
-            verificationError: serializeVerificationError(error),
+        logger.error('[verificationService] Failed to enqueue verification email', {
+            enqueueError: serializeMailError(error),
             userId,
             email,
         });
-        throw new AppError(503, 'EMAIL_SEND_FAILED', 'auth:errors.verificationEmailFailed');
+        throw new AppError(503, 'EMAIL_ENQUEUE_FAILED', 'auth:errors.verificationEmailFailed');
     }
 
     return token;

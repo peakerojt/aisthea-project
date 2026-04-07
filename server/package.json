@@ -9,6 +9,7 @@
     "start": "node dist/src/index.js",
     "studio": "prisma studio",
     "postinstall": "prisma generate",
+    "prisma:sql": "node scripts/prisma-generate-sql.mjs",
     "repair:permission-catalog": "tsx src/scripts/repair-permission-catalog.ts",
     "repair:role-catalog": "tsx src/scripts/repair-role-catalog.ts",
     "repair:cod-return-locks": "tsx src/scripts/reconcile-cod-return-locks.ts",

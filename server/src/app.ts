@@ -36,6 +36,7 @@ import { vnpayModuleRoutes, refundModuleRoutes } from './modules/payments/paymen
 import weatherRoutes from './modules/weather/weather.routes';
 import outfitRoutes from './modules/outfit/outfit.routes';
 import chatRoutes from './modules/chat/chat.routes';
+import notificationModuleRoutes from './modules/notifications/notification.route';
 
 // ─── Deferred migration areas (intentionally out of this cleanup wave) ────────
 import orderModuleRoutes from './modules/order/order.route';
@@ -124,6 +125,7 @@ export function createApp() {
   app.use('/api/weather', weatherRoutes);
   app.use('/api/outfit', outfitRoutes);
   app.use('/api/chat', chatRoutes);
+  app.use('/api/notifications', notificationModuleRoutes);
 
   // ── Order/payment/return routes — left as-is during this cleanup wave ───────
   // ORDERING MATTERS: named paths before catch-all /:id

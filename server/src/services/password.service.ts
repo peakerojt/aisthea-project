@@ -1,8 +1,10 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { prisma } from '../utils/prisma';
-import { sendPasswordResetEmail } from './email.service';
 import { AppError } from '../middlewares/error.middleware';
+import { notificationService } from '../modules/notifications/notification.service';
+import { serializeMailError } from '../modules/notifications/email.providers';
+import { logger } from '../lib/logger';
 
 const TOKEN_EXPIRY_HOURS = 1;
 const RESET_CODE_MIN = 100000;
@@ -28,8 +30,8 @@ const generateResetCode = async () => {
 };
 
 /**
- * Initiate password reset flow
- * Generates token and sends email
+ * Initiate password reset flow.
+ * Generates token and enqueues email delivery without blocking on provider IO.
  */
 export const createPasswordResetToken = async (email: string) => {
     const user = await prisma.user.findUnique({ where: { email } });
@@ -47,31 +49,38 @@ export const createPasswordResetToken = async (email: string) => {
         throw new AppError(400, 'GOOGLE_LOGIN_ONLY', 'auth:errors.googleLoginOnly');
     }
 
-    // Delete existing tokens
-    await prisma.passwordResetToken.deleteMany({ where: { userId: user.userId } });
-
-    // Generate a short-lived OTP that fits the current client flow.
     const token = await generateResetCode();
     const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
 
-    await prisma.passwordResetToken.create({
-        data: {
-            userId: user.userId,
-            token,
-            expiresAt
-        }
-    });
-
-    // Send email
     try {
-        await sendPasswordResetEmail(email, token, user.fullName);
-    } catch (error) {
-        if (process.env.NODE_ENV !== 'production') {
-            console.warn(`[DEV MODE] Failed to send password reset email to ${email}. Reset code: ${token}`);
-            return true;
-        }
+        await prisma.$transaction(async (tx) => {
+            await tx.passwordResetToken.deleteMany({ where: { userId: user.userId } });
 
-        throw error;
+            await tx.passwordResetToken.create({
+                data: {
+                    userId: user.userId,
+                    token,
+                    expiresAt
+                }
+            });
+
+            await notificationService.enqueuePasswordResetEmail(
+                {
+                    userId: user.userId,
+                    email,
+                    fullName: user.fullName,
+                    code: token,
+                },
+                tx,
+            );
+        });
+    } catch (error) {
+        logger.error('[passwordService] Failed to enqueue password reset email', {
+            enqueueError: serializeMailError(error),
+            userId: user.userId,
+            email,
+        });
+        throw new AppError(503, 'EMAIL_ENQUEUE_FAILED', 'auth:errors.passwordResetEmailFailed');
     }
 
     return true;

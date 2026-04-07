@@ -9,34 +9,34 @@ datasource db {
 }
 
 model User {
-  userId       Int         @id @default(autoincrement()) @map("UserId")
-  email        String      @unique(map: "UQ__Users__A9D10534540118E1") @map("Email") @db.VarChar(100)
-  passwordHash String?     @map("PasswordHash") @db.VarChar(255)
-  fullName     String      @map("FullName") @db.VarChar(100)
-  phone        String?     @map("Phone") @db.VarChar(20)
-  avatarUrl    String?     @map("AvatarUrl") @db.VarChar(1000)
-  googleId     String?     @unique(map: "UQ_Users_GoogleId") @map("GoogleId") @db.VarChar(255)
-  status       String      @default("Pending") @map("Status") @db.VarChar(20)
-  createdAt    DateTime?   @default(now()) @map("CreatedAt")
-  updatedAt    DateTime?   @default(now()) @updatedAt @map("UpdatedAt")
-  addresses    Address[]
-  orders       Order[]
-  reviews      Review[]
-  userLogins   UserLogin[]
-  userRoles    UserRole[]
-  verificationTokens EmailVerificationToken[]
-  passwordResetTokens PasswordResetToken[]
-  inventoryLogs InventoryLog[]
-  orderReturns  OrderReturn[]
-  returnRequests ReturnRequest[]
-  cart          Cart?        // 1-to-1: mỗi user có tối đa một giỏ hàng
-  stockMovements StockMovement[]
-  goodsReceipts  GoodsReceipt[]
-  returnRequestStatusLogs ReturnRequestStatusLog[] @relation("ReturnRequestStatusChangedBy")
-  processedRefundTransactions RefundTransaction[] @relation("RefundTransactionProcessedBy")
-  customerBankAccounts CustomerBankAccount[]
-  refundBenefits RefundBenefit[]
-  uploadedRefundPayoutProofs RefundPayoutProof[] @relation("RefundPayoutProofUploadedBy")
+  userId                      Int                      @id @default(autoincrement()) @map("UserId")
+  email                       String                   @unique(map: "UQ__Users__A9D10534FE2330F2") @map("Email") @db.VarChar(100)
+  passwordHash                String?                  @map("PasswordHash") @db.VarChar(255)
+  fullName                    String                   @map("FullName") @db.VarChar(100)
+  phone                       String?                  @map("Phone") @db.VarChar(20)
+  avatarUrl                   String?                  @map("AvatarUrl") @db.VarChar(1000)
+  googleId                    String?                  @unique(map: "UQ_Users_GoogleId") @map("GoogleId") @db.VarChar(255)
+  status                      String                   @default("Pending") @map("Status") @db.VarChar(20)
+  createdAt                   DateTime?                @default(now()) @map("CreatedAt") @db.DateTime(0)
+  updatedAt                   DateTime?                @default(now()) @updatedAt @map("UpdatedAt") @db.DateTime(0)
+  addresses                   Address[]
+  cart                        Cart?
+  customerBankAccounts        CustomerBankAccount[]
+  verificationTokens          EmailVerificationToken[]
+  goodsReceipts               GoodsReceipt[]
+  inventoryLogs               InventoryLog[]
+  orderReturns                OrderReturn[]
+  orders                      Order[]
+  passwordResetTokens         PasswordResetToken[]
+  refundBenefits              RefundBenefit[]
+  uploadedRefundPayoutProofs  RefundPayoutProof[]      @relation("RefundPayoutProofUploadedBy")
+  processedRefundTransactions RefundTransaction[]      @relation("RefundTransactionProcessedBy")
+  returnRequestStatusLogs     ReturnRequestStatusLog[] @relation("ReturnRequestStatusChangedBy")
+  returnRequests              ReturnRequest[]
+  reviews                     Review[]
+  stockMovements              StockMovement[]
+  userLogins                  UserLogin[]
+  userRoles                   UserRole[]
 
   @@index([email, status], map: "IX_Users_Email_Status")
   @@index([phone], map: "IX_Users_Phone")
@@ -45,24 +45,24 @@ model User {
 }
 
 model EmailVerificationToken {
-  tokenId   Int      @id @default(autoincrement()) @map("TokenId")
-  userId    Int      @map("UserId")
-  token     String   @unique @map("Token") @db.VarChar(255)
-  expiresAt DateTime @map("ExpiresAt")
-  createdAt DateTime @default(now()) @map("CreatedAt")
-  user      User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  tokenId   Int       @id @default(autoincrement()) @map("TokenId")
+  userId    Int       @map("UserId")
+  token     String    @unique(map: "UQ__EmailVer__1EB4F817BF263B03") @map("Token") @db.VarChar(255)
+  expiresAt DateTime  @map("ExpiresAt") @db.DateTime(0)
+  createdAt DateTime? @default(now()) @map("CreatedAt") @db.DateTime(0)
+  user      User      @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_EmailVerificationTokens_Users")
 
   @@index([userId], map: "IX_EmailVerificationTokens_UserId")
   @@map("EmailVerificationTokens")
 }
 
 model PasswordResetToken {
-  tokenId   Int      @id @default(autoincrement()) @map("TokenId")
-  userId    Int      @map("UserId")
-  token     String   @unique @map("Token") @db.VarChar(255)
-  expiresAt DateTime @map("ExpiresAt")
-  createdAt DateTime @default(now()) @map("CreatedAt")
-  user      User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  tokenId   Int       @id @default(autoincrement()) @map("TokenId")
+  userId    Int       @map("UserId")
+  token     String    @unique(map: "UQ__Password__1EB4F81743DB65F8") @map("Token") @db.VarChar(255)
+  expiresAt DateTime  @map("ExpiresAt") @db.DateTime(0)
+  createdAt DateTime? @default(now()) @map("CreatedAt") @db.DateTime(0)
+  user      User      @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_PasswordResetTokens_Users")
 
   @@index([userId], map: "IX_PasswordResetTokens_UserId")
   @@map("PasswordResetTokens")
@@ -70,9 +70,9 @@ model PasswordResetToken {
 
 model Role {
   roleId          Int              @id @default(autoincrement()) @map("RoleId")
-  roleName        String           @unique(map: "UQ__Roles__8A2B6160E320F027") @map("RoleName") @db.VarChar(50)
-  userRoles       UserRole[]
+  roleName        String           @unique(map: "UQ__Roles__8A2B6160E2CD5E04") @map("RoleName") @db.VarChar(50)
   rolePermissions RolePermission[]
+  userRoles       UserRole[]
 
   @@map("Roles")
 }
@@ -84,15 +84,14 @@ model UserRole {
   user   User @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_UserRoles_Users")
 
   @@id([userId, roleId])
+  @@index([roleId], map: "FK_UserRoles_Roles")
   @@map("UserRoles")
 }
 
-// ─── RBAC: Permissions & Role-Permission join ────────────────────────────────
-
 model Permission {
   permissionId    Int              @id @default(autoincrement()) @map("PermissionId")
-  code            String           @unique @map("Code") @db.VarChar(100)        // e.g. 'CREATE_PRODUCT'
-  module          String           @map("Module") @db.VarChar(50)               // e.g. 'PRODUCT'
+  code            String           @unique(map: "UQ__Permissi__A25C5AA7565D773B") @map("Code") @db.VarChar(100)
+  module          String           @map("Module") @db.VarChar(50)
   description     String           @map("Description") @db.VarChar(255)
   rolePermissions RolePermission[]
 
@@ -103,10 +102,11 @@ model Permission {
 model RolePermission {
   roleId       Int        @map("RoleId")
   permissionId Int        @map("PermissionId")
-  role         Role       @relation(fields: [roleId], references: [roleId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RolePermissions_Roles")
   permission   Permission @relation(fields: [permissionId], references: [permissionId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RolePermissions_Permissions")
+  role         Role       @relation(fields: [roleId], references: [roleId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RolePermissions_Roles")
 
   @@id([roleId, permissionId])
+  @@index([permissionId], map: "FK_RolePermissions_Permissions")
   @@map("RolePermissions")
 }
 
@@ -117,9 +117,9 @@ model UserLogin {
   userId              Int       @map("UserId")
   accessToken         String?   @map("AccessToken") @db.LongText
   refreshToken        String?   @map("RefreshToken") @db.LongText
-  tokenExpiry         DateTime? @map("TokenExpiry")
-  createdAt           DateTime? @default(now()) @map("CreatedAt")
-  updatedAt           DateTime? @default(now()) @updatedAt @map("UpdatedAt")
+  tokenExpiry         DateTime? @map("TokenExpiry") @db.DateTime(0)
+  createdAt           DateTime? @default(now()) @map("CreatedAt") @db.DateTime(0)
+  updatedAt           DateTime? @default(now()) @updatedAt @map("UpdatedAt") @db.DateTime(0)
   user                User      @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_UserLogins_Users")
 
   @@id([loginProvider, providerKey])
@@ -135,8 +135,8 @@ model Address {
   addressLine   String   @map("AddressLine") @db.VarChar(255)
   city          String   @map("City") @db.VarChar(50)
   district      String?  @map("District") @db.VarChar(50)
-  ward          String?  @map("Ward") @db.VarChar(50)
   isDefault     Boolean? @default(false) @map("IsDefault")
+  ward          String?  @map("Ward") @db.VarChar(50)
   user          User     @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Addresses_Users")
 
   @@index([userId, isDefault], map: "IX_Addresses_UserId_IsDefault")
@@ -147,7 +147,7 @@ model Category {
   categoryId  Int        @id @default(autoincrement()) @map("CategoryId")
   parentId    Int?       @map("ParentId")
   name        String     @map("Name") @db.VarChar(100)
-  slug        String     @unique(map: "UQ__Categori__BC7B5FB636C79C65") @map("Slug") @db.VarChar(100)
+  slug        String     @unique(map: "UQ__Categori__BC7B5FB63FB08662") @map("Slug") @db.VarChar(100)
   description String?    @map("Description") @db.VarChar(255)
   imageUrl    String?    @map("ImageUrl") @db.VarChar(1000)
   parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [categoryId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Categories_Parent")
@@ -160,7 +160,7 @@ model Category {
 
 model Brand {
   brandId     Int       @id @default(autoincrement()) @map("BrandId")
-  name        String    @unique(map: "UQ__Brands__737584F6CEC21B5F") @map("Name") @db.VarChar(100)
+  name        String    @unique(map: "UQ__Brands__737584F69E5ADB5A") @map("Name") @db.VarChar(100)
   description String?   @map("Description") @db.VarChar(255)
   products    Product[]
 
@@ -172,17 +172,17 @@ model Product {
   categoryId  Int              @map("CategoryId")
   brandId     Int?             @map("BrandId")
   name        String           @map("Name") @db.VarChar(200)
-  slug        String           @unique(map: "UQ__Products__BC7B5FB63F5A8249") @map("Slug") @db.VarChar(200)
+  slug        String           @unique(map: "UQ__Products__BC7B5FB67719B0A8") @map("Slug") @db.VarChar(200)
   description String?          @map("Description") @db.LongText
   basePrice   Decimal          @map("BasePrice") @db.Decimal(18, 2)
   status      String?          @default("Active") @map("Status") @db.VarChar(20)
   isDeleted   Boolean?         @default(false) @map("IsDeleted")
-  deletedAt   DateTime?        @map("DeletedAt")
-  createdAt   DateTime?        @default(now()) @map("CreatedAt")
+  deletedAt   DateTime?        @map("DeletedAt") @db.DateTime(0)
+  createdAt   DateTime?        @default(now()) @map("CreatedAt") @db.DateTime(0)
   images      ProductImage[]
-  brand       Brand?           @relation(fields: [brandId], references: [brandId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Products_Brands")
-  category    Category         @relation(fields: [categoryId], references: [categoryId], onUpdate: NoAction, map: "FK_Products_Categories")
   variants    ProductVariant[]
+  brand       Brand?           @relation(fields: [brandId], references: [brandId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Products_Brands")
+  category    Category         @relation(fields: [categoryId], references: [categoryId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Products_Categories")
   reviews     Review[]
 
   @@index([basePrice], map: "IX_Products_BasePrice")
@@ -194,24 +194,23 @@ model Product {
 }
 
 model ProductVariant {
-  variantId         Int                @id @default(autoincrement()) @map("VariantId")
-  productId         Int                @map("ProductId")
-  sku               String             @unique(map: "UQ__ProductV__CA1ECF0D48746AB3") @map("SKU") @db.VarChar(50)
-  price             Decimal            @map("Price") @db.Decimal(18, 2)
-  stockQuantity     Int                @default(0) @map("StockQuantity")
-  isDefault         Boolean?           @default(false) @map("IsDefault")
-  isDeleted         Boolean?           @default(false) @map("IsDeleted")
-  deletedAt         DateTime?          @map("DeletedAt")
-  cartItems         CartItem[]
-  orderItems        OrderItem[]
-  images            ProductImage[]
-  product           Product            @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ProductVariants_Products")
-  variantAttributes VariantAttribute[]
-  inventoryLogs      InventoryLog[]
-  purchaseOrderItems PurchaseOrderItem[]
-  inventorySnapshot  Inventory?
-  stockMovements     StockMovement[]
+  variantId          Int                 @id @default(autoincrement()) @map("VariantId")
+  productId          Int                 @map("ProductId")
+  sku                String              @unique(map: "UQ__ProductV__CA1ECF0D2467B19F") @map("SKU") @db.VarChar(50)
+  price              Decimal             @map("Price") @db.Decimal(18, 2)
+  stockQuantity      Int                 @default(0) @map("StockQuantity")
+  isDefault          Boolean?            @default(false) @map("IsDefault")
+  isDeleted          Boolean?            @default(false) @map("IsDeleted")
+  deletedAt          DateTime?           @map("DeletedAt") @db.DateTime(0)
+  cartItems          CartItem[]
   goodsReceiptItems  GoodsReceiptItem[]
+  inventorySnapshot  Inventory?
+  inventoryLogs      InventoryLog[]
+  orderItems         OrderItem[]
+  product            Product             @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ProductVariants_Products")
+  purchaseOrderItems PurchaseOrderItem[]
+  stockMovements     StockMovement[]
+  variantAttributes  VariantAttribute[]
 
   @@index([productId], map: "IX_ProductVariants_ProductId")
   @@index([stockQuantity], map: "IX_ProductVariants_StockQuantity")
@@ -220,7 +219,7 @@ model ProductVariant {
 
 model Attribute {
   attributeId Int              @id @default(autoincrement()) @map("AttributeId")
-  name        String           @unique(map: "UQ__Attribut__737584F6C9E6DEE8") @map("Name") @db.VarChar(50)
+  name        String           @unique(map: "UQ__Attribut__737584F62D7060DB") @map("Name") @db.VarChar(50)
   values      AttributeValue[]
 
   @@map("Attributes")
@@ -233,6 +232,7 @@ model AttributeValue {
   attribute         Attribute          @relation(fields: [attributeId], references: [attributeId], onDelete: Cascade, onUpdate: NoAction, map: "FK_AttributeValues_Attributes")
   variantAttributes VariantAttribute[]
 
+  @@index([attributeId], map: "FK_AttributeValues_Attributes")
   @@map("AttributeValues")
 }
 
@@ -248,26 +248,28 @@ model VariantAttribute {
 }
 
 model ProductImage {
-  imageId      Int             @id @default(autoincrement()) @map("ImageId")
-  productId    Int             @map("ProductId")
-  variantId    Int?            @map("VariantId")
-  imageUrl     String          @map("ImageUrl") @db.VarChar(1000)
-  thumbnailUrl String?         @map("ThumbnailUrl") @db.VarChar(1000)
-  isPrimary    Boolean?        @default(false) @map("IsPrimary")
-  product      Product         @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ProductImages_Products")
-  variant      ProductVariant? @relation(fields: [variantId], references: [variantId], onDelete: NoAction, onUpdate: NoAction, map: "FK_ProductImages_Variants")
+  imageId      Int      @id @default(autoincrement()) @map("ImageId")
+  productId    Int      @map("ProductId")
+  variantId    Int?     @map("VariantId")
+  imageUrl     String   @map("ImageUrl") @db.VarChar(1000)
+  thumbnailUrl String?  @map("ThumbnailUrl") @db.VarChar(1000)
+  isPrimary    Boolean? @default(false) @map("IsPrimary")
+  product      Product  @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ProductImages_Products")
 
+  @@index([productId], map: "IX_ProductImages_ProductId")
+  @@index([productId, isPrimary], map: "IX_ProductImages_ProductId_IsPrimary")
+  @@index([variantId], map: "IX_ProductImages_VariantId")
   @@map("ProductImages")
 }
 
 model Cart {
   cartId    Int        @id @default(autoincrement()) @map("CartId")
-  userId    Int?       @unique(map: "UQ_Carts_UserId") @map("UserId")   // 1-to-1 với User
+  userId    Int?       @unique(map: "UQ__Carts__1788CC4D7551E656") @map("UserId")
   sessionId String?    @map("SessionId") @db.VarChar(100)
-  createdAt DateTime?  @default(now()) @map("CreatedAt")
-  updatedAt DateTime?  @default(now()) @updatedAt @map("UpdatedAt")
-  user      User?      @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Carts_Users")
+  createdAt DateTime?  @default(now()) @map("CreatedAt") @db.DateTime(0)
+  updatedAt DateTime?  @default(now()) @updatedAt @map("UpdatedAt") @db.DateTime(0)
   items     CartItem[]
+  user      User?      @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Carts_Users")
 
   @@map("Carts")
 }
@@ -277,55 +279,53 @@ model CartItem {
   cartId     Int            @map("CartId")
   variantId  Int            @map("VariantId")
   quantity   Int            @map("Quantity")
-  addedAt    DateTime?      @default(now()) @map("AddedAt")
+  addedAt    DateTime?      @default(now()) @map("AddedAt") @db.DateTime(0)
   cart       Cart           @relation(fields: [cartId], references: [cartId], onDelete: Cascade, onUpdate: NoAction, map: "FK_CartItems_Carts")
   variant    ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_CartItems_Variants")
 
-  @@unique([cartId, variantId], map: "UQ_CartItems_Cart_Variant") // ngăn trùng lặp sản phẩm trong giỏ
+  @@unique([cartId, variantId], map: "UQ_CartItems_Cart_Variant")
+  @@index([variantId], map: "IX_CartItems_VariantId")
   @@map("CartItems")
 }
 
-// ─── Order Status FSM strings ─────────────────────────────────────────────────
-// Valid status values: Pending | Processing | Shipping | Delivered | Cancelled
-//                     Return_Requested | Returned
-
 model Order {
-  orderId               Int         @id @default(autoincrement()) @map("OrderId")
-  userId                Int?        @map("UserId")
-  orderNumber           String      @unique(map: "UQ__Orders__CAC5E7434BE02B58") @map("OrderNumber") @db.VarChar(50)
-  customerName          String      @map("CustomerName") @db.VarChar(100)
-  customerEmail         String?     @map("CustomerEmail") @db.VarChar(100)
-  customerPhone         String      @map("CustomerPhone") @db.VarChar(20)
-  shippingCity          String      @map("ShippingCity") @db.VarChar(50)
-  shippingDistrict      String      @map("ShippingDistrict") @db.VarChar(50)
-  shippingWard          String?     @map("ShippingWard") @db.VarChar(50)
-  shippingAddressDetail String      @map("ShippingAddressDetail") @db.VarChar(200)
-  shippingFee           Decimal     @default(0) @map("ShippingFee") @db.Decimal(18, 2)
-  shippingMethod        String      @default("STANDARD") @map("ShippingMethod") @db.VarChar(20)
-  shippingCityCode      String?     @map("ShippingCityCode") @db.VarChar(10)
-  totalAmount           Decimal     @map("TotalAmount") @db.Decimal(18, 2)
-  discountAmount        Decimal?    @default(0) @map("DiscountAmount") @db.Decimal(18, 2)
-  couponId              Int?        @map("CouponId")
-  status                String?     @default("Pending") @map("Status") @db.VarChar(20)
-  paymentMethod         String?     @default("COD") @map("PaymentMethod") @db.VarChar(50)
-  createdAt             DateTime?   @default(now()) @map("CreatedAt")
-  updatedAt             DateTime?   @default(now()) @updatedAt @map("UpdatedAt")
-  items                 OrderItem[]
-  user                  User?       @relation(fields: [userId], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Orders_Users")
-  coupon                Coupon?     @relation(fields: [couponId], references: [couponId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Orders_Coupons")
-  payments              Payment[]
-  statusHistory         OrderStatusHistory[]
-  shipment              Shipment?
-  note                  String?     @map("Note") @db.VarChar(500)
+  orderId               Int                  @id @default(autoincrement()) @map("OrderId")
+  userId                Int?                 @map("UserId")
+  orderNumber           String               @unique(map: "UQ__Orders__CAC5E743893BAC47") @map("OrderNumber") @db.VarChar(50)
+  customerName          String               @map("CustomerName") @db.VarChar(100)
+  customerEmail         String?              @map("CustomerEmail") @db.VarChar(100)
+  customerPhone         String               @map("CustomerPhone") @db.VarChar(20)
+  shippingCity          String               @map("ShippingCity") @db.VarChar(50)
+  shippingDistrict      String               @map("ShippingDistrict") @db.VarChar(50)
+  shippingWard          String?              @map("ShippingWard") @db.VarChar(50)
+  shippingAddressDetail String               @map("ShippingAddressDetail") @db.VarChar(200)
+  totalAmount           Decimal              @map("TotalAmount") @db.Decimal(18, 2)
+  discountAmount        Decimal?             @default(0.00) @map("DiscountAmount") @db.Decimal(18, 2)
+  couponId              Int?                 @map("CouponId")
+  status                String?              @default("Pending") @map("Status") @db.VarChar(20)
+  paymentMethod         String?              @default("COD") @map("PaymentMethod") @db.VarChar(50)
+  note                  String?              @map("Note") @db.VarChar(500)
+  createdAt             DateTime?            @default(now()) @map("CreatedAt") @db.DateTime(0)
+  updatedAt             DateTime?            @default(now()) @updatedAt @map("UpdatedAt") @db.DateTime(0)
+  shippingFee           Decimal              @default(0.00) @map("ShippingFee") @db.Decimal(18, 2)
+  shippingMethod        String               @default("STANDARD") @map("ShippingMethod") @db.VarChar(20)
+  shippingCityCode      String?              @map("ShippingCityCode") @db.VarChar(10)
   inventoryLogs         InventoryLog[]
+  items                 OrderItem[]
   orderReturn           OrderReturn?
+  statusHistory         OrderStatusHistory[]
+  coupon                Coupon?              @relation(fields: [couponId], references: [couponId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Orders_Coupons")
+  user                  User?                @relation(fields: [userId], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Orders_Users")
+  payments              Payment[]
+  refundBenefits        RefundBenefit[]
   refunds               Refund[]
   returnRequests        ReturnRequest[]
-  refundBenefits        RefundBenefit[]
+  shipment              Shipment?
 
   @@index([createdAt], map: "IX_Orders_CreatedAt")
   @@index([status], map: "IX_Orders_Status")
   @@index([userId], map: "IX_Orders_UserId")
+  @@index([couponId], map: "FK_Orders_Coupons")
   @@map("Orders")
 }
 
@@ -336,7 +336,7 @@ model OrderStatusHistory {
   status               String   @map("Status") @db.VarChar(20)
   changedBy            Int?     @map("ChangedBy")
   note                 String?  @map("Note") @db.VarChar(500)
-  changedAt            DateTime @default(now()) @map("ChangedAt")
+  changedAt            DateTime @default(now()) @map("ChangedAt") @db.DateTime(0)
   order                Order    @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderStatusHistory_Orders")
 
   @@index([orderId], map: "IX_OrderStatusHistory_OrderId")
@@ -345,21 +345,21 @@ model OrderStatusHistory {
 }
 
 model Shipment {
-  shipmentId          Int       @id @default(autoincrement()) @map("ShipmentId")
-  orderId             Int       @unique @map("OrderId")
-  shippingMode        String    @default("manual") @map("ShippingMode") @db.VarChar(20)
-  provider            String?   @map("Provider") @db.VarChar(50)
-  providerOrderCode   String?   @map("ProviderOrderCode") @db.VarChar(100)
-  providerStatus      String?   @map("ProviderStatus") @db.VarChar(50)
-  carrier             String?   @map("Carrier") @db.VarChar(100)
-  trackingNumber      String?   @map("TrackingNumber") @db.VarChar(100)
-  eta                 DateTime? @map("Eta")
-  lastKnownLocation   String?   @map("LastKnownLocation") @db.VarChar(255)
-  deliveryProofImages String    @default("[]") @map("DeliveryProofImages") @db.LongText
-  deliveryProofReviewed Boolean @default(false) @map("DeliveryProofReviewed")
-  createdAt           DateTime  @default(now()) @map("CreatedAt")
-  updatedAt           DateTime  @default(now()) @updatedAt @map("UpdatedAt")
-  order               Order     @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
+  shipmentId            Int       @id @default(autoincrement()) @map("ShipmentId")
+  orderId               Int       @unique(map: "UQ__Shipment__C3905BCE52634EB7") @map("OrderId")
+  carrier               String?   @map("Carrier") @db.VarChar(100)
+  trackingNumber        String?   @map("TrackingNumber") @db.VarChar(100)
+  eta                   DateTime? @map("Eta") @db.DateTime(0)
+  lastKnownLocation     String?   @map("LastKnownLocation") @db.VarChar(255)
+  createdAt             DateTime  @default(now()) @map("CreatedAt") @db.DateTime(0)
+  updatedAt             DateTime  @default(now()) @updatedAt @map("UpdatedAt") @db.DateTime(0)
+  shippingMode          String    @default("manual") @map("ShippingMode") @db.VarChar(20)
+  provider              String?   @map("Provider") @db.VarChar(50)
+  providerOrderCode     String?   @map("ProviderOrderCode") @db.VarChar(100)
+  providerStatus        String?   @map("ProviderStatus") @db.VarChar(50)
+  deliveryProofImages   String    @map("DeliveryProofImages") @db.LongText
+  deliveryProofReviewed Boolean   @default(false) @map("DeliveryProofReviewed")
+  order                 Order     @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Shipments_Orders")
 
   @@index([trackingNumber], map: "IX_Shipments_TrackingNumber")
   @@index([providerOrderCode], map: "IX_Shipments_ProviderOrderCode")
@@ -367,21 +367,21 @@ model Shipment {
 }
 
 model OrderItem {
-  orderItemId              Int             @id @default(autoincrement()) @map("OrderItemId")
-  orderId                  Int             @map("OrderId")
-  variantId                Int?            @map("VariantId")
-  productName              String          @map("ProductName") @db.VarChar(200)
-  sku                      String          @map("SKU") @db.VarChar(50)
-  variantName              String          @map("VariantName") @db.VarChar(200)
-  unitPrice                Decimal         @map("UnitPrice") @db.Decimal(18, 2)
-  quantity                 Int             @map("Quantity")
-  grossItemAmount          Decimal         @default(0) @map("GrossItemAmount") @db.Decimal(18, 2)
-  allocatedDiscountAmount  Decimal         @default(0) @map("AllocatedDiscountAmount") @db.Decimal(18, 2)
-  netItemPaidAmount        Decimal         @default(0) @map("NetItemPaidAmount") @db.Decimal(18, 2)
-  order                    Order           @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderItems_Orders")
-  variant                  ProductVariant? @relation(fields: [variantId], references: [variantId], onUpdate: NoAction, map: "FK_OrderItems_Variants")
-  review                   Review?         // One-to-one: each purchased item can have at most one review
-  returnRequestItems ReturnRequestItem[]
+  orderItemId             Int                 @id @default(autoincrement()) @map("OrderItemId")
+  orderId                 Int                 @map("OrderId")
+  variantId               Int?                @map("VariantId")
+  productName             String              @map("ProductName") @db.VarChar(200)
+  sku                     String              @map("SKU") @db.VarChar(50)
+  variantName             String              @map("VariantName") @db.VarChar(200)
+  unitPrice               Decimal             @map("UnitPrice") @db.Decimal(18, 2)
+  quantity                Int                 @map("Quantity")
+  grossItemAmount         Decimal             @default(0.00) @map("GrossItemAmount") @db.Decimal(18, 2)
+  allocatedDiscountAmount Decimal             @default(0.00) @map("AllocatedDiscountAmount") @db.Decimal(18, 2)
+  netItemPaidAmount       Decimal             @default(0.00) @map("NetItemPaidAmount") @db.Decimal(18, 2)
+  order                   Order               @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderItems_Orders")
+  variant                 ProductVariant?     @relation(fields: [variantId], references: [variantId], onUpdate: NoAction, map: "FK_OrderItems_Variants")
+  returnRequestItems      ReturnRequestItem[]
+  review                  Review?
 
   @@index([orderId], map: "IX_OrderItems_OrderId")
   @@index([variantId], map: "IX_OrderItems_VariantId")
@@ -395,7 +395,7 @@ model Payment {
   amount          Decimal   @map("Amount") @db.Decimal(18, 2)
   transactionCode String?   @map("TransactionCode") @db.VarChar(100)
   status          String    @default("Pending") @map("Status") @db.VarChar(20)
-  paymentDate     DateTime? @default(now()) @map("PaymentDate")
+  paymentDate     DateTime? @default(now()) @map("PaymentDate") @db.DateTime(0)
   note            String?   @map("Note") @db.VarChar(500)
   order           Order     @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Payments_Orders")
   refunds         Refund[]
@@ -408,111 +408,105 @@ model Review {
   reviewId    Int        @id @default(autoincrement()) @map("ReviewId")
   productId   Int        @map("ProductId")
   userId      Int        @map("UserId")
-  orderItemId Int?       @unique(map: "UQ_Reviews_OrderItemId") @map("OrderItemId") // CRITICAL: one review per purchased item
+  orderItemId Int?       @unique(map: "UQ__Reviews__57ED068076086186") @map("OrderItemId")
   rating      Int?       @map("Rating")
   comment     String?    @map("Comment") @db.VarChar(1000)
-  images      String?    @default("[]") @map("Images") @db.LongText // JSON array of Cloudinary URLs
-  createdAt   DateTime?  @default(now()) @map("CreatedAt")
-  product     Product    @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Reviews_Products")
-  user        User       @relation(fields: [userId], references: [userId], onUpdate: NoAction, map: "FK_Reviews_Users")
+  images      String?    @map("Images") @db.LongText
+  createdAt   DateTime?  @default(now()) @map("CreatedAt") @db.DateTime(0)
   orderItem   OrderItem? @relation(fields: [orderItemId], references: [orderItemId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Reviews_OrderItems")
+  product     Product    @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Reviews_Products")
+  user        User       @relation(fields: [userId], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Reviews_Users")
 
   @@index([productId], map: "IX_Reviews_ProductId")
   @@index([userId], map: "IX_Reviews_UserId")
   @@map("Reviews")
 }
 
-// ─── Inventory Audit Log ──────────────────────────────────────────────────────
-// Reason values: CHECKOUT | PURCHASE_RECEIPT | RETURN_RESTORE | MANUAL_ADJUST
-
 model InventoryLog {
-  logId          Int      @id @default(autoincrement()) @map("LogId")
-  variantId      Int      @map("VariantId")
-  orderId        Int?     @map("OrderId")
-  userId         Int?     @map("UserId")
-  changeQuantity Int      @map("ChangeQuantity") // negative for deductions, positive for restocks
-  previousStock  Int      @map("PreviousStock")
-  newStock       Int      @map("NewStock")
-  reason         String   @map("Reason") @db.VarChar(30)
-  note           String?  @map("Note") @db.VarChar(500)
-  createdAt      DateTime @default(now()) @map("CreatedAt")
-
-  variant ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_InventoryLogs_Variants")
-  order   Order?         @relation(fields: [orderId], references: [orderId], onDelete: SetNull, onUpdate: NoAction, map: "FK_InventoryLogs_Orders")
-  user    User?          @relation(fields: [userId], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_InventoryLogs_Users")
+  logId          Int            @id @default(autoincrement()) @map("LogId")
+  variantId      Int            @map("VariantId")
+  orderId        Int?           @map("OrderId")
+  userId         Int?           @map("UserId")
+  changeQuantity Int            @map("ChangeQuantity")
+  previousStock  Int            @map("PreviousStock")
+  newStock       Int            @map("NewStock")
+  reason         String         @map("Reason") @db.VarChar(30)
+  note           String?        @map("Note") @db.VarChar(500)
+  createdAt      DateTime       @default(now()) @map("CreatedAt") @db.DateTime(0)
+  order          Order?         @relation(fields: [orderId], references: [orderId], onUpdate: NoAction, map: "FK_InventoryLogs_Orders")
+  user           User?          @relation(fields: [userId], references: [userId], onUpdate: NoAction, map: "FK_InventoryLogs_Users")
+  variant        ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_InventoryLogs_Variants")
 
   @@index([variantId], map: "IX_InventoryLogs_VariantId")
-  @@index([orderId],   map: "IX_InventoryLogs_OrderId")
+  @@index([orderId], map: "IX_InventoryLogs_OrderId")
+  @@index([userId], map: "FK_InventoryLogs_Users")
   @@map("InventoryLogs")
 }
 
-// ─── Return & Refund ──────────────────────────────────────────────────────────
-// OrderReturn.status values: PENDING_APPROVAL | APPROVED | REJECTED | COMPLETED
-
 model OrderReturn {
   returnId    Int      @id @default(autoincrement()) @map("ReturnId")
-  orderId     Int      @unique @map("OrderId")                           // One return per order
-  userId      Int?     @map("UserId")                                    // Customer who requested
+  orderId     Int      @unique(map: "UQ__OrderRet__C3905BCE786116EB") @map("OrderId")
+  userId      Int?     @map("UserId")
   reason      String   @map("Reason") @db.VarChar(500)
-  proofImages String   @default("[]") @map("ProofImages") @db.LongText // JSON array of Cloudinary URLs
+  proofImages String   @map("ProofImages") @db.LongText
   status      String   @default("PENDING_APPROVAL") @map("Status") @db.VarChar(30)
   adminNote   String?  @map("AdminNote") @db.VarChar(500)
-  createdAt   DateTime @default(now()) @map("CreatedAt")
-  updatedAt   DateTime @default(now()) @updatedAt @map("UpdatedAt")
+  createdAt   DateTime @default(now()) @map("CreatedAt") @db.DateTime(0)
+  updatedAt   DateTime @default(now()) @updatedAt @map("UpdatedAt") @db.DateTime(0)
+  order       Order    @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderReturns_Orders")
+  user        User?    @relation(fields: [userId], references: [userId], onUpdate: NoAction, map: "FK_OrderReturns_Users")
 
-  order Order @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderReturns_Orders")
-  user  User? @relation(fields: [userId], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_OrderReturns_Users")
-
-  @@index([status],  map: "IX_OrderReturns_Status")
-  @@index([userId],  map: "IX_OrderReturns_UserId")
+  @@index([status], map: "IX_OrderReturns_Status")
+  @@index([userId], map: "IX_OrderReturns_UserId")
   @@map("OrderReturns")
 }
 
 model ReturnRequest {
-  returnRequestId   Int                       @id @default(autoincrement()) @map("ReturnRequestId")
-  orderId           Int                       @map("OrderId")
-  userId            Int                       @map("UserId")
-  reason            String                    @map("Reason") @db.VarChar(500)
-  note              String?                   @map("Note") @db.VarChar(1000)
-  deliveredAt       DateTime?                 @map("DeliveredAt")
-  totalRefundAmount Decimal                   @default(0) @map("TotalRefundAmount") @db.Decimal(18, 2)
-  status            String                    @default("REQUESTED") @map("Status") @db.VarChar(50)
-  refundStatus      String                    @default("NOT_APPLICABLE") @map("RefundStatus") @db.VarChar(50)
-  financeNote       String?                   @map("FinanceNote") @db.VarChar(1000)
-  bankInfoRequestedAt DateTime?              @map("BankInfoRequestedAt")
-  bankInfoSubmittedAt DateTime?              @map("BankInfoSubmittedAt")
-  refundCompletedAt  DateTime?                @map("RefundCompletedAt")
-  createdAt         DateTime                  @default(now()) @map("CreatedAt")
-  updatedAt         DateTime                  @default(now()) @updatedAt @map("UpdatedAt")
-  order             Order                     @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReturnRequests_Orders")
-  user              User                      @relation(fields: [userId], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_ReturnRequests_Users")
-  items             ReturnRequestItem[]
-  attachments       ReturnRequestAttachment[]
-  statusLogs        ReturnRequestStatusLog[]
-  refundTransactions RefundTransaction[]
+  returnRequestId     Int                       @id @default(autoincrement()) @map("ReturnRequestId")
+  orderId             Int                       @map("OrderId")
+  userId              Int                       @map("UserId")
+  reason              String                    @map("Reason") @db.VarChar(500)
+  note                String?                   @map("Note") @db.VarChar(1000)
+  deliveredAt         DateTime?                 @map("DeliveredAt") @db.DateTime(0)
+  totalRefundAmount   Decimal                   @default(0.00) @map("TotalRefundAmount") @db.Decimal(18, 2)
+  status              String                    @default("REQUESTED") @map("Status") @db.VarChar(50)
+  createdAt           DateTime                  @default(now()) @map("CreatedAt") @db.DateTime(0)
+  updatedAt           DateTime                  @default(now()) @updatedAt @map("UpdatedAt") @db.DateTime(0)
+  refundStatus        String?                   @default("NOT_APPLICABLE") @map("RefundStatus") @db.VarChar(50)
+  financeNote         String?                   @map("FinanceNote") @db.VarChar(1000)
+  bankInfoRequestedAt DateTime?                 @map("BankInfoRequestedAt") @db.DateTime(0)
+  bankInfoSubmittedAt DateTime?                 @map("BankInfoSubmittedAt") @db.DateTime(0)
+  refundCompletedAt   DateTime?                 @map("RefundCompletedAt") @db.DateTime(0)
   refundBankSnapshots RefundBankSnapshot[]
-  refundPayoutProofs RefundPayoutProof[]
-  refundBenefits    RefundBenefit[]
+  refundBenefits      RefundBenefit?
+  refundPayoutProofs  RefundPayoutProof[]
+  refundTransactions  RefundTransaction[]
+  attachments         ReturnRequestAttachment[]
+  items               ReturnRequestItem[]
+  statusLogs          ReturnRequestStatusLog[]
+  order               Order                     @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReturnRequests_Orders")
+  user                User                      @relation(fields: [userId], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_ReturnRequests_Users")
 
   @@index([orderId], map: "IX_ReturnRequests_OrderId")
   @@index([status], map: "IX_ReturnRequests_Status")
   @@index([userId], map: "IX_ReturnRequests_UserId")
   @@index([createdAt], map: "IX_ReturnRequests_CreatedAt")
+  @@index([refundStatus], map: "IX_ReturnRequests_RefundStatus")
   @@map("ReturnRequests")
 }
 
 model ReturnRequestItem {
-  returnRequestItemId Int           @id @default(autoincrement()) @map("ReturnRequestItemId")
-  returnRequestId     Int           @map("ReturnRequestId")
-  orderItemId         Int           @map("OrderItemId")
-  quantity            Int           @map("Quantity")
-  unitPrice           Decimal       @map("UnitPrice") @db.Decimal(18, 2)
-  reason              String        @map("Reason") @db.VarChar(500)
-  reasonText          String?       @map("ReasonText") @db.VarChar(200)
-  createdAt           DateTime      @default(now()) @map("CreatedAt")
-  returnRequest       ReturnRequest @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReturnRequestItems_ReturnRequests")
-  orderItem           OrderItem     @relation(fields: [orderItemId], references: [orderItemId], onDelete: NoAction, onUpdate: NoAction, map: "FK_ReturnRequestItems_OrderItems")
+  returnRequestItemId Int                       @id @default(autoincrement()) @map("ReturnRequestItemId")
+  returnRequestId     Int                       @map("ReturnRequestId")
+  orderItemId         Int                       @map("OrderItemId")
+  quantity            Int                       @map("Quantity")
+  unitPrice           Decimal                   @map("UnitPrice") @db.Decimal(18, 2)
+  reason              String                    @map("Reason") @db.VarChar(500)
+  createdAt           DateTime                  @default(now()) @map("CreatedAt") @db.DateTime(0)
+  reasonText          String?                   @map("ReasonText") @db.VarChar(200)
   attachments         ReturnRequestAttachment[]
+  orderItem           OrderItem                 @relation(fields: [orderItemId], references: [orderItemId], onDelete: NoAction, onUpdate: NoAction, map: "FK_ReturnRequestItems_OrderItems")
+  returnRequest       ReturnRequest             @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReturnRequestItems_ReturnRequests")
 
   @@index([orderItemId], map: "IX_ReturnRequestItems_OrderItemId")
   @@index([returnRequestId], map: "IX_ReturnRequestItems_ReturnRequestId")
@@ -520,13 +514,13 @@ model ReturnRequestItem {
 }
 
 model ReturnRequestAttachment {
-  attachmentId         Int                @id @default(autoincrement()) @map("AttachmentId")
-  returnRequestId      Int                @map("ReturnRequestId")
-  returnRequestItemId  Int?               @map("ReturnRequestItemId")
-  fileUrl              String             @map("FileUrl") @db.VarChar(1000)
-  createdAt            DateTime           @default(now()) @map("CreatedAt")
-  returnRequest        ReturnRequest      @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReturnRequestAttachments_ReturnRequests")
-  returnRequestItem    ReturnRequestItem? @relation(fields: [returnRequestItemId], references: [returnRequestItemId], onDelete: NoAction, onUpdate: NoAction, map: "FK_ReturnRequestAttachments_ReturnRequestItems")
+  attachmentId        Int                @id @default(autoincrement()) @map("AttachmentId")
+  returnRequestId     Int                @map("ReturnRequestId")
+  fileUrl             String             @map("FileUrl") @db.VarChar(1000)
+  createdAt           DateTime           @default(now()) @map("CreatedAt") @db.DateTime(0)
+  returnRequestItemId Int?               @map("ReturnRequestItemId")
+  returnRequestItem   ReturnRequestItem? @relation(fields: [returnRequestItemId], references: [returnRequestItemId], onDelete: NoAction, onUpdate: NoAction, map: "FK_ReturnRequestAttachments_ReturnRequestItems")
+  returnRequest       ReturnRequest      @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReturnRequestAttachments_ReturnRequests")
 
   @@index([returnRequestId], map: "IX_ReturnRequestAttachments_ReturnRequestId")
   @@index([returnRequestItemId], map: "IX_ReturnRequestAttachments_ReturnRequestItemId")
@@ -540,9 +534,9 @@ model ReturnRequestStatusLog {
   toStatus                 String        @map("ToStatus") @db.VarChar(50)
   changedBy                Int?          @map("ChangedBy")
   comment                  String?       @map("Comment") @db.VarChar(1000)
-  createdAt                DateTime      @default(now()) @map("CreatedAt")
+  createdAt                DateTime      @default(now()) @map("CreatedAt") @db.DateTime(0)
   returnRequest            ReturnRequest @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: Cascade, onUpdate: NoAction, map: "FK_ReturnRequestStatusLogs_ReturnRequests")
-  changedByUser            User?         @relation("ReturnRequestStatusChangedBy", fields: [changedBy], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_ReturnRequestStatusLogs_Users")
+  changedByUser            User?         @relation("ReturnRequestStatusChangedBy", fields: [changedBy], references: [userId], onUpdate: NoAction, map: "FK_ReturnRequestStatusLogs_Users")
 
   @@index([createdAt], map: "IX_ReturnRequestStatusLogs_CreatedAt")
   @@index([returnRequestId], map: "IX_ReturnRequestStatusLogs_ReturnRequestId")
@@ -551,19 +545,19 @@ model ReturnRequestStatusLog {
 }
 
 model RefundTransaction {
-  refundTransactionId Int           @id @default(autoincrement()) @map("RefundTransactionId")
-  returnRequestId     Int           @map("ReturnRequestId")
-  amount              Decimal       @map("Amount") @db.Decimal(18, 2)
-  method              String        @map("Method") @db.VarChar(30)
-  status              String        @default("PENDING") @map("Status") @db.VarChar(30)
-  idempotencyKey      String        @unique(map: "UQ_RefundTransactions_IdempotencyKey") @map("IdempotencyKey") @db.VarChar(100)
-  transactionRef      String?       @map("TransactionRef") @db.VarChar(100)
-  processedBy         Int?          @map("ProcessedBy")
-  createdAt           DateTime      @default(now()) @map("CreatedAt")
-  updatedAt           DateTime      @default(now()) @updatedAt @map("UpdatedAt")
-  returnRequest       ReturnRequest @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RefundTransactions_ReturnRequests")
-  processedByUser     User?         @relation("RefundTransactionProcessedBy", fields: [processedBy], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_RefundTransactions_Users")
+  refundTransactionId Int                 @id @default(autoincrement()) @map("RefundTransactionId")
+  returnRequestId     Int                 @map("ReturnRequestId")
+  amount              Decimal             @map("Amount") @db.Decimal(18, 2)
+  method              String              @map("Method") @db.VarChar(30)
+  status              String              @default("PENDING") @map("Status") @db.VarChar(30)
+  idempotencyKey      String              @unique(map: "UQ_RefundTransactions_IdempotencyKey") @map("IdempotencyKey") @db.VarChar(100)
+  transactionRef      String?             @map("TransactionRef") @db.VarChar(100)
+  processedBy         Int?                @map("ProcessedBy")
+  createdAt           DateTime            @default(now()) @map("CreatedAt") @db.DateTime(0)
+  updatedAt           DateTime            @default(now()) @updatedAt @map("UpdatedAt") @db.DateTime(0)
   payoutProofs        RefundPayoutProof[]
+  returnRequest       ReturnRequest       @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RefundTransactions_ReturnRequests")
+  processedByUser     User?               @relation("RefundTransactionProcessedBy", fields: [processedBy], references: [userId], onUpdate: NoAction, map: "FK_RefundTransactions_Users")
 
   @@index([returnRequestId], map: "IX_RefundTransactions_ReturnRequestId")
   @@index([status], map: "IX_RefundTransactions_Status")
@@ -571,29 +565,26 @@ model RefundTransaction {
   @@map("RefundTransactions")
 }
 
-// ─── Coupon & Discount System ─────────────────────────────────────────────────
-// type values enforced at application layer: "FIXED_AMOUNT" | "PERCENTAGE"
-
 model Coupon {
-  couponId          Int      @id @default(autoincrement()) @map("CouponId")
-  code              String   @unique @map("Code") @db.VarChar(50)
-  type              String   @map("Type") @db.VarChar(20) // "FIXED_AMOUNT" | "PERCENTAGE"
-  value             Decimal  @map("Value") @db.Decimal(18, 2)
-  maxDiscountAmount Decimal? @map("MaxDiscountAmount") @db.Decimal(18, 2) // Cap for PERCENTAGE type
-  minOrderValue     Decimal  @default(0) @map("MinOrderValue") @db.Decimal(18, 2)
-  startDate         DateTime @map("StartDate")
-  endDate           DateTime @map("EndDate")
-  usageLimit        Int      @map("UsageLimit")
-  usedCount         Int      @default(0) @map("UsedCount")
-  usagePerUser      Int      @default(1) @map("UsagePerUser")
-  isActive          Boolean  @default(true) @map("IsActive")
-  isHidden          Boolean  @default(false) @map("IsHidden")
-  source            String?  @map("Source") @db.VarChar(30)
-  visibleInPublicList Boolean @default(true) @map("VisibleInPublicList")
-  createdAt         DateTime @default(now()) @map("CreatedAt")
-  updatedAt         DateTime @default(now()) @updatedAt @map("UpdatedAt")
-  orders            Order[]
-  refundBenefits    RefundBenefit[]
+  couponId            Int             @id @default(autoincrement()) @map("CouponId")
+  code                String          @unique(map: "UQ__Coupons__A25C5AA747E73C3C") @map("Code") @db.VarChar(50)
+  type                String          @map("Type") @db.VarChar(20)
+  value               Decimal         @map("Value") @db.Decimal(18, 2)
+  maxDiscountAmount   Decimal?        @map("MaxDiscountAmount") @db.Decimal(18, 2)
+  minOrderValue       Decimal         @default(0.00) @map("MinOrderValue") @db.Decimal(18, 2)
+  startDate           DateTime        @map("StartDate") @db.DateTime(0)
+  endDate             DateTime        @map("EndDate") @db.DateTime(0)
+  usageLimit          Int             @map("UsageLimit")
+  usedCount           Int             @default(0) @map("UsedCount")
+  usagePerUser        Int             @default(1) @map("UsagePerUser")
+  isActive            Boolean         @default(true) @map("IsActive")
+  createdAt           DateTime        @default(now()) @map("CreatedAt") @db.DateTime(0)
+  updatedAt           DateTime        @default(now()) @updatedAt @map("UpdatedAt") @db.DateTime(0)
+  isHidden            Boolean         @default(false) @map("IsHidden")
+  source              String?         @map("Source") @db.VarChar(30)
+  visibleInPublicList Boolean         @default(true) @map("VisibleInPublicList")
+  orders              Order[]
+  refundBenefits      RefundBenefit[]
 
   @@index([isActive], map: "IX_Coupons_IsActive")
   @@index([source], map: "IX_Coupons_Source")
@@ -601,19 +592,19 @@ model Coupon {
 }
 
 model CustomerBankAccount {
-  bankAccountId   Int      @id @default(autoincrement()) @map("BankAccountId")
-  userId          Int      @map("UserId")
-  bankName        String   @map("BankName") @db.VarChar(120)
-  bankCode        String?  @map("BankCode") @db.VarChar(50)
-  accountNumber   String   @map("AccountNumber") @db.VarChar(50)
-  accountHolder   String   @map("AccountHolder") @db.VarChar(120)
-  qrImageUrl      String?  @map("QrImageUrl") @db.VarChar(1000)
-  inputMethod     String   @map("InputMethod") @db.VarChar(20)
-  isDefault       Boolean  @default(true) @map("IsDefault")
-  isActive        Boolean  @default(true) @map("IsActive")
-  createdAt       DateTime @default(now()) @map("CreatedAt")
-  updatedAt       DateTime @default(now()) @updatedAt @map("UpdatedAt")
-  user            User     @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_CustomerBankAccounts_Users")
+  bankAccountId   Int                  @id @default(autoincrement()) @map("BankAccountId")
+  userId          Int                  @map("UserId")
+  bankName        String               @map("BankName") @db.VarChar(120)
+  bankCode        String?              @map("BankCode") @db.VarChar(50)
+  accountNumber   String               @map("AccountNumber") @db.VarChar(50)
+  accountHolder   String               @map("AccountHolder") @db.VarChar(120)
+  qrImageUrl      String?              @map("QrImageUrl") @db.VarChar(1000)
+  inputMethod     String               @map("InputMethod") @db.VarChar(20)
+  isDefault       Boolean              @default(true) @map("IsDefault")
+  isActive        Boolean              @default(true) @map("IsActive")
+  createdAt       DateTime             @default(now()) @map("CreatedAt") @db.DateTime(0)
+  updatedAt       DateTime             @default(now()) @updatedAt @map("UpdatedAt") @db.DateTime(0)
+  user            User                 @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction, map: "FK_CustomerBankAccounts_Users")
   refundSnapshots RefundBankSnapshot[]
 
   @@index([userId], map: "IX_CustomerBankAccounts_UserId")
@@ -632,12 +623,13 @@ model RefundBankSnapshot {
   accountHolder        String               @map("AccountHolder") @db.VarChar(120)
   qrImageUrl           String?              @map("QrImageUrl") @db.VarChar(1000)
   inputMethod          String               @map("InputMethod") @db.VarChar(20)
-  capturedAt           DateTime             @default(now()) @map("CapturedAt")
+  capturedAt           DateTime             @default(now()) @map("CapturedAt") @db.DateTime(0)
+  bankAccount          CustomerBankAccount? @relation(fields: [bankAccountId], references: [bankAccountId], onUpdate: NoAction, map: "FK_RefundBankSnapshots_CustomerBankAccounts")
   returnRequest        ReturnRequest        @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: Cascade, onUpdate: NoAction, map: "FK_RefundBankSnapshots_ReturnRequests")
-  bankAccount          CustomerBankAccount? @relation(fields: [bankAccountId], references: [bankAccountId], onDelete: SetNull, onUpdate: NoAction, map: "FK_RefundBankSnapshots_CustomerBankAccounts")
 
   @@index([returnRequestId], map: "IX_RefundBankSnapshots_ReturnRequestId")
   @@index([returnRequestId, capturedAt], map: "IX_RefundBankSnapshots_ReturnRequestId_CapturedAt")
+  @@index([bankAccountId], map: "FK_RefundBankSnapshots_CustomerBankAccounts")
   @@map("RefundBankSnapshots")
 }
 
@@ -650,47 +642,46 @@ model RefundPayoutProof {
   fileName            String?            @map("FileName") @db.VarChar(255)
   mimeType            String?            @map("MimeType") @db.VarChar(100)
   note                String?            @map("Note") @db.VarChar(1000)
-  createdAt           DateTime           @default(now()) @map("CreatedAt")
+  createdAt           DateTime           @default(now()) @map("CreatedAt") @db.DateTime(0)
+  refundTransaction   RefundTransaction? @relation(fields: [refundTransactionId], references: [refundTransactionId], onUpdate: NoAction, map: "FK_RefundPayoutProofs_RefundTransactions")
   returnRequest       ReturnRequest      @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: NoAction, onUpdate: NoAction, map: "FK_RefundPayoutProofs_ReturnRequests")
-  refundTransaction   RefundTransaction? @relation(fields: [refundTransactionId], references: [refundTransactionId], onDelete: SetNull, onUpdate: NoAction, map: "FK_RefundPayoutProofs_RefundTransactions")
   uploadedByUser      User               @relation("RefundPayoutProofUploadedBy", fields: [uploadedBy], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_RefundPayoutProofs_Users")
 
   @@index([returnRequestId], map: "IX_RefundPayoutProofs_ReturnRequestId")
   @@index([returnRequestId, createdAt], map: "IX_RefundPayoutProofs_ReturnRequestId_CreatedAt")
+  @@index([refundTransactionId], map: "FK_RefundPayoutProofs_RefundTransactions")
+  @@index([uploadedBy], map: "FK_RefundPayoutProofs_Users")
   @@map("RefundPayoutProofs")
 }
 
 model RefundBenefit {
-  refundBenefitId    Int          @id @default(autoincrement()) @map("RefundBenefitId")
-  returnRequestId    Int          @unique(map: "UQ_RefundBenefits_ReturnRequestId") @map("ReturnRequestId")
-  orderId            Int          @map("OrderId")
-  userId             Int          @map("UserId")
-  benefitType        String       @map("BenefitType") @db.VarChar(20)
-  percentValue       Decimal?     @map("PercentValue") @db.Decimal(5, 2)
-  maxDiscountAmount  Decimal?     @map("MaxDiscountAmount") @db.Decimal(18, 2)
-  minOrderValue      Decimal      @default(0) @map("MinOrderValue") @db.Decimal(18, 2)
-  couponId           Int?         @map("CouponId")
-  status             String       @map("Status") @db.VarChar(20)
-  validFrom          DateTime     @map("ValidFrom")
-  validUntil         DateTime     @map("ValidUntil")
-  issuedAt           DateTime?    @map("IssuedAt")
-  usedAt             DateTime?    @map("UsedAt")
-  ruleVersion        String       @map("RuleVersion") @db.VarChar(30)
-  source             String       @default("REFUND") @map("Source") @db.VarChar(30)
-  metadataJson       String?      @map("MetadataJson") @db.LongText
-  returnRequest      ReturnRequest @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: NoAction, onUpdate: NoAction, map: "FK_RefundBenefits_ReturnRequests")
-  order              Order        @relation(fields: [orderId], references: [orderId], onDelete: NoAction, onUpdate: NoAction, map: "FK_RefundBenefits_Orders")
-  user               User         @relation(fields: [userId], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_RefundBenefits_Users")
-  coupon             Coupon?      @relation(fields: [couponId], references: [couponId], onDelete: SetNull, onUpdate: NoAction, map: "FK_RefundBenefits_Coupons")
+  refundBenefitId   Int           @id @default(autoincrement()) @map("RefundBenefitId")
+  returnRequestId   Int           @unique(map: "UQ_RefundBenefits_ReturnRequestId") @map("ReturnRequestId")
+  orderId           Int           @map("OrderId")
+  userId            Int           @map("UserId")
+  benefitType       String        @map("BenefitType") @db.VarChar(20)
+  percentValue      Decimal?      @map("PercentValue") @db.Decimal(5, 2)
+  maxDiscountAmount Decimal?      @map("MaxDiscountAmount") @db.Decimal(18, 2)
+  minOrderValue     Decimal       @default(0.00) @map("MinOrderValue") @db.Decimal(18, 2)
+  couponId          Int?          @map("CouponId")
+  status            String        @map("Status") @db.VarChar(20)
+  validFrom         DateTime      @map("ValidFrom") @db.DateTime(0)
+  validUntil        DateTime      @map("ValidUntil") @db.DateTime(0)
+  issuedAt          DateTime?     @map("IssuedAt") @db.DateTime(0)
+  usedAt            DateTime?     @map("UsedAt") @db.DateTime(0)
+  ruleVersion       String        @map("RuleVersion") @db.VarChar(30)
+  source            String        @default("REFUND") @map("Source") @db.VarChar(30)
+  metadataJson      String?       @map("MetadataJson") @db.LongText
+  coupon            Coupon?       @relation(fields: [couponId], references: [couponId], onUpdate: NoAction, map: "FK_RefundBenefits_Coupons")
+  order             Order         @relation(fields: [orderId], references: [orderId], onDelete: NoAction, onUpdate: NoAction, map: "FK_RefundBenefits_Orders")
+  returnRequest     ReturnRequest @relation(fields: [returnRequestId], references: [returnRequestId], onDelete: NoAction, onUpdate: NoAction, map: "FK_RefundBenefits_ReturnRequests")
+  user              User          @relation(fields: [userId], references: [userId], onDelete: NoAction, onUpdate: NoAction, map: "FK_RefundBenefits_Users")
 
   @@index([userId, status, validUntil], map: "IX_RefundBenefits_UserId_Status_ValidUntil")
+  @@index([couponId], map: "FK_RefundBenefits_Coupons")
+  @@index([orderId], map: "FK_RefundBenefits_Orders")
   @@map("RefundBenefits")
 }
-
-// ─── Financial Refund Ledger ──────────────────────────────────────────────────
-// type:   FULL | PARTIAL
-// method: ORIGINAL_GATEWAY | BANK_TRANSFER | STORE_WALLET
-// status: PENDING | PROCESSING | SUCCESS | FAILED
 
 model Refund {
   refundId             Int      @id @default(autoincrement()) @map("RefundId")
@@ -704,36 +695,34 @@ model Refund {
   reason               String   @map("Reason") @db.VarChar(500)
   gatewayError         String?  @map("GatewayError") @db.VarChar(500)
   createdBy            Int?     @map("CreatedBy")
-  createdAt            DateTime @default(now()) @map("CreatedAt")
-  updatedAt            DateTime @default(now()) @updatedAt @map("UpdatedAt")
+  createdAt            DateTime @default(now()) @map("CreatedAt") @db.DateTime(0)
+  updatedAt            DateTime @default(now()) @updatedAt @map("UpdatedAt") @db.DateTime(0)
+  order                Order    @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Refunds_Orders")
+  payment              Payment? @relation(fields: [paymentId], references: [paymentId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Refunds_Payments")
 
-  order   Order    @relation(fields: [orderId],   references: [orderId],   onDelete: Cascade, onUpdate: NoAction, map: "FK_Refunds_Orders")
-  payment Payment? @relation(fields: [paymentId], references: [paymentId], onDelete: NoAction, onUpdate: NoAction, map: "FK_Refunds_Payments")
-
-  @@index([orderId],  map: "IX_Refunds_OrderId")
-  @@index([status],   map: "IX_Refunds_Status")
+  @@index([orderId], map: "IX_Refunds_OrderId")
+  @@index([status], map: "IX_Refunds_Status")
+  @@index([paymentId], map: "FK_Refunds_Payments")
   @@map("Refunds")
 }
 
-// ─── Warehouse & Multi-location Inventory ────────────────────────────────────
-
 model PurchaseOrder {
   purchaseOrderId     Int                 @id @default(autoincrement()) @map("PurchaseOrderId")
-  purchaseOrderNumber String              @unique(map: "UQ_PurchaseOrders_Number") @map("PurchaseOrderNumber") @db.VarChar(50)
+  purchaseOrderNumber String              @unique(map: "UQ__Purchase__96241948CDB791D1") @map("PurchaseOrderNumber") @db.VarChar(50)
   supplier            String              @map("Supplier") @db.VarChar(100)
-  expectedReceivedAt  DateTime?           @map("ExpectedReceivedAt")
+  status              String              @default("PENDING") @map("Status") @db.VarChar(20)
+  notes               String?             @map("Notes") @db.VarChar(1000)
+  orderedAt           DateTime            @default(now()) @map("OrderedAt") @db.DateTime(0)
+  receivedAt          DateTime?           @map("ReceivedAt") @db.DateTime(0)
+  createdBy           Int?                @map("CreatedBy")
+  updatedAt           DateTime            @default(now()) @updatedAt @map("UpdatedAt") @db.DateTime(0)
+  expectedReceivedAt  DateTime?           @map("ExpectedReceivedAt") @db.DateTime(0)
   invoiceNumber       String?             @map("InvoiceNumber") @db.VarChar(100)
   supplierContactName String?             @map("SupplierContactName") @db.VarChar(100)
   supplierPhone       String?             @map("SupplierPhone") @db.VarChar(20)
   supplierEmail       String?             @map("SupplierEmail") @db.VarChar(100)
-  status              String              @default("PENDING") @map("Status") @db.VarChar(20)
-  notes               String?             @map("Notes") @db.VarChar(1000)
-  orderedAt           DateTime            @default(now()) @map("OrderedAt")
-  receivedAt          DateTime?           @map("ReceivedAt")
-  createdBy           Int?                @map("CreatedBy")
-  updatedAt           DateTime            @default(now()) @updatedAt @map("UpdatedAt")
-  items               PurchaseOrderItem[]
   goodsReceipts       GoodsReceipt[]
+  items               PurchaseOrderItem[]
 
   @@index([orderedAt], map: "IX_PurchaseOrders_OrderedAt")
   @@index([status], map: "IX_PurchaseOrders_Status")
@@ -741,15 +730,15 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderItem {
-  purchaseOrderItemId Int            @id @default(autoincrement()) @map("PurchaseOrderItemId")
-  purchaseOrderId     Int            @map("PurchaseOrderId")
-  variantId           Int            @map("VariantId")
-  orderedQty          Int            @map("OrderedQty")
-  receivedQty         Int            @default(0) @map("ReceivedQty")
-  unitCost            Decimal        @map("UnitCost") @db.Decimal(18, 2)
-  purchaseOrder       PurchaseOrder  @relation(fields: [purchaseOrderId], references: [purchaseOrderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_PurchaseOrderItems_PurchaseOrders")
-  variant             ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: NoAction, onUpdate: NoAction, map: "FK_PurchaseOrderItems_ProductVariants")
+  purchaseOrderItemId Int                @id @default(autoincrement()) @map("PurchaseOrderItemId")
+  purchaseOrderId     Int                @map("PurchaseOrderId")
+  variantId           Int                @map("VariantId")
+  orderedQty          Int                @map("OrderedQty")
+  receivedQty         Int                @default(0) @map("ReceivedQty")
+  unitCost            Decimal            @map("UnitCost") @db.Decimal(18, 2)
   goodsReceiptItems   GoodsReceiptItem[]
+  variant             ProductVariant     @relation(fields: [variantId], references: [variantId], onDelete: NoAction, onUpdate: NoAction, map: "FK_PurchaseOrderItems_ProductVariants")
+  purchaseOrder       PurchaseOrder      @relation(fields: [purchaseOrderId], references: [purchaseOrderId], onDelete: Cascade, onUpdate: NoAction, map: "FK_PurchaseOrderItems_PurchaseOrders")
 
   @@unique([purchaseOrderId, variantId], map: "UQ_PurchaseOrderItems_Order_Variant")
   @@index([variantId], map: "IX_PurchaseOrderItems_VariantId")
@@ -757,12 +746,12 @@ model PurchaseOrderItem {
 }
 
 model Inventory {
-  variantId          Int            @id @map("VariantId")
-  availableQuantity  Int            @default(0) @map("AvailableQuantity")
-  reservedQuantity   Int            @default(0) @map("ReservedQuantity")
-  incomingQuantity   Int            @default(0) @map("IncomingQuantity")
-  updatedAt          DateTime       @default(now()) @updatedAt @map("UpdatedAt")
-  variant            ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Inventory_ProductVariants")
+  variantId         Int            @id @map("VariantId")
+  availableQuantity Int            @default(0) @map("AvailableQuantity")
+  reservedQuantity  Int            @default(0) @map("ReservedQuantity")
+  incomingQuantity  Int            @default(0) @map("IncomingQuantity")
+  updatedAt         DateTime       @default(now()) @updatedAt @map("UpdatedAt") @db.DateTime(0)
+  variant           ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_Inventory_ProductVariants")
 
   @@index([availableQuantity], map: "IX_Inventory_AvailableQuantity")
   @@map("Inventory")
@@ -777,42 +766,85 @@ model StockMovement {
   referenceId     Int?           @map("ReferenceId")
   note            String?        @map("Note") @db.VarChar(500)
   createdBy       Int?           @map("CreatedBy")
-  createdAt       DateTime       @default(now()) @map("CreatedAt")
+  createdAt       DateTime       @default(now()) @map("CreatedAt") @db.DateTime(0)
   variant         ProductVariant @relation(fields: [variantId], references: [variantId], onDelete: Cascade, onUpdate: NoAction, map: "FK_StockMovements_ProductVariants")
-  user            User?          @relation(fields: [createdBy], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_StockMovements_Users")
+  user            User?          @relation(fields: [createdBy], references: [userId], onUpdate: NoAction, map: "FK_StockMovements_Users")
 
   @@index([variantId, createdAt], map: "IX_StockMovements_Variant_CreatedAt")
   @@index([referenceType, referenceId], map: "IX_StockMovements_Reference")
+  @@index([createdBy], map: "FK_StockMovements_Users")
   @@map("StockMovements")
 }
 
 model GoodsReceipt {
   goodsReceiptId  Int                @id @default(autoincrement()) @map("GoodsReceiptId")
   purchaseOrderId Int                @map("PurchaseOrderId")
-  receiptNumber   String             @unique(map: "UQ_GoodsReceipts_ReceiptNumber") @map("ReceiptNumber") @db.VarChar(60)
+  receiptNumber   String             @unique(map: "UQ__GoodsRec__C08AFDABFAE9F30F") @map("ReceiptNumber") @db.VarChar(60)
   notes           String?            @map("Notes") @db.VarChar(1000)
   createdBy       Int?               @map("CreatedBy")
-  createdAt       DateTime           @default(now()) @map("CreatedAt")
-  purchaseOrder   PurchaseOrder      @relation(fields: [purchaseOrderId], references: [purchaseOrderId], onDelete: NoAction, onUpdate: NoAction, map: "FK_GoodsReceipts_PurchaseOrders")
-  user            User?              @relation(fields: [createdBy], references: [userId], onDelete: SetNull, onUpdate: NoAction, map: "FK_GoodsReceipts_Users")
+  createdAt       DateTime           @default(now()) @map("CreatedAt") @db.DateTime(0)
   items           GoodsReceiptItem[]
+  purchaseOrder   PurchaseOrder      @relation(fields: [purchaseOrderId], references: [purchaseOrderId], onDelete: NoAction, onUpdate: NoAction, map: "FK_GoodsReceipts_PurchaseOrders")
+  user            User?              @relation(fields: [createdBy], references: [userId], onUpdate: NoAction, map: "FK_GoodsReceipts_Users")
 
   @@index([purchaseOrderId, createdAt], map: "IX_GoodsReceipts_PurchaseOrder_CreatedAt")
+  @@index([createdBy], map: "FK_GoodsReceipts_Users")
   @@map("GoodsReceipts")
 }
 
 model GoodsReceiptItem {
-  goodsReceiptItemId  Int               @id @default(autoincrement()) @map("GoodsReceiptItemId")
-  goodsReceiptId      Int               @map("GoodsReceiptId")
-  purchaseOrderItemId Int?              @map("PurchaseOrderItemId")
-  variantId           Int               @map("VariantId")
-  quantityReceived    Int               @map("QuantityReceived")
-  unitCost            Decimal           @map("UnitCost") @db.Decimal(18, 2)
-  goodsReceipt        GoodsReceipt      @relation(fields: [goodsReceiptId], references: [goodsReceiptId], onDelete: Cascade, onUpdate: NoAction, map: "FK_GoodsReceiptItems_GoodsReceipts")
-  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [purchaseOrderItemId], onDelete: SetNull, onUpdate: NoAction, map: "FK_GoodsReceiptItems_PurchaseOrderItems")
-  variant             ProductVariant    @relation(fields: [variantId], references: [variantId], onDelete: NoAction, onUpdate: NoAction, map: "FK_GoodsReceiptItems_ProductVariants")
+  goodsReceiptItemId  Int                @id @default(autoincrement()) @map("GoodsReceiptItemId")
+  goodsReceiptId      Int                @map("GoodsReceiptId")
+  purchaseOrderItemId Int?               @map("PurchaseOrderItemId")
+  variantId           Int                @map("VariantId")
+  quantityReceived    Int                @map("QuantityReceived")
+  unitCost            Decimal            @map("UnitCost") @db.Decimal(18, 2)
+  goodsReceipt        GoodsReceipt       @relation(fields: [goodsReceiptId], references: [goodsReceiptId], onDelete: Cascade, onUpdate: NoAction, map: "FK_GoodsReceiptItems_GoodsReceipts")
+  variant             ProductVariant     @relation(fields: [variantId], references: [variantId], onDelete: NoAction, onUpdate: NoAction, map: "FK_GoodsReceiptItems_ProductVariants")
+  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [purchaseOrderItemId], onUpdate: NoAction, map: "FK_GoodsReceiptItems_PurchaseOrderItems")
 
   @@index([goodsReceiptId], map: "IX_GoodsReceiptItems_GoodsReceiptId")
   @@index([variantId], map: "IX_GoodsReceiptItems_VariantId")
+  @@index([purchaseOrderItemId], map: "FK_GoodsReceiptItems_PurchaseOrderItems")
   @@map("GoodsReceiptItems")
+}
+
+model ChatTelemetryEvents {
+  ChatTelemetryEventId Int      @id @default(autoincrement())
+  Event                String   @db.VarChar(40)
+  Page                 String   @db.VarChar(20)
+  SessionId            String   @db.VarChar(64)
+  ProductId            Int?
+  MessageLength        Int?
+  ConversationLength   Int?
+  Target               String?  @db.VarChar(200)
+  Label                String?  @db.VarChar(80)
+  Placement            String?  @db.VarChar(30)
+  HasContextSummary    Boolean  @default(false)
+  IpAddress            String?  @db.VarChar(64)
+  UserAgent            String?  @db.VarChar(200)
+  CreatedAt            DateTime @db.DateTime(0)
+
+  @@index([CreatedAt], map: "IX_ChatTelemetryEvents_CreatedAt")
+  @@index([Event, Page], map: "IX_ChatTelemetryEvents_EventPage")
+}
+
+model EmailJob {
+  emailJobId         Int       @id @default(autoincrement()) @map("EmailJobId")
+  eventKey           String    @unique @map("EventKey") @db.VarChar(191)
+  eventType          String    @map("EventType") @db.VarChar(100)
+  recipient          String    @map("Recipient") @db.VarChar(255)
+  payloadJson        Json      @map("PayloadJson")
+  status             String    @default("PENDING") @map("Status") @db.VarChar(30)
+  attempts           Int       @default(0) @map("Attempts")
+  lastError          String?   @map("LastError") @db.Text
+  provider           String?   @map("Provider") @db.VarChar(50)
+  providerMessageId  String?   @map("ProviderMessageId") @db.VarChar(255)
+  scheduledAt        DateTime  @default(now()) @map("ScheduledAt") @db.DateTime(0)
+  sentAt             DateTime? @map("SentAt") @db.DateTime(0)
+  createdAt          DateTime  @default(now()) @map("CreatedAt") @db.DateTime(0)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("UpdatedAt") @db.DateTime(0)
+
+  @@index([status, scheduledAt], map: "IX_EmailJobs_Status_ScheduledAt")
+  @@map("EmailJobs")
 }
