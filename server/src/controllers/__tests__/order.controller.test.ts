@@ -17,6 +17,7 @@ const getRefundsForOrderMock = jest.fn();
 const uploadBase64Mock = jest.fn();
 const findManyOrdersMock = jest.fn();
 const countOrdersByStatusMock = jest.fn();
+const enqueueOrderStatusEmailMock = jest.fn();
 
 jest.mock('../../utils/prisma', () => ({
   prisma: prismaMock,
@@ -38,6 +39,12 @@ jest.mock('../../socket', () => ({
 
 jest.mock('../../services/refund.service', () => ({
   getRefundsForOrder: (...args: unknown[]) => getRefundsForOrderMock(...args),
+}));
+
+jest.mock('../../modules/notifications/notification.service', () => ({
+  notificationService: {
+    enqueueOrderStatusEmail: (...args: unknown[]) => enqueueOrderStatusEmailMock(...args),
+  },
 }));
 
 jest.mock('../../services/cloudinary.service', () => ({
@@ -81,6 +88,7 @@ describe('order.controller confirmReceipt', () => {
       width: 1200,
       height: 900,
     });
+    enqueueOrderStatusEmailMock.mockResolvedValue(undefined);
   });
 
   it('returns aggregated admin tab counts from one repository call', async () => {
@@ -332,9 +340,13 @@ describe('order.controller confirmReceipt', () => {
     prismaMock.order.findUnique.mockResolvedValue({
       orderId: 77,
       userId: 5,
+      orderNumber: 'ORD-0077',
+      customerName: 'Khach Hang',
+      customerEmail: 'khach@example.com',
       status: 'Shipping',
       paymentMethod: 'COD',
       totalAmount: 208000,
+      user: { email: 'fallback@example.com', fullName: 'Khach Hang' },
     });
 
     const tx = {
@@ -382,6 +394,7 @@ describe('order.controller confirmReceipt', () => {
         oldStatus: 'Shipping',
         status: 'Delivered',
         changedBy: 5,
+        changedAt: expect.any(Date),
       }),
     });
     expect(tx.payment.findFirst).toHaveBeenCalledWith({
@@ -396,6 +409,17 @@ describe('order.controller confirmReceipt', () => {
       }),
     });
     expect(tx.payment.create).not.toHaveBeenCalled();
+    expect(enqueueOrderStatusEmailMock).toHaveBeenCalledWith({
+      orderId: 77,
+      orderNumber: 'ORD-0077',
+      email: 'khach@example.com',
+      customerName: 'Khach Hang',
+      status: 'Delivered',
+      previousStatus: 'Shipping',
+      note: 'Khách hàng xác nhận đã nhận hàng',
+      trackingUrl: expect.stringContaining('/account/orders/77'),
+      historyTimestamp: expect.any(String),
+    });
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({
         success: true,

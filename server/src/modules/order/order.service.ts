@@ -14,6 +14,8 @@ import { syncOrderWithShippingProvider } from '../shipping/shipping-provider.ada
 import { EnrichedOrderItem } from './order-pricing.service';
 import { reconcileCodReturnUnlockAfterDeliveryConfirmation } from './cod-return-reconciliation';
 import { ACTIVE_RETURN_REQUEST_STATUSES } from '../return-order/types';
+import { notificationService } from '../notifications/notification.service';
+import { env } from '../../lib/env';
 
 export type Role = 'Admin' | 'Customer' | string;
 
@@ -364,6 +366,22 @@ function buildOrderItemEconomicsSnapshots(
   });
 }
 const LEGACY_MANUAL_CARRIER = 'AISTHEA Manual Delivery';
+const CUSTOMER_FACING_EMAIL_STATUSES = new Set(['processing', 'shipping', 'delivered', 'cancelled']);
+
+const resolveOrderNotificationRecipient = (order: {
+  customerEmail?: string | null;
+  user?: { email?: string | null; fullName?: string | null } | null;
+}) => order.customerEmail?.trim() || order.user?.email?.trim() || null;
+
+const resolveOrderNotificationName = (order: {
+  customerName?: string | null;
+  user?: { fullName?: string | null } | null;
+}) => order.customerName?.trim() || order.user?.fullName?.trim() || 'AISTHEA Customer';
+
+const buildOrderDetailUrl = (orderId: number) => `${env.clientUrl.replace(/\/$/, '')}/account/orders/${orderId}`;
+
+const shouldSendOrderStatusNotification = (status: string) =>
+  CUSTOMER_FACING_EMAIL_STATUSES.has(normalizeOrderStatus(status));
 
 const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto => {
   const itemsTotal = order.items.reduce((sum, item) => {
@@ -711,6 +729,12 @@ export async function updateOrderStatusAdmin(
     let latest = await prisma.order.findUnique({
       where: { orderId: parsedId },
       include: {
+        user: {
+          select: {
+            email: true,
+            fullName: true,
+          },
+        },
         statusHistory: { orderBy: { changedAt: 'asc' } },
         shipment: true,
       },
@@ -751,6 +775,12 @@ export async function updateOrderStatusAdmin(
         latest = await prisma.order.findUnique({
           where: { orderId: parsedId },
           include: {
+            user: {
+              select: {
+                email: true,
+                fullName: true,
+              },
+            },
             statusHistory: { orderBy: { changedAt: 'asc' } },
             shipment: true,
           },
@@ -759,6 +789,39 @@ export async function updateOrderStatusAdmin(
     }
 
     if (latest) {
+      const statusHistory = latest.statusHistory || [];
+      const latestHistoryEntry = statusHistory[statusHistory.length - 1];
+      const recipient = resolveOrderNotificationRecipient(latest as {
+        customerEmail?: string | null;
+        user?: { email?: string | null; fullName?: string | null } | null;
+      });
+
+      if (recipient && shouldSendOrderStatusNotification(newStatus)) {
+        try {
+          await notificationService.enqueueOrderStatusEmail({
+            orderId: latest.orderId,
+            orderNumber: latest.orderNumber,
+            email: recipient,
+            customerName: resolveOrderNotificationName(latest as {
+              customerName?: string | null;
+              user?: { fullName?: string | null } | null;
+            }),
+            status: newStatus,
+            previousStatus: currentStatus,
+            note: latestHistoryEntry?.note ?? note ?? null,
+            trackingUrl: buildOrderDetailUrl(latest.orderId),
+            historyTimestamp:
+              latestHistoryEntry?.changedAt?.toISOString() ?? new Date().toISOString(),
+          });
+        } catch (notificationError: any) {
+          logger.warn('[updateOrderStatusAdmin] Failed to enqueue order status email', {
+            orderId: latest.orderId,
+            status: newStatus,
+            error: notificationError?.message ?? String(notificationError),
+          });
+        }
+      }
+
       const trackingSummary = getOrderTrackingSummary(latest.orderNumber, latest.shipment);
       const timeline = (latest.statusHistory || []).map((h: any) => ({
         status: h.status,
@@ -1005,6 +1068,27 @@ export async function createOrder(
   if (!order) {
     // Should never happen unless the DB is in a very unusual state
     throw new AppError(500, 'INTERNAL_ERROR', 'common:errors.internalServer');
+  }
+
+  const recipient = resolveOrderNotificationRecipient(order);
+  if (recipient) {
+    try {
+      await notificationService.enqueueOrderPlacedEmail({
+        orderId: order.orderId,
+        orderNumber: order.orderNumber,
+        email: recipient,
+        customerName: resolveOrderNotificationName(order),
+        totalAmount: toNumericAmount(order.totalAmount),
+        paymentMethod: order.paymentMethod ?? null,
+        createdAt: order.createdAt?.toISOString() ?? null,
+        orderUrl: buildOrderDetailUrl(order.orderId),
+      });
+    } catch (notificationError: any) {
+      logger.warn('[createOrder] Failed to enqueue order placed email', {
+        orderId: order.orderId,
+        error: notificationError?.message ?? String(notificationError),
+      });
+    }
   }
 
   return mapOrderToDto(order);

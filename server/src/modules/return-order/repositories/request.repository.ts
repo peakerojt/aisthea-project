@@ -46,13 +46,11 @@ const returnRequestItemInclude = {
     include: {
       variant: {
         select: {
-          images: {
-            select: { imageUrl: true, thumbnailUrl: true },
-            orderBy: [{ isPrimary: 'desc' }, { imageId: 'asc' }],
-            take: 1,
-          },
+          variantId: true,
+          productId: true,
           product: {
             select: {
+              productId: true,
               images: {
                 select: { imageUrl: true, thumbnailUrl: true },
                 orderBy: [{ isPrimary: 'desc' }, { imageId: 'asc' }],
@@ -112,7 +110,6 @@ const returnRequestDetailInclude = {
         },
       },
     },
-    orderBy: [{ issuedAt: 'desc' }, { validFrom: 'desc' }],
   },
 } satisfies Prisma.ReturnRequestInclude;
 

@@ -23,9 +23,9 @@ const repoMock = {
 };
 
 const notifyCustomerMock = jest.fn();
-const sendRefundAcceptedBankInfoRequiredEmailMock = jest.fn().mockResolvedValue(undefined);
-const sendRefundAcceptedAwaitingPayoutEmailMock = jest.fn().mockResolvedValue(undefined);
-const sendRefundCompletedBenefitIssuedEmailMock = jest.fn().mockResolvedValue(undefined);
+const enqueueRefundAcceptedBankInfoRequiredEmailMock = jest.fn().mockResolvedValue(undefined);
+const enqueueRefundAcceptedAwaitingPayoutEmailMock = jest.fn().mockResolvedValue(undefined);
+const enqueueRefundCompletedBenefitIssuedEmailMock = jest.fn().mockResolvedValue(undefined);
 const uploadBase64Mock = jest.fn();
 const loggerInfoMock = jest.fn();
 const loggerWarnMock = jest.fn();
@@ -43,13 +43,15 @@ jest.mock('../../../utils/notification.util', () => ({
   notifyCustomer: (...args: unknown[]) => notifyCustomerMock(...args),
 }));
 
-jest.mock('../../../services/email.service', () => ({
-  sendRefundAcceptedBankInfoRequiredEmail: (...args: unknown[]) =>
-    sendRefundAcceptedBankInfoRequiredEmailMock(...args),
-  sendRefundAcceptedAwaitingPayoutEmail: (...args: unknown[]) =>
-    sendRefundAcceptedAwaitingPayoutEmailMock(...args),
-  sendRefundCompletedBenefitIssuedEmail: (...args: unknown[]) =>
-    sendRefundCompletedBenefitIssuedEmailMock(...args),
+jest.mock('../../notifications/notification.service', () => ({
+  notificationService: {
+    enqueueRefundAcceptedBankInfoRequiredEmail: (...args: unknown[]) =>
+      enqueueRefundAcceptedBankInfoRequiredEmailMock(...args),
+    enqueueRefundAcceptedAwaitingPayoutEmail: (...args: unknown[]) =>
+      enqueueRefundAcceptedAwaitingPayoutEmailMock(...args),
+    enqueueRefundCompletedBenefitIssuedEmail: (...args: unknown[]) =>
+      enqueueRefundCompletedBenefitIssuedEmailMock(...args),
+  },
 }));
 
 jest.mock('../../../services/cloudinary.service', () => ({
@@ -132,9 +134,9 @@ describe('ReturnRequestService', () => {
     repoMock.findByOrderId.mockReset();
     repoMock.findAllAdmin.mockReset();
     notifyCustomerMock.mockReset();
-    sendRefundAcceptedBankInfoRequiredEmailMock.mockReset().mockResolvedValue(undefined);
-    sendRefundAcceptedAwaitingPayoutEmailMock.mockReset().mockResolvedValue(undefined);
-    sendRefundCompletedBenefitIssuedEmailMock.mockReset().mockResolvedValue(undefined);
+    enqueueRefundAcceptedBankInfoRequiredEmailMock.mockReset().mockResolvedValue(undefined);
+    enqueueRefundAcceptedAwaitingPayoutEmailMock.mockReset().mockResolvedValue(undefined);
+    enqueueRefundCompletedBenefitIssuedEmailMock.mockReset().mockResolvedValue(undefined);
     uploadBase64Mock.mockReset();
     loggerInfoMock.mockReset();
     loggerWarnMock.mockReset();
@@ -1256,13 +1258,14 @@ describe('ReturnRequestService', () => {
         updatedAt: expect.any(Date),
       }),
     });
-    expect(sendRefundAcceptedBankInfoRequiredEmailMock).toHaveBeenCalledWith(
-      'customer@example.com',
-      'Nguyen Van A',
-      'OD-803',
-      expect.stringContaining('/profile'),
-    );
-    expect(sendRefundAcceptedAwaitingPayoutEmailMock).not.toHaveBeenCalled();
+    expect(enqueueRefundAcceptedBankInfoRequiredEmailMock).toHaveBeenCalledWith({
+      returnRequestId: 153,
+      email: 'customer@example.com',
+      customerName: 'Nguyen Van A',
+      orderNumber: 'OD-803',
+      profileBankLink: expect.stringContaining('/profile'),
+    });
+    expect(enqueueRefundAcceptedAwaitingPayoutEmailMock).not.toHaveBeenCalled();
   });
 
   it('sends the awaiting-payout email when a refund is accepted with bank info already available', async () => {
@@ -1329,12 +1332,13 @@ describe('ReturnRequestService', () => {
         updatedAt: expect.any(Date),
       }),
     });
-    expect(sendRefundAcceptedAwaitingPayoutEmailMock).toHaveBeenCalledWith(
-      'banked@example.com',
-      'Tran Thi B',
-      'OD-804',
-    );
-    expect(sendRefundAcceptedBankInfoRequiredEmailMock).not.toHaveBeenCalled();
+    expect(enqueueRefundAcceptedAwaitingPayoutEmailMock).toHaveBeenCalledWith({
+      returnRequestId: 154,
+      email: 'banked@example.com',
+      customerName: 'Tran Thi B',
+      orderNumber: 'OD-804',
+    });
+    expect(enqueueRefundAcceptedBankInfoRequiredEmailMock).not.toHaveBeenCalled();
   });
 
   it('throws INVALID_STATE_TRANSITION when mark-received is called before approval', async () => {
@@ -2072,12 +2076,14 @@ describe('ReturnRequestService', () => {
       customerEmail: 'refunded@example.com',
       customerName: 'Refunded Customer',
     });
-    expect(sendRefundCompletedBenefitIssuedEmailMock).toHaveBeenCalledWith(
+    expect(enqueueRefundCompletedBenefitIssuedEmailMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        returnRequestId: 181,
         email: 'refunded@example.com',
-        fullName: 'Refunded Customer',
+        customerName: 'Refunded Customer',
         orderNumber: 'OD-881',
         refundAmount: 150000,
+        refundDate: expect.any(String),
         voucherSummary: 'Available voucher free shipping for your next order',
         profileLink: expect.stringContaining('/profile'),
       }),

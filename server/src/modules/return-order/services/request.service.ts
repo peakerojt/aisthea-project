@@ -10,14 +10,15 @@ import { notifyCustomer } from '../../../utils/notification.util';
 import { buildLegacyCreateReturnDraft } from '../../../shared/legacy-returns.create.adapter';
 import { isSettledPaymentStatus } from '../../../config/paymentStatus.config';
 import { cloudinaryService } from '../../../services/cloudinary.service';
-import {
-  sendRefundAcceptedAwaitingPayoutEmail,
-  sendRefundAcceptedBankInfoRequiredEmail,
-  sendRefundCompletedBenefitIssuedEmail,
-} from '../../../services/email.service';
 import { env } from '../../../lib/env';
 import { logger } from '../../../lib/logger';
-import { sanitizeRefundLogContext, serializeRefundErrorForLogs } from '../../../shared/refund-log-sanitizer';
+import { notificationService } from '../../notifications/notification.service';
+import {
+  buildRefundWorkflowAuditLogContext,
+  maskRefundBankAccountNumber,
+  sanitizeRefundLogContext,
+  serializeRefundErrorForLogs,
+} from '../../../shared/refund-log-sanitizer';
 import {
   RefundMethod,
   RefundWorkflowStatus,
@@ -138,26 +139,7 @@ export class ReturnRequestService {
     externalRefundReference?: string | null;
     metadata?: Record<string, unknown>;
   }) {
-    logger.info(
-      '[returnWorkflowAudit]',
-      sanitizeRefundLogContext({
-        action: input.action,
-        actorUserId: input.actorId,
-        actorRawRoles: input.actor?.rawRoles ?? [],
-        actorBusinessRole: input.actor?.businessRole ?? 'unknown',
-        returnRequestId: input.returnRequestId,
-        orderId: input.orderId ?? null,
-        oldState: input.oldState ?? null,
-        newState: input.newState ?? null,
-        oldRefundStatus: input.oldRefundStatus ?? null,
-        newRefundStatus: input.newRefundStatus ?? null,
-        note: input.note ?? null,
-        idempotencyKey: input.idempotencyKey ?? null,
-        externalRefundReference: input.externalRefundReference ?? null,
-        occurredAt: new Date().toISOString(),
-        ...(input.metadata ? { metadata: input.metadata } : {}),
-      }),
-    );
+    logger.info('[returnWorkflowAudit]', buildRefundWorkflowAuditLogContext(input));
   }
 
   private requireWorkflowActor(actor?: ReturnWorkflowActor): ReturnWorkflowActor {
@@ -310,15 +292,6 @@ export class ReturnRequestService {
       : null;
   }
 
-  private maskBankAccountNumber(accountNumber: string) {
-    const normalized = accountNumber.replace(/\s+/g, '');
-    if (normalized.length <= 4) {
-      return normalized;
-    }
-
-    return `****${normalized.slice(-4)}`;
-  }
-
   private formatRefundBenefitSummary(input: {
     benefitType: string;
     percentValue?: Prisma.Decimal | null;
@@ -435,7 +408,7 @@ export class ReturnRequestService {
         bankName: currentBankAccount.bankName,
         bankCode: currentBankAccount.bankCode,
         accountNumber: currentBankAccount.accountNumber,
-        accountNumberMasked: this.maskBankAccountNumber(currentBankAccount.accountNumber),
+        accountNumberMasked: maskRefundBankAccountNumber(currentBankAccount.accountNumber),
         accountHolder: currentBankAccount.accountHolder,
         qrImageUrl: currentBankAccount.qrImageUrl,
         inputMethod: currentBankAccount.inputMethod,
@@ -555,12 +528,14 @@ export class ReturnRequestService {
   }
 
   private async sendAcceptedRefundEmail(record: {
+    returnRequestId?: number | null;
     user?: { email?: string | null; fullName?: string | null } | null;
     order?: { orderNumber?: string | null } | null;
     bankInfo?: { available?: boolean } | null;
   }) {
     const email = record.user?.email?.trim();
-    if (!email) {
+    const returnRequestId = record.returnRequestId ?? null;
+    if (!email || !returnRequestId) {
       return;
     }
 
@@ -569,14 +544,20 @@ export class ReturnRequestService {
 
     try {
       if (record.bankInfo?.available) {
-        await sendRefundAcceptedAwaitingPayoutEmail(email, customerName, orderNumber);
-      } else {
-        await sendRefundAcceptedBankInfoRequiredEmail(
+        await notificationService.enqueueRefundAcceptedAwaitingPayoutEmail({
+          returnRequestId,
           email,
           customerName,
           orderNumber,
-          PROFILE_BANK_LINK,
-        );
+        });
+      } else {
+        await notificationService.enqueueRefundAcceptedBankInfoRequiredEmail({
+          returnRequestId,
+          email,
+          customerName,
+          orderNumber,
+          profileBankLink: PROFILE_BANK_LINK,
+        });
       }
     } catch (error) {
       logger.warn(
@@ -584,6 +565,7 @@ export class ReturnRequestService {
         sanitizeRefundLogContext({
           error: serializeRefundErrorForLogs(error),
           email,
+          returnRequestId,
           orderNumber,
         }),
       );
@@ -1682,6 +1664,7 @@ export class ReturnRequestService {
       });
 
       await this.sendAcceptedRefundEmail(approvedForRefund.record as {
+        returnRequestId?: number | null;
         user?: { email?: string | null; fullName?: string | null } | null;
         order?: { orderNumber?: string | null } | null;
         bankInfo?: { available?: boolean } | null;
@@ -1821,6 +1804,7 @@ export class ReturnRequestService {
     });
 
     await this.sendAcceptedRefundEmail(decorated as {
+      returnRequestId?: number | null;
       user?: { email?: string | null; fullName?: string | null } | null;
       order?: { orderNumber?: string | null } | null;
       bankInfo?: { available?: boolean } | null;
@@ -2080,6 +2064,7 @@ export class ReturnRequestService {
     }
 
     await this.sendAcceptedRefundEmail({
+      returnRequestId: request.returnRequestId,
       user: request.user,
       order: request.order,
       bankInfo: { available: false },
@@ -2221,7 +2206,8 @@ export class ReturnRequestService {
           bankAccountId: bankAccount.bankAccountId,
           bankName: bankAccount.bankName,
           bankCode: bankAccount.bankCode,
-          accountNumberMasked: this.maskBankAccountNumber(bankAccount.accountNumber),
+          accountNumberMasked:
+            maskRefundBankAccountNumber(bankAccount.accountNumber) ?? bankAccount.accountNumber,
           accountHolder: bankAccount.accountHolder,
           qrImageUrl: bankAccount.qrImageUrl,
           inputMethod: bankAccount.inputMethod,
@@ -2325,12 +2311,15 @@ export class ReturnRequestService {
     });
 
     if (result.requestUser?.email) {
-      await sendRefundCompletedBenefitIssuedEmail({
+      const refundDate = new Date().toISOString();
+
+      await notificationService.enqueueRefundCompletedBenefitIssuedEmail({
+        returnRequestId: id,
         email: result.requestUser.email,
-        fullName: result.requestUser.fullName ?? 'Customer',
+        customerName: result.requestUser.fullName ?? 'Customer',
         orderNumber: result.requestOrder?.orderNumber ?? `#${result.requestOrder?.orderId ?? id}`,
         refundAmount: Number(result.refundRecord.amount),
-        refundDate: new Date(),
+        refundDate,
         voucherSummary: result.benefit.summary,
         profileLink: PROFILE_VOUCHER_LINK,
       }).catch((error) => {

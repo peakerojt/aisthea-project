@@ -17,6 +17,8 @@ const inventoryMock = {
 const quoteOrderPricingMock = jest.fn();
 const emitOrderStatusUpdatedMock = jest.fn();
 const initiateRefundMock = jest.fn();
+const enqueueOrderPlacedEmailMock = jest.fn();
+const enqueueOrderStatusEmailMock = jest.fn();
 
 jest.mock('../../../utils/prisma', () => ({
   prisma: prismaMock,
@@ -38,6 +40,13 @@ jest.mock('../../../services/refund.service', () => ({
   initiateRefund: (...args: unknown[]) => initiateRefundMock(...args),
 }));
 
+jest.mock('../../notifications/notification.service', () => ({
+  notificationService: {
+    enqueueOrderPlacedEmail: (...args: unknown[]) => enqueueOrderPlacedEmailMock(...args),
+    enqueueOrderStatusEmail: (...args: unknown[]) => enqueueOrderStatusEmailMock(...args),
+  },
+}));
+
 jest.mock('../../../lib/logger', () => ({
   logger: {
     info: jest.fn(),
@@ -52,6 +61,8 @@ import { cancelOrderForUser, createOrder, updateOrderStatusAdmin } from '../orde
 describe('order.service integration guards', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    enqueueOrderPlacedEmailMock.mockResolvedValue(undefined);
+    enqueueOrderStatusEmailMock.mockResolvedValue(undefined);
   });
 
   it('cancels processing paid orders and refunds them before fulfillment', async () => {
@@ -686,6 +697,16 @@ describe('order.service integration guards', () => {
         note: 'Awaiting VNPay confirmation',
       },
     });
+    expect(enqueueOrderPlacedEmailMock).toHaveBeenCalledWith({
+      orderId: 321,
+      orderNumber: 'ORD-321',
+      email: 'khach@example.com',
+      customerName: 'Khach Hang',
+      totalAmount: 465000,
+      paymentMethod: 'VNPAY',
+      createdAt: '2026-03-16T00:00:00.000Z',
+      orderUrl: expect.stringContaining('/account/orders/321'),
+    });
     expect(result.id).toBe('321');
     expect(result.paymentStatus).toBe('PENDING_VNPAY');
   });
@@ -824,7 +845,10 @@ describe('order.service integration guards', () => {
       .mockResolvedValueOnce({
         orderId: 1,
         orderNumber: 'ORD-0001',
+        customerName: 'Khach Hang',
+        customerEmail: 'khach@example.com',
         userId: 77,
+        user: { email: 'fallback@example.com', fullName: 'Khach Hang' },
         shipment: null,
         statusHistory: [
           {
@@ -876,6 +900,17 @@ describe('order.service integration guards', () => {
       carrier: null,
       trackingNumber: null,
       estimatedDeliveryDate: null,
+    });
+    expect(enqueueOrderStatusEmailMock).toHaveBeenCalledWith({
+      orderId: 1,
+      orderNumber: 'ORD-0001',
+      email: 'khach@example.com',
+      customerName: 'Khach Hang',
+      status: ORDER_STATUS.SHIPPING,
+      previousStatus: ORDER_STATUS.PROCESSING,
+      note: null,
+      trackingUrl: expect.stringContaining('/account/orders/1'),
+      historyTimestamp: '2026-03-16T09:00:00.000Z',
     });
   });
 

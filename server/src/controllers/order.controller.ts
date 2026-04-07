@@ -11,6 +11,7 @@ import {
 } from '../config/orderStatus.config';
 import { ERROR_CODES, SUCCESS_MESSAGES } from '../utils/constants/responseKeys';
 import { logger } from '../lib/logger';
+import { env } from '../lib/env';
 import { getOrderTrackingSummary } from '../shared/order-state';
 import {
   buildCanonicalTimeline,
@@ -21,6 +22,7 @@ import {
 import { fileToBase64 } from '../middlewares/upload.middleware';
 import { cloudinaryService } from '../services/cloudinary.service';
 import { getRefundsForOrder } from '../services/refund.service';
+import { notificationService } from '../modules/notifications/notification.service';
 import type { CreateOrderInput, QuoteOrderInput } from '../modules/order/order.validator';
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
@@ -53,13 +55,6 @@ const parseAdminOrderFilters = (query: AuthRequest['query']) => ({
 });
 
 function resolveVariantImage(item: any): string | null {
-  const variantImage =
-    item.variant?.images?.[0]?.thumbnailUrl ??
-    item.variant?.images?.[0]?.imageUrl ??
-    null;
-
-  if (variantImage) return variantImage;
-
   return (
     item.variant?.product?.images?.[0]?.thumbnailUrl ??
     item.variant?.product?.images?.[0]?.imageUrl ??
@@ -84,11 +79,6 @@ async function loadVariantFallbacksBySku(items: Array<{ sku: string; variant?: u
       variantId: true,
       productId: true,
       sku: true,
-      images: {
-        select: { imageUrl: true, thumbnailUrl: true },
-        orderBy: [{ isPrimary: 'desc' }, { imageId: 'asc' }],
-        take: 1,
-      },
       product: {
         select: {
           productId: true,
@@ -139,6 +129,8 @@ function parseDeliveryProofImages(value: string | null | undefined): string[] {
     return [];
   }
 }
+
+const buildOrderDetailUrl = (orderId: number) => `${env.clientUrl.replace(/\/$/, '')}/account/orders/${orderId}`;
 
 // ─── ADMIN: Get All Orders | GET /api/orders/admin ───────────────────────────
 
@@ -196,11 +188,6 @@ export const getAdminOrderDetail = async (req: AuthRequest, res: Response) => {
           include: {
             variant: {
               include: {
-                images: {
-                  select: { imageUrl: true, thumbnailUrl: true },
-                  orderBy: [{ isPrimary: 'desc' }, { imageId: 'asc' }],
-                  take: 1,
-                },
                 product: {
                   select: {
                     productId: true,
@@ -406,11 +393,6 @@ export const getMyOrderDetail = async (req: AuthRequest, res: Response) => {
           include: {
             variant: {
               include: {
-                images: {
-                  select: { imageUrl: true, thumbnailUrl: true },
-                  orderBy: [{ isPrimary: 'desc' }, { imageId: 'asc' }],
-                  take: 1,
-                },
                 product: {
                   select: {
                     images: {
@@ -734,9 +716,18 @@ export const confirmReceipt = async (req: AuthRequest, res: Response) => {
       select: {
         orderId: true,
         userId: true,
+        orderNumber: true,
+        customerName: true,
+        customerEmail: true,
         status: true,
         paymentMethod: true,
         totalAmount: true,
+        user: {
+          select: {
+            email: true,
+            fullName: true,
+          },
+        },
       },
     });
 
@@ -745,6 +736,7 @@ export const confirmReceipt = async (req: AuthRequest, res: Response) => {
     if (order.status !== ORDER_STATUS.SHIPPING) {
       return res.status(400).json({ errorCode: ERROR_CODES.ORDER_NOT_SHIPPING, currentStatus: order.status });
     }
+    const confirmationTimestamp = new Date();
 
     await prisma.$transaction(async (tx) => {
       await tx.order.update({ where: { orderId }, data: { status: ORDER_STATUS.DELIVERED } });
@@ -755,6 +747,7 @@ export const confirmReceipt = async (req: AuthRequest, res: Response) => {
           status: ORDER_STATUS.DELIVERED,
           changedBy: userId,
           note: 'Khách hàng xác nhận đã nhận hàng',
+          changedAt: confirmationTimestamp,
         },
       });
 
@@ -766,6 +759,28 @@ export const confirmReceipt = async (req: AuthRequest, res: Response) => {
         paymentNote: 'Khách hàng đã xác nhận nhận hàng. Thanh toán COD được đánh dấu là đã thu.',
       });
     });
+
+    const recipient = order.customerEmail?.trim() || order.user?.email?.trim() || null;
+    if (recipient) {
+      try {
+        await notificationService.enqueueOrderStatusEmail({
+          orderId,
+          orderNumber: order.orderNumber,
+          email: recipient,
+          customerName: order.customerName?.trim() || order.user?.fullName?.trim() || 'AISTHEA Customer',
+          status: ORDER_STATUS.DELIVERED,
+          previousStatus: ORDER_STATUS.SHIPPING,
+          note: 'Khách hàng xác nhận đã nhận hàng',
+          trackingUrl: buildOrderDetailUrl(orderId),
+          historyTimestamp: confirmationTimestamp.toISOString(),
+        });
+      } catch (notificationError: any) {
+        logger.warn('[confirmReceipt] Failed to enqueue delivered order email', {
+          orderId,
+          error: notificationError?.message ?? String(notificationError),
+        });
+      }
+    }
 
     return res.json({ success: true, code: SUCCESS_MESSAGES.RECEIPT_CONFIRMED, orderId, newStatus: ORDER_STATUS.DELIVERED });
   } catch (error: any) {

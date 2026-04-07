@@ -79,6 +79,19 @@ export const maskIdentifierForRefundLogs = (value: string | null | undefined) =>
   return maskMiddle(normalized);
 };
 
+export const maskRefundBankAccountNumber = (value: string | null | undefined) => {
+  const normalized = normalizeString(value)?.replace(/\s+/g, '') ?? null;
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.length <= 4) {
+    return normalized;
+  }
+
+  return `****${normalized.slice(-4)}`;
+};
+
 export const serializeRefundErrorForLogs = (error: unknown) => {
   if (error instanceof Error) {
     const errorRecord = error as Error & { code?: unknown; status?: unknown };
@@ -210,3 +223,42 @@ export const sanitizeRefundLogContext = (context: Record<string, unknown>) => {
 
   return sanitized;
 };
+
+export type RefundWorkflowAuditLogInput = {
+  action: string;
+  actorId: number;
+  actor?: {
+    rawRoles: string[];
+    businessRole: 'admin' | 'staff' | 'customer' | 'guest' | 'unknown';
+  };
+  returnRequestId: number;
+  orderId?: number | null;
+  oldState?: string | null;
+  newState?: string | null;
+  oldRefundStatus?: string | null;
+  newRefundStatus?: string | null;
+  note?: string | null;
+  idempotencyKey?: string | null;
+  externalRefundReference?: string | null;
+  metadata?: Record<string, unknown>;
+  occurredAt?: string;
+};
+
+export const buildRefundWorkflowAuditLogContext = (input: RefundWorkflowAuditLogInput) =>
+  sanitizeRefundLogContext({
+    action: input.action,
+    actorUserId: input.actorId,
+    actorRawRoles: input.actor?.rawRoles ?? [],
+    actorBusinessRole: input.actor?.businessRole ?? 'unknown',
+    returnRequestId: input.returnRequestId,
+    orderId: input.orderId ?? null,
+    oldState: input.oldState ?? null,
+    newState: input.newState ?? null,
+    oldRefundStatus: input.oldRefundStatus ?? null,
+    newRefundStatus: input.newRefundStatus ?? null,
+    note: input.note ?? null,
+    idempotencyKey: input.idempotencyKey ?? null,
+    externalRefundReference: input.externalRefundReference ?? null,
+    occurredAt: input.occurredAt ?? new Date().toISOString(),
+    ...(input.metadata ? { metadata: input.metadata } : {}),
+  });
