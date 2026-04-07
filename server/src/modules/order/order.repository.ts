@@ -15,10 +15,10 @@ export interface OrderProductVariant {
   variantId: number;
   productId: number;
   sku: string;
-  images: OrderProductImage[];
   product: {
     productId: number;
     name: string;
+    images: OrderProductImage[];
   } | null;
 }
 
@@ -111,8 +111,13 @@ const orderInclude = {
     include: {
       variant: {
         include: {
-          images: true,
-          product: true,
+          product: {
+            include: {
+              images: {
+                orderBy: [{ isPrimary: 'desc' as const }, { imageId: 'asc' as const }],
+              },
+            },
+          },
         },
       },
     },
@@ -120,14 +125,14 @@ const orderInclude = {
   payments: true,
   shipment: true,
   statusHistory: true,
-} as const;
+};
 
 export async function findOrderByIdWithRelations(orderId: number): Promise<OrderWithRelations | null> {
   const result = await prisma.order.findUnique({
     where: { orderId },
     include: orderInclude,
   });
-  return result as OrderWithRelations | null;
+  return result as unknown as OrderWithRelations | null;
 }
 
 export async function appendOrderStatusHistory(orderId: number, status: string, changedAt?: Date) {
@@ -146,7 +151,7 @@ export async function updateOrderStatus(orderId: number, status: string): Promis
     data: { status },
     include: orderInclude,
   });
-  return result as OrderWithRelations;
+  return result as unknown as OrderWithRelations;
 }
 
 export interface OrderFilter {

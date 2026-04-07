@@ -414,9 +414,9 @@ const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto =
     const subtotal = unit * item.quantity;
 
     let thumbnail: string | null = null;
-    const variant = item.variant;
-    if (variant && variant.images && variant.images.length > 0) {
-      const primary = variant.images.find((img) => Boolean(img.isPrimary)) ?? variant.images[0];
+    const images = item.variant?.product?.images ?? [];
+    if (images.length > 0) {
+      const primary = images.find((img) => Boolean(img.isPrimary)) ?? images[0];
       thumbnail = primary.thumbnailUrl || primary.imageUrl || null;
     }
 
@@ -530,7 +530,15 @@ export async function cancelOrderForUser(
         items: {
           include: {
             variant: {
-              include: { images: true, product: true },
+              include: {
+                product: {
+                  include: {
+                    images: {
+                      orderBy: [{ isPrimary: 'desc' as const }, { imageId: 'asc' as const }],
+                    },
+                  },
+                },
+              },
             },
           },
         },
