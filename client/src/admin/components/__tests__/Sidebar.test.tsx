@@ -82,7 +82,7 @@ describe('Sidebar', () => {
       user: {
         name: 'Support User',
         roles: ['Support'],
-        permissions: ['VIEW_ORDER'],
+        permissions: ['VIEW_ORDER', 'VIEW_NOTIFICATION_QUEUE'],
       },
     });
 
@@ -98,6 +98,28 @@ describe('Sidebar', () => {
     });
 
     expect(preloadAdminRouteMock).toHaveBeenCalledWith('/admin/orders');
+  });
+
+  it('shows the notification queue entry only when the explicit notification permission exists', () => {
+    useAuthMock.mockReturnValue({
+      logout: logoutMock,
+      user: {
+        name: 'Support User',
+        roles: ['Support'],
+        permissions: ['VIEW_NOTIFICATION_QUEUE'],
+      },
+    });
+
+    render(<Sidebar />);
+
+    expect(screen.getByText('sidebar:nav.notifications')).toBeInTheDocument();
+    expect(screen.queryByText('sidebar:nav.orders')).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(preloadAdminRouteMock).toHaveBeenCalledWith('/admin/notifications');
   });
 
   it('shows the returns entry only when an explicit returns permission exists', () => {

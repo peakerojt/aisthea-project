@@ -10,8 +10,8 @@ import {
 
 const router = Router();
 
-const notificationReadGuard = [authenticateToken, requirePermission('VIEW_ORDER')];
-const notificationWriteGuard = [authenticateToken, requirePermission('EDIT_ORDER')];
+const notificationReadGuard = [authenticateToken, requirePermission('VIEW_NOTIFICATION_QUEUE')];
+const notificationWriteGuard = [authenticateToken, requirePermission('MANAGE_NOTIFICATION_QUEUE')];
 
 router.get(
   '/email-jobs',

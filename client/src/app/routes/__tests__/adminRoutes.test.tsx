@@ -108,7 +108,7 @@ describe('adminRoutes access gate', () => {
     expect(screen.queryByText('navigate:/admin/orders')).not.toBeInTheDocument();
   });
 
-  it('allows support users onto the email queue when VIEW_ORDER exists', () => {
+  it('blocks support users from the email queue when only VIEW_ORDER exists', () => {
     useAuthMock.mockReturnValue({
       isInitialized: true,
       user: { roles: ['Support'], permissions: ['VIEW_ORDER'] },
@@ -119,7 +119,21 @@ describe('adminRoutes access gate', () => {
 
     render(<>{notificationsRoute?.element}</>);
 
-    expect(screen.queryByText('navigate:/admin/orders')).not.toBeInTheDocument();
+    expect(screen.getByText('navigate:/admin/orders')).toBeInTheDocument();
+  });
+
+  it('allows support users onto the email queue when VIEW_NOTIFICATION_QUEUE exists', () => {
+    useAuthMock.mockReturnValue({
+      isInitialized: true,
+      user: { roles: ['Support'], permissions: ['VIEW_NOTIFICATION_QUEUE'] },
+    });
+
+    const notificationsRoute = adminRoutes.find((route) => route.path === '/admin/notifications');
+    expect(notificationsRoute).toBeDefined();
+
+    render(<>{notificationsRoute?.element}</>);
+
+    expect(screen.queryByText('navigate:/admin/notifications')).not.toBeInTheDocument();
     expect(screen.queryByText('navigate:/')).not.toBeInTheDocument();
   });
 });

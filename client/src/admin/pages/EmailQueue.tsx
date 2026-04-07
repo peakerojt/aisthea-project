@@ -148,7 +148,11 @@ export const EmailQueue: React.FC = () => {
   );
   const canManageQueue = React.useMemo(() => {
     const roles = (user?.roles ?? []).map((role) => role.trim().toLowerCase());
-    return roles.includes('admin') || roles.includes('super admin') || hasPermissionCode(permissionCodes, 'EDIT_ORDER');
+    return (
+      roles.includes('admin')
+      || roles.includes('super admin')
+      || hasPermissionCode(permissionCodes, 'MANAGE_NOTIFICATION_QUEUE')
+    );
   }, [permissionCodes, user?.roles]);
 
   const loadEmailJobs = React.useCallback(async () => {
@@ -611,4 +615,3 @@ export const EmailQueue: React.FC = () => {
     </AdminPageShell>
   );
 };
-

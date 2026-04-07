@@ -54,8 +54,8 @@ describe('notification routes authorization', () => {
     clearPermissionCache(901);
   });
 
-  it('allows queue reads with VIEW_ORDER', async () => {
-    currentPermissions = ['VIEW_ORDER'];
+  it('allows queue reads with VIEW_NOTIFICATION_QUEUE', async () => {
+    currentPermissions = ['VIEW_NOTIFICATION_QUEUE'];
 
     const response = await request(app)
       .get('/email-jobs')
@@ -66,8 +66,8 @@ describe('notification routes authorization', () => {
     expect(listEmailJobsMock).toHaveBeenCalledTimes(1);
   });
 
-  it('blocks manual retry without EDIT_ORDER', async () => {
-    currentPermissions = ['VIEW_ORDER'];
+  it('blocks manual retry without MANAGE_NOTIFICATION_QUEUE', async () => {
+    currentPermissions = ['VIEW_NOTIFICATION_QUEUE'];
 
     const response = await request(app)
       .post('/email-jobs/12/retry')
@@ -78,14 +78,14 @@ describe('notification routes authorization', () => {
       expect.objectContaining({
         success: false,
         errorCode: 'PERMISSION_DENIED',
-        required: 'EDIT_ORDER',
+        required: 'MANAGE_NOTIFICATION_QUEUE',
       }),
     );
     expect(retryEmailJobMock).not.toHaveBeenCalled();
   });
 
-  it('allows cleanup with EDIT_ORDER', async () => {
-    currentPermissions = ['EDIT_ORDER'];
+  it('allows cleanup with MANAGE_NOTIFICATION_QUEUE', async () => {
+    currentPermissions = ['MANAGE_NOTIFICATION_QUEUE'];
 
     const response = await request(app)
       .post('/email-jobs/cleanup')

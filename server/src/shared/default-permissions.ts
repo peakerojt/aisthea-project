@@ -11,6 +11,16 @@ export const DEFAULT_PERMISSION_CATALOG: DefaultPermissionSeed[] = [
   { code: 'DELETE_PRODUCT', module: 'PRODUCT', description: 'Xóa sản phẩm' },
   { code: 'VIEW_ORDER', module: 'ORDER', description: 'Xem danh sách và chi tiết đơn hàng' },
   { code: 'EDIT_ORDER', module: 'ORDER', description: 'Cập nhật trạng thái đơn hàng' },
+  {
+    code: 'VIEW_NOTIFICATION_QUEUE',
+    module: 'NOTIFICATION',
+    description: 'Xem hàng đợi email và trạng thái xử lý gửi mail',
+  },
+  {
+    code: 'MANAGE_NOTIFICATION_QUEUE',
+    module: 'NOTIFICATION',
+    description: 'Retry, cleanup và vận hành hàng đợi email',
+  },
   { code: 'VIEW_INVENTORY', module: 'INVENTORY', description: 'Xem tồn kho và lịch sử nhập kho' },
   { code: 'EDIT_INVENTORY', module: 'INVENTORY', description: 'Cập nhật số lượng tồn kho' },
   { code: 'VIEW_CUSTOMER', module: 'CUSTOMER', description: 'Xem danh sách khách hàng' },

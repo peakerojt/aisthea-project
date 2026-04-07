@@ -148,7 +148,7 @@ describe('EmailQueue', () => {
     useAuthMock.mockReturnValue({
       user: {
         roles: ['Support'],
-        permissions: ['VIEW_ORDER', 'EDIT_ORDER'],
+        permissions: ['VIEW_NOTIFICATION_QUEUE', 'MANAGE_NOTIFICATION_QUEUE'],
       },
     });
     listMock.mockResolvedValue(buildListPayload());
@@ -197,7 +197,7 @@ describe('EmailQueue', () => {
     useAuthMock.mockReturnValue({
       user: {
         roles: ['Support'],
-        permissions: ['VIEW_ORDER'],
+        permissions: ['VIEW_NOTIFICATION_QUEUE'],
       },
     });
 

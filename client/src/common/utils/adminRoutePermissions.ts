@@ -55,7 +55,7 @@ const ADMIN_ROUTE_PERMISSION_RULES = [
   },
   {
     matches: (path: string) => path === '/admin/notifications',
-    permissionCodes: ['VIEW_ORDER'],
+    permissionCodes: ['VIEW_NOTIFICATION_QUEUE'],
   },
 ] as const;
 

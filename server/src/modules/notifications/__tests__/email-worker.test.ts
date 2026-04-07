@@ -9,6 +9,7 @@ const serializeMailErrorMock = jest.fn();
 const loggerDebugMock = jest.fn();
 const loggerWarnMock = jest.fn();
 const loggerInfoMock = jest.fn();
+const loggerErrorMock = jest.fn();
 
 jest.mock('../email-job.repository', () => ({
   EMAIL_JOB_STATUS: {
@@ -41,6 +42,7 @@ jest.mock('../../../lib/logger', () => ({
     debug: (...args: unknown[]) => loggerDebugMock(...args),
     warn: (...args: unknown[]) => loggerWarnMock(...args),
     info: (...args: unknown[]) => loggerInfoMock(...args),
+    error: (...args: unknown[]) => loggerErrorMock(...args),
   },
 }));
 
@@ -137,6 +139,35 @@ describe('processPendingEmailJobs', () => {
           byStatus: { PENDING: 2 },
           byEventType: { ORDER_PLACED: 2 },
         },
+      }),
+    );
+    expect(loggerInfoMock).toHaveBeenCalledWith(
+      '[emailWorker] Queue backlog snapshot',
+      expect.objectContaining({
+        pending: 2,
+        processing: 0,
+        failed: 0,
+        byEventType: { ORDER_PLACED: 2 },
+      }),
+    );
+  });
+
+  it('logs an alert when failed backlog crosses the configured threshold', async () => {
+    findPendingMock.mockResolvedValue([]);
+    getQueueSummaryMock.mockResolvedValue({
+      total: 12,
+      byStatus: { FAILED: 12, PENDING: 0, PROCESSING: 0 },
+      byEventType: { ORDER_STATUS_UPDATED: 12 },
+    });
+
+    await processPendingEmailJobs(5);
+
+    expect(loggerErrorMock).toHaveBeenCalledWith(
+      '[emailWorker] Failed queue backlog alert',
+      expect.objectContaining({
+        threshold: 10,
+        failedBacklogCount: 12,
+        byEventType: { ORDER_STATUS_UPDATED: 12 },
       }),
     );
   });

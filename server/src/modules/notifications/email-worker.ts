@@ -6,6 +6,7 @@ import { serializeMailError } from './email.providers';
 const DEFAULT_POLL_INTERVAL_MS = 10_000;
 const DEFAULT_BATCH_LIMIT = 10;
 const DEFAULT_STALE_PROCESSING_MS = 5 * 60_000;
+const DEFAULT_FAILED_BACKLOG_ALERT_THRESHOLD = 10;
 
 let activeRun: Promise<void> | null = null;
 let stopRequested = false;
@@ -26,6 +27,11 @@ const summarizeBatchCounts = (
   }, {});
 };
 
+const sumEventCount = (
+  entries: Record<string, { sent: number; failed: number }>,
+  field: 'sent' | 'failed',
+) => Object.values(entries).reduce((sum, entry) => sum + entry[field], 0);
+
 export const processPendingEmailJobs = async (
   limit = DEFAULT_BATCH_LIMIT,
   options?: ProcessPendingEmailJobsOptions,
@@ -36,14 +42,22 @@ export const processPendingEmailJobs = async (
 
   activeRun = (async () => {
     const staleProcessingMs = options?.staleProcessingMs ?? DEFAULT_STALE_PROCESSING_MS;
-    const reclaimedJobs = await emailJobRepository.requeueStuckProcessingJobs(
-      new Date(Date.now() - staleProcessingMs),
+    const staleBefore = new Date(Date.now() - staleProcessingMs);
+    const failedBacklogAlertThreshold = Number.parseInt(
+      process.env.EMAIL_WORKER_FAILED_ALERT_THRESHOLD ?? '',
+      10,
     );
+    const resolvedFailedBacklogAlertThreshold =
+      Number.isFinite(failedBacklogAlertThreshold) && failedBacklogAlertThreshold > 0
+        ? failedBacklogAlertThreshold
+        : DEFAULT_FAILED_BACKLOG_ALERT_THRESHOLD;
+    const reclaimedJobs = await emailJobRepository.requeueStuckProcessingJobs(staleBefore);
 
     if (reclaimedJobs > 0) {
       logger.warn('[emailWorker] Requeued stale processing jobs', {
         reclaimedJobs,
         staleProcessingMs,
+        staleBefore: staleBefore.toISOString(),
       });
     }
 
@@ -109,6 +123,10 @@ export const processPendingEmailJobs = async (
         ...counts,
       })),
     );
+    const failedBacklogCount = queueSummary.byStatus[EMAIL_JOB_STATUS.FAILED] ?? 0;
+    const processingBacklogCount = queueSummary.byStatus[EMAIL_JOB_STATUS.PROCESSING] ?? 0;
+    const pendingBacklogCount = queueSummary.byStatus[EMAIL_JOB_STATUS.PENDING] ?? 0;
+    const batchFailedCount = sumEventCount(batchSummary, 'failed');
 
     if (pendingJobs.length > 0 || reclaimedJobs > 0 || queueSummary.total > 0) {
       logger.info('[emailWorker] Batch summary', {
@@ -116,6 +134,27 @@ export const processPendingEmailJobs = async (
         reclaimedJobs,
         queueSummary,
         byEventType: batchSummary,
+      });
+    }
+
+    if (queueSummary.total > 0) {
+      logger.info('[emailWorker] Queue backlog snapshot', {
+        pending: pendingBacklogCount,
+        processing: processingBacklogCount,
+        failed: failedBacklogCount,
+        byEventType: queueSummary.byEventType,
+      });
+    }
+
+    if (
+      failedBacklogCount >= resolvedFailedBacklogAlertThreshold
+      || batchFailedCount >= resolvedFailedBacklogAlertThreshold
+    ) {
+      logger.error('[emailWorker] Failed queue backlog alert', {
+        threshold: resolvedFailedBacklogAlertThreshold,
+        batchFailedCount,
+        failedBacklogCount,
+        byEventType: queueSummary.byEventType,
       });
     }
   })();
