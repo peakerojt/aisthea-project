@@ -20,6 +20,12 @@ const EMPTY_RESULTS_LABEL = 'Kh\u00f4ng t\u00ecm th\u1ea5y s\u1ea3n ph\u1ea9m n\
 const VIEW_COLLECTION_LABEL = 'Xem trong b\u1ed9 s\u01b0u t\u1eadp';
 const PROFILE_TITLE = 'H\u1ed3 s\u01a1';
 const LOGIN_TITLE = '\u0110\u0103ng nh\u1eadp';
+const HOME_LABEL = 'V\u1ec1 trang ch\u1ee7';
+const SEARCH_TOGGLE_LABEL = 'M\u1edf t\u00ecm ki\u1ebfm s\u1ea3n ph\u1ea9m';
+const SEARCH_CLOSE_LABEL = '\u0110\u00f3ng t\u00ecm ki\u1ebfm s\u1ea3n ph\u1ea9m';
+const SEARCH_CLEAR_LABEL = 'X\u00f3a t\u1eeb kh\u00f3a t\u00ecm ki\u1ebfm';
+const CART_LABEL = 'Xem gi\u1ecf h\u00e0ng';
+const RECENT_SEARCH_REMOVE_PREFIX = 'X\u00f3a t\u00ecm ki\u1ebfm g\u1ea7n \u0111\u00e2y';
 const CURRENCY_SYMBOL = '\u0111';
 const SEARCH_PANEL_WIDTH_CLASS = 'w-[min(20rem,calc(100vw-2rem))] sm:w-[20rem]';
 
@@ -222,7 +228,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${headerClass}`}>
       <div className="mx-auto flex h-20 w-full max-w-[1440px] items-center justify-between px-6 md:px-12">
-        <button onClick={() => navigate('/')}>
+        <button type="button" onClick={() => navigate('/')} aria-label={HOME_LABEL}>
           <Logo className="text-3xl" />
         </button>
 
@@ -260,7 +266,9 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
                     />
                     {searchTerm && (
                       <button
+                        type="button"
                         onClick={() => setSearchTerm('')}
+                        aria-label={SEARCH_CLEAR_LABEL}
                         className="rounded-full p-1 text-white/40 transition-colors duration-150 hover:bg-white/8 hover:text-white"
                       >
                         <X size={16} aria-hidden="true" />
@@ -278,10 +286,11 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
                     ) : searchTerm.trim() === '' && recentSearches.length > 0 ? (
                       <div className="flex flex-col">
                         <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
-                          <span className="text-[10px] font-black uppercase tracking-[0.24em] text-gray-500">
+                          <span className="text-[10px] font-black uppercase tracking-[0.24em] text-gray-300">
                             {RECENT_SEARCHES_LABEL}
                           </span>
                           <button
+                            type="button"
                             onClick={clearAllRecentSearches}
                             className="text-[10px] font-bold uppercase tracking-[0.24em] text-primary transition-colors duration-150 hover:text-white"
                           >
@@ -295,6 +304,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
                             className="group flex items-center justify-between border-b border-white/5 transition-colors duration-150 last:border-none hover:bg-white/5"
                           >
                             <button
+                              type="button"
                               onClick={() => {
                                 setSearchTerm(term);
                                 saveSearchTerm(term);
@@ -303,13 +313,15 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
                               }}
                               className="flex flex-1 items-center gap-3 px-4 py-4 text-left"
                             >
-                              <History size={14} className="text-gray-500 transition-colors duration-150 group-hover:text-white/70" aria-hidden="true" />
+                              <History size={14} className="text-gray-300 transition-colors duration-150 group-hover:text-white/80" aria-hidden="true" />
                               <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white">{term}</span>
                             </button>
 
                             <button
+                              type="button"
                               onClick={() => removeRecentSearch(term)}
-                              className="px-4 py-4 text-gray-500 transition-colors duration-150 hover:text-white"
+                              aria-label={`${RECENT_SEARCH_REMOVE_PREFIX} ${term}`}
+                              className="px-4 py-4 text-gray-300 transition-colors duration-150 hover:text-white"
                             >
                               <X size={14} aria-hidden="true" />
                             </button>
@@ -356,10 +368,11 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
                     ) : searchTerm.trim() !== '' && hasLoadedSearchCatalog && !isSearching ? (
                       <div className="flex flex-col items-center gap-3 px-6 py-8 text-center">
                         <SearchX size={30} className="text-white/20" aria-hidden="true" />
-                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] leading-relaxed text-gray-500">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] leading-relaxed text-gray-300">
                           {EMPTY_RESULTS_LABEL}
                         </p>
                         <button
+                          type="button"
                           onClick={() => {
                             navigate('/collection');
                             setIsSearchActive(false);
@@ -376,6 +389,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
             )}
 
             <button
+              type="button"
               onClick={() => {
                 if (isSearchActive) {
                   setIsSearchActive(false);
@@ -384,6 +398,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
 
                 openSearchPanel();
               }}
+              aria-label={isSearchActive ? SEARCH_CLOSE_LABEL : SEARCH_TOGGLE_LABEL}
               className={`relative z-20 rounded-full p-2 text-white/90 transition-all duration-150 hover:bg-white/8 hover:text-white ${isSearchActive ? 'bg-white/10 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)]' : ''}`}
             >
               <SearchIcon size={22} aria-hidden="true" />
@@ -391,7 +406,7 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
 
           </div>
 
-          <button onClick={() => navigate('/cart')} className="relative p-2 text-white/90 hover:text-white">
+          <button type="button" onClick={() => navigate('/cart')} aria-label={CART_LABEL} className="relative p-2 text-white/90 hover:text-white">
             <ShoppingBag size={22} aria-hidden="true" />
             {totalItems > 0 && (
               <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-black text-white ring-2 ring-bg-dark">
@@ -401,9 +416,11 @@ export const Header: React.FC<{ transparent?: boolean }> = ({ transparent = fals
           </button>
 
           <button
+            type="button"
             onClick={handleUserClick}
             className="p-2 text-white/90 hover:text-white"
             title={user ? PROFILE_TITLE : LOGIN_TITLE}
+            aria-label={user ? PROFILE_TITLE : LOGIN_TITLE}
           >
             <User size={22} aria-hidden="true" />
           </button>

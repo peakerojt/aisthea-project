@@ -58,17 +58,19 @@ export const Footer: React.FC = () => {
   };
 
   return (
-    <footer className="bg-[#0f0f0f] text-gray-300 font-sans border-t border-white/10 [contain:layout_paint]">
+    <footer className="bg-[#0f0f0f] text-gray-200 font-sans border-t border-white/10 [contain:layout_paint]">
       <div className="container mx-auto px-6 py-16 md:px-12 lg:px-24">
         <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
           <div className="flex min-h-[15rem] flex-col gap-6">
             <button
+              type="button"
               onClick={() => nav('/')}
+              aria-label="Về trang chủ"
               className="text-3xl font-black tracking-widest uppercase text-white inline-block w-fit hover:text-primary transition-colors"
             >
               AISTHEA
             </button>
-            <p className="max-w-[22rem] text-sm leading-relaxed text-gray-400">
+            <p className="max-w-[22rem] text-sm leading-relaxed text-gray-300">
               {t('footer.about_desc')}
             </p>
             <div className="flex items-center gap-3 mt-2">
@@ -79,7 +81,7 @@ export const Footer: React.FC = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={t(`footer.social.${label.toLowerCase()}`)}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-primary hover:text-white transition-all duration-300 text-gray-400"
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white/8 hover:bg-primary hover:text-white transition-all duration-300 text-gray-300"
                 >
                   <Icon size={16} />
                 </a>
@@ -92,7 +94,7 @@ export const Footer: React.FC = () => {
             <ul className="flex flex-col gap-4">
               {quickLinks.map((link) => (
                 <li key={link.labelKey}>
-                  <button onClick={() => nav(link.path)} className="text-sm text-gray-400 hover:text-white transition-colors text-left">
+                  <button type="button" onClick={() => nav(link.path)} className="text-sm text-gray-300 hover:text-white transition-colors text-left">
                     {t(link.labelKey)}
                   </button>
                 </li>
@@ -105,7 +107,7 @@ export const Footer: React.FC = () => {
             <ul className="flex flex-col gap-4">
               {supportLinks.map((link) => (
                 <li key={link.labelKey}>
-                  <button onClick={() => nav(link.path)} className="text-sm text-gray-400 hover:text-white transition-colors text-left">
+                  <button type="button" onClick={() => nav(link.path)} className="text-sm text-gray-300 hover:text-white transition-colors text-left">
                     {t(link.labelKey)}
                   </button>
                 </li>
@@ -116,7 +118,7 @@ export const Footer: React.FC = () => {
           <div className="flex min-h-[25rem] flex-col gap-6">
             <h3 className="text-sm font-bold uppercase tracking-widest text-white">{t('footer.contact_newsletter')}</h3>
 
-            <ul className="flex flex-col gap-4 text-sm text-gray-400">
+            <ul className="flex flex-col gap-4 text-sm text-gray-300">
               <li>
                 <a
                   href={`https://maps.google.com/?q=${encodeURIComponent(t('footer.contact.address'))}`}
@@ -124,25 +126,25 @@ export const Footer: React.FC = () => {
                   rel="noopener noreferrer"
                   className="flex items-start gap-3 hover:text-white transition-colors"
                 >
-                  <MapPin size={16} className="mt-0.5 shrink-0 text-white/50" />
+                  <MapPin size={16} className="mt-0.5 shrink-0 text-white/70" />
                   <span>{t('footer.contact.address')}</span>
                 </a>
               </li>
               <li>
                 <a href={`tel:+84${CONTACT.phone.replace(/^0/, '').replace(/\s/g, '')}`} className="flex items-center gap-3 hover:text-white transition-colors">
-                  <Phone size={16} className="shrink-0 text-white/50" />
+                  <Phone size={16} className="shrink-0 text-white/70" />
                   <span>{CONTACT.phone}</span>
                 </a>
               </li>
               <li>
                 <a href={`mailto:${CONTACT.email}`} className="flex items-center gap-3 hover:text-white transition-colors">
-                  <Mail size={16} className="shrink-0 text-white/50" />
+                  <Mail size={16} className="shrink-0 text-white/70" />
                   <span>{CONTACT.email}</span>
                 </a>
               </li>
             </ul>
 
-            <p className="min-h-[4.5rem] text-sm leading-relaxed text-gray-400">
+            <p className="min-h-[4.5rem] text-sm leading-relaxed text-gray-300">
               {t('footer.newsletter.copy')}
             </p>
 
@@ -158,15 +160,16 @@ export const Footer: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={t('footer.email_placeholder')}
+                    aria-label={t('footer.email_placeholder')}
                     required
                     disabled={loading}
-                    className="w-full bg-white/5 border border-white/10 text-white text-sm px-4 py-3 rounded-sm focus:outline-none focus:border-white/30 transition-colors pr-12 placeholder:text-gray-500 disabled:opacity-60"
+                    className="w-full bg-white/5 border border-white/10 text-white text-sm px-4 py-3 rounded-sm focus:outline-none focus:border-white/30 transition-colors pr-12 placeholder:text-gray-300 disabled:opacity-60"
                   />
                   <button
                     type="submit"
                     disabled={loading}
                     aria-label={t('footer.newsletter.subscribeAria')}
-                    className="absolute right-0 flex h-full items-center justify-center px-4 text-gray-400 transition-colors hover:text-white disabled:opacity-40"
+                    className="absolute right-0 flex h-full items-center justify-center px-4 text-gray-300 transition-colors hover:text-white disabled:opacity-40"
                   >
                     {loading ? (
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -189,21 +192,21 @@ export const Footer: React.FC = () => {
         </div>
       </div>
 
-      <div className="border-t border-white/5 bg-[#0a0a0a]">
+      <div className="border-t border-white/10 bg-[#0a0a0a]">
         <div className="container mx-auto flex min-h-[5rem] flex-col items-center justify-between gap-4 px-6 py-6 md:flex-row md:px-12 lg:px-24">
-          <p className="text-xs text-gray-500 uppercase tracking-widest">{t('footer.copyright')}</p>
+          <p className="text-xs text-gray-300 uppercase tracking-widest">{t('footer.copyright')}</p>
           <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 text-xs text-gray-500 uppercase tracking-widest">
+            <div className="flex items-center gap-2 text-xs text-gray-300 uppercase tracking-widest">
               <ShieldCheck size={14} className="text-emerald-500" />
               <span>{t('footer.secure_payment')}</span>
             </div>
             <div className="flex items-center gap-3">
               <span className="w-8 h-5 bg-white/10 rounded flex items-center justify-center">
-                <CreditCard size={12} className="text-white/40" />
+                <CreditCard size={12} className="text-white/75" />
               </span>
-              <span className="w-10 h-5 bg-white/10 rounded flex items-center justify-center text-[9px] font-bold text-white/50">VNPay</span>
-              <span className="w-10 h-5 bg-white/10 rounded flex items-center justify-center text-[9px] font-bold text-white/50 italic">VISA</span>
-              <span className="w-12 h-5 bg-white/10 rounded flex items-center justify-center text-[8px] font-bold text-white/50">Mastercard</span>
+              <span className="w-10 h-5 bg-white/10 rounded flex items-center justify-center text-[9px] font-bold text-white/75">VNPay</span>
+              <span className="w-10 h-5 bg-white/10 rounded flex items-center justify-center text-[9px] font-bold text-white/75 italic">VISA</span>
+              <span className="w-12 h-5 bg-white/10 rounded flex items-center justify-center text-[8px] font-bold text-white/75">Mastercard</span>
             </div>
           </div>
         </div>

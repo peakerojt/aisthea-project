@@ -7,14 +7,11 @@ import { AuthProvider } from '@/common/contexts/AuthContext';
 import { CartProvider } from '@/common/contexts/CartContext';
 import { ToastProvider } from '@/common/contexts/ToastContext';
 import { AuthEventListener } from '@/app/AuthEventListener';
+import { StoreRouteTree } from '@/app/routes/StoreRouteTree';
 import '@/styles/index.css';
 import '@/i18n/config';
 
-const Spinner: React.FC = () => (
-  <div className="flex items-center justify-center h-full min-h-[200px]">
-    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-  </div>
-);
+const AdminRouteTree = React.lazy(() => import('@/app/routes/AdminRouteTree').then((module) => ({ default: module.AdminRouteTree })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,62 +19,23 @@ const queryClient = new QueryClient({
   },
 });
 
-type RouteTreeComponent = React.ComponentType;
-
-const loadStoreRouteTree = async (): Promise<RouteTreeComponent> =>
-  (await import('@/app/routes/StoreRouteTree')).StoreRouteTree;
-
-const loadAdminRouteTree = async (): Promise<RouteTreeComponent> =>
-  (await import('@/app/routes/AdminRouteTree')).AdminRouteTree;
+const RouteSpinner: React.FC = () => (
+  <div className="flex h-full min-h-[200px] items-center justify-center">
+    <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+  </div>
+);
 
 const RouteTreeSwitch: React.FC = () => {
   const location = useLocation();
-  const [RouteTree, setRouteTree] = React.useState<RouteTreeComponent | null>(null);
-  const isAdminRoute = location.pathname.startsWith('/admin');
-
-  React.useEffect(() => {
-    let active = true;
-    setRouteTree(null);
-
-    const loadRouteTree = isAdminRoute ? loadAdminRouteTree : loadStoreRouteTree;
-    void loadRouteTree().then((component) => {
-      if (active) {
-        setRouteTree(() => component);
-      }
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [isAdminRoute]);
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') {
-      return undefined;
-    }
-
-    const preloadOppositeRouteTree = () => {
-      void (isAdminRoute ? loadStoreRouteTree() : loadAdminRouteTree());
-    };
-
-    if ('requestIdleCallback' in window) {
-      const idleId = window.requestIdleCallback(preloadOppositeRouteTree, { timeout: 1800 });
-      return () => {
-        window.cancelIdleCallback(idleId);
-      };
-    }
-
-    const timeoutId = window.setTimeout(preloadOppositeRouteTree, 1400);
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [isAdminRoute]);
-
-  if (!RouteTree) {
-    return <Spinner />;
+  if (!location.pathname.startsWith('/admin')) {
+    return <StoreRouteTree />;
   }
 
-  return <RouteTree />;
+  return (
+    <React.Suspense fallback={<RouteSpinner />}>
+      <AdminRouteTree />
+    </React.Suspense>
+  );
 };
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
@@ -93,7 +51,6 @@ root.render(
               <RouteTreeSwitch />
               <SpeedInsights />
             </BrowserRouter>
-            <SpeedInsights />
           </QueryClientProvider>
         </CartProvider>
       </AuthProvider>

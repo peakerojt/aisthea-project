@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { StoreLayout } from '@/store/layouts/StoreLayout';
 import { storeRoutes } from '@/app/routes/storeRoutes';
 import { authRoutes } from '@/app/routes/authRoutes';
+import i18n from '@/i18n/config';
 import { getStoreNamespacesForPath, loadNamespaces } from '@/i18n/config';
 
 const Spinner: React.FC = () => (
@@ -15,11 +16,19 @@ const withRouteSuspense = (element: React.ReactNode) => (
   <Suspense fallback={<Spinner />}>{element}</Suspense>
 );
 
+const hasNamespacesLoaded = (path: string) =>
+  getStoreNamespacesForPath(path).every((namespace) => i18n.hasResourceBundle('vi', namespace));
+
 export const StoreRouteTree: React.FC = () => {
   const location = useLocation();
-  const [isReady, setIsReady] = React.useState(false);
+  const [isReady, setIsReady] = React.useState(() => hasNamespacesLoaded(location.pathname));
 
   React.useEffect(() => {
+    if (hasNamespacesLoaded(location.pathname)) {
+      setIsReady(true);
+      return undefined;
+    }
+
     let active = true;
     setIsReady(false);
 

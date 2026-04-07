@@ -1,7 +1,8 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 
-const Home = React.lazy(() => import('@/store/pages/Home').then((m) => ({ default: m.Home })));
+import { Home } from '@/store/pages/Home';
+
 const Category = React.lazy(() => import('@/store/pages/Category').then((m) => ({ default: m.Category })));
 const Collection = React.lazy(() => import('@/store/pages/Collection').then((m) => ({ default: m.Collection })));
 const ProductDetail = React.lazy(() => import('@/common/pages/ProductDetail').then((m) => ({ default: m.ProductDetail })));

@@ -42,9 +42,9 @@ export const StoreLayout: React.FC = () => {
 
   return (
     <div className="text-white font-sans antialiased min-h-screen bg-bg-dark flex flex-col overflow-x-hidden">
-      <div className="flex-1">
+      <main id="main-content" className="flex-1">
         <Outlet />
-      </div>
+      </main>
       {!shouldHideFooter && <Footer />}
     </div>
   );

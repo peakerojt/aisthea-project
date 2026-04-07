@@ -1,5 +1,4 @@
 import { productApi } from '@/common/api/product.api';
-import { productStatusUpdateClientSchema } from '@/common/validation/schemas';
 
 // â”€â”€â”€ Create Product Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // ... existing types remain untouched ...
@@ -390,6 +389,7 @@ export const updateProductStatus = async (
     status: 'Active' | 'Inactive' | 'Draft' | 'Archived'
 ): Promise<ProductStatusUpdateResponse> => {
     try {
+        const { productStatusUpdateClientSchema } = await import('@/common/validation/schemas');
         const payload = productStatusUpdateClientSchema.parse({ status });
         const result = await productApi.updateStatus(id, payload.status);
         return result.data;

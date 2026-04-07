@@ -7,11 +7,7 @@ export default defineConfig(({ mode }) => {
   return {
     build: {
       modulePreload: {
-        resolveDependencies(_filename, deps, context) {
-          if (context.hostType !== 'html') {
-            return deps;
-          }
-
+        resolveDependencies(_filename, deps) {
           return deps.filter(
             (dependency) =>
               !dependency.includes('charts-vendor') &&

@@ -241,30 +241,6 @@ export const Home: React.FC = () => {
     [t]
   );
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return undefined;
-    }
-
-    if ('requestIdleCallback' in window) {
-      const idleId = window.requestIdleCallback(() => {
-        setShouldRenderChatWidget(true);
-      }, { timeout: 1800 });
-
-      return () => {
-        window.cancelIdleCallback(idleId);
-      };
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setShouldRenderChatWidget(true);
-    }, 1200);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, []);
-
   const skeletonGrid = (
     <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
       {[...Array(4)].map((_, index) => (
@@ -294,7 +270,7 @@ export const Home: React.FC = () => {
         <div className="relative mx-auto flex min-h-screen w-full max-w-[1440px] items-center px-6 pb-12 pt-28 md:px-12 md:pb-16 md:pt-32">
           <div className="grid w-full items-center gap-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)] lg:gap-20">
             <div className="max-w-[38rem]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-primary/90">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[#ff6b61]">
                 {t('hero.eyebrow')}
               </p>
 
@@ -304,7 +280,7 @@ export const Home: React.FC = () => {
                 <span className="block whitespace-nowrap pl-[0.92em] text-white/84 md:pl-[1.66em]">{t('hero.titleLine3')}</span>
               </h1>
 
-              <p className="mt-8 max-w-[31rem] font-sans text-[15px] leading-7 text-white/68 md:text-[16px] md:leading-8">
+              <p className="mt-8 max-w-[31rem] font-sans text-[15px] leading-7 text-white/80 md:text-[16px] md:leading-8">
                 {t('hero.subtitle')}
               </p>
 
@@ -360,13 +336,13 @@ export const Home: React.FC = () => {
                 <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.18),transparent_34%,rgba(0,0,0,0.26))]" />
 
                 <div className="absolute left-5 bottom-5 w-[16.25rem] rounded-[1.6rem] border border-white/12 bg-black/30 px-5 py-5 backdrop-blur-[6px] md:left-8 md:bottom-7 md:w-[18rem] md:px-6 md:py-6">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/90">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#ff6b61]">
                     {t('hero.editorialCard.label')}
                   </p>
                   <h2 className="mt-4 max-w-[13.4ch] font-sans text-[1.46rem] font-medium leading-[1.08] tracking-[-0.018em] text-white/95 [text-wrap:balance] md:text-[1.58rem]">
                     {t('hero.editorialCard.title')}
                   </h2>
-                  <p className="mt-4 max-w-[24ch] text-[12px] leading-[1.72] text-white/66 [text-wrap:pretty]">
+                  <p className="mt-4 max-w-[24ch] text-[12px] leading-[1.72] text-white/80 [text-wrap:pretty]">
                     {t('hero.editorialCard.copy')}
                   </p>
                 </div>
@@ -380,7 +356,7 @@ export const Home: React.FC = () => {
         <div className="mx-auto w-full max-w-[1440px] px-6 py-24 md:px-12">
           <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-8">
             <div className="max-w-2xl">
-              <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-primary/90">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#ff6b61]">
                 {t('trending.label', { month: currentMonth })}
               </p>
 
@@ -390,7 +366,7 @@ export const Home: React.FC = () => {
                 </h2>
               </div>
 
-              <p className="mt-5 max-w-[520px] font-sans text-lg leading-8 text-white/70">
+              <p className="mt-5 max-w-[520px] font-sans text-lg leading-8 text-white/80">
                 {t('trending.description')}
               </p>
             </div>
@@ -405,7 +381,7 @@ export const Home: React.FC = () => {
                     className={`min-h-11 cursor-pointer rounded-full px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] transition-all duration-300 ${
                       selectedGender === tab.key
                         ? 'bg-white text-black shadow-sm'
-                        : 'text-white/62 hover:bg-white/[0.05] hover:text-white'
+                        : 'text-white/78 hover:bg-white/[0.05] hover:text-white'
                     }`}
                   >
                     {tab.label}
@@ -421,7 +397,7 @@ export const Home: React.FC = () => {
 
                   handleNavigate(selectedGender);
                 }}
-                className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-white/76 transition-colors duration-300 hover:text-white"
+                className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-white/84 transition-colors duration-300 hover:text-white"
               >
                 <span>{t('trending.viewAll')}</span>
                 <ArrowRight size={16} aria-hidden="true" />
@@ -451,7 +427,7 @@ export const Home: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <div className={`rounded-[1.25rem] border bg-white/[0.03] px-6 py-10 text-center text-sm text-white/60 ${cardBorderClass}`}>
+              <div className={`rounded-[1.25rem] border bg-white/[0.03] px-6 py-10 text-center text-sm text-white/74 ${cardBorderClass}`}>
                 {t('trending.empty')}
               </div>
             )}
@@ -493,7 +469,7 @@ export const Home: React.FC = () => {
                         <h3 className={`text-[22px] font-semibold ${index % brandValues.length === 1 ? 'text-white' : 'text-white/88'}`}>
                           {title}
                         </h3>
-                        <p className={`mt-2 max-w-[280px] text-[15px] leading-7 ${index % brandValues.length === 1 ? 'text-white/70' : 'text-white/56'}`}>
+                        <p className={`mt-2 max-w-[280px] text-[15px] leading-7 ${index % brandValues.length === 1 ? 'text-white/82' : 'text-white/72'}`}>
                           {description}
                         </p>
                       </div>
@@ -510,13 +486,13 @@ export const Home: React.FC = () => {
       <section className={`border-b bg-bg-dark ${sectionBorderClass}`}>
         <div className="mx-auto w-full max-w-[1440px] px-6 py-24 md:px-12">
           <div className="max-w-2xl">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-primary/90">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#ff6b61]">
               {t('category.label')}
             </p>
             <h2 className="mt-4 font-serif text-[40px] leading-[1.02] tracking-[-0.03em] text-white md:text-[48px]">
               {t('category.title')}
             </h2>
-            <p className="mt-5 max-w-[520px] font-sans text-lg leading-8 text-white/70">
+            <p className="mt-5 max-w-[520px] font-sans text-lg leading-8 text-white/80">
               {t('category.description')}
             </p>
           </div>
@@ -539,13 +515,13 @@ export const Home: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/50 to-black/18" />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/68 via-black/24 to-transparent" />
                 <div className="absolute left-8 bottom-8 max-w-[420px] md:left-10 md:bottom-10">
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-primary/90">
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#ff6b61]">
                     {card.label}
                   </p>
                   <h3 className="mt-4 font-serif text-[48px] leading-[0.95] tracking-[-0.03em] text-white md:text-[56px]">
                     {card.title}
                   </h3>
-                  <p className="mt-4 max-w-sm text-[15px] leading-7 text-white/72">
+                  <p className="mt-4 max-w-sm text-[15px] leading-7 text-white/82">
                     {card.description}
                   </p>
 
@@ -580,7 +556,7 @@ export const Home: React.FC = () => {
           <div className={`overflow-hidden rounded-[2rem] border bg-[linear-gradient(135deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] shadow-[0_30px_90px_rgba(0,0,0,0.35)] ${cardBorderClass}`}>
             <div className="grid gap-10 p-8 md:p-10 lg:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)] lg:p-12">
               <div>
-                <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-primary/90">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#ff6b61]">
                   {t('styling.label')}
                 </p>
                 <h2 className="mt-4 max-w-[520px] font-serif text-[48px] leading-[1.02] tracking-[-0.03em] text-white md:text-[56px]">
@@ -598,7 +574,7 @@ export const Home: React.FC = () => {
                       <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-primary">
                         <ShieldCheck size={14} aria-hidden="true" />
                       </span>
-                      <p className="text-[15px] leading-7 text-white/76">{benefit}</p>
+                      <p className="text-[15px] leading-7 text-white/84">{benefit}</p>
                     </li>
                   ))}
                 </ul>
@@ -615,13 +591,13 @@ export const Home: React.FC = () => {
               <div className={`rounded-[32px] border bg-black/35 p-8 backdrop-blur-sm ${cardBorderClass}`}>
                 <div className={`flex items-start justify-between gap-4 border-b pb-5 ${chipBorderClass}`}>
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/90">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#ff6b61]">
                       {t('styling.preview.eyebrow')}
                     </p>
                     <h3 className="mt-3 text-2xl font-semibold text-white">
                       {t('styling.preview.title')}
                     </h3>
-                    <p className="mt-3 max-w-[30ch] text-sm leading-6 text-white/60">
+                    <p className="mt-3 max-w-[30ch] text-sm leading-6 text-white/76">
                       {t('styling.preview.copy')}
                     </p>
                   </div>
@@ -649,9 +625,20 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
+      {!shouldRenderChatWidget ? (
+        <button
+          type="button"
+          onClick={() => setShouldRenderChatWidget(true)}
+          className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-black/85 text-white shadow-2xl shadow-black/50 transition hover:scale-105 hover:border-primary/50 hover:text-primary md:bottom-6 md:right-6"
+          aria-label="Mở trợ lý chat"
+        >
+          <MessageCircleMore size={22} />
+        </button>
+      ) : null}
+
       {shouldRenderChatWidget ? (
         <Suspense fallback={null}>
-          <ChatWidget page="home" />
+          <ChatWidget page="home" initialOpen />
         </Suspense>
       ) : null}
     </div>

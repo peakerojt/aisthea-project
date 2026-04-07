@@ -25,6 +25,7 @@ interface ChatWidgetProps {
   productId?: number | null;
   productName?: string;
   contextSummary?: string;
+  initialOpen?: boolean;
 }
 
 const createMessageId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -106,9 +107,9 @@ const dedupeActions = (actions: ChatAction[] | undefined): ChatAction[] => {
   });
 };
 
-export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, productName, contextSummary }) => {
+export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, productName, contextSummary, initialOpen = false }) => {
   const navigate = useNavigate();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(initialOpen);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [messages, setMessages] = useState<UiChatMessage[]>(() => [buildInitialMessage(page, productName)]);
@@ -124,6 +125,10 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ page, productId, product
     setInput('');
     setIsSending(false);
   }, [page, productId, productName]);
+
+  useEffect(() => {
+    setIsOpen(initialOpen);
+  }, [initialOpen]);
 
   const title = useMemo(
     () => {
