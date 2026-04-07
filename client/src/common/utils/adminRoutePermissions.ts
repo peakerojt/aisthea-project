@@ -53,11 +53,16 @@ const ADMIN_ROUTE_PERMISSION_RULES = [
     matches: (path: string) => path === '/admin/tracking',
     permissionCodes: ['VIEW_ORDER'],
   },
+  {
+    matches: (path: string) => path === '/admin/notifications',
+    permissionCodes: ['VIEW_ORDER'],
+  },
 ] as const;
 
 export const STAFF_ADMIN_LANDING_PATHS = [
   '/admin/returns',
   '/admin/orders',
+  '/admin/notifications',
   '/admin/tracking',
   '/admin/products',
   '/admin/restock',

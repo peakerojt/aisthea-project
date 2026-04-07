@@ -664,7 +664,7 @@
     "meta": {
       "kicker": "Bước 3 · Hoàn tất đơn hàng",
       "title": "Xác nhận đơn hàng",
-      "subtitle": "Đơn của bạn đã được ghi nhận. Mọi cập nhật tiếp theo sẽ được gửi qua email và hiển thị trong lịch sử đơn hàng."
+      "subtitle": "Đơn của bạn đã được ghi nhận. Mọi cập nhật tiếp theo sẽ hiển thị trong lịch sử đơn hàng và các kênh thông báo khả dụng."
     },
     "fallback": {
       "customer": "Khách hàng",
@@ -673,7 +673,7 @@
     "header": {
       "badge": "Đã xác nhận",
       "title": "Cảm ơn bạn đã đặt hàng!",
-      "description": "Một email xác nhận đã được gửi tới địa chỉ của bạn. Xin vui lòng kiểm tra hộp thư đến (hoặc thư mục Spam) để theo dõi."
+      "description": "Đơn hàng đang chờ xác nhận. Bạn có thể theo dõi trạng thái mới nhất trong tài khoản của mình bất cứ lúc nào."
     },
     "status": {
       "title": "Trạng thái",
@@ -697,8 +697,8 @@
       "express": "Giao hàng hỏa tốc"
     },
     "followUp": {
-      "emailTitle": "Email xác nhận đã được gửi",
-      "emailDescription": "Nếu chưa thấy email, hãy kiểm tra thêm mục Spam hoặc Quảng cáo.",
+      "emailTitle": "Theo dõi cập nhật đơn hàng",
+      "emailDescription": "Chúng tôi sẽ hiển thị các cập nhật mới nhất trong tài khoản của bạn và có thể gửi thêm thông báo khi tính năng khả dụng.",
       "ordersTitle": "Theo dõi tiến độ trong đơn hàng",
       "ordersDescription": "Bạn có thể xem trạng thái xử lý, vận chuyển và lịch sử cập nhật ngay trong tài khoản."
     },

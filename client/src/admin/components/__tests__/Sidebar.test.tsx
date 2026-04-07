@@ -89,6 +89,7 @@ describe('Sidebar', () => {
     render(<Sidebar />);
 
     expect(screen.getByText('sidebar:nav.orders')).toBeInTheDocument();
+    expect(screen.getByText('sidebar:nav.notifications')).toBeInTheDocument();
     expect(screen.queryByText('Hoàn trả')).not.toBeInTheDocument();
     expect(screen.queryByText('sidebar:nav.products')).not.toBeInTheDocument();
 

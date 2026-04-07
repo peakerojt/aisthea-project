@@ -6,3 +6,4 @@ export type {
 export { adminReturnReadService } from './returns.query';
 export { adminReturnReviewService } from './return-review.service';
 export { adminReturnRuntimeService } from './returns.command';
+export { notificationQueueService } from './notifications.service';

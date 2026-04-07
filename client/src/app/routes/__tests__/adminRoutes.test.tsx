@@ -107,4 +107,19 @@ describe('adminRoutes access gate', () => {
 
     expect(screen.queryByText('navigate:/admin/orders')).not.toBeInTheDocument();
   });
+
+  it('allows support users onto the email queue when VIEW_ORDER exists', () => {
+    useAuthMock.mockReturnValue({
+      isInitialized: true,
+      user: { roles: ['Support'], permissions: ['VIEW_ORDER'] },
+    });
+
+    const notificationsRoute = adminRoutes.find((route) => route.path === '/admin/notifications');
+    expect(notificationsRoute).toBeDefined();
+
+    render(<>{notificationsRoute?.element}</>);
+
+    expect(screen.queryByText('navigate:/admin/orders')).not.toBeInTheDocument();
+    expect(screen.queryByText('navigate:/')).not.toBeInTheDocument();
+  });
 });

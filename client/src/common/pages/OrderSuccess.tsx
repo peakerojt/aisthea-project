@@ -27,13 +27,13 @@ const OrderSuccess: React.FC = () => {
   const metaTitleLabel = resolveText('meta.title', 'Xác nhận đơn hàng');
   const metaSubtitleLabel = resolveText(
     'meta.subtitle',
-    'Đơn của bạn đã được ghi nhận. Mọi cập nhật tiếp theo sẽ được gửi qua email và hiển thị trong lịch sử đơn hàng.',
+    'Đơn của bạn đã được ghi nhận. Mọi cập nhật tiếp theo sẽ hiển thị trong lịch sử đơn hàng và các kênh thông báo khả dụng.',
   );
   const headerBadgeLabel = resolveText('header.badge', 'Đã xác nhận');
   const headerTitleLabel = resolveText('header.title', 'Cảm ơn bạn đã đặt hàng!');
   const headerDescriptionLabel = resolveText(
     'header.description',
-    'Một email xác nhận đã được gửi tới địa chỉ của bạn. Xin vui lòng kiểm tra hộp thư đến (hoặc thư mục Spam) để theo dõi.',
+    'Đơn hàng đang chờ xác nhận. Bạn có thể theo dõi trạng thái mới nhất trong tài khoản của mình bất cứ lúc nào.',
   );
   const statusTitleLabel = resolveText('status.title', 'Trạng thái');
   const statusValueLabel = resolveText('status.value', 'Đơn hàng đang chờ xác nhận');
@@ -48,10 +48,10 @@ const OrderSuccess: React.FC = () => {
   const paymentCodLabel = resolveText('payment.cod', 'Thanh toán khi giao hàng (COD)');
   const shippingStandardLabel = resolveText('shipping.standard', 'Giao hàng tận nơi (Tiêu chuẩn)');
   const shippingExpressLabel = resolveText('shipping.express', 'Giao hàng hỏa tốc');
-  const emailTitleLabel = resolveText('followUp.emailTitle', 'Email xác nhận đã được gửi');
+  const emailTitleLabel = resolveText('followUp.emailTitle', 'Theo dõi cập nhật đơn hàng');
   const emailDescriptionLabel = resolveText(
     'followUp.emailDescription',
-    'Nếu chưa thấy email, hãy kiểm tra thêm mục Spam hoặc Quảng cáo.',
+    'Chúng tôi sẽ hiển thị các cập nhật mới nhất trong tài khoản của bạn và có thể gửi thêm thông báo khi tính năng khả dụng.',
   );
   const ordersTitleLabel = resolveText('followUp.ordersTitle', 'Theo dõi tiến độ trong đơn hàng');
   const ordersDescriptionLabel = resolveText(
