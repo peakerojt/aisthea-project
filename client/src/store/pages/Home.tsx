@@ -269,10 +269,14 @@ export const Home: React.FC = () => {
     <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
       {[...Array(4)].map((_, index) => (
         <div key={index} className="flex flex-col gap-4 animate-pulse">
-          <div className="aspect-[4/5] rounded-[1.75rem] bg-surface-dark" />
+          <div className="aspect-square rounded-[1.75rem] bg-surface-dark" />
           <div className="space-y-3">
-            <div className="h-4 w-2/3 rounded bg-surface-dark" />
-            <div className="h-3 w-1/3 rounded bg-surface-dark" />
+            <div className="h-6 w-3/4 rounded bg-surface-dark" />
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-24 rounded bg-surface-dark" />
+              <div className="h-3 w-12 rounded bg-surface-dark" />
+              <div className="h-3 w-20 rounded bg-surface-dark" />
+            </div>
           </div>
         </div>
       ))}
@@ -331,19 +335,22 @@ export const Home: React.FC = () => {
                 <picture className="absolute inset-0 block h-full w-full">
                   <source
                     type="image/avif"
-                    srcSet="/images/home/hero-960.avif 960w, /images/home/hero-1440.avif 1440w"
-                    sizes="(min-width: 1280px) 42rem, (min-width: 768px) 34rem, calc(100vw - 3rem)"
+                    srcSet="/images/home/hero-480.avif 480w, /images/home/hero-640.avif 640w, /images/home/hero-960.avif 960w"
+                    sizes="(max-width: 639px) calc(100vw - 3rem), (max-width: 1023px) min(34rem, calc(100vw - 6rem)), 42rem"
                   />
                   <source
                     type="image/webp"
-                    srcSet="/images/home/hero-960.webp 960w, /images/home/hero-1440.webp 1440w"
-                    sizes="(min-width: 1280px) 42rem, (min-width: 768px) 34rem, calc(100vw - 3rem)"
+                    srcSet="/images/home/hero-480.webp 480w, /images/home/hero-640.webp 640w, /images/home/hero-960.webp 960w"
+                    sizes="(max-width: 639px) calc(100vw - 3rem), (max-width: 1023px) min(34rem, calc(100vw - 6rem)), 42rem"
                   />
                   <img
-                    src="/images/home/hero-960.webp"
+                    src="/images/home/hero-480.webp"
+                    srcSet="/images/home/hero-480.webp 480w, /images/home/hero-640.webp 640w, /images/home/hero-960.webp 960w"
+                    sizes="(max-width: 639px) calc(100vw - 3rem), (max-width: 1023px) min(34rem, calc(100vw - 6rem)), 42rem"
                     alt="Luxury fashion editorial"
-                    width={960}
-                    height={1200}
+                    width={480}
+                    height={600}
+                    loading="eager"
                     fetchPriority="high"
                     decoding="async"
                     className="absolute inset-0 h-full w-full object-cover object-center"
@@ -369,10 +376,7 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      <section
-        className={`border-b bg-bg-dark ${sectionBorderClass}`}
-        style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 1120px' }}
-      >
+      <section className={`border-b bg-bg-dark ${sectionBorderClass}`}>
         <div className="mx-auto w-full max-w-[1440px] px-6 py-24 md:px-12">
           <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-8">
             <div className="max-w-2xl">
@@ -455,10 +459,7 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      <section
-        className={`border-b bg-[#090909] ${sectionBorderClass}`}
-        style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 560px' }}
-      >
+      <section className={`border-b bg-[#090909] ${sectionBorderClass}`}>
         <div className="mx-auto w-full max-w-[1440px] px-6 py-24 md:px-12">
           <div className="group/brand-marquee relative py-4">
             <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-7 bg-gradient-to-r from-[#090909] via-[#090909]/94 to-transparent md:w-16" />
@@ -506,10 +507,7 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      <section
-        className={`border-b bg-bg-dark ${sectionBorderClass}`}
-        style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 1080px' }}
-      >
+      <section className={`border-b bg-bg-dark ${sectionBorderClass}`}>
         <div className="mx-auto w-full max-w-[1440px] px-6 py-24 md:px-12">
           <div className="max-w-2xl">
             <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-primary/90">
@@ -577,10 +575,7 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      <section
-        className="bg-[#070707]"
-        style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 840px' }}
-      >
+      <section className="bg-[#070707]">
         <div className="mx-auto w-full max-w-[1440px] px-6 py-24 md:px-12">
           <div className={`overflow-hidden rounded-[2rem] border bg-[linear-gradient(135deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] shadow-[0_30px_90px_rgba(0,0,0,0.35)] ${cardBorderClass}`}>
             <div className="grid gap-10 p-8 md:p-10 lg:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)] lg:p-12">

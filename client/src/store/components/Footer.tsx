@@ -58,17 +58,17 @@ export const Footer: React.FC = () => {
   };
 
   return (
-    <footer className="bg-[#0f0f0f] text-gray-300 font-sans border-t border-white/10">
+    <footer className="bg-[#0f0f0f] text-gray-300 font-sans border-t border-white/10 [contain:layout_paint]">
       <div className="container mx-auto px-6 py-16 md:px-12 lg:px-24">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8">
-          <div className="flex flex-col gap-6">
+        <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+          <div className="flex min-h-[15rem] flex-col gap-6">
             <button
               onClick={() => nav('/')}
               className="text-3xl font-black tracking-widest uppercase text-white inline-block w-fit hover:text-primary transition-colors"
             >
               AISTHEA
             </button>
-            <p className="text-sm leading-relaxed text-gray-400">
+            <p className="max-w-[22rem] text-sm leading-relaxed text-gray-400">
               {t('footer.about_desc')}
             </p>
             <div className="flex items-center gap-3 mt-2">
@@ -87,7 +87,7 @@ export const Footer: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col gap-6">
+          <div className="flex min-h-[15rem] flex-col gap-6">
             <h3 className="text-sm font-bold uppercase tracking-widest text-white">{t('footer.quick_links')}</h3>
             <ul className="flex flex-col gap-4">
               {quickLinks.map((link) => (
@@ -100,7 +100,7 @@ export const Footer: React.FC = () => {
             </ul>
           </div>
 
-          <div className="flex flex-col gap-6">
+          <div className="flex min-h-[15rem] flex-col gap-6">
             <h3 className="text-sm font-bold uppercase tracking-widest text-white">{t('footer.support')}</h3>
             <ul className="flex flex-col gap-4">
               {supportLinks.map((link) => (
@@ -113,7 +113,7 @@ export const Footer: React.FC = () => {
             </ul>
           </div>
 
-          <div className="flex flex-col gap-6 lg:min-h-[24rem]">
+          <div className="flex min-h-[25rem] flex-col gap-6">
             <h3 className="text-sm font-bold uppercase tracking-widest text-white">{t('footer.contact_newsletter')}</h3>
 
             <ul className="flex flex-col gap-4 text-sm text-gray-400">
@@ -142,50 +142,55 @@ export const Footer: React.FC = () => {
               </li>
             </ul>
 
-            <p className="text-sm leading-relaxed text-gray-400">
+            <p className="min-h-[4.5rem] text-sm leading-relaxed text-gray-400">
               {t('footer.newsletter.copy')}
             </p>
 
-            <div className="min-h-[56px]">
-              {submitted ? (
-                <div className="flex min-h-[56px] items-center gap-2 py-2 text-sm text-emerald-400">
-                  <CheckCircle size={16} />
-                  <span>{t('footer.newsletter.success')}</span>
+            <div className="relative min-h-[3.75rem]">
+              <form
+                onSubmit={handleSubscribe}
+                className={`absolute inset-0 transition-opacity duration-200 ${submitted ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
+                aria-hidden={submitted}
+              >
+                <div className="relative flex items-center">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder={t('footer.email_placeholder')}
+                    required
+                    disabled={loading}
+                    className="w-full bg-white/5 border border-white/10 text-white text-sm px-4 py-3 rounded-sm focus:outline-none focus:border-white/30 transition-colors pr-12 placeholder:text-gray-500 disabled:opacity-60"
+                  />
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    aria-label={t('footer.newsletter.subscribeAria')}
+                    className="absolute right-0 flex h-full items-center justify-center px-4 text-gray-400 transition-colors hover:text-white disabled:opacity-40"
+                  >
+                    {loading ? (
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <ArrowRight size={18} />
+                    )}
+                  </button>
                 </div>
-              ) : (
-                <form onSubmit={handleSubscribe}>
-                  <div className="relative flex items-center">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder={t('footer.email_placeholder')}
-                      required
-                      disabled={loading}
-                      className="w-full bg-white/5 border border-white/10 text-white text-sm px-4 py-3 rounded-sm focus:outline-none focus:border-white/30 transition-colors pr-12 placeholder:text-gray-500 disabled:opacity-60"
-                    />
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      aria-label={t('footer.newsletter.subscribeAria')}
-                      className="absolute right-0 flex h-full items-center justify-center px-4 text-gray-400 transition-colors hover:text-white disabled:opacity-40"
-                    >
-                      {loading ? (
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <ArrowRight size={18} />
-                      )}
-                    </button>
-                  </div>
-                </form>
-              )}
+              </form>
+
+              <div
+                className={`absolute inset-0 flex min-h-[3.75rem] items-center gap-2 py-2 text-sm text-emerald-400 transition-opacity duration-200 ${submitted ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+                aria-hidden={!submitted}
+              >
+                <CheckCircle size={16} />
+                <span>{t('footer.newsletter.success')}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <div className="border-t border-white/5 bg-[#0a0a0a]">
-        <div className="container mx-auto px-6 py-6 md:px-12 lg:px-24 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="container mx-auto flex min-h-[5rem] flex-col items-center justify-between gap-4 px-6 py-6 md:flex-row md:px-12 lg:px-24">
           <p className="text-xs text-gray-500 uppercase tracking-widest">{t('footer.copyright')}</p>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2 text-xs text-gray-500 uppercase tracking-widest">

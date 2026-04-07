@@ -1,16 +1,11 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider } from '@/common/contexts/AuthContext';
 import { CartProvider } from '@/common/contexts/CartContext';
 import { ToastProvider } from '@/common/contexts/ToastContext';
-import { AdminGuard } from '@/common/components/AdminGuard';
-import { StoreLayout } from '@/store/layouts/StoreLayout';
-import { AdminLayout } from '@/admin/layouts/AdminLayout';
-import { storeRoutes } from '@/app/routes/storeRoutes';
-import { authRoutes } from '@/app/routes/authRoutes';
-import { adminRoutes } from '@/app/routes/adminRoutes';
 import { AuthEventListener } from '@/app/AuthEventListener';
 import '@/styles/index.css';
 import '@/i18n/config';
@@ -27,9 +22,63 @@ const queryClient = new QueryClient({
   },
 });
 
-const withRouteSuspense = (element: React.ReactNode) => (
-  <Suspense fallback={<Spinner />}>{element}</Suspense>
-);
+type RouteTreeComponent = React.ComponentType;
+
+const loadStoreRouteTree = async (): Promise<RouteTreeComponent> =>
+  (await import('@/app/routes/StoreRouteTree')).StoreRouteTree;
+
+const loadAdminRouteTree = async (): Promise<RouteTreeComponent> =>
+  (await import('@/app/routes/AdminRouteTree')).AdminRouteTree;
+
+const RouteTreeSwitch: React.FC = () => {
+  const location = useLocation();
+  const [RouteTree, setRouteTree] = React.useState<RouteTreeComponent | null>(null);
+  const isAdminRoute = location.pathname.startsWith('/admin');
+
+  React.useEffect(() => {
+    let active = true;
+    setRouteTree(null);
+
+    const loadRouteTree = isAdminRoute ? loadAdminRouteTree : loadStoreRouteTree;
+    void loadRouteTree().then((component) => {
+      if (active) {
+        setRouteTree(() => component);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [isAdminRoute]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const preloadOppositeRouteTree = () => {
+      void (isAdminRoute ? loadStoreRouteTree() : loadAdminRouteTree());
+    };
+
+    if ('requestIdleCallback' in window) {
+      const idleId = window.requestIdleCallback(preloadOppositeRouteTree, { timeout: 1800 });
+      return () => {
+        window.cancelIdleCallback(idleId);
+      };
+    }
+
+    const timeoutId = window.setTimeout(preloadOppositeRouteTree, 1400);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isAdminRoute]);
+
+  if (!RouteTree) {
+    return <Spinner />;
+  }
+
+  return <RouteTree />;
+};
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
@@ -41,26 +90,8 @@ root.render(
           <QueryClientProvider client={queryClient}>
             <BrowserRouter>
               <AuthEventListener />
-              <Routes>
-                <Route element={<StoreLayout />}>
-                  {storeRoutes.map(({ path, element }) => (
-                    <Route key={`store-${path}`} path={path} element={withRouteSuspense(element)} />
-                  ))}
-                  {authRoutes.map(({ path, element }) => (
-                    <Route key={`auth-${path}`} path={path} element={withRouteSuspense(element)} />
-                  ))}
-                </Route>
-
-                <Route element={<AdminGuard />}>
-                  <Route element={<AdminLayout />}>
-                    {adminRoutes.map(({ path, element }) => (
-                      <Route key={`admin-${path}`} path={path} element={withRouteSuspense(element)} />
-                    ))}
-                  </Route>
-                </Route>
-
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+              <RouteTreeSwitch />
+              <SpeedInsights />
             </BrowserRouter>
           </QueryClientProvider>
         </CartProvider>

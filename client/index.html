@@ -13,9 +13,11 @@
   <link
     rel="preload"
     as="image"
-    href="/images/home/hero-960.avif"
-    imagesrcset="/images/home/hero-960.avif 960w, /images/home/hero-1440.avif 1440w"
-    imagesizes="(min-width: 1280px) 42rem, (min-width: 768px) 34rem, calc(100vw - 3rem)" />
+    type="image/avif"
+    href="/images/home/hero-480.avif"
+    fetchpriority="high"
+    imagesrcset="/images/home/hero-480.avif 480w, /images/home/hero-640.avif 640w, /images/home/hero-960.avif 960w"
+    imagesizes="(max-width: 639px) calc(100vw - 3rem), (max-width: 1023px) min(34rem, calc(100vw - 6rem)), 42rem" />
 
 </head>
 

@@ -6,6 +6,19 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
     build: {
+      modulePreload: {
+        resolveDependencies(_filename, deps, context) {
+          if (context.hostType !== 'html') {
+            return deps;
+          }
+
+          return deps.filter(
+            (dependency) =>
+              !dependency.includes('charts-vendor') &&
+              !dependency.includes('forms-vendor')
+          );
+        },
+      },
       rollupOptions: {
         output: {
           manualChunks(id) {
