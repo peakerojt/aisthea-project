@@ -62,15 +62,16 @@ export const createVerificationToken = async (userId: number, email: string, ful
         },
     });
 
-    // Send email asynchronously (don't await)
-    // This prevents the UI from blocking while SMTP connects
-    sendVerificationEmail(email, token, fullName).catch((error) => {
-        logger.error('[verificationService] Failed to send verification email (async)', {
+    try {
+        await sendVerificationEmail(email, token, fullName);
+    } catch (error) {
+        logger.error('[verificationService] Failed to send verification email', {
             verificationError: serializeVerificationError(error),
             userId,
             email,
         });
-    });
+        throw new AppError(503, 'EMAIL_SEND_FAILED', 'auth:errors.verificationEmailFailed');
+    }
 
     return token;
 };

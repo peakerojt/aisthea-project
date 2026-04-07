@@ -24,6 +24,7 @@ const ERROR_CODE_TO_MESSAGE_KEY: Record<string, string> = {
   DUPLICATE_RECEIPT_ITEM: 'purchaseOrders:errors.receiptDuplicate',
   EMAIL_EXISTS: 'auth:errors.emailExists',
   EMAIL_ALREADY_VERIFIED: 'auth:errors.emailAlreadyVerified',
+  EMAIL_SEND_FAILED: 'auth:errors.verificationEmailFailed',
   EMAIL_NOT_VERIFIED: 'auth:errors.emailNotVerified',
   FETCH_ADDRESSES_FAILED: 'users:errors.fetchAddressesFailed',
   FETCH_PERMISSIONS_FAILED: 'roles:errors.fetchPermissionsFailed',
