@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider } from '@/common/contexts/AuthContext';
 import { CartProvider } from '@/common/contexts/CartContext';
 import { ToastProvider } from '@/common/contexts/ToastContext';
@@ -62,6 +63,7 @@ root.render(
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </BrowserRouter>
+            <SpeedInsights />
           </QueryClientProvider>
         </CartProvider>
       </AuthProvider>
