@@ -7,17 +7,40 @@ const SMTP_PORT = env.smtpPort;
 const SMTP_USER = env.smtpUser;
 const SMTP_PASS = env.smtpPass;
 const SMTP_FROM = env.smtpFrom;
+const RESEND_API_KEY = env.resendApiKey;
+const RESEND_FROM = env.resendFrom;
 const SERVER_URL = env.serverUrl;
+const RESEND_API_URL = 'https://api.resend.com/emails';
+const RESEND_REQUEST_TIMEOUT_MS = 10_000;
+const SMTP_CONNECTION_TIMEOUT_MS = 10_000;
+const SMTP_GREETING_TIMEOUT_MS = 10_000;
+const SMTP_SOCKET_TIMEOUT_MS = 15_000;
 
-const createTransporter = () => nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
-    auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS,
-    },
-});
+const createTransporter = () => {
+    if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
+        throw new Error('SMTP is not configured');
+    }
+
+    return nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: SMTP_PORT,
+        secure: SMTP_PORT === 465,
+        auth: {
+            user: SMTP_USER,
+            pass: SMTP_PASS,
+        },
+        connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+        greetingTimeout: SMTP_GREETING_TIMEOUT_MS,
+        socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
+    });
+};
+
+type MailRequest = {
+    to: string;
+    subject: string;
+    html: string;
+    text: string;
+};
 
 const serializeMailError = (error: unknown) => {
     if (error instanceof Error) {
@@ -42,12 +65,79 @@ const serializeMailError = (error: unknown) => {
     return { value: error };
 };
 
+const sendWithResend = async (mail: MailRequest) => {
+    if (!RESEND_API_KEY) {
+        throw new Error('Resend is not configured');
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), RESEND_REQUEST_TIMEOUT_MS);
+
+    try {
+        const response = await fetch(RESEND_API_URL, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${RESEND_API_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                from: RESEND_FROM,
+                to: [mail.to],
+                subject: mail.subject,
+                html: mail.html,
+                text: mail.text,
+            }),
+            signal: controller.signal,
+        });
+
+        const payload = await response.json().catch(() => null) as
+            | { id?: string; error?: { name?: string; message?: string } }
+            | null;
+
+        if (!response.ok) {
+            throw new Error(payload?.error?.message || `Resend request failed with status ${response.status}`);
+        }
+
+        return {
+            provider: 'resend' as const,
+            messageId: payload?.id,
+        };
+    } finally {
+        clearTimeout(timeout);
+    }
+};
+
+const sendWithSmtp = async (mail: MailRequest) => {
+    const info = await createTransporter().sendMail({
+        from: SMTP_FROM,
+        to: mail.to,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+    });
+
+    return {
+        provider: 'smtp' as const,
+        messageId: info.messageId,
+        accepted: info.accepted,
+        rejected: info.rejected,
+        response: info.response,
+    };
+};
+
+const sendMail = async (mail: MailRequest) => {
+    if (RESEND_API_KEY) {
+        return sendWithResend(mail);
+    }
+
+    return sendWithSmtp(mail);
+};
+
 /**
  * Send verification email to user with 6-digit code
  */
 export const sendVerificationEmail = async (email: string, code: string, fullName: string) => {
-    const mailOptions = {
-        from: SMTP_FROM,
+    const mailOptions: MailRequest = {
         to: email,
         subject: 'Your Verification Code - AISTHEA',
         html: `
@@ -129,23 +219,26 @@ export const sendVerificationEmail = async (email: string, code: string, fullNam
     };
 
     try {
-        const info = await createTransporter().sendMail(mailOptions);
+        const info = await sendMail(mailOptions);
         logger.debug('[emailService] Verification email sent', {
+            provider: info.provider,
             to: email,
-            accepted: info.accepted,
-            rejected: info.rejected,
-            response: info.response,
             messageId: info.messageId,
+            accepted: 'accepted' in info ? info.accepted : undefined,
+            rejected: 'rejected' in info ? info.rejected : undefined,
+            response: 'response' in info ? info.response : undefined,
         });
 
         return true;
     } catch (error) {
         logger.error('[emailService] Failed to send verification email', {
             mailError: serializeMailError(error),
+            provider: RESEND_API_KEY ? 'resend' : 'smtp',
             smtpHost: SMTP_HOST,
             smtpPort: SMTP_PORT,
             smtpUser: SMTP_USER,
             smtpFrom: SMTP_FROM,
+            resendFrom: RESEND_FROM,
             to: email,
         });
         throw new Error('Failed to send verification email');
@@ -159,8 +252,7 @@ export const sendVerificationEmail = async (email: string, code: string, fullNam
 export const sendPasswordResetEmail = async (email: string, token: string, fullName: string) => {
     const resetLink = `${SERVER_URL}/api/auth/reset-password-init?token=${token}`;
 
-    const mailOptions = {
-        from: SMTP_FROM,
+    const mailOptions: MailRequest = {
         to: email,
         subject: 'Reset Your Password - AISTHEA',
         html: `
@@ -248,22 +340,25 @@ export const sendPasswordResetEmail = async (email: string, token: string, fullN
     };
 
     try {
-        const info = await createTransporter().sendMail(mailOptions);
+        const info = await sendMail(mailOptions);
         logger.debug('[emailService] Password reset email sent', {
+            provider: info.provider,
             to: email,
-            accepted: info.accepted,
-            rejected: info.rejected,
-            response: info.response,
             messageId: info.messageId,
+            accepted: 'accepted' in info ? info.accepted : undefined,
+            rejected: 'rejected' in info ? info.rejected : undefined,
+            response: 'response' in info ? info.response : undefined,
         });
         return true;
     } catch (error) {
         logger.error('[emailService] Failed to send password reset email', {
             mailError: serializeMailError(error),
+            provider: RESEND_API_KEY ? 'resend' : 'smtp',
             smtpHost: SMTP_HOST,
             smtpPort: SMTP_PORT,
             smtpUser: SMTP_USER,
             smtpFrom: SMTP_FROM,
+            resendFrom: RESEND_FROM,
             to: email,
         });
         throw new Error('Failed to send password reset email');
@@ -279,8 +374,7 @@ type RefundEmailOptions = {
 };
 
 const sendRefundWorkflowEmail = async (options: RefundEmailOptions) => {
-    const mailOptions = {
-        from: SMTP_FROM,
+    const mailOptions: MailRequest = {
         to: options.email,
         subject: options.subject,
         html: options.html,
@@ -288,22 +382,25 @@ const sendRefundWorkflowEmail = async (options: RefundEmailOptions) => {
     };
 
     try {
-        const info = await createTransporter().sendMail(mailOptions);
+        const info = await sendMail(mailOptions);
         logger.debug(`[emailService] ${options.logLabel} email sent`, {
+            provider: info.provider,
             to: options.email,
-            accepted: info.accepted,
-            rejected: info.rejected,
-            response: info.response,
             messageId: info.messageId,
+            accepted: 'accepted' in info ? info.accepted : undefined,
+            rejected: 'rejected' in info ? info.rejected : undefined,
+            response: 'response' in info ? info.response : undefined,
         });
         return true;
     } catch (error) {
         logger.error(`[emailService] Failed to send ${options.logLabel} email`, {
             mailError: serializeMailError(error),
+            provider: RESEND_API_KEY ? 'resend' : 'smtp',
             smtpHost: SMTP_HOST,
             smtpPort: SMTP_PORT,
             smtpUser: SMTP_USER,
             smtpFrom: SMTP_FROM,
+            resendFrom: RESEND_FROM,
             to: options.email,
         });
         throw new Error(`Failed to send ${options.logLabel} email`);
@@ -408,6 +505,14 @@ export const sendRefundCompletedBenefitIssuedEmail = async (params: {
  * Verify SMTP connection
  */
 export const verifyEmailConnection = async () => {
+    if (RESEND_API_KEY) {
+        logger.info('[emailService] Resend provider configured', {
+            provider: 'resend',
+            resendFrom: RESEND_FROM,
+        });
+        return true;
+    }
+
     try {
         await createTransporter().verify();
         logger.info('[emailService] SMTP connection verified', {

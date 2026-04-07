@@ -89,6 +89,8 @@ const envSchema = z.object({
     SMTP_USER: z.string().optional().default('').transform(normalizeOptionalEnvValue),
     SMTP_PASS: z.string().optional().default('').transform(normalizeSmtpPassword),
     SMTP_FROM: z.string().optional().default('').transform(normalizeOptionalEnvValue),
+    RESEND_API_KEY: z.string().optional().default('').transform(normalizeOptionalEnvValue),
+    RESEND_FROM: z.string().optional().default('').transform(normalizeOptionalEnvValue),
     EMAIL_USER: z.string().optional().default('').transform(normalizeOptionalEnvValue),
     EMAIL_PASS: z.string().optional().default('').transform(normalizeSmtpPassword),
     EMAIL_FROM: z.string().optional().default('').transform(normalizeOptionalEnvValue),
@@ -158,6 +160,11 @@ export const env = {
     smtpUser: resolvePreferredEnvValue(_parsedEnv.data.SMTP_USER, _parsedEnv.data.EMAIL_USER),
     smtpPass: resolvePreferredSmtpPassword(_parsedEnv.data.SMTP_PASS, _parsedEnv.data.EMAIL_PASS),
     smtpFrom:
+        resolvePreferredEnvValue(_parsedEnv.data.SMTP_FROM, _parsedEnv.data.EMAIL_FROM) ||
+        'AISTHEA <noreply@aisthea.com>',
+    resendApiKey: _parsedEnv.data.RESEND_API_KEY,
+    resendFrom:
+        normalizeOptionalEnvValue(_parsedEnv.data.RESEND_FROM) ||
         resolvePreferredEnvValue(_parsedEnv.data.SMTP_FROM, _parsedEnv.data.EMAIL_FROM) ||
         'AISTHEA <noreply@aisthea.com>',
     emailUser: resolvePreferredEnvValue(_parsedEnv.data.SMTP_USER, _parsedEnv.data.EMAIL_USER),
