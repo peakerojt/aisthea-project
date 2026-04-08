@@ -79,6 +79,7 @@ describe('OAuthCallback', () => {
         email: 'support@example.com',
         fullName: 'Support User',
         roles: ['Support'],
+        permissions: ['MANAGE_RETURNS'],
       },
     });
 

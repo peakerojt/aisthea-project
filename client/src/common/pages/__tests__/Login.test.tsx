@@ -53,6 +53,7 @@ describe('Login', () => {
   it('redirects support users to admin returns after login', async () => {
     loginMock.mockResolvedValue({
       roles: ['Support'],
+      permissions: ['MANAGE_RETURNS'],
     });
 
     render(<Login />);
