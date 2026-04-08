@@ -85,6 +85,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install server dependencies for shared imports
+        working-directory: server
+        run: npm ci
+
       - name: Build
         run: npm run build
 
