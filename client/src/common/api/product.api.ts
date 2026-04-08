@@ -8,6 +8,7 @@ import {
     CategoryOption,
     BrandOption,
     ProductForEdit,
+    SizeGuideTemplateOption,
     UpdateProductPayload,
     SmartDeleteResponse,
 } from '@/common/services/product.service';
@@ -79,6 +80,8 @@ export const productApi = {
     fetchCategories: () => api.get<CategoryOption[]>('/api/products/meta/categories'),
 
     fetchBrands: () => api.get<BrandOption[]>('/api/products/meta/brands'),
+
+    fetchSizeGuideTemplates: () => api.get<SizeGuideTemplateOption[]>('/api/products/meta/size-guides'),
 
     fetchForEdit: (id: number) => api.get<ProductForEdit>(`/api/products/${id}/edit`),
 

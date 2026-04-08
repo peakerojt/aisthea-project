@@ -130,8 +130,6 @@ function parseDeliveryProofImages(value: string | null | undefined): string[] {
   }
 }
 
-const buildOrderDetailUrl = (orderId: number) => `${env.clientUrl.replace(/\/$/, '')}/account/orders/${orderId}`;
-
 // ─── ADMIN: Get All Orders | GET /api/orders/admin ───────────────────────────
 
 export const getAllOrders = async (req: AuthRequest, res: Response) => {
@@ -759,28 +757,6 @@ export const confirmReceipt = async (req: AuthRequest, res: Response) => {
         paymentNote: 'Khách hàng đã xác nhận nhận hàng. Thanh toán COD được đánh dấu là đã thu.',
       });
     });
-
-    const recipient = order.customerEmail?.trim() || order.user?.email?.trim() || null;
-    if (recipient) {
-      try {
-        await notificationService.enqueueOrderStatusEmail({
-          orderId,
-          orderNumber: order.orderNumber,
-          email: recipient,
-          customerName: order.customerName?.trim() || order.user?.fullName?.trim() || 'AISTHEA Customer',
-          status: ORDER_STATUS.DELIVERED,
-          previousStatus: ORDER_STATUS.SHIPPING,
-          note: 'Khách hàng xác nhận đã nhận hàng',
-          trackingUrl: buildOrderDetailUrl(orderId),
-          historyTimestamp: confirmationTimestamp.toISOString(),
-        });
-      } catch (notificationError: any) {
-        logger.warn('[confirmReceipt] Failed to enqueue delivered order email', {
-          orderId,
-          error: notificationError?.message ?? String(notificationError),
-        });
-      }
-    }
 
     return res.json({ success: true, code: SUCCESS_MESSAGES.RECEIPT_CONFIRMED, orderId, newStatus: ORDER_STATUS.DELIVERED });
   } catch (error: any) {

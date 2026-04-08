@@ -16,6 +16,40 @@ export interface CreateImagePayload {
     isPrimary?: boolean;
 }
 
+export interface SizeGuideMeasureTip {
+    key: string;
+    label: string;
+    description: string;
+}
+
+export interface ProductSizeGuide {
+    available: boolean;
+    templateKey: string;
+    templateName: string;
+    category: 'tops' | 'dresses' | 'pants' | 'shoes' | 'accessories';
+    fitType?: string | null;
+    fitNote?: string | null;
+    unit: 'cm';
+    columns: string[];
+    rows: Array<Record<string, string | number>>;
+    howToMeasure: SizeGuideMeasureTip[];
+    modelInfo: {
+        heightCm?: number | null;
+        weightKg?: number | null;
+        wearSize?: string | null;
+    };
+    summary: string;
+}
+
+export interface SizeGuideTemplateOption {
+    key: string;
+    name: string;
+    category: 'tops' | 'dresses' | 'pants' | 'shoes' | 'accessories';
+    fitType?: string | null;
+    unit: 'cm';
+    columns: string[];
+}
+
 export interface CreateProductPayload {
     name: string;
     slug: string;
@@ -23,6 +57,12 @@ export interface CreateProductPayload {
     basePrice: number;
     categoryId: number;
     brandId?: number;
+    sizeGuideTemplateKey?: string;
+    fitType?: string;
+    fitNote?: string;
+    modelHeightCm?: number;
+    modelWeightKg?: number;
+    modelWearSize?: string;
     status?: string;
     variants: CreateVariantPayload[];
     images: CreateImagePayload[];
@@ -92,6 +132,12 @@ export interface Product {
     slug: string;
     description?: string;
     basePrice: number;
+    sizeGuideTemplateKey?: string | null;
+    fitType?: string | null;
+    fitNote?: string | null;
+    modelHeightCm?: number | null;
+    modelWeightKg?: number | null;
+    modelWearSize?: string | null;
     status: string;
     createdAt: string;
     category?: {
@@ -106,6 +152,7 @@ export interface Product {
     images?: ProductImage[];
     variants?: ProductVariant[];
     reviews?: Record<string, unknown>[];
+    sizeGuide?: ProductSizeGuide | null;
 }
 
 export interface ProductListMeta {
@@ -288,6 +335,15 @@ export const fetchBrands = async (): Promise<BrandOption[]> => {
     }
 };
 
+export const fetchSizeGuideTemplates = async (): Promise<SizeGuideTemplateOption[]> => {
+    try {
+        return await productApi.fetchSizeGuideTemplates();
+    } catch (error) {
+        console.error('Failed to fetch size guide templates:', error);
+        throw error;
+    }
+};
+
 export const getStockStatus = (stockQuantity: number): 'In Stock' | 'Low Stock' | 'Out of Stock' => {
     if (stockQuantity === 0) return 'Out of Stock';
     if (stockQuantity < 10) return 'Low Stock';
@@ -317,6 +373,12 @@ export interface ProductForEdit {
     slug: string;
     description?: string;
     basePrice: number;
+    sizeGuideTemplateKey?: string | null;
+    fitType?: string | null;
+    fitNote?: string | null;
+    modelHeightCm?: number | null;
+    modelWeightKg?: number | null;
+    modelWearSize?: string | null;
     status: string;
     categoryId: number;
     brandId?: number;
@@ -330,6 +392,7 @@ export interface ProductForEdit {
         isPrimary: boolean;
     }[];
     variants: ExistingVariant[];
+    sizeGuide?: ProductSizeGuide | null;
 }
 
 export const fetchProductForEdit = async (id: number): Promise<ProductForEdit> => {
@@ -357,6 +420,12 @@ export interface UpdateProductPayload {
     basePrice: number;
     categoryId: number;
     brandId?: number;
+    sizeGuideTemplateKey?: string;
+    fitType?: string;
+    fitNote?: string;
+    modelHeightCm?: number;
+    modelWeightKg?: number;
+    modelWearSize?: string;
     status?: string;
     deletedImageIds: number[];
     newImages: { imageUrl: string; thumbnailUrl?: string; isPrimary?: boolean; associatedAttributeValue?: string }[];

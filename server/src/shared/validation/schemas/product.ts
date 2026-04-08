@@ -14,6 +14,23 @@ import {
 
 export const productStatusSchema = z.enum(['Active', 'Inactive', 'Draft', 'Archived']);
 
+const emptyStringToUndefined = (value: unknown) => {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const optionalTrimmedString = (maxLength: number) =>
+  z.preprocess(
+    emptyStringToUndefined,
+    z.string().trim().max(maxLength).optional(),
+  );
+
+const optionalPositiveInt = z.preprocess((value) => {
+  if (value === '' || value === null || value === undefined) return undefined;
+  return Number(value);
+}, z.number().int().positive().optional());
+
 const variantAttributeSchema = z.object({
   attributeName: attributeNameField,
   value: attributeValueField,
@@ -49,6 +66,12 @@ export const createProductSchema = z.object({
   basePrice: priceField,
   categoryId: positiveIntField,
   brandId: positiveIntField.optional(),
+  sizeGuideTemplateKey: optionalTrimmedString(100),
+  fitType: optionalTrimmedString(50),
+  fitNote: optionalTrimmedString(500),
+  modelHeightCm: optionalPositiveInt,
+  modelWeightKg: optionalPositiveInt,
+  modelWearSize: optionalTrimmedString(20),
   status: productStatusSchema.optional().default('Active'),
   variants: z.array(variantSchema).min(1, 'Phải có ít nhất một biến thể'),
   images: z.array(imageSchema).optional().default([]),
@@ -61,6 +84,12 @@ export const updateProductSchema = z.object({
   basePrice: priceField,
   categoryId: positiveIntField,
   brandId: positiveIntField.optional(),
+  sizeGuideTemplateKey: optionalTrimmedString(100),
+  fitType: optionalTrimmedString(50),
+  fitNote: optionalTrimmedString(500),
+  modelHeightCm: optionalPositiveInt,
+  modelWeightKg: optionalPositiveInt,
+  modelWearSize: optionalTrimmedString(20),
   status: productStatusSchema.optional(),
   deletedImageIds: z.array(positiveIntField).optional().default([]),
   newImages: z.array(imageSchema).optional().default([]),

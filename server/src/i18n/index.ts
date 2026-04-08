@@ -23,6 +23,8 @@ import enPurchaseOrders from './locales/en/purchaseOrders.json';
 import viPurchaseOrders from './locales/vi/purchaseOrders.json';
 import enRoles from './locales/en/roles.json';
 import viRoles from './locales/vi/roles.json';
+import enEmails from './locales/en/emails.json';
+import viEmails from './locales/vi/emails.json';
 
 export const SUPPORTED_LOCALES = ['en', 'vi'] as const;
 export type AppLocale = (typeof SUPPORTED_LOCALES)[number];
@@ -41,6 +43,7 @@ const resources = {
     payments: enPayments,
     purchaseOrders: enPurchaseOrders,
     roles: enRoles,
+    emails: enEmails,
   },
   vi: {
     common: viCommon,
@@ -55,6 +58,7 @@ const resources = {
     payments: viPayments,
     purchaseOrders: viPurchaseOrders,
     roles: viRoles,
+    emails: viEmails,
   },
 };
 

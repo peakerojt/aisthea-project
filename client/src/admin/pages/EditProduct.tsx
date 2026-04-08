@@ -8,11 +8,12 @@ import {
     updateProduct,
     fetchCategories,
     fetchBrands,
+    fetchSizeGuideTemplates,
     ProductForEdit,
     ExistingVariant,
     UpdateVariantPayload,
 } from '@/common/services/product.service';
-import type { CategoryOption, BrandOption } from '@/common/services/product.service';
+import type { CategoryOption, BrandOption, SizeGuideTemplateOption } from '@/common/services/product.service';
 import { API_BASE_URL } from '@/common/utils/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { productKeys } from '@/common/hooks/useProducts';
@@ -261,6 +262,7 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
     // ─── Meta ────────────────────────────────────────────────────────────
     const [categories, setCategories] = useState<CategoryOption[]>([]);
     const [brands, setBrands] = useState<BrandOption[]>([]);
+    const [sizeGuideTemplates, setSizeGuideTemplates] = useState<SizeGuideTemplateOption[]>([]);
 
     // ─── Product load state ───────────────────────────────────────────────
     const [loadingProduct, setLoadingProduct] = useState(true);
@@ -313,9 +315,11 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
             fetchProductForEdit(resolvedProductId),
             fetchCategories(),
             fetchBrands(),
-        ]).then(([product, cats, brnds]) => {
+            fetchSizeGuideTemplates(),
+        ]).then(([product, cats, brnds, templates]) => {
             setCategories(cats);
             setBrands(brnds);
+            setSizeGuideTemplates(templates);
             setProductNameState(product.name);
             setCurrentSlug(product.slug);
 
@@ -327,6 +331,12 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                 brandId: product.brandId ?? undefined,
                 basePrice: Number(product.basePrice),
                 baseSku: '',
+                sizeGuideTemplateKey: product.sizeGuideTemplateKey ?? undefined,
+                fitType: product.fitType ?? undefined,
+                fitNote: product.fitNote ?? undefined,
+                modelHeightCm: product.modelHeightCm ?? undefined,
+                modelWeightKg: product.modelWeightKg ?? undefined,
+                modelWearSize: product.modelWearSize ?? undefined,
                 status: product.status || 'Active',
             });
 
@@ -543,6 +553,12 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                 basePrice: data.basePrice,
                 categoryId: data.categoryId,
                 brandId: data.brandId,
+                sizeGuideTemplateKey: data.sizeGuideTemplateKey,
+                fitType: data.fitType,
+                fitNote: data.fitNote,
+                modelHeightCm: data.modelHeightCm,
+                modelWeightKg: data.modelWeightKg,
+                modelWearSize: data.modelWearSize,
                 status: data.status || 'Active',
                 deletedImageIds: [],
                 newImages: [],
@@ -792,6 +808,70 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                                         <option key={b.brandId} value={b.brandId}>{b.name}</option>
                                     ))}
                                 </select>
+                            </div>
+                        </AdminSectionCard>
+
+                        <AdminSectionCard bodyClassName="space-y-5 p-6">
+                            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3">{t('editor.sections.sizeGuide')}</h3>
+
+                            <div>
+                                <label className={labelCls}>{t('editor.fields.sizeGuideTemplate')}</label>
+                                <select {...register('sizeGuideTemplateKey')} className={inputCls()}>
+                                    <option value="">{t('editor.fields.sizeGuideTemplateSelect')}</option>
+                                    {sizeGuideTemplates.map((template) => (
+                                        <option key={template.key} value={template.key}>
+                                            {template.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className={labelCls}>{t('editor.fields.fitType')}</label>
+                                <input
+                                    {...register('fitType')}
+                                    placeholder={t('editor.fields.fitTypePlaceholder')}
+                                    className={inputCls()}
+                                />
+                            </div>
+
+                            <div>
+                                <label className={labelCls}>{t('editor.fields.fitNote')}</label>
+                                <textarea
+                                    {...register('fitNote')}
+                                    rows={3}
+                                    placeholder={t('editor.fields.fitNotePlaceholder')}
+                                    className={inputCls() + ' resize-none'}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                <div>
+                                    <label className={labelCls}>{t('editor.fields.modelHeightCm')}</label>
+                                    <input
+                                        type="number"
+                                        {...register('modelHeightCm')}
+                                        placeholder={t('editor.fields.modelHeightPlaceholder')}
+                                        className={inputCls()}
+                                    />
+                                </div>
+                                <div>
+                                    <label className={labelCls}>{t('editor.fields.modelWeightKg')}</label>
+                                    <input
+                                        type="number"
+                                        {...register('modelWeightKg')}
+                                        placeholder={t('editor.fields.modelWeightPlaceholder')}
+                                        className={inputCls()}
+                                    />
+                                </div>
+                                <div>
+                                    <label className={labelCls}>{t('editor.fields.modelWearSize')}</label>
+                                    <input
+                                        {...register('modelWearSize')}
+                                        placeholder={t('editor.fields.modelWearSizePlaceholder')}
+                                        className={inputCls()}
+                                    />
+                                </div>
                             </div>
                         </AdminSectionCard>
 

@@ -3,6 +3,7 @@ import { logger } from '../../lib/logger';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../middlewares/error.middleware';
 import { productRepository } from '../products/product.repository';
+import { resolveProductSizeGuide } from '../products/size-guide';
 import type {
   ChatAction,
   ChatHistoryMessage,
@@ -209,6 +210,16 @@ const extractVariantValues = (product: NonNullable<ProductContext>, attributeNam
 const buildProductSummary = (product: NonNullable<ProductContext>) => {
   const sizes = extractVariantValues(product, ['size', 'kích', 'kich']);
   const colors = extractVariantValues(product, ['color', 'màu', 'mau']);
+  const sizeGuide = resolveProductSizeGuide(product);
+  const modelInfo = sizeGuide
+    ? [
+        sizeGuide.modelInfo.heightCm ? `Height ${sizeGuide.modelInfo.heightCm}cm` : null,
+        sizeGuide.modelInfo.weightKg ? `Weight ${sizeGuide.modelInfo.weightKg}kg` : null,
+        sizeGuide.modelInfo.wearSize ? `Wears ${sizeGuide.modelInfo.wearSize}` : null,
+      ]
+        .filter(Boolean)
+        .join(', ')
+    : null;
 
   return [
     `Name: ${product.name}`,
@@ -217,7 +228,9 @@ const buildProductSummary = (product: NonNullable<ProductContext>) => {
     `Description: ${trimText(product.description || 'No description available.', 280)}`,
     `Sizes: ${sizes.length > 0 ? sizes.join(', ') : 'Unknown'}`,
     `Colors: ${colors.length > 0 ? colors.join(', ') : 'Unknown'}`,
-  ].join('\n');
+    sizeGuide?.summary ? `Size guide: ${trimText(sizeGuide.summary, 220)}` : null,
+    modelInfo ? `Model info: ${modelInfo}` : null,
+  ].filter(Boolean).join('\n');
 };
 
 const buildReplyPrompt = ({

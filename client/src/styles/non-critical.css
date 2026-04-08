@@ -73,6 +73,11 @@
     animation: brandMarqueeLoop 18s linear infinite;
 }
 
+.group\/brand-marquee:hover .brand-marquee-track,
+.group\/brand-marquee:focus-within .brand-marquee-track {
+    animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: no-preference) {
     .brand-marquee-track {
         will-change: transform;

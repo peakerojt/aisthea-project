@@ -18,7 +18,6 @@ const quoteOrderPricingMock = jest.fn();
 const emitOrderStatusUpdatedMock = jest.fn();
 const initiateRefundMock = jest.fn();
 const enqueueOrderPlacedEmailMock = jest.fn();
-const enqueueOrderStatusEmailMock = jest.fn();
 
 jest.mock('../../../utils/prisma', () => ({
   prisma: prismaMock,
@@ -43,7 +42,6 @@ jest.mock('../../../services/refund.service', () => ({
 jest.mock('../../notifications/notification.service', () => ({
   notificationService: {
     enqueueOrderPlacedEmail: (...args: unknown[]) => enqueueOrderPlacedEmailMock(...args),
-    enqueueOrderStatusEmail: (...args: unknown[]) => enqueueOrderStatusEmailMock(...args),
   },
 }));
 
@@ -62,7 +60,6 @@ describe('order.service integration guards', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     enqueueOrderPlacedEmailMock.mockResolvedValue(undefined);
-    enqueueOrderStatusEmailMock.mockResolvedValue(undefined);
   });
 
   it('cancels processing paid orders and refunds them before fulfillment', async () => {
@@ -705,7 +702,7 @@ describe('order.service integration guards', () => {
       totalAmount: 465000,
       paymentMethod: 'VNPAY',
       createdAt: '2026-03-16T00:00:00.000Z',
-      orderUrl: expect.stringContaining('/account/orders/321'),
+      orderUrl: expect.stringContaining('/tracking/321'),
     });
     expect(result.id).toBe('321');
     expect(result.paymentStatus).toBe('PENDING_VNPAY');
@@ -901,17 +898,7 @@ describe('order.service integration guards', () => {
       trackingNumber: null,
       estimatedDeliveryDate: null,
     });
-    expect(enqueueOrderStatusEmailMock).toHaveBeenCalledWith({
-      orderId: 1,
-      orderNumber: 'ORD-0001',
-      email: 'khach@example.com',
-      customerName: 'Khach Hang',
-      status: ORDER_STATUS.SHIPPING,
-      previousStatus: ORDER_STATUS.PROCESSING,
-      note: null,
-      trackingUrl: expect.stringContaining('/account/orders/1'),
-      historyTimestamp: '2026-03-16T09:00:00.000Z',
-    });
+    expect(enqueueOrderPlacedEmailMock).not.toHaveBeenCalled();
   });
 
   it('fails safely when another admin changes the order state first', async () => {

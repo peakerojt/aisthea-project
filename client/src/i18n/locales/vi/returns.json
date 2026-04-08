@@ -138,6 +138,7 @@
     "receivedSuccess": "Đã đánh dấu nhận hàng",
     "receivedError": "Không thể cập nhật",
     "acceptRefundSuccess": "Đã chấp nhận hoàn tiền",
+    "bankInfoReminderSent": "Đã gửi nhắc bổ sung thông tin ngân hàng",
     "refundStatusPendingSuccess": "Đã đặt lại trạng thái chờ hoàn tiền",
     "refundStatusProcessingSuccess": "Đã đánh dấu đang hoàn tiền",
     "refundStatusFailedSuccess": "Đã đánh dấu hoàn tiền thất bại",

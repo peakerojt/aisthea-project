@@ -43,6 +43,15 @@ export const productController = {
     }
   },
 
+  getSizeGuideTemplates: async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const templates = productService.getSizeGuideTemplates();
+      res.json(templates);
+    } catch (error) {
+      next(error);
+    }
+  },
+
   getAll: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const query = req.query as unknown as ProductQueryDto;

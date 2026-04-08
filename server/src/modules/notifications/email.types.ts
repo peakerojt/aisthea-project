@@ -26,12 +26,14 @@ export type VerificationEmailPayload = {
   userId: number;
   fullName: string;
   code: string;
+  locale?: string | null;
 };
 
 export type PasswordResetEmailPayload = {
   userId: number;
   fullName: string;
   code: string;
+  locale?: string | null;
 };
 
 export type AuthEmailPayloadByType = {
@@ -47,6 +49,7 @@ export type OrderPlacedEmailPayload = {
   paymentMethod: string | null;
   createdAt: string | null;
   orderUrl: string;
+  locale?: string | null;
 };
 
 export type OrderStatusEmailPayload = {
@@ -57,6 +60,7 @@ export type OrderStatusEmailPayload = {
   previousStatus: string | null;
   note: string | null;
   trackingUrl: string;
+  locale?: string | null;
 };
 
 export type OrderEmailPayloadByType = {
@@ -69,12 +73,14 @@ export type RefundAcceptedBankInfoRequiredEmailPayload = {
   customerName: string;
   orderNumber: string;
   profileBankLink: string;
+  locale?: string | null;
 };
 
 export type RefundAcceptedAwaitingPayoutEmailPayload = {
   returnRequestId: number;
   customerName: string;
   orderNumber: string;
+  locale?: string | null;
 };
 
 export type RefundCompletedBenefitIssuedEmailPayload = {
@@ -85,6 +91,7 @@ export type RefundCompletedBenefitIssuedEmailPayload = {
   refundDate: string;
   voucherSummary: string | null;
   profileLink: string;
+  locale?: string | null;
 };
 
 export type RefundEmailPayloadByType = {

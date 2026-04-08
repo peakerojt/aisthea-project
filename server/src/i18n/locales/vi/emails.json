@@ -1,0 +1,71 @@
+{
+  "statusLabel": {
+    "pending": "Chờ xác nhận",
+    "processing": "Đang xử lý",
+    "shipping": "Đang giao hàng",
+    "delivered": "Đã giao hàng",
+    "cancelled": "Đã hủy"
+  },
+  "common": {
+    "brand": "AISTHEA",
+    "na": "Không áp dụng"
+  },
+  "verification": {
+    "subject": "Mã xác minh tài khoản - AISTHEA",
+    "greeting": "Xin chào <strong>{{fullName}}</strong>,",
+    "intro": "Cảm ơn bạn đã đăng ký tài khoản tại AISTHEA. Vui lòng dùng mã xác minh bên dưới để hoàn tất đăng ký.",
+    "codeHint": "Nhập mã này tại màn hình xác minh tài khoản",
+    "expiry": "Mã xác minh có hiệu lực trong 24 giờ.",
+    "footer": "Nếu bạn không tạo tài khoản tại AISTHEA, bạn có thể bỏ qua email này."
+  },
+  "passwordReset": {
+    "subject": "Đặt lại mật khẩu - AISTHEA",
+    "greeting": "Xin chào <strong>{{fullName}}</strong>,",
+    "intro": "Chúng tôi vừa nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn. Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email.",
+    "codeHint": "Nhập mã gồm 6 chữ số này tại màn hình đặt lại mật khẩu, hoặc dùng liên kết dự phòng bên dưới nếu bạn đã mở trang đặt lại từ email.",
+    "expiry": "Mã và liên kết sẽ hết hạn sau 1 giờ.",
+    "fallbackLink": "Liên kết dự phòng"
+  },
+  "orderPlaced": {
+    "subject": "Đã ghi nhận đơn hàng: {{orderNumber}} - AISTHEA",
+    "greeting": "Xin chào <strong>{{customerName}}</strong>,",
+    "intro": "Cảm ơn bạn đã đặt hàng. Chúng tôi đã ghi nhận đơn <strong>{{orderNumber}}</strong>. Bạn có thể theo dõi trạng thái mới nhất của đơn bất cứ lúc nào qua liên kết bên dưới.",
+    "orderTotalLabel": "Tổng đơn hàng",
+    "paymentMethodLabel": "Phương thức thanh toán: {{paymentMethod}}",
+    "trackLinkLabel": "Theo dõi đơn hàng tại đây:",
+    "footer": "Nếu bạn không thực hiện đơn hàng này, vui lòng liên hệ bộ phận hỗ trợ của AISTHEA."
+  },
+  "orderStatus": {
+    "subject": "Cập nhật đơn hàng: {{orderNumber}} đang ở trạng thái {{statusLabel}} - AISTHEA",
+    "greeting": "Xin chào <strong>{{customerName}}</strong>,",
+    "intro": "Đơn hàng <strong>{{orderNumber}}</strong> của bạn vừa được cập nhật trạng thái.",
+    "currentStatusLabel": "Trạng thái hiện tại",
+    "previousStatusLabel": "Trạng thái trước đó: {{previousStatusLabel}}",
+    "noteLabel": "Ghi chú: {{note}}",
+    "trackLinkLabel": "Theo dõi đơn hàng tại đây:",
+    "footer": "Cảm ơn bạn đã mua sắm tại AISTHEA."
+  },
+  "refundAcceptedBankInfoRequired": {
+    "subject": "Yêu cầu hoàn tiền đã được chấp nhận - AISTHEA",
+    "greeting": "Xin chào <strong>{{customerName}}</strong>,",
+    "intro": "Yêu cầu hoàn tiền cho đơn <strong>{{orderNumber}}</strong> của bạn đã được chấp nhận.",
+    "body": "Trước khi bộ phận tài chính hoàn tất chi trả, vui lòng cập nhật thông tin tài khoản ngân hàng trong hồ sơ của bạn.",
+    "linkLabel": "Cập nhật thông tin ngân hàng tại đây:",
+    "footer": "Bạn có thể thêm tài khoản ngân hàng thủ công hoặc tải ảnh QR để tham chiếu."
+  },
+  "refundAcceptedAwaitingPayout": {
+    "subject": "Yêu cầu hoàn tiền đang được xử lý - AISTHEA",
+    "greeting": "Xin chào <strong>{{customerName}}</strong>,",
+    "intro": "Yêu cầu hoàn tiền cho đơn <strong>{{orderNumber}}</strong> của bạn đã được chấp nhận.",
+    "body": "Chúng tôi đã có sẵn thông tin ngân hàng của bạn và bộ phận tài chính đang tiếp tục xử lý khoản hoàn tiền này."
+  },
+  "refundCompletedBenefitIssued": {
+    "subject": "Hoàn tiền thành công - AISTHEA",
+    "greeting": "Xin chào <strong>{{customerName}}</strong>,",
+    "intro": "Khoản hoàn tiền cho đơn <strong>{{orderNumber}}</strong> của bạn đã được xử lý thành công.",
+    "refundAmountLabel": "Số tiền hoàn",
+    "refundDateLabel": "Ngày hoàn tiền: {{refundDateLabel}}",
+    "defaultVoucherSummary": "Ưu đãi hoàn tiền khả dụng đã được thêm vào tài khoản của bạn.",
+    "linkLabel": "Xem thông tin ưu đãi tại đây:"
+  }
+}

@@ -294,6 +294,8 @@ export const BulkImportExportModal: React.FC<Props> = ({ onClose }) => {
                                         ['Tên sản phẩm', 'Chỉ cần điền ở hàng đầu tiên'],
                                         ['Mô tả', 'Mô tả sản phẩm (tùy chọn)'],
                                         ['Danh mục', 'Tên danh mục khớp trong DB'],
+                                        ['Template size guide', 'VD: tops-regular, pants-regular'],
+                                        ['Fit / model info', 'fitType, fitNote, modelHeightCm, modelWeightKg, modelWearSize'],
                                         ['SKU', 'Mã duy nhất cho từng biến thể'],
                                         ['Giá bán', 'Số nguyên dương (VNĐ)'],
                                         ['Tồn kho', 'Số nguyên không âm'],

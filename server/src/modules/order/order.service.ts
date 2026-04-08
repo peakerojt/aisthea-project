@@ -366,7 +366,6 @@ function buildOrderItemEconomicsSnapshots(
   });
 }
 const LEGACY_MANUAL_CARRIER = 'AISTHEA Manual Delivery';
-const CUSTOMER_FACING_EMAIL_STATUSES = new Set(['processing', 'shipping', 'delivered', 'cancelled']);
 
 const resolveOrderNotificationRecipient = (order: {
   customerEmail?: string | null;
@@ -378,10 +377,7 @@ const resolveOrderNotificationName = (order: {
   user?: { fullName?: string | null } | null;
 }) => order.customerName?.trim() || order.user?.fullName?.trim() || 'AISTHEA Customer';
 
-const buildOrderDetailUrl = (orderId: number) => `${env.clientUrl.replace(/\/$/, '')}/account/orders/${orderId}`;
-
-const shouldSendOrderStatusNotification = (status: string) =>
-  CUSTOMER_FACING_EMAIL_STATUSES.has(normalizeOrderStatus(status));
+const buildOrderDetailUrl = (orderId: number) => `${env.clientUrl.replace(/\/$/, '')}/tracking/${orderId}`;
 
 const mapOrderToDto = (order: NonNullable<OrderWithRelations>): OrderDetailDto => {
   const itemsTotal = order.items.reduce((sum, item) => {
@@ -799,37 +795,6 @@ export async function updateOrderStatusAdmin(
     if (latest) {
       const statusHistory = latest.statusHistory || [];
       const latestHistoryEntry = statusHistory[statusHistory.length - 1];
-      const recipient = resolveOrderNotificationRecipient(latest as {
-        customerEmail?: string | null;
-        user?: { email?: string | null; fullName?: string | null } | null;
-      });
-
-      if (recipient && shouldSendOrderStatusNotification(newStatus)) {
-        try {
-          await notificationService.enqueueOrderStatusEmail({
-            orderId: latest.orderId,
-            orderNumber: latest.orderNumber,
-            email: recipient,
-            customerName: resolveOrderNotificationName(latest as {
-              customerName?: string | null;
-              user?: { fullName?: string | null } | null;
-            }),
-            status: newStatus,
-            previousStatus: currentStatus,
-            note: latestHistoryEntry?.note ?? note ?? null,
-            trackingUrl: buildOrderDetailUrl(latest.orderId),
-            historyTimestamp:
-              latestHistoryEntry?.changedAt?.toISOString() ?? new Date().toISOString(),
-          });
-        } catch (notificationError: any) {
-          logger.warn('[updateOrderStatusAdmin] Failed to enqueue order status email', {
-            orderId: latest.orderId,
-            status: newStatus,
-            error: notificationError?.message ?? String(notificationError),
-          });
-        }
-      }
-
       const trackingSummary = getOrderTrackingSummary(latest.orderNumber, latest.shipment);
       const timeline = (latest.statusHistory || []).map((h: any) => ({
         status: h.status,

@@ -43,9 +43,9 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, AlertCircle, ChevronDown, Ruler, CheckCircle2 } from 'lucide-react';
+import { ShoppingBag, AlertCircle, Ruler, CheckCircle2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ProductVariant } from '@/common/services/product.service';
+import { ProductSizeGuide, ProductVariant } from '@/common/services/product.service';
 
 
 // ─── Font & palette ───────────────────────────────────────────────────────────
@@ -95,9 +95,14 @@ const COLOR_CSS: Record<string, string> = {
 };
 
 const COLOR_ATTR_NAMES = new Set(['màu', 'mau', 'màu sắc', 'mau sac', 'color', 'colour']);
+const SIZE_ATTR_NAMES = new Set(['kích thước', 'kich thuoc', 'size']);
 
 function isColorAttr(name: string): boolean {
     return COLOR_ATTR_NAMES.has(name.toLowerCase().trim());
+}
+
+function isSizeAttr(name: string): boolean {
+    return SIZE_ATTR_NAMES.has(normalizeColorKey(name));
 }
 
 function normalizeColorKey(value: string): string {
@@ -156,8 +161,10 @@ export interface ProductVariantSelectorProps {
     basePrice: number;
     /** Images linked by variant attributeValue (for gallery sync) */
     images?: { imageUrl: string; thumbnailUrl?: string; associatedAttributeValue?: string }[];
+    sizeGuide?: ProductSizeGuide | null;
     onVariantChange: (variant: ProductVariant | null) => void;
     onAddToCart: (variant: ProductVariant, quantity: number) => void;
+    onRequestSizeAdvice?: () => void;
     /** If true show the quantity stepper (default: true) */
     showQuantity?: boolean;
 }
@@ -417,6 +424,206 @@ const shakeVariants = {
     idle: { x: 0 },
 };
 
+type SizeGuideTabKey = 'table' | 'measure' | 'fit' | 'model';
+
+const SizeGuideModal: React.FC<{
+    guide?: ProductSizeGuide | null;
+    t: (key: string, options?: Record<string, unknown>) => string;
+    activeTab: SizeGuideTabKey;
+    onTabChange: (tab: SizeGuideTabKey) => void;
+    onClose: () => void;
+    onRequestSizeAdvice?: () => void;
+}> = ({ guide, t, activeTab, onTabChange, onClose, onRequestSizeAdvice }) => {
+    const tabs: Array<{ key: SizeGuideTabKey; label: string; hidden?: boolean }> = [
+        { key: 'table', label: t('sizeGuide.sizeTable') },
+        { key: 'measure', label: t('sizeGuide.howToMeasure') },
+        { key: 'fit', label: t('sizeGuide.fitNote'), hidden: !guide?.fitNote },
+        {
+            key: 'model',
+            label: t('sizeGuide.modelInfo'),
+            hidden: !guide?.modelInfo?.heightCm && !guide?.modelInfo?.weightKg && !guide?.modelInfo?.wearSize,
+        },
+    ].filter((tab) => !tab.hidden);
+
+    const handleAdviceClick = () => {
+        onClose();
+        onRequestSizeAdvice?.();
+    };
+
+    return (
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm px-3 py-6 md:px-6"
+            >
+                <div className="flex h-full items-end justify-center md:items-center">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 20 }}
+                        className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#0b0b0b] shadow-2xl shadow-black/60"
+                    >
+                        <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4 md:px-6">
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-primary/70">
+                                    {t('variantSelector.viewSizeGuide')}
+                                </p>
+                                <h3 className="mt-2 text-lg font-black text-white">
+                                    {t('sizeGuide.title')}
+                                </h3>
+                                <p className="mt-1 text-sm text-white/45">
+                                    {guide?.templateName ?? t('sizeGuide.noGuideAvailable')}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="rounded-full border border-white/10 p-2 text-white/60 transition hover:border-white/30 hover:text-white"
+                                aria-label={t('sizeGuide.close')}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {guide ? (
+                            <>
+                                <div className="flex flex-wrap gap-2 border-b border-white/10 px-5 py-3 md:px-6">
+                                    {tabs.map((tab) => (
+                                        <button
+                                            key={tab.key}
+                                            type="button"
+                                            onClick={() => onTabChange(tab.key)}
+                                            className={`rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] transition ${
+                                                activeTab === tab.key
+                                                    ? 'border-primary bg-primary text-white'
+                                                    : 'border-white/10 text-white/55 hover:border-white/25 hover:text-white'
+                                            }`}
+                                        >
+                                            {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="overflow-y-auto px-5 py-5 md:px-6">
+                                    {activeTab === 'table' && (
+                                        <div className="space-y-4">
+                                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/45">
+                                                <span className="rounded-full border border-white/10 px-2.5 py-1">
+                                                    {guide.templateName}
+                                                </span>
+                                                {guide.fitType && (
+                                                    <span className="rounded-full border border-white/10 px-2.5 py-1">
+                                                        {guide.fitType}
+                                                    </span>
+                                                )}
+                                                <span className="rounded-full border border-white/10 px-2.5 py-1">
+                                                    {guide.unit}
+                                                </span>
+                                            </div>
+                                            <div className="overflow-x-auto rounded-2xl border border-white/10">
+                                                <table className="min-w-full border-collapse text-left text-sm text-white/80">
+                                                    <thead className="bg-white/[0.04]">
+                                                        <tr>
+                                                            {guide.columns.map((column) => (
+                                                                <th key={column} className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-white/55">
+                                                                    {column}
+                                                                </th>
+                                                            ))}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {guide.rows.map((row, index) => (
+                                                            <tr key={`${guide.templateKey}-${index}`} className="border-t border-white/10">
+                                                                {guide.columns.map((column) => (
+                                                                    <td key={`${column}-${index}`} className="px-4 py-3 text-sm text-white/80">
+                                                                        {row[column] ?? '—'}
+                                                                    </td>
+                                                                ))}
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {activeTab === 'measure' && (
+                                        <div className="grid gap-3 md:grid-cols-2">
+                                            {guide.howToMeasure.map((tip) => (
+                                                <div key={tip.key} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                                                    <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">{tip.label}</p>
+                                                    <p className="mt-2 text-sm leading-relaxed text-white/75">{tip.description}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {activeTab === 'fit' && (
+                                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                                            <p className="text-sm leading-relaxed text-white/80">
+                                                {guide.fitNote || t('sizeGuide.noGuideAvailable')}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {activeTab === 'model' && (
+                                        <div className="grid gap-3 md:grid-cols-3">
+                                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                                                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/45">
+                                                    {t('sizeGuide.modelHeight')}
+                                                </p>
+                                                <p className="mt-3 text-2xl font-black text-white">
+                                                    {guide.modelInfo.heightCm ? `${guide.modelInfo.heightCm}cm` : '—'}
+                                                </p>
+                                            </div>
+                                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                                                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/45">
+                                                    {t('sizeGuide.modelWeight')}
+                                                </p>
+                                                <p className="mt-3 text-2xl font-black text-white">
+                                                    {guide.modelInfo.weightKg ? `${guide.modelInfo.weightKg}kg` : '—'}
+                                                </p>
+                                            </div>
+                                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                                                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/45">
+                                                    {t('sizeGuide.modelWearSize')}
+                                                </p>
+                                                <p className="mt-3 text-2xl font-black text-white">
+                                                    {guide.modelInfo.wearSize || '—'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="px-5 py-8 md:px-6">
+                                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                                    <p className="text-sm leading-relaxed text-white/70">
+                                        {t('sizeGuide.noGuideAvailable')}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="border-t border-white/10 px-5 py-4 md:px-6">
+                            <button
+                                type="button"
+                                onClick={handleAdviceClick}
+                                className="flex w-full items-center justify-center rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3 text-xs font-black uppercase tracking-[0.22em] text-primary transition hover:border-primary hover:bg-primary hover:text-white"
+                            >
+                                {t('sizeGuide.askForAdvice')}
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            </motion.div>
+        </AnimatePresence>
+    );
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
@@ -424,8 +631,10 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
     variants,
     basePrice,
     images = [],
+    sizeGuide,
     onVariantChange,
     onAddToCart,
+    onRequestSizeAdvice,
     showQuantity = true,
 }) => {
     const { t } = useTranslation('products');
@@ -433,6 +642,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
     const [quantity, setQuantity] = useState(1);
     const [shakeAttr, setShakeAttr] = useState<string | null>(null);
     const [showSizeGuide, setShowSizeGuide] = useState(false);
+    const [activeSizeGuideTab, setActiveSizeGuideTab] = useState<SizeGuideTabKey>('table');
 
     // ── Pre-compute attr maps once ───────────────────────────────────────────
     const attrMaps = useMemo<AttrMap[]>(
@@ -480,7 +690,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
 
         return nameOrder.map(name => {
             const values = valueOrder.get(name) ?? [];
-            const isSize = ['kích thước', 'kich thuoc', 'size'].includes(name.toLowerCase().trim());
+            const isSize = isSizeAttr(name);
 
             if (isSize) {
                 values.sort((a, b) => {
@@ -561,6 +771,25 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
         const max = Math.max(...prices);
         return min === max ? null : { min, max };
     }, [variants]);
+
+    useEffect(() => {
+        if (!showSizeGuide) return;
+
+        const previousOverflow = document.body.style.overflow;
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setShowSizeGuide(false);
+            }
+        };
+
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleEscape);
+        };
+    }, [showSizeGuide]);
 
     // ── Stock state ───────────────────────────────────────────────────────────
     const stockQty = resolvedVariant?.stockQuantity ?? null;
@@ -663,6 +892,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
             <div className="flex flex-col gap-8 w-full mb-8 bg-surface-dark/40 border border-white/5 rounded-lg p-6 lg:p-8">
                 {axes.map(ax => {
                     const isMissing = !selected[ax.name] && shakeAttr === ax.name;
+                    const isSizeAxis = isSizeAttr(ax.name);
 
                     return (
                         <motion.div
@@ -671,24 +901,38 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                             animate={isMissing ? 'shake' : 'idle'}
                         >
                             {/* Axis label row */}
-                            <div className="flex items-center gap-2 mb-3">
-                                <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
-                                    {ax.name}
-                                </span>
-                                {selected[ax.name] && (
-                                    <span className="text-[10px] font-semibold text-white/80 normal-case tracking-normal">
-                                        — {selected[ax.name]}
+                            <div className="mb-3 flex items-start justify-between gap-3">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
+                                        {ax.name}
                                     </span>
-                                )}
-                                {!selected[ax.name] && isMissing && (
-                                    <motion.span
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        className="flex items-center gap-1 text-[9px] text-amber-400 font-semibold"
+                                    {selected[ax.name] && (
+                                        <span className="text-[10px] font-semibold text-white/80 normal-case tracking-normal">
+                                            — {selected[ax.name]}
+                                        </span>
+                                    )}
+                                    {!selected[ax.name] && isMissing && (
+                                        <motion.span
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            className="flex items-center gap-1 text-[9px] text-amber-400 font-semibold"
+                                        >
+                                            <AlertCircle size={9} />
+                                            {t('variantSelector.pleaseSelect')}
+                                        </motion.span>
+                                    )}
+                                </div>
+                                {isSizeAxis && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setActiveSizeGuideTab('table');
+                                            setShowSizeGuide(true);
+                                        }}
+                                        className="hidden items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-primary/70 transition-colors hover:text-primary md:inline-flex"
                                     >
-                                        <AlertCircle size={9} />
-                                        {t('variantSelector.pleaseSelect')}
-                                    </motion.span>
+                                        <Ruler size={10} /> {t('variantSelector.viewSizeGuide')}
+                                    </button>
                                 )}
                             </div>
 
@@ -729,16 +973,17 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                                 </div>
                             </div>
 
-                            {/* Size guide — bottom-right below pills, only for non-color axes */}
-                            {!ax.isColor && (
-                                <div className="flex justify-end mt-2">
+                            {isSizeAxis && (
+                                <div className="mt-3 flex md:hidden">
                                     <button
                                         type="button"
-                                        onClick={() => setShowSizeGuide(v => !v)}
-                                        className="text-[9px] font-bold uppercase tracking-widest text-primary/70
-                                                   hover:text-primary transition-colors flex items-center gap-0.5 cursor-pointer"
+                                        onClick={() => {
+                                            setActiveSizeGuideTab('table');
+                                            setShowSizeGuide(true);
+                                        }}
+                                        className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-primary/80 transition-colors hover:text-primary"
                                     >
-                                        <Ruler size={9} /> {t('variantSelector.sizeGuide')}
+                                        <Ruler size={10} /> {t('variantSelector.viewSizeGuide')}
                                     </button>
                                 </div>
                             )}
@@ -828,6 +1073,17 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {showSizeGuide && (
+                <SizeGuideModal
+                    guide={sizeGuide}
+                    t={t}
+                    activeTab={activeSizeGuideTab}
+                    onTabChange={setActiveSizeGuideTab}
+                    onClose={() => setShowSizeGuide(false)}
+                    onRequestSizeAdvice={onRequestSizeAdvice}
+                />
+            )}
         </div>
     );
 };

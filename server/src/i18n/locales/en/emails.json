@@ -1,0 +1,71 @@
+{
+  "statusLabel": {
+    "pending": "Pending confirmation",
+    "processing": "Confirmed and preparing",
+    "shipping": "On the way",
+    "delivered": "Delivered",
+    "cancelled": "Cancelled"
+  },
+  "common": {
+    "brand": "AISTHEA",
+    "na": "N/A"
+  },
+  "verification": {
+    "subject": "Your Verification Code - AISTHEA",
+    "greeting": "Hello <strong>{{fullName}}</strong>,",
+    "intro": "Thank you for joining AISTHEA. Please use the verification code below to complete your registration.",
+    "codeHint": "Enter this code on the verification screen",
+    "expiry": "This verification code will expire in 24 hours.",
+    "footer": "If you didn't create an account with AISTHEA, you can safely ignore this email."
+  },
+  "passwordReset": {
+    "subject": "Reset Your Password - AISTHEA",
+    "greeting": "Hello <strong>{{fullName}}</strong>,",
+    "intro": "We received a request to reset your password. If you didn't make this request, you can safely ignore this email.",
+    "codeHint": "Enter this 6-digit code on the reset password screen, or use the fallback link below if you already opened the reset page from email.",
+    "expiry": "This code and link will expire in 1 hour.",
+    "fallbackLink": "Fallback link"
+  },
+  "orderPlaced": {
+    "subject": "Order Received: {{orderNumber}} - AISTHEA",
+    "greeting": "Hello <strong>{{customerName}}</strong>,",
+    "intro": "Thank you for your order. We have received <strong>{{orderNumber}}</strong>. You can follow its latest status anytime using the tracking link below.",
+    "orderTotalLabel": "Order total",
+    "paymentMethodLabel": "Payment method: {{paymentMethod}}",
+    "trackLinkLabel": "Track your order here:",
+    "footer": "If this order was not placed by you, please contact AISTHEA support."
+  },
+  "orderStatus": {
+    "subject": "Order Update: {{orderNumber}} is {{statusLabel}} - AISTHEA",
+    "greeting": "Hello <strong>{{customerName}}</strong>,",
+    "intro": "Your order <strong>{{orderNumber}}</strong> has been updated.",
+    "currentStatusLabel": "Current status",
+    "previousStatusLabel": "Previous status: {{previousStatusLabel}}",
+    "noteLabel": "Note: {{note}}",
+    "trackLinkLabel": "Follow your order here:",
+    "footer": "Thank you for shopping with AISTHEA."
+  },
+  "refundAcceptedBankInfoRequired": {
+    "subject": "Your refund request has been approved - AISTHEA",
+    "greeting": "Hello <strong>{{customerName}}</strong>,",
+    "intro": "Your refund request for order <strong>{{orderNumber}}</strong> has been approved.",
+    "body": "Before our finance team can complete the payout, please update your bank information in your account profile.",
+    "linkLabel": "Update your bank information here:",
+    "footer": "You can add a bank account manually or upload a QR image as a reference."
+  },
+  "refundAcceptedAwaitingPayout": {
+    "subject": "Your refund request is being processed - AISTHEA",
+    "greeting": "Hello <strong>{{customerName}}</strong>,",
+    "intro": "Your refund request for order <strong>{{orderNumber}}</strong> has been approved.",
+    "body": "We already have your bank information on file, and your payout is now waiting for manual processing by our finance team."
+  },
+  "refundCompletedBenefitIssued": {
+    "subject": "Your refund has been completed successfully - AISTHEA",
+    "greeting": "Hello <strong>{{customerName}}</strong>,",
+    "intro": "Your refund for order <strong>{{orderNumber}}</strong> has been completed successfully.",
+    "refundAmountLabel": "Refund amount",
+    "refundDateLabel": "Refund date: {{refundDateLabel}}",
+    "defaultVoucherSummary": "An available refund benefit has been added to your account.",
+    "linkLabel": "Review your benefit information here:"
+  }
+}

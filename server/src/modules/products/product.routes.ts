@@ -19,6 +19,8 @@ const router = Router();
 router.get('/meta/categories', cacheMiddleware(CACHE_TTL.CATEGORIES), productController.getCategories);
 // GET /api/products/meta/brands
 router.get('/meta/brands', cacheMiddleware(CACHE_TTL.BRANDS), productController.getBrands);
+// GET /api/products/meta/size-guides
+router.get('/meta/size-guides', cacheMiddleware(CACHE_TTL.CATEGORIES), productController.getSizeGuideTemplates);
 
 // ─── Public Routes ────────────────────────────────────────────────────────────
 

@@ -1,4 +1,7 @@
 import { env } from '../../lib/env';
+import { normalizeLocale, type AppLocale } from '../../i18n';
+import enEmails from '../../i18n/locales/en/emails.json';
+import viEmails from '../../i18n/locales/vi/emails.json';
 import {
   AUTH_EMAIL_EVENT_TYPE,
   ORDER_EMAIL_EVENT_TYPE,
@@ -12,6 +15,11 @@ import {
   type RenderedEmail,
   type VerificationEmailPayload,
 } from './email.types';
+
+const EMAIL_MESSAGES = {
+  en: enEmails,
+  vi: viEmails,
+} as const;
 
 const renderShell = (content: string) => `
   <!DOCTYPE html>
@@ -46,26 +54,43 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
-const renderOrderStatusLabel = (status: string) => {
-  const normalized = status.trim().toLowerCase();
+const resolveLocale = (locale?: string | null): AppLocale => (locale ? normalizeLocale(locale) : 'vi');
 
-  if (normalized === 'pending') return 'Pending confirmation';
-  if (normalized === 'processing') return 'Confirmed and preparing';
-  if (normalized === 'shipping') return 'On the way';
-  if (normalized === 'delivered') return 'Delivered';
-  if (normalized === 'cancelled') return 'Cancelled';
+const interpolate = (template: string, params?: Record<string, unknown>) =>
+  template.replace(/\{\{(\w+)\}\}/g, (_match, key) => String(params?.[key] ?? ''));
 
-  return status;
+const emailT = (locale: AppLocale, key: string, params?: Record<string, unknown>) => {
+  const segments = key.split('.');
+  let current: any = EMAIL_MESSAGES[locale];
+
+  for (const segment of segments) {
+    current = current?.[segment];
+  }
+
+  if (typeof current !== 'string') {
+    return key;
+  }
+
+  return interpolate(current, params);
 };
 
-export const renderVerificationEmail = (payload: VerificationEmailPayload): RenderedEmail => ({
-  subject: 'Your Verification Code - AISTHEA',
-  html: renderShell(`
+const renderOrderStatusLabel = (status: string, locale: AppLocale) => {
+  const normalized = status.trim().toLowerCase();
+  const translated = emailT(locale, `statusLabel.${normalized}`);
+  return translated === `statusLabel.${normalized}` ? status : translated;
+};
+
+export const renderVerificationEmail = (payload: VerificationEmailPayload): RenderedEmail => {
+  const locale = resolveLocale(payload.locale);
+
+  return {
+    subject: emailT(locale, 'verification.subject'),
+    html: renderShell(`
     <tr>
       <td style="padding: 20px 40px;">
-        <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">Hello <strong>${payload.fullName}</strong>,</p>
+        <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">${emailT(locale, 'verification.greeting', { fullName: payload.fullName })}</p>
         <p style="margin: 0 0 30px; font-size: 14px; color: #888888; line-height: 1.6;">
-          Thank you for joining AISTHEA. Please use the verification code below to complete your registration.
+          ${emailT(locale, 'verification.intro')}
         </p>
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
           <tr>
@@ -77,47 +102,49 @@ export const renderVerificationEmail = (payload: VerificationEmailPayload): Rend
           </tr>
         </table>
         <p style="margin: 0 0 10px; font-size: 12px; color: #666666; text-align: center;">
-          Enter this code in the verification screen
+          ${emailT(locale, 'verification.codeHint')}
         </p>
         <p style="margin: 0; font-size: 12px; color: #666666; text-align: center;">
-          This code will expire in 24 hours.
+          ${emailT(locale, 'verification.expiry')}
         </p>
       </td>
     </tr>
     <tr>
       <td style="padding: 30px 40px; border-top: 1px solid #222;">
         <p style="margin: 0; font-size: 11px; color: #444444; text-align: center;">
-          If you didn't create an account with AISTHEA, you can safely ignore this email.
+          ${emailT(locale, 'verification.footer')}
         </p>
       </td>
     </tr>
-  `),
-  text: `
-    Hello ${payload.fullName},
+    `),
+    text: `
+    ${emailT(locale, 'verification.greeting', { fullName: payload.fullName }).replace(/<strong>|<\/strong>/g, '')}
 
-    Thank you for joining AISTHEA. Your verification code is:
+    ${emailT(locale, 'verification.intro')}
 
     ${payload.code}
 
-    Enter this code in the verification screen to complete your registration.
+    ${emailT(locale, 'verification.codeHint')}
 
-    This code will expire in 24 hours.
+    ${emailT(locale, 'verification.expiry')}
 
-    If you didn't create an account with AISTHEA, you can safely ignore this email.
-  `,
-});
+    ${emailT(locale, 'verification.footer')}
+    `,
+  };
+};
 
 export const renderPasswordResetEmail = (payload: PasswordResetEmailPayload): RenderedEmail => {
+  const locale = resolveLocale(payload.locale);
   const resetLink = `${env.serverUrl}/api/auth/reset-password?token=${encodeURIComponent(payload.code)}`;
 
   return {
-    subject: 'Reset Your Password - AISTHEA',
+    subject: emailT(locale, 'passwordReset.subject'),
     html: renderShell(`
       <tr>
         <td style="padding: 20px 40px;">
-          <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">Hello <strong>${payload.fullName}</strong>,</p>
+          <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">${emailT(locale, 'passwordReset.greeting', { fullName: payload.fullName })}</p>
           <p style="margin: 0 0 30px; font-size: 14px; color: #888888; line-height: 1.6;">
-            We received a request to reset your password. If you didn't make this request, you can safely ignore this email.
+            ${emailT(locale, 'passwordReset.intro')}
           </p>
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
             <tr>
@@ -129,13 +156,13 @@ export const renderPasswordResetEmail = (payload: PasswordResetEmailPayload): Re
             </tr>
           </table>
           <p style="margin: 0 0 10px; font-size: 12px; color: #666666; text-align: center;">
-            Enter this 6-digit code on the reset password screen, or use the fallback link below if you already opened the reset page from email.
+            ${emailT(locale, 'passwordReset.codeHint')}
           </p>
           <p style="margin: 0 0 10px; font-size: 11px; color: #444444; text-align: center; word-break: break-all;">
             ${resetLink}
           </p>
           <p style="margin: 0; font-size: 12px; color: #666666; text-align: center;">
-            This code and link will expire in 1 hour.
+            ${emailT(locale, 'passwordReset.expiry')}
           </p>
         </td>
       </tr>
@@ -148,40 +175,40 @@ export const renderPasswordResetEmail = (payload: PasswordResetEmailPayload): Re
       </tr>
     `),
     text: `
-      Hello ${payload.fullName},
+      ${emailT(locale, 'passwordReset.greeting', { fullName: payload.fullName }).replace(/<strong>|<\/strong>/g, '')}
 
-      We received a request to reset your password.
-
-      Your 6-digit password reset code is:
+      ${emailT(locale, 'passwordReset.intro')}
 
       ${payload.code}
 
-      You can also open the following fallback reset link:
+      ${emailT(locale, 'passwordReset.fallbackLink')}:
       ${resetLink}
 
-      If you didn't request this, please ignore this email.
-
-      This code and link will expire in 1 hour.
+      ${emailT(locale, 'passwordReset.expiry')}
     `,
   };
 };
 
-export const renderOrderPlacedEmail = (payload: OrderPlacedEmailPayload): RenderedEmail => ({
-  subject: `Order Received: ${payload.orderNumber} - AISTHEA`,
-  html: renderShell(`
+export const renderOrderPlacedEmail = (payload: OrderPlacedEmailPayload): RenderedEmail => {
+  const locale = resolveLocale(payload.locale);
+  const paymentMethod = payload.paymentMethod ?? emailT(locale, 'common.na');
+
+  return {
+    subject: emailT(locale, 'orderPlaced.subject', { orderNumber: payload.orderNumber }),
+    html: renderShell(`
     <tr>
       <td style="padding: 20px 40px;">
-        <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">Hello <strong>${payload.customerName}</strong>,</p>
+        <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">${emailT(locale, 'orderPlaced.greeting', { customerName: payload.customerName })}</p>
         <p style="margin: 0 0 20px; font-size: 14px; color: #888888; line-height: 1.6;">
-          Thank you for your order. We have received <strong>${payload.orderNumber}</strong> and will email you again when its status changes.
+          ${emailT(locale, 'orderPlaced.intro', { orderNumber: payload.orderNumber })}
         </p>
         <div style="background-color: #1a1a1a; border: 1px solid #222; border-radius: 8px; padding: 20px; margin: 0 0 24px;">
-          <p style="margin: 0 0 8px; font-size: 12px; color: #666666; text-transform: uppercase; letter-spacing: 1px;">Order total</p>
+          <p style="margin: 0 0 8px; font-size: 12px; color: #666666; text-transform: uppercase; letter-spacing: 1px;">${emailT(locale, 'orderPlaced.orderTotalLabel')}</p>
           <p style="margin: 0 0 12px; font-size: 24px; font-weight: 800; color: #ffffff;">${formatCurrency(payload.totalAmount)}</p>
-          <p style="margin: 0; font-size: 13px; color: #888888;">Payment method: ${payload.paymentMethod ?? 'N/A'}</p>
+          <p style="margin: 0; font-size: 13px; color: #888888;">${emailT(locale, 'orderPlaced.paymentMethodLabel', { paymentMethod })}</p>
         </div>
         <p style="margin: 0 0 10px; font-size: 12px; color: #666666; text-align: center;">
-          View your order details:
+          ${emailT(locale, 'orderPlaced.trackLinkLabel')}
         </p>
         <p style="margin: 0; font-size: 11px; color: #444444; text-align: center; word-break: break-all;">
           ${payload.orderUrl}
@@ -191,41 +218,49 @@ export const renderOrderPlacedEmail = (payload: OrderPlacedEmailPayload): Render
     <tr>
       <td style="padding: 30px 40px; border-top: 1px solid #222;">
         <p style="margin: 0; font-size: 11px; color: #444444; text-align: center;">
-          If this order was not placed by you, please contact AISTHEA support.
+          ${emailT(locale, 'orderPlaced.footer')}
         </p>
       </td>
     </tr>
-  `),
-  text: `
-    Hello ${payload.customerName},
+    `),
+    text: `
+    ${emailT(locale, 'orderPlaced.greeting', { customerName: payload.customerName }).replace(/<strong>|<\/strong>/g, '')}
 
-    We have received your order ${payload.orderNumber}.
+    ${emailT(locale, 'orderPlaced.intro', { orderNumber: payload.orderNumber }).replace(/<strong>|<\/strong>/g, '')}
 
-    Order total: ${formatCurrency(payload.totalAmount)}
-    Payment method: ${payload.paymentMethod ?? 'N/A'}
+    ${emailT(locale, 'orderPlaced.orderTotalLabel')}: ${formatCurrency(payload.totalAmount)}
+    ${emailT(locale, 'orderPlaced.paymentMethodLabel', { paymentMethod })}
 
-    View your order details:
+    ${emailT(locale, 'orderPlaced.trackLinkLabel')}
     ${payload.orderUrl}
-  `,
-});
+    `,
+  };
+};
 
-export const renderOrderStatusEmail = (payload: OrderStatusEmailPayload): RenderedEmail => ({
-  subject: `Order Update: ${payload.orderNumber} is ${renderOrderStatusLabel(payload.status)} - AISTHEA`,
-  html: renderShell(`
+export const renderOrderStatusEmail = (payload: OrderStatusEmailPayload): RenderedEmail => {
+  const locale = resolveLocale(payload.locale);
+  const statusLabel = renderOrderStatusLabel(payload.status, locale);
+  const previousStatusLabel = payload.previousStatus
+    ? renderOrderStatusLabel(payload.previousStatus, locale)
+    : null;
+
+  return {
+    subject: emailT(locale, 'orderStatus.subject', { orderNumber: payload.orderNumber, statusLabel }),
+    html: renderShell(`
     <tr>
       <td style="padding: 20px 40px;">
-        <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">Hello <strong>${payload.customerName}</strong>,</p>
+        <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">${emailT(locale, 'orderStatus.greeting', { customerName: payload.customerName })}</p>
         <p style="margin: 0 0 24px; font-size: 14px; color: #888888; line-height: 1.6;">
-          Your order <strong>${payload.orderNumber}</strong> has been updated.
+          ${emailT(locale, 'orderStatus.intro', { orderNumber: payload.orderNumber })}
         </p>
         <div style="background-color: #1a1a1a; border: 1px solid #222; border-radius: 8px; padding: 20px; margin: 0 0 24px;">
-          <p style="margin: 0 0 8px; font-size: 12px; color: #666666; text-transform: uppercase; letter-spacing: 1px;">Current status</p>
-          <p style="margin: 0 0 12px; font-size: 24px; font-weight: 800; color: #ffffff;">${renderOrderStatusLabel(payload.status)}</p>
-          ${payload.previousStatus ? `<p style="margin: 0 0 8px; font-size: 13px; color: #888888;">Previous status: ${renderOrderStatusLabel(payload.previousStatus)}</p>` : ''}
-          ${payload.note ? `<p style="margin: 0; font-size: 13px; color: #888888;">Note: ${payload.note}</p>` : ''}
+          <p style="margin: 0 0 8px; font-size: 12px; color: #666666; text-transform: uppercase; letter-spacing: 1px;">${emailT(locale, 'orderStatus.currentStatusLabel')}</p>
+          <p style="margin: 0 0 12px; font-size: 24px; font-weight: 800; color: #ffffff;">${statusLabel}</p>
+          ${previousStatusLabel ? `<p style="margin: 0 0 8px; font-size: 13px; color: #888888;">${emailT(locale, 'orderStatus.previousStatusLabel', { previousStatusLabel })}</p>` : ''}
+          ${payload.note ? `<p style="margin: 0; font-size: 13px; color: #888888;">${emailT(locale, 'orderStatus.noteLabel', { note: payload.note })}</p>` : ''}
         </div>
         <p style="margin: 0 0 10px; font-size: 12px; color: #666666; text-align: center;">
-          Follow your order here:
+          ${emailT(locale, 'orderStatus.trackLinkLabel')}
         </p>
         <p style="margin: 0; font-size: 11px; color: #444444; text-align: center; word-break: break-all;">
           ${payload.trackingUrl}
@@ -235,41 +270,44 @@ export const renderOrderStatusEmail = (payload: OrderStatusEmailPayload): Render
     <tr>
       <td style="padding: 30px 40px; border-top: 1px solid #222;">
         <p style="margin: 0; font-size: 11px; color: #444444; text-align: center;">
-          Thank you for shopping with AISTHEA.
+          ${emailT(locale, 'orderStatus.footer')}
         </p>
       </td>
     </tr>
-  `),
-  text: `
-    Hello ${payload.customerName},
+    `),
+    text: `
+    ${emailT(locale, 'orderStatus.greeting', { customerName: payload.customerName }).replace(/<strong>|<\/strong>/g, '')}
 
-    Your order ${payload.orderNumber} has been updated.
+    ${emailT(locale, 'orderStatus.intro', { orderNumber: payload.orderNumber }).replace(/<strong>|<\/strong>/g, '')}
 
-    Current status: ${renderOrderStatusLabel(payload.status)}
-    ${payload.previousStatus ? `Previous status: ${renderOrderStatusLabel(payload.previousStatus)}` : ''}
-    ${payload.note ? `Note: ${payload.note}` : ''}
+    ${emailT(locale, 'orderStatus.currentStatusLabel')}: ${statusLabel}
+    ${previousStatusLabel ? emailT(locale, 'orderStatus.previousStatusLabel', { previousStatusLabel }) : ''}
+    ${payload.note ? emailT(locale, 'orderStatus.noteLabel', { note: payload.note }) : ''}
 
-    Follow your order here:
+    ${emailT(locale, 'orderStatus.trackLinkLabel')}
     ${payload.trackingUrl}
-  `,
-});
+    `,
+  };
+};
 
 export const renderRefundAcceptedBankInfoRequiredEmail = (
   payload: RefundAcceptedBankInfoRequiredEmailPayload,
-): RenderedEmail => ({
-  subject: 'Your refund request has been approved',
-  html: renderShell(`
+): RenderedEmail => {
+  const locale = resolveLocale(payload.locale);
+  return {
+    subject: emailT(locale, 'refundAcceptedBankInfoRequired.subject'),
+    html: renderShell(`
     <tr>
       <td style="padding: 20px 40px;">
-        <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">Hello <strong>${payload.customerName}</strong>,</p>
+        <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">${emailT(locale, 'refundAcceptedBankInfoRequired.greeting', { customerName: payload.customerName })}</p>
         <p style="margin: 0 0 16px; font-size: 14px; color: #888888; line-height: 1.6;">
-          Your refund request for order <strong>${payload.orderNumber}</strong> has been approved.
+          ${emailT(locale, 'refundAcceptedBankInfoRequired.intro', { orderNumber: payload.orderNumber })}
         </p>
         <p style="margin: 0 0 24px; font-size: 14px; color: #888888; line-height: 1.6;">
-          Before our finance team can complete the payout, please update your bank information in your account profile.
+          ${emailT(locale, 'refundAcceptedBankInfoRequired.body')}
         </p>
         <p style="margin: 0 0 10px; font-size: 12px; color: #666666; text-align: center;">
-          Update your bank information here:
+          ${emailT(locale, 'refundAcceptedBankInfoRequired.linkLabel')}
         </p>
         <p style="margin: 0; font-size: 11px; color: #444444; text-align: center; word-break: break-all;">
           ${payload.profileBankLink}
@@ -279,73 +317,82 @@ export const renderRefundAcceptedBankInfoRequiredEmail = (
     <tr>
       <td style="padding: 30px 40px; border-top: 1px solid #222;">
         <p style="margin: 0; font-size: 11px; color: #444444; text-align: center;">
-          You can add a bank account manually or upload a QR image as a reference.
+          ${emailT(locale, 'refundAcceptedBankInfoRequired.footer')}
         </p>
       </td>
     </tr>
-  `),
-  text: `
-    Hello ${payload.customerName},
+    `),
+    text: `
+    ${emailT(locale, 'refundAcceptedBankInfoRequired.greeting', { customerName: payload.customerName }).replace(/<strong>|<\/strong>/g, '')}
 
-    Your refund request for order ${payload.orderNumber} has been approved.
+    ${emailT(locale, 'refundAcceptedBankInfoRequired.intro', { orderNumber: payload.orderNumber }).replace(/<strong>|<\/strong>/g, '')}
 
-    Before our finance team can complete the payout, please update your bank information here:
+    ${emailT(locale, 'refundAcceptedBankInfoRequired.body')}
+
+    ${emailT(locale, 'refundAcceptedBankInfoRequired.linkLabel')}
     ${payload.profileBankLink}
 
-    You can add a bank account manually or upload a QR image as a reference.
-  `,
-});
+    ${emailT(locale, 'refundAcceptedBankInfoRequired.footer')}
+    `,
+  };
+};
 
 export const renderRefundAcceptedAwaitingPayoutEmail = (
   payload: RefundAcceptedAwaitingPayoutEmailPayload,
-): RenderedEmail => ({
-  subject: 'Your refund request is being processed',
-  html: renderShell(`
+): RenderedEmail => {
+  const locale = resolveLocale(payload.locale);
+  return {
+    subject: emailT(locale, 'refundAcceptedAwaitingPayout.subject'),
+    html: renderShell(`
     <tr>
       <td style="padding: 20px 40px;">
-        <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">Hello <strong>${payload.customerName}</strong>,</p>
+        <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">${emailT(locale, 'refundAcceptedAwaitingPayout.greeting', { customerName: payload.customerName })}</p>
         <p style="margin: 0 0 16px; font-size: 14px; color: #888888; line-height: 1.6;">
-          Your refund request for order <strong>${payload.orderNumber}</strong> has been approved.
+          ${emailT(locale, 'refundAcceptedAwaitingPayout.intro', { orderNumber: payload.orderNumber })}
         </p>
         <p style="margin: 0; font-size: 14px; color: #888888; line-height: 1.6;">
-          We already have your bank information on file, and your payout is now waiting for manual processing by our finance team.
+          ${emailT(locale, 'refundAcceptedAwaitingPayout.body')}
         </p>
       </td>
     </tr>
-  `),
-  text: `
-    Hello ${payload.customerName},
+    `),
+    text: `
+    ${emailT(locale, 'refundAcceptedAwaitingPayout.greeting', { customerName: payload.customerName }).replace(/<strong>|<\/strong>/g, '')}
 
-    Your refund request for order ${payload.orderNumber} has been approved.
+    ${emailT(locale, 'refundAcceptedAwaitingPayout.intro', { orderNumber: payload.orderNumber }).replace(/<strong>|<\/strong>/g, '')}
 
-    We already have your bank information on file, and your payout is now waiting for manual processing by our finance team.
-  `,
-});
+    ${emailT(locale, 'refundAcceptedAwaitingPayout.body')}
+    `,
+  };
+};
 
 export const renderRefundCompletedBenefitIssuedEmail = (
   payload: RefundCompletedBenefitIssuedEmailPayload,
 ): RenderedEmail => {
-  const refundDateLabel = new Date(payload.refundDate).toLocaleDateString('vi-VN');
+  const locale = resolveLocale(payload.locale);
+  const refundDateLabel = new Date(payload.refundDate).toLocaleDateString(
+    locale === 'vi' ? 'vi-VN' : 'en-US',
+  );
   const voucherSummary =
-    payload.voucherSummary ?? 'An available voucher has been added to your account.';
+    payload.voucherSummary ?? emailT(locale, 'refundCompletedBenefitIssued.defaultVoucherSummary');
 
   return {
-    subject: 'Your refund has been completed successfully',
+    subject: emailT(locale, 'refundCompletedBenefitIssued.subject'),
     html: renderShell(`
       <tr>
         <td style="padding: 20px 40px;">
-          <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">Hello <strong>${payload.customerName}</strong>,</p>
+          <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">${emailT(locale, 'refundCompletedBenefitIssued.greeting', { customerName: payload.customerName })}</p>
           <p style="margin: 0 0 16px; font-size: 14px; color: #888888; line-height: 1.6;">
-            Your refund for order <strong>${payload.orderNumber}</strong> has been completed successfully.
+            ${emailT(locale, 'refundCompletedBenefitIssued.intro', { orderNumber: payload.orderNumber })}
           </p>
           <div style="background-color: #1a1a1a; border: 1px solid #222; border-radius: 8px; padding: 20px; margin: 0 0 24px;">
-            <p style="margin: 0 0 8px; font-size: 12px; color: #666666; text-transform: uppercase; letter-spacing: 1px;">Refund amount</p>
+            <p style="margin: 0 0 8px; font-size: 12px; color: #666666; text-transform: uppercase; letter-spacing: 1px;">${emailT(locale, 'refundCompletedBenefitIssued.refundAmountLabel')}</p>
             <p style="margin: 0 0 12px; font-size: 24px; font-weight: 800; color: #ffffff;">${formatCurrency(payload.refundAmount)}</p>
-            <p style="margin: 0 0 8px; font-size: 13px; color: #888888;">Refund date: ${refundDateLabel}</p>
+            <p style="margin: 0 0 8px; font-size: 13px; color: #888888;">${emailT(locale, 'refundCompletedBenefitIssued.refundDateLabel', { refundDateLabel })}</p>
             <p style="margin: 0; font-size: 13px; color: #888888;">${voucherSummary}</p>
           </div>
           <p style="margin: 0 0 10px; font-size: 12px; color: #666666; text-align: center;">
-            Review your voucher information here:
+            ${emailT(locale, 'refundCompletedBenefitIssued.linkLabel')}
           </p>
           <p style="margin: 0; font-size: 11px; color: #444444; text-align: center; word-break: break-all;">
             ${payload.profileLink}
@@ -354,15 +401,15 @@ export const renderRefundCompletedBenefitIssuedEmail = (
       </tr>
     `),
     text: `
-      Hello ${payload.customerName},
+      ${emailT(locale, 'refundCompletedBenefitIssued.greeting', { customerName: payload.customerName }).replace(/<strong>|<\/strong>/g, '')}
 
-      Your refund for order ${payload.orderNumber} has been completed successfully.
+      ${emailT(locale, 'refundCompletedBenefitIssued.intro', { orderNumber: payload.orderNumber }).replace(/<strong>|<\/strong>/g, '')}
 
-      Refund amount: ${formatCurrency(payload.refundAmount)}
-      Refund date: ${refundDateLabel}
+      ${emailT(locale, 'refundCompletedBenefitIssued.refundAmountLabel')}: ${formatCurrency(payload.refundAmount)}
+      ${emailT(locale, 'refundCompletedBenefitIssued.refundDateLabel', { refundDateLabel })}
       ${voucherSummary}
 
-      Review your voucher information here:
+      ${emailT(locale, 'refundCompletedBenefitIssued.linkLabel')}
       ${payload.profileLink}
     `,
   };

@@ -175,6 +175,13 @@ model Product {
   slug        String           @unique(map: "UQ__Products__BC7B5FB67719B0A8") @map("Slug") @db.VarChar(200)
   description String?          @map("Description") @db.LongText
   basePrice   Decimal          @map("BasePrice") @db.Decimal(18, 2)
+  sizeGuideTemplateKey String? @map("SizeGuideTemplateKey") @db.VarChar(100)
+  fitType     String?          @map("FitType") @db.VarChar(50)
+  fitNote     String?          @map("FitNote") @db.VarChar(500)
+  modelHeightCm Int?           @map("ModelHeightCm")
+  modelWeightKg Int?           @map("ModelWeightKg")
+  modelWearSize String?        @map("ModelWearSize") @db.VarChar(20)
+  sizeGuideOverrideJson Json?  @map("SizeGuideOverrideJson")
   status      String?          @default("Active") @map("Status") @db.VarChar(20)
   isDeleted   Boolean?         @default(false) @map("IsDeleted")
   deletedAt   DateTime?        @map("DeletedAt") @db.DateTime(0)

@@ -609,8 +609,10 @@ export const ProductDetail: React.FC = () => {
               variants={productDetails?.variants ?? []}
               basePrice={Number(productDetails?.basePrice || basicInfo.price)}
               images={productDetails?.images ?? []}
+              sizeGuide={productDetails?.sizeGuide}
               onVariantChange={handleVariantChange}
               onAddToCart={handleAddToCart}
+              onRequestSizeAdvice={() => navigate('/stylist')}
               showQuantity={true}
             />
 
@@ -635,8 +637,11 @@ export const ProductDetail: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <button className="px-6 py-2 border border-white text-[8px] font-black uppercase tracking-[0.2em]
-                                 hover:bg-white hover:text-black transition-all whitespace-nowrap">
+              <button
+                onClick={() => navigate('/stylist')}
+                className="px-6 py-2 border border-white text-[8px] font-black uppercase tracking-[0.2em]
+                                 hover:bg-white hover:text-black transition-all whitespace-nowrap"
+              >
                 {t('pdp.stylist.cta').toUpperCase()}
               </button>
             </div>

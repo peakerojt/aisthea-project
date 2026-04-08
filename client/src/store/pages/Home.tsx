@@ -444,7 +444,7 @@ export const Home: React.FC = () => {
 
             <div className="-my-4 overflow-hidden py-4">
               <div className="flex">
-                <div className="brand-marquee-track flex min-w-max shrink-0 gap-5 group-hover/brand-marquee:[animation-play-state:paused]">
+                <div className="brand-marquee-track flex min-w-max shrink-0 gap-5">
                 {brandMarqueeValues.map(({ icon: Icon, title, description }, index) => (
                   <div
                     key={`${title}-${index}`}
@@ -489,7 +489,7 @@ export const Home: React.FC = () => {
             <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#ff6b61]">
               {t('category.label')}
             </p>
-            <h2 className="mt-4 font-serif text-[40px] leading-[1.02] tracking-[-0.03em] text-white md:text-[48px]">
+            <h2 className="mt-4 font-sans text-[40px] font-semibold leading-[1.02] tracking-[-0.03em] text-white md:text-[48px]">
               {t('category.title')}
             </h2>
             <p className="mt-5 max-w-[520px] font-sans text-lg leading-8 text-white/80">
@@ -518,7 +518,7 @@ export const Home: React.FC = () => {
                   <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#ff6b61]">
                     {card.label}
                   </p>
-                  <h3 className="mt-4 font-serif text-[48px] leading-[0.95] tracking-[-0.03em] text-white md:text-[56px]">
+                  <h3 className="mt-4 font-sans text-[48px] font-semibold leading-[0.95] tracking-[-0.03em] text-white md:text-[56px]">
                     {card.title}
                   </h3>
                   <p className="mt-4 max-w-sm text-[15px] leading-7 text-white/82">
@@ -559,7 +559,7 @@ export const Home: React.FC = () => {
                 <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#ff6b61]">
                   {t('styling.label')}
                 </p>
-                <h2 className="mt-4 max-w-[520px] font-serif text-[48px] leading-[1.02] tracking-[-0.03em] text-white md:text-[56px]">
+                <h2 className="mt-4 max-w-[520px] font-sans text-[48px] font-semibold leading-[1.02] tracking-[-0.03em] text-white md:text-[56px]">
                   <span className="block">{t('styling.titleLine1')}</span>
                   <span className="block">{t('styling.titleLine2')}</span>
                   <span className="block">{t('styling.titleLine3')}</span>

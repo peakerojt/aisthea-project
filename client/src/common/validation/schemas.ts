@@ -198,6 +198,14 @@ const optionalCoercePositiveIntField = z.preprocess((value) => {
 const coercePriceField = z.preprocess((value) => Number(value), priceField);
 
 const optionalSkuField = z.preprocess(emptyStringToUndefined, skuField.optional());
+const optionalShortTextField = (maxLength: number) => z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') return value;
+    const normalized = collapseWhitespace(value);
+    return normalized.length > 0 ? normalized : undefined;
+  },
+  z.string().max(maxLength).optional(),
+);
 
 export const passwordValidation = passwordField;
 export { passwordRequirements };
@@ -225,6 +233,12 @@ export const adminProductFormSchema = z.object({
   brandId: optionalCoercePositiveIntField,
   basePrice: coercePriceField,
   baseSku: optionalSkuField,
+  sizeGuideTemplateKey: optionalShortTextField(100),
+  fitType: optionalShortTextField(50),
+  fitNote: optionalShortTextField(500),
+  modelHeightCm: optionalCoercePositiveIntField,
+  modelWeightKg: optionalCoercePositiveIntField,
+  modelWearSize: optionalShortTextField(20),
   status: z.enum(['Active', 'Inactive', 'Draft', 'Archived']).default('Active'),
 });
 

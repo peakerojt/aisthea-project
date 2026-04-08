@@ -5,6 +5,7 @@ import { AppError } from '../../middlewares/error.middleware';
 import { cloudinaryService } from '../../services/cloudinary.service';
 import { productRepository, ProductFilter } from './product.repository';
 import type { CreateProductDto, UpdateProductDto } from './product.validator';
+import { listSizeGuideTemplates, resolveProductSizeGuide } from './size-guide';
 
 type VariantAttributeInput = {
   attributeValues: Array<{ attributeName: string; value: string }>;
@@ -116,6 +117,10 @@ export const productService = {
     });
   },
 
+  getSizeGuideTemplates() {
+    return listSizeGuideTemplates();
+  },
+
   async getProducts(filters: ProductFilter) {
     return productRepository.findMany(filters);
   },
@@ -125,7 +130,10 @@ export const productService = {
     if (!product) {
       throw new AppError(404, 'PRODUCT_NOT_FOUND', 'products:errors.notFound');
     }
-    return product;
+    return {
+      ...product,
+      sizeGuide: resolveProductSizeGuide(product),
+    };
   },
 
   async getProductForEdit(id: number) {
@@ -133,7 +141,10 @@ export const productService = {
     if (!product) {
       throw new AppError(404, 'PRODUCT_NOT_FOUND', 'products:errors.notFound');
     }
-    return product;
+    return {
+      ...product,
+      sizeGuide: resolveProductSizeGuide(product),
+    };
   },
 
   async createProduct(payload: CreateProductDto) {
@@ -148,6 +159,12 @@ export const productService = {
           basePrice: payload.basePrice,
           categoryId: payload.categoryId,
           brandId: payload.brandId ?? null,
+          sizeGuideTemplateKey: payload.sizeGuideTemplateKey ?? null,
+          fitType: payload.fitType ?? null,
+          fitNote: payload.fitNote ?? null,
+          modelHeightCm: payload.modelHeightCm ?? null,
+          modelWeightKg: payload.modelWeightKg ?? null,
+          modelWearSize: payload.modelWearSize ?? null,
           status: payload.status ?? 'Active',
         },
       });
@@ -210,6 +227,12 @@ export const productService = {
           basePrice: payload.basePrice,
           categoryId: payload.categoryId,
           brandId: payload.brandId ?? null,
+          sizeGuideTemplateKey: payload.sizeGuideTemplateKey ?? null,
+          fitType: payload.fitType ?? null,
+          fitNote: payload.fitNote ?? null,
+          modelHeightCm: payload.modelHeightCm ?? null,
+          modelWeightKg: payload.modelWeightKg ?? null,
+          modelWearSize: payload.modelWearSize ?? null,
           status: payload.status ?? 'Active',
         },
       });

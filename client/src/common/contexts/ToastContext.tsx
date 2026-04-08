@@ -93,10 +93,10 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
                 contain: 'layout paint',
             }}
             className={`
-                relative flex min-h-[88px] items-start gap-3 w-80
+                relative flex min-h-[64px] items-start gap-3 w-80
                 ${cfg.bg} backdrop-blur-2xl
                 border ${cfg.border}
-                rounded-sm px-4 py-3.5
+                rounded-sm px-4 py-3
                 ${cfg.glow}
                 overflow-hidden
                 cursor-default
@@ -118,13 +118,11 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
                 <p className="text-white font-bold text-sm leading-snug tracking-wide">
                     {toast.title}
                 </p>
-                <div className="mt-0.5 min-h-[1.25rem]">
-                    {toast.subtitle ? (
-                        <p className="text-gray-400 text-xs leading-relaxed truncate">
-                            {toast.subtitle}
-                        </p>
-                    ) : null}
-                </div>
+                {toast.subtitle ? (
+                    <p className="mt-0.5 text-gray-400 text-xs leading-relaxed truncate">
+                        {toast.subtitle}
+                    </p>
+                ) : null}
             </div>
 
             {/* Dismiss button */}
