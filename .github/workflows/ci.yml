@@ -5,6 +5,10 @@ on:
     branches:
       - develop
       - main
+  push:
+    branches:
+      - develop
+      - main
   workflow_dispatch:
 
 concurrency:
@@ -12,9 +16,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  server:
+    name: Server
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      CI: true
+      NODE_ENV: test
+      DATABASE_URL: mysql://ci-user:ci-pass@127.0.0.1:3306/aisthea_ci
+      JWT_SECRET: 12345678901234567890123456789012
+      REFRESH_SECRET: abcdefghijklmnopqrstuvwxyz123456
+      CLIENT_URL: http://localhost:3000
+      ALLOWED_ORIGINS: http://localhost:3000
+      SERVER_URL: http://localhost:5000
+      GOOGLE_CALLBACK_URL: http://localhost:5000/api/auth/google/callback
+      TRUST_PROXY: false
+      COOKIE_SECURE: false
+      COOKIE_SAME_SITE: lax
+      SESSION_SECRET: 12345678901234567890123456789012
+    defaults:
+      run:
+        working-directory: server
 
     steps:
       - name: Checkout repository
@@ -25,38 +47,43 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            server/package-lock.json
-            client/package-lock.json
+          cache-dependency-path: server/package-lock.json
 
-      - name: Install server dependencies
+      - name: Install dependencies
         run: npm ci
-        working-directory: server
 
-      - name: Install client dependencies
-        run: npm ci
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test -- --runInBand
+
+  client:
+    name: Client
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: true
+    defaults:
+      run:
         working-directory: client
 
-      - name: Build server
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
         run: npm run build
-        working-directory: server
 
-      - name: Build client
-        run: npm run build
-        working-directory: client
-
-      - name: Test server
-        run: npm test
-        working-directory: server
-        env:
-          CI: true
-          NODE_ENV: test
-          DATABASE_URL: mysql://ci-user:ci-pass@127.0.0.1:3306/aisthea_ci
-          JWT_SECRET: 12345678901234567890123456789012
-          REFRESH_SECRET: abcdefghijklmnopqrstuvwxyz123456
-
-      - name: Test client
+      - name: Test
         run: npm test -- --run
-        working-directory: client
-        env:
-          CI: true

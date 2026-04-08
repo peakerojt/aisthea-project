@@ -1,4 +1,5 @@
 import { AppError } from '../../middlewares/error.middleware';
+import { logger } from '../../lib/logger';
 import { createPasswordResetToken } from '../password.service';
 
 const findUserMock = jest.fn();
@@ -6,7 +7,6 @@ const findExistingResetCodeMock = jest.fn();
 const deleteResetTokensMock = jest.fn();
 const createResetTokenMock = jest.fn();
 const upsertEmailJobMock = jest.fn();
-const loggerErrorMock = jest.fn();
 const transactionMock = jest.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
   callback({
     passwordResetToken: {
@@ -33,12 +33,19 @@ jest.mock('../../utils/prisma', () => ({
 
 jest.mock('../../lib/logger', () => ({
   logger: {
-    error: (...args: unknown[]) => loggerErrorMock(...args),
+    error: jest.fn(),
     warn: jest.fn(),
     info: jest.fn(),
     debug: jest.fn(),
   },
 }));
+
+const mockedLogger = logger as unknown as {
+  error: jest.Mock;
+  warn: jest.Mock;
+  info: jest.Mock;
+  debug: jest.Mock;
+};
 
 describe('createPasswordResetToken', () => {
   beforeEach(() => {
@@ -50,7 +57,7 @@ describe('createPasswordResetToken', () => {
       emailJobId: 1,
       eventKey: 'reset-password:7:123456',
     });
-    loggerErrorMock.mockReset();
+    mockedLogger.error.mockReset();
   });
 
   it('returns success without creating a job when the email does not exist', async () => {
@@ -122,7 +129,7 @@ describe('createPasswordResetToken', () => {
       messageKey: 'auth:errors.passwordResetEmailFailed',
     });
 
-    expect(loggerErrorMock).toHaveBeenCalledWith(
+    expect(mockedLogger.error).toHaveBeenCalledWith(
       '[passwordService] Failed to enqueue password reset email',
       expect.objectContaining({
         userId: 7,
