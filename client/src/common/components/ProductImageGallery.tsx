@@ -204,7 +204,7 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                     role="dialog"
                     aria-modal="true"
                     aria-label={`${productName} image viewer`}
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 backdrop-blur-xl animate-fade-in"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/92 p-4 animate-fade-in"
                     onClick={() => setIsZoomed(false)}
                 >
                     <button

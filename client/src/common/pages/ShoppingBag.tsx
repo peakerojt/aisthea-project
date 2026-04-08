@@ -73,6 +73,11 @@ export const ShoppingBag: React.FC<ShoppingBagProps> = ({ cart: propCart, update
         removeCartItem(targetId);
     });
 
+    const viewProduct = (productId?: string) => {
+        if (!productId) return;
+        navigate(`/product/${productId}`);
+    };
+
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const total = subtotal;
     const progressSteps = [
@@ -142,13 +147,25 @@ export const ShoppingBag: React.FC<ShoppingBagProps> = ({ cart: propCart, update
                                 {cart.map((item, i) => (
                                     <article key={i} className="group relative rounded-sm border border-border-dark bg-surface-dark p-5 transition-colors hover:border-white/15 hover:bg-white/[0.02] sm:p-6">
                                         <div className="flex flex-col gap-6 sm:flex-row">
-                                            <div className="w-full shrink-0 overflow-hidden rounded-sm bg-neutral-800 sm:w-[120px]">
-                                                <img src={item.image} alt={item.name} className="aspect-[3/4] w-full object-cover" />
-                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => viewProduct(item.productId)}
+                                                disabled={!item.productId}
+                                                className={`w-full shrink-0 overflow-hidden rounded-sm bg-neutral-800 text-left sm:w-[120px] ${item.productId ? 'cursor-pointer transition-opacity hover:opacity-85' : 'cursor-default'}`}
+                                            >
+                                                <img src={item.image} alt={item.name} className="block aspect-[3/4] w-full object-cover" />
+                                            </button>
                                             <div className="flex flex-1 flex-col justify-between gap-6">
                                                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                                     <div>
-                                                        <h3 className="text-lg font-bold text-white sm:text-xl">{item.name}</h3>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => viewProduct(item.productId)}
+                                                            disabled={!item.productId}
+                                                            className={`text-left text-lg font-bold sm:text-xl ${item.productId ? 'cursor-pointer text-white transition-colors hover:text-primary' : 'cursor-default text-white'}`}
+                                                        >
+                                                            {item.name}
+                                                        </button>
                                                         <p className="mt-1 text-sm font-normal text-gray-500">Ref. {item.ref}</p>
                                                         <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-400">
                                                             <span className="flex items-center gap-2">
@@ -171,7 +188,6 @@ export const ShoppingBag: React.FC<ShoppingBagProps> = ({ cart: propCart, update
                                                         <button onClick={() => item.id && updateQuantity(item.id, 1)} className="flex h-full w-11 cursor-pointer items-center justify-center text-white transition-colors hover:bg-white/5"><span className="material-symbols-outlined text-[18px]">add</span></button>
                                                     </div>
                                                     <div className="flex flex-wrap gap-5">
-                                                        <button className="flex cursor-pointer items-center gap-1 text-xs font-bold uppercase tracking-wider text-gray-500 transition-colors hover:text-white"><span className="material-symbols-outlined text-[16px]">favorite</span> {t('actions.save')}</button>
                                                         <button onClick={() => item.id && removeItem(item.id)} className="flex cursor-pointer items-center gap-1 text-xs font-bold uppercase tracking-wider text-gray-500 transition-colors hover:text-white"><span className="material-symbols-outlined text-[16px]">close</span> {t('actions.remove')}</button>
                                                     </div>
                                                 </div>
@@ -188,12 +204,12 @@ export const ShoppingBag: React.FC<ShoppingBagProps> = ({ cart: propCart, update
                                 className="sticky top-32"
                                 title={t('summary.title', { count: cart.length })}
                                 items={cart}
-                                footerNote={<p className="mt-6 text-center text-xs text-gray-500">{t('summary.noteLine1')} <br />{t('summary.noteLine2')}</p>}
                             >
                                 <div className="mb-6 border-t border-border-dark pt-6">
                                     <div className="rounded-sm border border-white/10 bg-white/[0.02] px-4 py-4">
-                                        <p className="text-sm font-bold text-white">{t('summary.couponAtCheckout')}</p>
-                                        <p className="mt-1 text-xs leading-relaxed text-gray-500">{t('summary.couponHint')}</p>
+                                        <p className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-bold leading-none tracking-tight text-white">
+                                            {t('summary.couponAtCheckout')}
+                                        </p>
                                     </div>
                                 </div>
 
