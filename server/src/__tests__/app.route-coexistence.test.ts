@@ -61,6 +61,7 @@ jest.mock('../middlewares/auth.middleware', () => ({
     req.user = { userId: 77, roles: ['Admin'] };
     next();
   },
+  requirePermission: () => (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 jest.mock('../lib/env', () => ({
   env: {
@@ -70,6 +71,7 @@ jest.mock('../lib/env', () => ({
 }));
 jest.mock('../lib/query-monitor', () => ({
   queryCountMiddleware: (_req: unknown, _res: unknown, next: () => void) => next(),
+  registerPrismaQueryMonitor: jest.fn(),
 }));
 
 jest.mock('../modules/auth/auth.routes', () => ({

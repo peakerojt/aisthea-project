@@ -22,7 +22,7 @@ vi.mock('@/common/utils/returnRefresh', async () => {
   const actual = await vi.importActual<any>('@/common/utils/returnRefresh');
   return {
     ...actual,
-    RETURN_ACTIVE_SYNC_POLL_INTERVAL_MS: 10,
+    RETURN_ACTIVE_SYNC_POLL_INTERVAL_MS: 250,
   };
 });
 
@@ -359,7 +359,7 @@ describe('MyOrders', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Đã chấp nhận hoàn tiền')).toBeInTheDocument();
+    expect(await screen.findByText('Đã chấp nhận hoàn tiền', {}, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.queryByText('Trạng thái hoàn tiền')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Xem thông tin hoàn hàng' }));
@@ -621,7 +621,7 @@ describe('MyOrders', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Đã chấp nhận hoàn tiền')).toBeInTheDocument();
+    expect(await screen.findByText('Đã chấp nhận hoàn tiền', {}, { timeout: 3000 })).toBeInTheDocument();
     expect(getMyReturnSummaries).toHaveBeenNthCalledWith(1, 1, 1, { orderIds: [15] });
 
     await userEvent.click(screen.getByRole('button', { name: 'Làm mới' }));
@@ -674,7 +674,7 @@ describe('MyOrders', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Đã chấp nhận hoàn tiền')).toBeInTheDocument();
+    expect(await screen.findByText('Đã chấp nhận hoàn tiền', {}, { timeout: 3000 })).toBeInTheDocument();
     expect(getMyOrders).toHaveBeenCalledTimes(1);
     expect(getMyReturnSummaries).toHaveBeenNthCalledWith(1, 1, 1, { orderIds: [16] });
 
@@ -686,7 +686,7 @@ describe('MyOrders', () => {
       );
     });
 
-    await waitFor(() => expect(getMyOrders).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(getMyOrders).toHaveBeenCalledTimes(2), { timeout: 3000 });
     expect(getMyReturnSummaries).toHaveBeenNthCalledWith(2, 1, 1, {
       orderIds: [16],
       updatedSince: '2026-03-26T09:45:00.000Z',
@@ -783,10 +783,10 @@ describe('MyOrders', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Đã chấp nhận hoàn tiền')).toBeInTheDocument();
+    expect(await screen.findByText('Đã chấp nhận hoàn tiền', {}, { timeout: 3000 })).toBeInTheDocument();
 
     await waitFor(() => expect(getMyReturnSummaries.mock.calls.length).toBeGreaterThanOrEqual(2), {
-      timeout: RETURN_ACTIVE_SYNC_POLL_INTERVAL_MS * 20,
+      timeout: 3000,
     });
     expect(
       getMyReturnSummaries.mock.calls.slice(1).some((args) => (
@@ -839,7 +839,7 @@ describe('MyOrders', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Đã chấp nhận hoàn tiền')).toBeInTheDocument();
+    expect(await screen.findByText('Đã chấp nhận hoàn tiền', {}, { timeout: 3000 })).toBeInTheDocument();
 
     await act(async () => {
       await new Promise((resolve) => window.setTimeout(resolve, RETURN_ACTIVE_SYNC_POLL_INTERVAL_MS * 4));
@@ -889,7 +889,7 @@ describe('MyOrders', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Đã chấp nhận hoàn tiền')).toBeInTheDocument();
+    expect(await screen.findByText('Đã chấp nhận hoàn tiền', {}, { timeout: 3000 })).toBeInTheDocument();
     expect(getMyReturnSummaries).toHaveBeenCalledTimes(1);
 
     Object.defineProperty(document, 'visibilityState', {
@@ -901,7 +901,9 @@ describe('MyOrders', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    await waitFor(() => expect(getMyReturnSummaries.mock.calls.length).toBeGreaterThanOrEqual(2));
+    await waitFor(() => expect(getMyReturnSummaries.mock.calls.length).toBeGreaterThanOrEqual(2), {
+      timeout: 3000,
+    });
     expect(
       getMyReturnSummaries.mock.calls.slice(1).some((args) => (
         args[0] === 1

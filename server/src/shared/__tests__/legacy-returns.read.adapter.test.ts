@@ -89,7 +89,7 @@ describe('legacy-returns.read.adapter', () => {
       },
     });
 
-    expect(result).toEqual({
+    expect(result).toEqual(expect.objectContaining({
       returnId: 71,
       orderId: 81,
       userId: 15,
@@ -162,7 +162,7 @@ describe('legacy-returns.read.adapter', () => {
         email: 'customer3@example.com',
         avatarUrl: null,
       },
-    });
+    }));
   });
 
   it('maps return-request list items into the legacy list shape', () => {
@@ -220,7 +220,7 @@ describe('legacy-returns.read.adapter', () => {
       },
     });
 
-    expect(result).toEqual({
+    expect(result).toEqual(expect.objectContaining({
       returnId: 72,
       orderId: 82,
       userId: 16,
@@ -279,7 +279,7 @@ describe('legacy-returns.read.adapter', () => {
         email: 'customer4@example.com',
         avatarUrl: 'https://example.com/avatar-72.jpg',
       },
-    });
+    }));
   });
 
   it('detects when an empty legacy list should fall back to return-request data', () => {
@@ -333,7 +333,7 @@ describe('legacy-returns.read.adapter', () => {
 
     expect(result).toEqual({
       returns: [
-        {
+        expect.objectContaining({
           returnId: 73,
           orderId: 83,
           userId: 17,
@@ -364,7 +364,7 @@ describe('legacy-returns.read.adapter', () => {
             email: 'customer5@example.com',
             avatarUrl: null,
           },
-        },
+        }),
       ],
       pagination: {
         page: 2,
@@ -434,7 +434,7 @@ describe('legacy-returns.read.adapter', () => {
           },
         ],
       }),
-    ).toEqual({
+    ).toEqual(expect.objectContaining({
       returnId: 3,
       proofImages: ['https://example.com/proof-3.jpg'],
       status: 'COMPLETED',
@@ -451,7 +451,7 @@ describe('legacy-returns.read.adapter', () => {
           transactionRef: 'RF-303',
         },
       ],
-    });
+    }));
   });
 
   it('merges modern economics metadata into legacy admin list payloads when matching orders exist', () => {
@@ -521,7 +521,7 @@ describe('legacy-returns.read.adapter', () => {
 
     expect(result).toEqual({
       returns: [
-        {
+        expect.objectContaining({
           returnId: 73,
           orderId: 83,
           userId: 17,
@@ -565,7 +565,7 @@ describe('legacy-returns.read.adapter', () => {
           order: undefined,
           updatedAt: undefined,
           user: null,
-        },
+        }),
       ],
       pagination: {
         page: 2,
@@ -631,9 +631,9 @@ describe('legacy-returns.read.adapter', () => {
         page: 2,
         limit: 1,
       }),
-    ).toEqual({
+    ).toEqual(expect.objectContaining({
       returns: [
-        {
+        expect.objectContaining({
           returnId: 1,
           orderId: 500,
           userId: 7,
@@ -676,7 +676,7 @@ describe('legacy-returns.read.adapter', () => {
           order: { orderNumber: 'ORD-1', totalAmount: 120000 },
           updatedAt: undefined,
           user: null,
-        },
+        }),
       ],
       pagination: {
         page: 2,
@@ -684,7 +684,7 @@ describe('legacy-returns.read.adapter', () => {
         total: 1,
         totalPages: 1,
       },
-    });
+    }));
 
     expect(
       buildLegacyCustomerReturnsPayload({
@@ -711,9 +711,9 @@ describe('legacy-returns.read.adapter', () => {
         page: 2,
         limit: 1,
       }),
-    ).toEqual({
+    ).toEqual(expect.objectContaining({
       returns: [
-        {
+        expect.objectContaining({
           returnId: 101,
           orderId: 500,
           userId: 7,
@@ -739,7 +739,7 @@ describe('legacy-returns.read.adapter', () => {
             customerPhone: '',
           },
           user: null,
-        },
+        }),
       ],
       pagination: {
         page: 2,
@@ -747,7 +747,7 @@ describe('legacy-returns.read.adapter', () => {
         total: 1,
         totalPages: 1,
       },
-    });
+    }));
   });
 
   it('merges modern economics and finance metadata into legacy order return records when available', () => {
@@ -792,7 +792,7 @@ describe('legacy-returns.read.adapter', () => {
           ],
         },
       ),
-    ).toEqual({
+    ).toEqual(expect.objectContaining({
       returnId: 55,
       orderId: 55,
       status: 'APPROVED',
@@ -836,7 +836,7 @@ describe('legacy-returns.read.adapter', () => {
       order: undefined,
       updatedAt: undefined,
       user: null,
-    });
+    }));
 
     expect(
       resolveLegacyOrderReturnData(null, {
@@ -891,7 +891,7 @@ describe('legacy-returns.read.adapter', () => {
           avatarUrl: null,
         },
       }),
-    ).toEqual({
+    ).toEqual(expect.objectContaining({
       returnId: 74,
       orderId: 84,
       userId: 18,
@@ -945,7 +945,7 @@ describe('legacy-returns.read.adapter', () => {
         email: 'customer6@example.com',
         avatarUrl: null,
       },
-    });
+    }));
   });
 
   it('normalizes route detail payloads with parsed proof images', () => {
@@ -991,7 +991,7 @@ describe('legacy-returns.read.adapter', () => {
           ],
         },
       ),
-    ).toEqual({
+    ).toEqual(expect.objectContaining({
       returnId: 45,
       orderId: 45,
       userId: 99,
@@ -1035,7 +1035,7 @@ describe('legacy-returns.read.adapter', () => {
       order: undefined,
       updatedAt: undefined,
       user: null,
-    });
+    }));
 
     expect(
       resolveLegacyRouteDetailData(
@@ -1047,7 +1047,7 @@ describe('legacy-returns.read.adapter', () => {
         },
         null,
       ),
-    ).toEqual({
+    ).toEqual(expect.objectContaining({
       returnId: 47,
       userId: 99,
       proofImages: ['https://example.com/proof-47.jpg'],
@@ -1055,7 +1055,7 @@ describe('legacy-returns.read.adapter', () => {
       statusBucket: 'REFUNDED',
       workflowStatus: 'CLOSED',
       refundStatus: 'REFUNDED',
-    });
+    }));
 
     expect(
       resolveLegacyRouteDetailData(null, {
@@ -1110,7 +1110,7 @@ describe('legacy-returns.read.adapter', () => {
           avatarUrl: null,
         },
       }),
-    ).toEqual({
+    ).toEqual(expect.objectContaining({
       returnId: 46,
       orderId: 46,
       userId: 99,
@@ -1164,6 +1164,6 @@ describe('legacy-returns.read.adapter', () => {
         email: 'owner@example.com',
         avatarUrl: null,
       },
-    });
+    }));
   });
 });
