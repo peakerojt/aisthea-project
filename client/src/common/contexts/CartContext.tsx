@@ -44,6 +44,8 @@ interface CartContextType {
     clearCart: () => Promise<void>;
     /** Tải lại giỏ hàng từ DB */
     fetchCart: () => Promise<void>;
+    /** Đồng bộ lại giỏ hàng sau khi checkout thất bại vì thay đổi tồn kho */
+    reconcileCheckoutStock: () => Promise<{ adjustedCount: number; removedCount: number }>;
     /** Gộp giỏ guest vào DB sau đăng nhập */
     syncWithMerge: (localItems: GuestCartItem[]) => Promise<void>;
     /** Thêm nhiều sản phẩm vào giỏ bằng một request batch */
@@ -103,6 +105,54 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setIsLoading(false);
         }
     }, [isAuthenticated]);
+
+    const reconcileCheckoutStock = useCallback(async () => {
+        if (!isAuthenticated) {
+            return { adjustedCount: 0, removedCount: 0 };
+        }
+
+        setIsLoading(true);
+        try {
+            const latestCart = await fetchCartApi();
+            const latestItems = latestCart.items ?? [];
+            const invalidItems = latestItems.filter((item) => {
+                const availableStock = Math.max(item.variant.stockQuantity ?? 0, 0);
+                return item.quantity > availableStock;
+            });
+
+            if (invalidItems.length === 0) {
+                setDbItems(latestItems);
+                return { adjustedCount: 0, removedCount: 0 };
+            }
+
+            let adjustedCount = 0;
+            let removedCount = 0;
+            let syncedItems = latestItems;
+
+            for (const item of invalidItems) {
+                const availableStock = Math.max(item.variant.stockQuantity ?? 0, 0);
+                const nextCart = availableStock === 0
+                    ? await removeCartItemApi(item.cartItemId)
+                    : await updateCartItemApi(item.cartItemId, availableStock);
+
+                syncedItems = nextCart.items ?? syncedItems;
+                if (availableStock === 0) {
+                    removedCount += 1;
+                } else {
+                    adjustedCount += 1;
+                }
+            }
+
+            setDbItems(syncedItems);
+            return { adjustedCount, removedCount };
+        } catch (error) {
+            console.error('[Cart] Lỗi đồng bộ tồn kho sau checkout thất bại:', error);
+            await fetchCart();
+            return { adjustedCount: 0, removedCount: 0 };
+        } finally {
+            setIsLoading(false);
+        }
+    }, [fetchCart, isAuthenticated]);
 
     // ─── Khởi tạo khi auth thay đổi ────────────────────────────────────────
     useEffect(() => {
@@ -321,6 +371,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             updateItem,
             clearCart,
             fetchCart,
+            reconcileCheckoutStock,
             syncWithMerge,
             addItemsBatch,
             getStockStatus,

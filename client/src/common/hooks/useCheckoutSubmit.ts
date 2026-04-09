@@ -16,6 +16,11 @@ type ApiValidationError = {
   message?: string;
 };
 
+type CheckoutStockReconciliation = {
+  adjustedCount: number;
+  removedCount: number;
+};
+
 type VnpayPaymentUrlResponse = {
   vnpUrl?: string;
   data?: {
@@ -31,6 +36,7 @@ type UseCheckoutSubmitParams = {
   fetchQuote: (couponCodeOverride?: string | null) => Promise<OrderQuote | null>;
   formData: CheckoutFormValues;
   pricingQuote: OrderQuote | null;
+  reconcileCheckoutStock: () => Promise<CheckoutStockReconciliation>;
   selectedCityCode: string;
   selectedShippingMethod: 'STANDARD';
   setError: (message: string) => void;
@@ -50,6 +56,7 @@ export const useCheckoutSubmit = ({
   fetchQuote,
   formData,
   pricingQuote,
+  reconcileCheckoutStock,
   selectedCityCode,
   selectedShippingMethod,
   setError,
@@ -182,6 +189,7 @@ export const useCheckoutSubmit = ({
     } catch (err: unknown) {
       console.error('Order creation error:', err);
       const error = err as {
+        code?: string;
         message?: string;
         data?: { error?: string };
         details?: ApiValidationError[];
@@ -205,6 +213,28 @@ export const useCheckoutSubmit = ({
         if (Object.keys(mappedErrors).length > 0) {
           setFieldValidationErrors(mappedErrors);
         }
+      }
+
+      if (error.code === 'INSUFFICIENT_STOCK') {
+        try {
+          const { adjustedCount, removedCount } = await reconcileCheckoutStock();
+
+          if (removedCount > 0 && adjustedCount > 0) {
+            setError(t('errors.stockAdjustedAndRemoved'));
+          } else if (removedCount > 0) {
+            setError(t('errors.stockRemoved'));
+          } else if (adjustedCount > 0) {
+            setError(t('errors.stockAdjusted'));
+          } else {
+            setError(t('errors.stockConflict'));
+          }
+        } catch (reconcileError) {
+          console.error('[Checkout] Failed to reconcile cart after stock conflict:', reconcileError);
+          setError(t('errors.stockConflict'));
+        }
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
       }
 
       const errorMessage = error.message || error.data?.error || t('errors.placeOrderFailed');

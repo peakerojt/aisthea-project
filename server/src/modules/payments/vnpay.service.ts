@@ -79,6 +79,7 @@ const upsertVnpayPayment = async ({
   transactionCode,
   note,
   resetTransactionCode = false,
+  touchPaymentDate = false,
 }: {
   orderId: number;
   payments: PaymentSnapshot[];
@@ -87,6 +88,7 @@ const upsertVnpayPayment = async ({
   transactionCode?: string | null;
   note?: string | null;
   resetTransactionCode?: boolean;
+  touchPaymentDate?: boolean;
 }) => {
   const latestPayment = payments[0] ?? null;
 
@@ -100,6 +102,7 @@ const upsertVnpayPayment = async ({
           ? transactionCode ?? null
           : transactionCode ?? latestPayment.transactionCode ?? null,
         note: note ?? null,
+        ...(touchPaymentDate ? { paymentDate: new Date() } : {}),
       },
     });
     return;
@@ -171,6 +174,13 @@ export const createVnpayPaymentUrl = async ({
     return { status: 400, body: { errorCode: 'ORDER_NOT_VNPAY' } };
   }
 
+  const normalizedOrderStatus = String(order.status ?? '')
+    .trim()
+    .toUpperCase();
+  if (normalizedOrderStatus && normalizedOrderStatus !== 'PENDING') {
+    return { status: 409, body: { errorCode: 'ORDER_NOT_PENDING_PAYMENT' } };
+  }
+
   if (hasCompletedPayment(order.payments)) {
     return { status: 409, body: { errorCode: 'ORDER_ALREADY_PAID' } };
   }
@@ -183,6 +193,7 @@ export const createVnpayPaymentUrl = async ({
     transactionCode: null,
     note: 'Awaiting VNPay reconciliation',
     resetTransactionCode: true,
+    touchPaymentDate: true,
   });
 
   process.env.TZ = 'Asia/Ho_Chi_Minh';

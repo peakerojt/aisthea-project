@@ -29,6 +29,7 @@ vi.mock('@/common/utils/returnRefresh', async () => {
 const getMyOrders = vi.fn();
 const getMyReturnSummaries = vi.fn();
 const paymentBadgePropsMock = vi.hoisted(() => vi.fn());
+const redirectToVnpayPaymentMock = vi.hoisted(() => vi.fn());
 
 vi.mock('react-i18next', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-i18next')>();
@@ -54,6 +55,14 @@ vi.mock('@/common/components/PaymentStatusBadge', () => ({
     paymentBadgePropsMock(props);
     return <div data-testid="payment-badge" />;
   },
+}));
+
+vi.mock('@/common/services/vnpay.service', () => ({
+  canRetryVnpayPayment: ({ orderStatus, paymentMethod, paymentStatus }: Record<string, unknown>) =>
+    String(orderStatus ?? '').toLowerCase().includes('pending')
+    && String(paymentMethod ?? '').toUpperCase() === 'VNPAY'
+    && ['PENDING_VNPAY', 'FAILED', 'CANCELLED'].includes(String(paymentStatus ?? '').toUpperCase()),
+  redirectToVnpayPayment: (...args: unknown[]) => redirectToVnpayPaymentMock(...args),
 }));
 
 vi.mock('@/common/services/order.service', async () => {
@@ -87,6 +96,7 @@ describe('MyOrders', () => {
     vi.useRealTimers();
     navigateMock.mockReset();
     paymentBadgePropsMock.mockReset();
+    redirectToVnpayPaymentMock.mockReset();
     getMyReturnSummaries.mockResolvedValue([]);
   });
 
@@ -279,6 +289,38 @@ describe('MyOrders', () => {
     expect(await screen.findByText('#ORD-22')).toBeInTheDocument();
     expect(screen.queryByTestId('payment-badge')).not.toBeInTheDocument();
     expect(paymentBadgePropsMock).not.toHaveBeenCalled();
+  });
+
+  it('shows a retry-payment action for pending VNPay orders and reuses the same order id', async () => {
+    getMyOrders.mockResolvedValueOnce({
+      orders: [
+        {
+          orderId: 24,
+          orderNumber: 'ORD-24',
+          orderCode: 'OD20260024',
+          status: 'pending',
+          paymentMethod: 'vnpay',
+          paymentStatus: 'PENDING_VNPAY',
+          totalAmount: '531000',
+          itemCount: 1,
+          createdAt: '2026-04-01T13:05:14.000Z',
+        },
+      ],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    });
+    redirectToVnpayPaymentMock.mockResolvedValue(undefined);
+
+    render(
+      <MemoryRouter>
+        <MyOrders />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('#ORD-24')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Thanh toán lại' }));
+
+    expect(redirectToVnpayPaymentMock).toHaveBeenCalledWith(24);
   });
 
   it('still shows terminal payment badges for cancelled orders', async () => {

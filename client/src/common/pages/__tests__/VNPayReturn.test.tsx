@@ -1,10 +1,13 @@
 import React from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { VNPayReturn } from '@/common/pages/VNPayReturn';
 
 const navigate = vi.fn();
 const apiGetMock = vi.hoisted(() => vi.fn());
+const redirectToVnpayPaymentMock = vi.hoisted(() => vi.fn());
+const latestOrderDataMock = vi.hoisted(() => vi.fn(() => null));
 const searchParamMode = vi.hoisted(() => ({ value: '' }));
 
 vi.mock('react-i18next', async (importOriginal) => {
@@ -27,6 +30,22 @@ vi.mock('@/common/utils/api', () => ({
   api: {
     get: (...args: unknown[]) => apiGetMock(...args),
   },
+}));
+
+vi.mock('@/common/services/vnpay.service', () => ({
+  redirectToVnpayPayment: (...args: unknown[]) => redirectToVnpayPaymentMock(...args),
+  canRetryVnpayPayment: ({
+    orderStatus,
+    paymentMethod,
+    paymentStatus,
+  }: {
+    orderStatus?: string | null;
+    paymentMethod?: string | null;
+    paymentStatus?: string | null;
+  }) =>
+    (paymentMethod ?? '').trim().toUpperCase() === 'VNPAY'
+      && (orderStatus ?? '').trim().toUpperCase() === 'PENDING'
+      && ['PENDING_VNPAY', 'FAILED', 'CANCELLED'].includes((paymentStatus ?? '').trim().toUpperCase()),
 }));
 
 vi.mock('@/store/components/Header', () => ({
@@ -54,7 +73,7 @@ vi.mock('@/common/components/PaymentStatusBadge', () => ({
 }));
 
 vi.mock('@/common/utils/orderSnapshot', () => ({
-  getLatestOrderData: () => null,
+  getLatestOrderData: () => latestOrderDataMock(),
 }));
 
 describe('VNPayReturn', () => {
@@ -64,6 +83,7 @@ describe('VNPayReturn', () => {
     vi.clearAllMocks();
     vi.useRealTimers();
     searchParamMode.value = '';
+    latestOrderDataMock.mockReturnValue(null);
   });
 
   it('renders translated payment-return chrome with fallback-safe labels', async () => {
@@ -131,5 +151,104 @@ describe('VNPayReturn', () => {
 
     expect(await screen.findByText('Thanh toán đã bị hủy.')).toBeInTheDocument();
     expect(screen.getByTestId('payment-status-badge')).toHaveTextContent('CANCELLED');
+  });
+
+  it('retries VNPay payment on the same order instead of sending the customer back to checkout', async () => {
+    searchParamMode.value = 'vnp_TransactionStatus=24';
+    apiGetMock.mockImplementation((url: string) => {
+      if (url.startsWith('/api/vnpay/vnpay_return')) {
+        return Promise.resolve({
+          paymentStatus: 'canceled',
+          code: '24',
+        });
+      }
+
+      if (url === '/api/orders/my/321') {
+        return Promise.resolve({
+          status: 'Pending',
+          paymentMethod: 'VNPAY',
+          paymentStatus: 'PENDING_VNPAY',
+        });
+      }
+
+      return Promise.reject(new Error(`Unexpected API url: ${url}`));
+    });
+    redirectToVnpayPaymentMock.mockResolvedValue(undefined);
+    latestOrderDataMock.mockReturnValue({
+      orderId: 321,
+      paymentMethod: 'VNPAY',
+      items: [],
+      shippingFee: 0,
+      discountValue: 0,
+      subtotal: 0,
+      total: 0,
+      fullName: '',
+      email: '',
+      phone: '',
+      address: '',
+      district: '',
+      city: '',
+      ward: '',
+      note: '',
+      shippingMethod: 'STANDARD',
+    });
+
+    render(<VNPayReturn />);
+
+    await screen.findByText('Thanh toán đã bị hủy.');
+    await userEvent.click(screen.getByRole('button', { name: 'Thử lại thanh toán' }));
+
+    expect(redirectToVnpayPaymentMock).toHaveBeenCalledWith(321);
+    expect(navigate).not.toHaveBeenCalledWith('/checkout');
+  });
+
+  it('hides retry payment when the live order is no longer eligible even if local snapshot still exists', async () => {
+    searchParamMode.value = 'vnp_TransactionStatus=24';
+    apiGetMock.mockImplementation((url: string) => {
+      if (url.startsWith('/api/vnpay/vnpay_return')) {
+        return Promise.resolve({
+          paymentStatus: 'canceled',
+          code: '24',
+        });
+      }
+
+      if (url === '/api/orders/my/321') {
+        return Promise.resolve({
+          status: 'Cancelled',
+          paymentMethod: 'VNPAY',
+          paymentStatus: 'CANCELLED',
+        });
+      }
+
+      return Promise.reject(new Error(`Unexpected API url: ${url}`));
+    });
+    latestOrderDataMock.mockReturnValue({
+      orderId: 321,
+      paymentMethod: 'VNPAY',
+      items: [],
+      shippingFee: 0,
+      discountValue: 0,
+      subtotal: 0,
+      total: 0,
+      fullName: '',
+      email: '',
+      phone: '',
+      address: '',
+      district: '',
+      city: '',
+      ward: '',
+      note: '',
+      shippingMethod: 'STANDARD',
+    });
+
+    render(<VNPayReturn />);
+
+    expect(await screen.findByText('Thanh toán đã bị hủy.')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Đơn hàng này không còn đủ điều kiện để tạo lại liên kết thanh toán. Vui lòng mở quản lý đơn hàng để xem trạng thái mới nhất hoặc liên hệ hỗ trợ.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Thử lại thanh toán' })).not.toBeInTheDocument();
   });
 });

@@ -6,6 +6,7 @@ import { Header } from '@/store/components/Header';
 import { CheckoutProgress } from '@/common/components/CheckoutProgress';
 import { OrderSummaryRail } from '@/common/components/OrderSummaryRail';
 import { PaymentMethodLabel, PaymentStatusBadge } from '@/common/components/PaymentStatusBadge';
+import { canRetryVnpayPayment, redirectToVnpayPayment } from '@/common/services/vnpay.service';
 import { formatCurrencyVND } from '@/common/utils/currency';
 import { getLatestOrderData } from '@/common/utils/orderSnapshot';
 import { getPaymentStatusMeta, type PaymentDisplayStatus } from '@/common/utils/paymentStatus';
@@ -75,7 +76,11 @@ export const VNPayReturn: React.FC = () => {
   );
   const nextStepFailedLabel = resolveText(
     'sections.nextStepFailed',
-    'Bạn có thể quay lại checkout để thử lại thanh toán hoặc chọn phương thức khác mà không cần xây lại giỏ hàng.',
+    'Bạn có thể tạo lại liên kết thanh toán cho chính đơn hàng này hoặc mở chi tiết đơn để xử lý tiếp.',
+  );
+  const nextStepRetryUnavailableLabel = resolveText(
+    'sections.nextStepRetryUnavailable',
+    'Đơn hàng này không còn đủ điều kiện để tạo lại liên kết thanh toán. Vui lòng mở quản lý đơn hàng để xem trạng thái mới nhất hoặc liên hệ hỗ trợ.',
   );
   const nextStepLoadingLabel = resolveText(
     'sections.nextStepLoading',
@@ -100,13 +105,17 @@ export const VNPayReturn: React.FC = () => {
   const summaryDiscountLabel = resolveText('summary.discount', 'Giảm giá');
   const summaryTotalLabel = resolveText('summary.total', 'Tổng cộng');
   const viewConfirmationLabel = resolveText('actions.viewConfirmation', 'Xem xác nhận đơn');
-  const retryCheckoutLabel = resolveText('actions.retryCheckout', 'Quay lại thanh toán');
+  const retryCheckoutLabel = resolveText('actions.retryCheckout', 'Thử lại thanh toán');
+  const retryPaymentProcessingLabel = resolveText('actions.retryingPayment', 'Đang tạo liên kết...');
   const manageOrdersLabel = resolveText('actions.manageOrders', 'Quản lý đơn hàng');
   const continueShoppingLabel = resolveText('actions.continueShopping', 'Tiếp tục mua hàng');
   const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
   const [message, setMessage] = useState(loadingMessageLabel);
   const [paymentStatusCode, setPaymentStatusCode] = useState<PaymentDisplayStatus>('VERIFYING');
+  const [retryingPayment, setRetryingPayment] = useState(false);
+  const [canRetryPayment, setCanRetryPayment] = useState(false);
   const orderData = getLatestOrderData();
+  const latestOrderId = orderData?.orderId ?? null;
 
   const progressSteps = [
     {
@@ -221,6 +230,70 @@ export const VNPayReturn: React.FC = () => {
     verifyPayment();
   }, [errorMessageLabel, failedMessageLabel, loadingMessageLabel, successMessageLabel]);
 
+  useEffect(() => {
+    let active = true;
+
+    const syncRetryEligibility = async () => {
+      if (!latestOrderId) {
+        if (active) {
+          setCanRetryPayment(false);
+        }
+        return;
+      }
+
+      try {
+        const detail = await api.get<{
+          status?: string | null;
+          paymentMethod?: string | null;
+          paymentStatus?: string | null;
+        }>(`/api/orders/my/${latestOrderId}`);
+
+        if (!active) {
+          return;
+        }
+
+        setCanRetryPayment(
+          canRetryVnpayPayment({
+            orderStatus: detail.status,
+            paymentMethod: detail.paymentMethod,
+            paymentStatus: detail.paymentStatus,
+          }),
+        );
+      } catch {
+        if (active) {
+          setCanRetryPayment(false);
+        }
+      }
+    };
+
+    void syncRetryEligibility();
+
+    return () => {
+      active = false;
+    };
+  }, [latestOrderId]);
+
+  const handleRetryPayment = async () => {
+    if (!orderData?.orderId || retryingPayment) {
+      return;
+    }
+
+    setRetryingPayment(true);
+    try {
+      await redirectToVnpayPayment(orderData.orderId);
+    } catch (error) {
+      console.error('Retry payment error:', error);
+      setStatus('failed');
+      setMessage(resolveText(
+        'states.retryFailedMessage',
+        'Không thể tạo lại liên kết thanh toán cho đơn hàng này. Vui lòng mở chi tiết đơn để thử lại hoặc liên hệ hỗ trợ.',
+      ));
+      setPaymentStatusCode('FAILED');
+    } finally {
+      setRetryingPayment(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-bg-dark text-white overflow-hidden">
       <Header transparent={false} />
@@ -314,7 +387,9 @@ export const VNPayReturn: React.FC = () => {
                     {status === 'success'
                       ? nextStepSuccessLabel
                       : status === 'failed'
-                        ? nextStepFailedLabel
+                        ? canRetryPayment
+                          ? nextStepFailedLabel
+                          : nextStepRetryUnavailableLabel
                         : nextStepLoadingLabel}
                   </p>
                 </div>
@@ -361,14 +436,15 @@ export const VNPayReturn: React.FC = () => {
                     >
                       {viewConfirmationLabel}
                     </button>
-                  ) : (
+                  ) : canRetryPayment ? (
                     <button
-                      onClick={() => navigate('/checkout')}
-                      className="h-12 w-full cursor-pointer bg-primary px-6 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-red-700"
+                      onClick={handleRetryPayment}
+                      disabled={retryingPayment}
+                      className="h-12 w-full cursor-pointer bg-primary px-6 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-red-700 disabled:cursor-wait disabled:opacity-70"
                     >
-                      {retryCheckoutLabel}
+                      {retryingPayment ? retryPaymentProcessingLabel : retryCheckoutLabel}
                     </button>
-                  )}
+                  ) : null}
                   <button
                     onClick={() => navigate('/my-orders')}
                     className="h-12 w-full cursor-pointer border border-border-dark px-6 text-xs font-bold uppercase tracking-widest text-gray-300 transition-colors hover:border-white hover:text-white"
