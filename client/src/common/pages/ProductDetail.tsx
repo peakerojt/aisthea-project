@@ -15,10 +15,8 @@ import {
 } from '@/common/services/product.service';
 import { getCloudinaryProductCard } from '@/common/utils/cloudinary';
 import { useProductsAPI } from '@/common/hooks/useProducts';
-import { useAuth } from '@/common/contexts/AuthContext';
 import { Header } from '@/store/components/Header';
 import { getReviewsByProduct } from "@/common/services/review.service";
-import { getGuestCart, saveGuestCart } from '@/common/services/cart.service';
 import { useToast } from '@/common/contexts/ToastContext';
 import { useCart } from '@/common/contexts/CartContext';
 import { ProductVariantSelector } from '@/common/components/ProductVariantSelector';
@@ -148,8 +146,7 @@ export const ProductDetail: React.FC = () => {
       }));
   }, [rawAPIProducts]);
 
-  const { user } = useAuth();
-  const { showToast, showCartToast } = useToast();
+  const { showToast } = useToast();
   const { addItem } = useCart();
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
 
@@ -378,67 +375,22 @@ export const ProductDetail: React.FC = () => {
 
   // â”€â”€ Add to cart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleAddToCart = useCallback(async (variant: ProductVariant, qty: number) => {
-    if (!variant?.variantId) return;
-
-    if (!user) {
-      const guestItems = getGuestCart();
-      const existing = guestItems.find(i => i.variantId === variant.variantId);
-      if (existing) {
-        existing.quantity += qty;
-      } else {
-        const sizeValue = getVariantAttributeValue(variant, SIZE_ATTRIBUTE_NAMES) ?? 'N/A';
-        const colorValue = getVariantAttributeValue(variant, COLOR_ATTRIBUTE_NAMES) ?? 'N/A';
-
-        guestItems.push({
-          variantId: variant.variantId,
-          quantity: qty,
-          productName: productDetails?.name || basicInfo.name,
-          price: Number(variant.price || productDetails?.basePrice || basicInfo.price),
-          imageUrl: basicInfo.image || productDetails?.images?.[0]?.imageUrl || '',
-          stockQuantity: variant.stockQuantity ?? 99999,
-          size: sizeValue,
-          color: colorValue,
-        });
-      }
-      saveGuestCart(guestItems);
-      window.dispatchEvent(new Event('storage'));
-      showCartToast(
-        productDetails?.name || basicInfo.name,
-        t('pdp.guestCartSubtitle')
-      );
+    if (!variant?.variantId || qty <= 0) {
       return;
     }
 
-    try {
-      await addItem(variant.variantId, qty, {
-        productName: productDetails?.name || basicInfo.name,
-        price: Number(variant.price || productDetails?.basePrice || basicInfo.price),
-        imageUrl: basicInfo.image || productDetails?.images?.[0]?.imageUrl || '',
-        stockQuantity: variant.stockQuantity,
-      });
-    } catch (err: unknown) {
-      const error = err as {
-        response?: { data?: { code?: string; available?: number } };
-      };
-      const code = error.response?.data?.code;
-      if (code === 'INSUFFICIENT_STOCK') {
-        const available = error.response?.data?.available ?? 0;
-        showToast({
-          type: 'error',
-          title: t('pdp.insufficientStock'),
-          subtitle: t('pdp.insufficientStockSub', { count: available }),
-          duration: 3500,
-        });
-      } else {
-        showToast({
-          type: 'error',
-          title: t('pdp.addFailed'),
-          subtitle: t('pdp.addFailedSub'),
-          duration: 3000,
-        });
-      }
-    }
-  }, [user, productDetails, basicInfo, addItem, showToast, showCartToast, t]);
+    const sizeValue = getVariantAttributeValue(variant, SIZE_ATTRIBUTE_NAMES) ?? 'N/A';
+    const colorValue = getVariantAttributeValue(variant, COLOR_ATTRIBUTE_NAMES) ?? 'N/A';
+
+    await addItem(variant.variantId, qty, {
+      productName: productDetails?.name || basicInfo.name,
+      price: Number(variant.price || productDetails?.basePrice || basicInfo.price),
+      imageUrl: basicInfo.image || productDetails?.images?.[0]?.imageUrl || '',
+      stockQuantity: variant.stockQuantity,
+      size: sizeValue,
+      color: colorValue,
+    });
+  }, [productDetails, basicInfo, addItem]);
 
   // â”€â”€ Variant change â†’ sync gallery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleVariantChange = useCallback((variant: ProductVariant | null) => {

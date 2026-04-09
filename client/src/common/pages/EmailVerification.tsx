@@ -12,6 +12,8 @@ import {
 } from '@/common/components/auth';
 import { authService } from '@/common/services/auth.service';
 import { useAuth } from '@/common/contexts/AuthContext';
+import { useCart } from '@/common/contexts/CartContext';
+import { getGuestCart } from '@/common/services/cart.service';
 import Mail from 'lucide-react/dist/esm/icons/mail';
 import CheckCircle from 'lucide-react/dist/esm/icons/check-circle';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
@@ -28,6 +30,7 @@ type StatusTone = 'info' | 'success' | 'error';
 export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) => {
   const { t } = useTranslation('pages', { keyPrefix: 'emailVerification' });
   const { refreshSession } = useAuth();
+  const { syncWithMerge } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
   const [status, setStatus] = useState<'pending' | 'verifying' | 'success' | 'error'>('pending');
@@ -113,6 +116,12 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) =
       setMessage((response as { message?: string }).message || t('messages.verifySuccess'));
       sessionStorage.removeItem('pendingVerificationEmail');
       await refreshSession();
+      const localItems = getGuestCart();
+      try {
+        await syncWithMerge(localItems);
+      } catch {
+        // Keep verification flow resilient even if cart merge fails.
+      }
       setTimeout(() => navigate('/'), 1500);
     } catch (error: unknown) {
       setStatus('error');

@@ -61,7 +61,7 @@ export const ShoppingBag: React.FC<ShoppingBagProps> = ({ cart: propCart, update
     const updateQuantity = propUpdateQuantity ?? ((id: string, delta: number) => {
         const target = cart.find(i => i.id === id);
         if (!target) return;
-        const newQty = Math.max(1, target.quantity + delta);
+        const newQty = target.quantity + delta;
         const targetId = target.cartItemId ?? target.variantId ?? Number(id);
         updateItem(targetId, newQty);
     });
