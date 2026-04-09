@@ -577,6 +577,7 @@ export async function cancelOrderForUser(
         quantity: item.quantity,
       })),
       tx,
+      { restoreType: 'cancel' },
     );
 
     return updatedOrder;
@@ -673,6 +674,9 @@ export async function updateOrderStatusAdmin(
           quantity: item.quantity,
         })),
         tx,
+        {
+          restoreType: transitionSource === 'tracking_ops' ? 'return' : 'cancel',
+        },
       );
     }
 

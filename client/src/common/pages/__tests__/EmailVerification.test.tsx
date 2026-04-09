@@ -7,6 +7,8 @@ const navigateMock = vi.fn();
 const verifyEmailMock = vi.fn();
 const resendVerificationMock = vi.fn();
 const refreshSessionMock = vi.fn();
+const syncWithMergeMock = vi.fn();
+const getGuestCartMock = vi.fn();
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => navigateMock,
@@ -23,11 +25,21 @@ vi.mock('@/common/contexts/AuthContext', () => ({
   }),
 }));
 
+vi.mock('@/common/contexts/CartContext', () => ({
+  useCart: () => ({
+    syncWithMerge: (...args: unknown[]) => syncWithMergeMock(...args),
+  }),
+}));
+
 vi.mock('@/common/services/auth.service', () => ({
   authService: {
     verifyEmail: (...args: unknown[]) => verifyEmailMock(...args),
     resendVerification: (...args: unknown[]) => resendVerificationMock(...args),
   },
+}));
+
+vi.mock('@/common/services/cart.service', () => ({
+  getGuestCart: () => getGuestCartMock(),
 }));
 
 import { EmailVerification } from '@/common/pages/EmailVerification';
@@ -36,6 +48,8 @@ describe('EmailVerification', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     refreshSessionMock.mockResolvedValue(undefined);
+    syncWithMergeMock.mockResolvedValue(undefined);
+    getGuestCartMock.mockReturnValue([{ variantId: 101, quantity: 2 }]);
   });
 
   afterEach(() => {
@@ -62,5 +76,6 @@ describe('EmailVerification', () => {
     expect(await screen.findByText('states.successTitle')).toBeInTheDocument();
     expect(screen.getByText('messages.verifySuccess')).toBeInTheDocument();
     expect(refreshSessionMock).toHaveBeenCalled();
+    expect(syncWithMergeMock).toHaveBeenCalledWith([{ variantId: 101, quantity: 2 }]);
   });
 });

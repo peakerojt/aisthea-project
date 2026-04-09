@@ -226,6 +226,7 @@ describe('order.service integration guards', () => {
       7,
       [{ variantId: 42, quantity: 1 }],
       tx,
+      { restoreType: 'cancel' },
     );
     expect(tx.orderStatusHistory.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -706,6 +707,69 @@ describe('order.service integration guards', () => {
     });
     expect(result.id).toBe('321');
     expect(result.paymentStatus).toBe('PENDING_VNPAY');
+  });
+
+  it('fails checkout without post-transaction side effects when stock runs out during order creation', async () => {
+    const tx = {
+      order: { create: jest.fn().mockResolvedValue({ orderId: 323 }) },
+      orderItem: { createMany: jest.fn().mockResolvedValue(undefined) },
+      payment: { create: jest.fn() },
+      orderStatusHistory: { create: jest.fn().mockResolvedValue(undefined) },
+      coupon: { update: jest.fn().mockResolvedValue(undefined) },
+    };
+
+    prismaMock.$transaction.mockImplementation(async (fn: any) => fn(tx));
+    quoteOrderPricingMock.mockResolvedValue({
+      itemsSubtotal: 450000,
+      shippingFee: 15000,
+      discountAmount: 0,
+      totalAmount: 465000,
+      shippingMethod: 'STANDARD',
+      shippingCityCode: '48',
+      appliedCouponCode: null,
+      coupon: null,
+      enrichedItems: [
+        {
+          variantId: 11,
+          quantity: 1,
+          unitPrice: 450000,
+          sku: 'SKU-11',
+          productName: 'Silk Dress',
+          variantName: 'Black / M',
+        },
+      ],
+    });
+
+    inventoryMock.atomicCheckoutDeduction.mockRejectedValue({
+      code: 'INSUFFICIENT_STOCK',
+      status: 409,
+    });
+
+    await expect(
+      createOrder(
+        { userId: 7, roles: ['Customer'] },
+        {
+          items: [{ variantId: 11, quantity: 1 }],
+          paymentMethod: 'COD',
+          customerName: 'Khach Hang',
+          customerEmail: 'khach@example.com',
+          customerPhone: '0900000000',
+          shippingCity: 'Da Nang',
+          shippingDistrict: 'Hai Chau',
+          shippingWard: null,
+          shippingAddressDetail: '123 Test',
+          shippingCityCode: '48',
+          shippingMethod: 'STANDARD',
+        },
+      ),
+    ).rejects.toMatchObject({
+      code: 'INSUFFICIENT_STOCK',
+      status: 409,
+    });
+
+    expect(repositoryMock.findOrderByIdWithRelations).not.toHaveBeenCalled();
+    expect(enqueueOrderPlacedEmailMock).not.toHaveBeenCalled();
+    expect(tx.payment.create).not.toHaveBeenCalled();
   });
 
   it('persists order-time item economics for later refund calculations', async () => {
@@ -1387,6 +1451,7 @@ describe('order.service integration guards', () => {
       99,
       [{ variantId: 43, quantity: 2 }],
       expect.any(Object),
+      { restoreType: 'return' },
     );
     expect(result).toEqual({
       orderId: 9,

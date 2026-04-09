@@ -170,6 +170,7 @@ describe('vnpay.service', () => {
         status: 'PENDING',
         transactionCode: null,
         note: 'Awaiting VNPay reconciliation',
+        paymentDate: expect.any(Date),
       },
     });
     expect(result.status).toBe(200);
@@ -228,6 +229,7 @@ describe('vnpay.service', () => {
     prismaMock.order.findUnique.mockResolvedValueOnce({
       orderId: 27,
       userId: 5,
+      status: 'Pending',
       paymentMethod: 'COD',
       totalAmount: 500000,
       payments: [],
@@ -241,6 +243,27 @@ describe('vnpay.service', () => {
     expect(result).toEqual({
       status: 400,
       body: { errorCode: 'ORDER_NOT_VNPAY' },
+    });
+  });
+
+  it('rejects payment-url retries once the order is no longer pending payment', async () => {
+    prismaMock.order.findUnique.mockResolvedValueOnce({
+      orderId: 27,
+      userId: 5,
+      status: 'Cancelled',
+      paymentMethod: 'VNPAY',
+      totalAmount: 500000,
+      payments: [],
+    });
+
+    const result = await createVnpayPaymentUrl({
+      userId: 5,
+      orderId: 27,
+    });
+
+    expect(result).toEqual({
+      status: 409,
+      body: { errorCode: 'ORDER_NOT_PENDING_PAYMENT' },
     });
   });
 

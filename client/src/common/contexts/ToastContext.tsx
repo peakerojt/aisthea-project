@@ -68,6 +68,7 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
     onDismiss,
 }) => {
     const cfg = TOAST_CONFIG[toast.type];
+    const hasSubtitle = Boolean(toast.subtitle?.trim());
     const [visible, setVisible] = React.useState(false);
 
     React.useEffect(() => {
@@ -86,6 +87,7 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
         <div
             role="alert"
             aria-live="polite"
+            data-has-subtitle={hasSubtitle ? 'true' : 'false'}
             style={{
                 transform: visible ? 'translate3d(0, 0, 0) scale(1)' : 'translate3d(100%, 0, 0) scale(0.95)',
                 opacity: visible ? 1 : 0,
@@ -93,10 +95,11 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
                 contain: 'layout paint',
             }}
             className={`
-                relative flex min-h-[64px] items-start gap-3 w-80
+                relative flex gap-3 w-80
+                ${hasSubtitle ? 'min-h-[64px] items-start px-4 py-3' : 'min-h-[52px] items-center px-4 py-2.5'}
                 ${cfg.bg} backdrop-blur-2xl
                 border ${cfg.border}
-                rounded-sm px-4 py-3
+                rounded-sm
                 ${cfg.glow}
                 overflow-hidden
                 cursor-default
@@ -109,7 +112,7 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
                 }`} />
 
             {/* Icon */}
-            <div className={`flex-shrink-0 mt-0.5 ${cfg.accent}`}>
+            <div className={`flex-shrink-0 ${hasSubtitle ? 'mt-0.5' : ''} ${cfg.accent}`}>
                 {cfg.icon}
             </div>
 
@@ -118,7 +121,7 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
                 <p className="text-white font-bold text-sm leading-snug tracking-wide">
                     {toast.title}
                 </p>
-                {toast.subtitle ? (
+                {hasSubtitle ? (
                     <p className="mt-0.5 text-gray-400 text-xs leading-relaxed truncate">
                         {toast.subtitle}
                     </p>
@@ -131,7 +134,7 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
                     setVisible(false);
                     setTimeout(() => onDismiss(toast.id), 350);
                 }}
-                className="flex-shrink-0 text-gray-600 hover:text-white transition-colors mt-0.5 cursor-pointer"
+                className={`flex-shrink-0 text-gray-600 hover:text-white transition-colors cursor-pointer ${hasSubtitle ? 'mt-0.5' : ''}`}
                 aria-label="Đóng thông báo"
             >
                 <X size={14} />

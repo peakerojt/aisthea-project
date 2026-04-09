@@ -1,4 +1,8 @@
-﻿import { createPurchaseOrder, receivePurchaseOrder } from '../purchase-order.controller';
+import {
+  cancelPurchaseOrder,
+  createPurchaseOrder,
+  receivePurchaseOrder,
+} from '../purchase-order.controller';
 import { prisma } from '../../../lib/prisma';
 
 jest.mock('../../../lib/prisma', () => ({
@@ -98,7 +102,7 @@ describe('purchase-order.controller', () => {
                   productId: 12,
                   sku: 'SKU-1',
                   stockQuantity: 10,
-                  product: { productId: 12, name: 'Áo' },
+                  product: { productId: 12, name: 'Ao' },
                 },
               },
             ],
@@ -156,12 +160,13 @@ describe('purchase-order.controller', () => {
                 variantId: 9,
                 orderedQty: 5,
                 receivedQty: 4,
+                unitCost: 1000,
                 variant: {
                   variantId: 9,
                   productId: 1,
                   sku: 'SKU-9',
                   stockQuantity: 20,
-                  product: { productId: 1, name: 'Áo khoác' },
+                  product: { productId: 1, name: 'Ao khoac' },
                 },
               },
             ],
@@ -183,6 +188,9 @@ describe('purchase-order.controller', () => {
         goodsReceipt: {
           create: jest.fn().mockResolvedValue({ goodsReceiptId: 1 }),
         },
+        goodsReceiptItem: {
+          create: jest.fn(),
+        },
       };
       return callback(tx);
     });
@@ -200,6 +208,79 @@ describe('purchase-order.controller', () => {
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ errorCode: 'RECEIPT_EXCEEDS_ORDERED_QTY', success: false }),
+    );
+  });
+
+  it('cancels pending purchase order and returns updated detail', async () => {
+    const findUniqueMock = prisma.purchaseOrder.findUnique as unknown as jest.Mock;
+    const updateMock = prisma.purchaseOrder.update as unknown as jest.Mock;
+
+    findUniqueMock
+      .mockResolvedValueOnce({
+        purchaseOrderId: 12,
+        status: 'PENDING',
+      })
+      .mockResolvedValueOnce({
+        purchaseOrderId: 12,
+        purchaseOrderNumber: 'PO-TEST-0012',
+        supplier: 'NCC B',
+        expectedReceivedAt: null,
+        invoiceNumber: null,
+        supplierContactName: null,
+        supplierPhone: null,
+        supplierEmail: null,
+        status: 'CANCELLED',
+        notes: 'Tam dung nhap hang',
+        orderedAt: new Date('2026-03-13T00:00:00.000Z'),
+        receivedAt: null,
+        updatedAt: new Date('2026-03-13T00:05:00.000Z'),
+        createdBy: 77,
+        items: [
+          {
+            purchaseOrderItemId: 3,
+            variantId: 9,
+            orderedQty: 4,
+            receivedQty: 0,
+            unitCost: 250000,
+            variant: {
+              variantId: 9,
+              productId: 21,
+              sku: 'SKU-9',
+              stockQuantity: 10,
+              product: { productId: 21, name: 'Ao so mi' },
+            },
+          },
+        ],
+      });
+    updateMock.mockResolvedValue({ purchaseOrderId: 12 });
+
+    const req: Req = {
+      params: { id: '12' },
+      body: { notes: 'Tam dung nhap hang' },
+    };
+    const res = mockRes();
+
+    await cancelPurchaseOrder(req as any, res as any);
+
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { purchaseOrderId: 12 },
+        data: expect.objectContaining({
+          status: 'CANCELLED',
+          notes: 'Tam dung nhap hang',
+        }),
+      }),
+    );
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        code: 'PURCHASE_ORDER_CANCELLED',
+        data: expect.objectContaining({
+          purchaseOrderId: 12,
+          status: 'CANCELLED',
+          notes: 'Tam dung nhap hang',
+        }),
+      }),
     );
   });
 });

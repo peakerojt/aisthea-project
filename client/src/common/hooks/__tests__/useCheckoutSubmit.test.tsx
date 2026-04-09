@@ -103,6 +103,7 @@ describe('useCheckoutSubmit', () => {
     const validateForm = vi.fn().mockReturnValue(makeFormData());
     const fetchQuote = vi.fn().mockResolvedValue(makeQuote());
     const fetchCart = vi.fn().mockResolvedValue(undefined);
+    const reconcileCheckoutStock = vi.fn().mockResolvedValue({ adjustedCount: 0, removedCount: 0 });
 
     const params: Parameters<UseCheckoutSubmit>[0] = {
       apiFieldToFormField: (field?: string) => {
@@ -127,6 +128,7 @@ describe('useCheckoutSubmit', () => {
       fetchQuote,
       formData: makeFormData(),
       pricingQuote: makeQuote(),
+      reconcileCheckoutStock,
       selectedCityCode: '01',
       selectedShippingMethod: 'STANDARD',
       setError,
@@ -143,6 +145,7 @@ describe('useCheckoutSubmit', () => {
       fetchCart,
       fetchQuote,
       params,
+      reconcileCheckoutStock: params.reconcileCheckoutStock,
       setError,
       setFieldValidationErrors,
       validateForm,
@@ -280,6 +283,25 @@ describe('useCheckoutSubmit', () => {
       });
     });
     expect(setError).toHaveBeenLastCalledWith('Đơn hàng không hợp lệ');
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+  });
+
+  it('reconciles the cart and shows an actionable message when checkout fails due to stock changes', async () => {
+    createOrderMock.mockRejectedValue({
+      code: 'INSUFFICIENT_STOCK',
+      message: 'errors.placeOrderFailed',
+    });
+
+    const { result, reconcileCheckoutStock, setError } = renderUseCheckoutSubmit({
+      reconcileCheckoutStock: vi.fn().mockResolvedValue({ adjustedCount: 1, removedCount: 1 }),
+    });
+
+    await act(async () => {
+      await result.current.handlePlaceOrder({ preventDefault: vi.fn() } as never);
+    });
+
+    expect(reconcileCheckoutStock).toHaveBeenCalledTimes(1);
+    expect(setError).toHaveBeenLastCalledWith('errors.stockAdjustedAndRemoved');
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
   });
 });

@@ -6,6 +6,7 @@ import { logger } from './lib/logger';
 import { initSocket } from './socket';
 import { initI18n } from './i18n';
 import { startEmailJobWorker } from './modules/notifications/email-worker';
+import { startExpiredVnpayOrderWorker } from './modules/order/vnpay-expiration.worker';
 
 const PORT = Number(process.env.PORT) || 5000;
 
@@ -28,6 +29,7 @@ async function bootstrap() {
   const server = http.createServer(app);
   initSocket(server);
   const stopEmailWorker = startEmailJobWorker();
+  const stopVnpayExpirationWorker = startExpiredVnpayOrderWorker();
   let shuttingDown = false;
 
   const shutdown = (signal: string) => {
@@ -54,6 +56,12 @@ async function bootstrap() {
         await stopEmailWorker();
       } catch (workerError) {
         logger.error('Email worker shutdown failed', { error: workerError });
+      }
+
+      try {
+        await stopVnpayExpirationWorker();
+      } catch (workerError) {
+        logger.error('VNPay expiration worker shutdown failed', { error: workerError });
       } finally {
         clearTimeout(forceExitTimer);
         process.exit(closeError ? 1 : 0);

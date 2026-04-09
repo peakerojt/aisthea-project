@@ -58,7 +58,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
     const selectClassName = 'w-full appearance-none rounded-sm border border-border-dark bg-surface-dark px-4 py-3 pr-9 text-sm transition-colors focus:border-white focus:outline-none';
     const fieldLabelClassName = 'mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-gray-300';
     const { user } = useAuth();
-    const { items, fetchCart } = useCart();
+    const { items, fetchCart, reconcileCheckoutStock } = useCart();
 
     const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
     const selectedShippingMethod: 'STANDARD' = 'STANDARD';
@@ -123,6 +123,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cart: propCart }) => {
         fetchQuote,
         formData,
         pricingQuote,
+        reconcileCheckoutStock,
         selectedCityCode,
         selectedShippingMethod,
         setError,
