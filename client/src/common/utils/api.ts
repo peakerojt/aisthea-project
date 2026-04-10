@@ -26,6 +26,7 @@ type ApiErrorPayload = {
         type?: 'VALIDATION' | 'BUSINESS' | 'AUTH' | 'PERMISSION' | 'SYSTEM' | string;
         field?: string;
         details?: Array<{ field?: string; code?: string; message?: string }> | Record<string, unknown>;
+        data?: Record<string, unknown>;
         traceId?: string;
     };
     message?: string;
@@ -33,6 +34,7 @@ type ApiErrorPayload = {
     type?: 'VALIDATION' | 'BUSINESS' | 'AUTH' | 'PERMISSION' | 'SYSTEM' | string;
     field?: string;
     details?: Array<{ field?: string; code?: string; message?: string }> | Record<string, unknown>;
+    data?: Record<string, unknown>;
     traceId?: string;
 };
 
@@ -302,6 +304,7 @@ class ApiClient {
                     type?: string;
                     field?: string;
                     details?: Array<{ field?: string; code?: string; message?: string }>;
+                    data?: Record<string, unknown>;
                     traceId?: string;
                     skipAuthRedirect?: boolean;
                 };
@@ -320,6 +323,12 @@ class ApiClient {
                     : Array.isArray(nestedError?.details)
                         ? nestedError.details
                         : undefined;
+                err.data =
+                    errorData.data && typeof errorData.data === 'object'
+                        ? errorData.data
+                        : nestedError?.data && typeof nestedError.data === 'object'
+                            ? nestedError.data
+                            : undefined;
                 err.traceId =
                     typeof errorData.traceId === 'string'
                         ? errorData.traceId

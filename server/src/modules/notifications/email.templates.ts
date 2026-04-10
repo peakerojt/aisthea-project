@@ -80,6 +80,9 @@ const renderOrderStatusLabel = (status: string, locale: AppLocale) => {
   return translated === `statusLabel.${normalized}` ? status : translated;
 };
 
+const isVnpayOrder = (paymentMethod?: string | null) =>
+  (paymentMethod ?? '').trim().toUpperCase() === 'VNPAY';
+
 export const renderVerificationEmail = (payload: VerificationEmailPayload): RenderedEmail => {
   const locale = resolveLocale(payload.locale);
 
@@ -192,23 +195,52 @@ export const renderPasswordResetEmail = (payload: PasswordResetEmailPayload): Re
 export const renderOrderPlacedEmail = (payload: OrderPlacedEmailPayload): RenderedEmail => {
   const locale = resolveLocale(payload.locale);
   const paymentMethod = payload.paymentMethod ?? emailT(locale, 'common.na');
+  const vnpayPending = isVnpayOrder(payload.paymentMethod);
+  const subject = emailT(
+    locale,
+    vnpayPending ? 'orderPlaced.vnpayPaid.subject' : 'orderPlaced.subject',
+    { orderNumber: payload.orderNumber },
+  );
+  const intro = emailT(
+    locale,
+    vnpayPending ? 'orderPlaced.vnpayPaid.intro' : 'orderPlaced.intro',
+    { orderNumber: payload.orderNumber },
+  );
+  const trackLinkLabel = emailT(
+    locale,
+    vnpayPending ? 'orderPlaced.vnpayPaid.trackLinkLabel' : 'orderPlaced.trackLinkLabel',
+  );
+  const footer = emailT(
+    locale,
+    vnpayPending ? 'orderPlaced.vnpayPaid.footer' : 'orderPlaced.footer',
+  );
+  const paymentNotice = vnpayPending
+    ? `
+        <div style="background-color: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.35); border-radius: 8px; padding: 16px; margin: 0 0 20px;">
+          <p style="margin: 0; font-size: 13px; color: #f5f5f5; line-height: 1.6;">
+            ${emailT(locale, 'orderPlaced.vnpayPaid.notice')}
+          </p>
+        </div>
+      `
+    : '';
 
   return {
-    subject: emailT(locale, 'orderPlaced.subject', { orderNumber: payload.orderNumber }),
+    subject,
     html: renderShell(`
     <tr>
       <td style="padding: 20px 40px;">
         <p style="margin: 0 0 20px; font-size: 16px; color: #ffffff;">${emailT(locale, 'orderPlaced.greeting', { customerName: payload.customerName })}</p>
         <p style="margin: 0 0 20px; font-size: 14px; color: #888888; line-height: 1.6;">
-          ${emailT(locale, 'orderPlaced.intro', { orderNumber: payload.orderNumber })}
+          ${intro}
         </p>
+        ${paymentNotice}
         <div style="background-color: #1a1a1a; border: 1px solid #222; border-radius: 8px; padding: 20px; margin: 0 0 24px;">
           <p style="margin: 0 0 8px; font-size: 12px; color: #666666; text-transform: uppercase; letter-spacing: 1px;">${emailT(locale, 'orderPlaced.orderTotalLabel')}</p>
           <p style="margin: 0 0 12px; font-size: 24px; font-weight: 800; color: #ffffff;">${formatCurrency(payload.totalAmount)}</p>
           <p style="margin: 0; font-size: 13px; color: #888888;">${emailT(locale, 'orderPlaced.paymentMethodLabel', { paymentMethod })}</p>
         </div>
         <p style="margin: 0 0 10px; font-size: 12px; color: #666666; text-align: center;">
-          ${emailT(locale, 'orderPlaced.trackLinkLabel')}
+          ${trackLinkLabel}
         </p>
         <p style="margin: 0; font-size: 11px; color: #444444; text-align: center; word-break: break-all;">
           ${payload.orderUrl}
@@ -218,7 +250,7 @@ export const renderOrderPlacedEmail = (payload: OrderPlacedEmailPayload): Render
     <tr>
       <td style="padding: 30px 40px; border-top: 1px solid #222;">
         <p style="margin: 0; font-size: 11px; color: #444444; text-align: center;">
-          ${emailT(locale, 'orderPlaced.footer')}
+          ${footer}
         </p>
       </td>
     </tr>
@@ -226,13 +258,17 @@ export const renderOrderPlacedEmail = (payload: OrderPlacedEmailPayload): Render
     text: `
     ${emailT(locale, 'orderPlaced.greeting', { customerName: payload.customerName }).replace(/<strong>|<\/strong>/g, '')}
 
-    ${emailT(locale, 'orderPlaced.intro', { orderNumber: payload.orderNumber }).replace(/<strong>|<\/strong>/g, '')}
+    ${intro.replace(/<strong>|<\/strong>/g, '')}
+
+    ${vnpayPending ? emailT(locale, 'orderPlaced.vnpayPaid.notice') : ''}
 
     ${emailT(locale, 'orderPlaced.orderTotalLabel')}: ${formatCurrency(payload.totalAmount)}
     ${emailT(locale, 'orderPlaced.paymentMethodLabel', { paymentMethod })}
 
-    ${emailT(locale, 'orderPlaced.trackLinkLabel')}
+    ${trackLinkLabel}
     ${payload.orderUrl}
+
+    ${footer}
     `,
   };
 };

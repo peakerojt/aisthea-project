@@ -695,16 +695,7 @@ describe('order.service integration guards', () => {
         note: 'Awaiting VNPay confirmation',
       },
     });
-    expect(enqueueOrderPlacedEmailMock).toHaveBeenCalledWith({
-      orderId: 321,
-      orderNumber: 'ORD-321',
-      email: 'khach@example.com',
-      customerName: 'Khach Hang',
-      totalAmount: 465000,
-      paymentMethod: 'VNPAY',
-      createdAt: '2026-03-16T00:00:00.000Z',
-      orderUrl: expect.stringContaining('/tracking/321'),
-    });
+    expect(enqueueOrderPlacedEmailMock).not.toHaveBeenCalled();
     expect(result.id).toBe('321');
     expect(result.paymentStatus).toBe('PENDING_VNPAY');
   });
