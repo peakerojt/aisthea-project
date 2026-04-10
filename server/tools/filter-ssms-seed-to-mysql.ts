@@ -29,6 +29,9 @@ const DEDUP_KEY_COLUMNS: Record<string, string[]> = {
 function buildPostImportNormalizationBlock() {
   return [
     "-- Post-import normalization to keep legacy/derived tables aligned after SQL Server -> MySQL conversion.",
+    "SET @OLD_SQL_SAFE_UPDATES = @@SQL_SAFE_UPDATES;",
+    "SET SQL_SAFE_UPDATES = 0;",
+    "",
     "-- Keep legacy ProductVariants.StockQuantity aligned with the Inventory snapshot.",
     "UPDATE `ProductVariants` pv",
     "INNER JOIN `Inventory` i ON i.`VariantId` = pv.`VariantId`",
@@ -40,6 +43,19 @@ function buildPostImportNormalizationBlock() {
     "INNER JOIN `ProductVariants` pv ON pv.`SKU` = oi.`SKU`",
     "SET oi.`VariantId` = pv.`VariantId`",
     "WHERE oi.`VariantId` IS NULL;",
+    "",
+    "-- Remove orphan cart items when Cart rows were skipped by INSERT IGNORE during import.",
+    "DELETE FROM `CartItems`",
+    "WHERE `CartItemId` IN (",
+    "  SELECT orphan.`CartItemId`",
+    "  FROM (",
+    "    SELECT ci.`CartItemId`",
+    "    FROM `CartItems` ci",
+    "    LEFT JOIN `Carts` c ON c.`CartId` = ci.`CartId`",
+    "    LEFT JOIN `ProductVariants` pv ON pv.`VariantId` = ci.`VariantId`",
+    "    WHERE c.`CartId` IS NULL OR pv.`VariantId` IS NULL",
+    "  ) orphan",
+    ");",
     "",
     "-- Align payment rows with completed refund outcomes imported from return/refund tables.",
     "UPDATE `Payments` p",
@@ -109,6 +125,8 @@ function buildPostImportNormalizationBlock() {
     ") poagg ON poagg.`VariantId` = i.`VariantId`",
     "SET i.`IncomingQuantity` = COALESCE(poagg.`ExpectedIncoming`, 0)",
     "WHERE COALESCE(i.`IncomingQuantity`, 0) <> COALESCE(poagg.`ExpectedIncoming`, 0);",
+    "",
+    "SET SQL_SAFE_UPDATES = @OLD_SQL_SAFE_UPDATES;",
   ];
 }
 

@@ -68,7 +68,10 @@ export const Home: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleCollectionNavigate = (category: 'Men' | 'Women', collection: 'Outerwear' | 'Tops' | 'Bottoms' | 'Accessories') => {
+  const handleCollectionNavigate = (
+    category: 'Men' | 'Women',
+    collection: 'Outerwear' | 'Tops' | 'Bottoms' | 'Dresses' | 'Accessories'
+  ) => {
     navigate(`/collection/${category.toLowerCase()}/${collection.toLowerCase()}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -214,8 +217,8 @@ export const Home: React.FC = () => {
         description: t('category.cards.women.description'),
         image: '/images/home/category-women-960.webp',
         links: [
-          { label: t('category.cards.women.links.outerwear'), collection: 'Outerwear' as const },
-          { label: t('category.cards.women.links.knitwear'), collection: 'Tops' as const },
+          { label: t('category.cards.women.links.outerwear'), collection: 'Tops' as const },
+          { label: t('category.cards.women.links.knitwear'), collection: 'Dresses' as const },
           { label: t('category.cards.women.links.essentials'), collection: 'Accessories' as const },
         ],
       },

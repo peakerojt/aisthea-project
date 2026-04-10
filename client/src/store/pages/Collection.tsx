@@ -55,7 +55,8 @@ const COLLECTION_LABELS: Record<string, string> = {
   Outerwear: 'Áo khoác',
   Tops: 'Áo',
   Bottoms: 'Quần',
-  Shoes: 'Giày',
+  Dresses: 'Váy & Đầm',
+  Shoes: 'Giày dép',
   Accessories: 'Phụ kiện',
   Bags: 'Túi xách',
   Jewelry: 'Trang sức',
@@ -80,9 +81,9 @@ const CATEGORY_MAPPING: Record<string, Record<string, string[]>> = {
     Accessories: ['Phụ kiện']
   },
   Women: {
-    Outerwear: ['Nữ - Áo khoác'], // Placeholder, might be empty in seed
     Tops: ['Nữ - Áo'],
-    Bottoms: ['Nữ - Quần', 'Váy & Đầm'],
+    Dresses: ['Váy & Đầm'],
+    Bottoms: ['Nữ - Quần'],
     Shoes: ['Giày dép'],
     Accessories: ['Phụ kiện']
   },

@@ -84,8 +84,8 @@
           "description": "Tailoring gọn gàng và essential sắc nét cho nhịp mặc hằng ngày.",
           "links": {
             "tailoring": "Áo khoác",
-            "shirts": "Sơ mi",
-            "essentials": "Essentials"
+            "shirts": "Áo",
+            "essentials": "Phụ kiện"
           }
         },
         "women": {
@@ -93,9 +93,9 @@
           "title": "Nữ",
           "description": "Độ mềm hiện đại đi cùng tinh thần tối giản và tự tin.",
           "links": {
-            "outerwear": "Outerwear",
-            "knitwear": "Knitwear",
-            "essentials": "Essentials"
+            "outerwear": "Áo",
+            "knitwear": "Váy & Đầm",
+            "essentials": "Phụ kiện"
           }
         }
       }
