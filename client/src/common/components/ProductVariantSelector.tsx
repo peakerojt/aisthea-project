@@ -824,6 +824,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
     // ── Cart button state ─────────────────────────────────────────────────────
     const cartBtnState: 'unselected' | 'oos' | 'active' =
         !isFullySelected ? 'unselected' : isOutOfStock ? 'oos' : 'active';
+    const hasSizeAxis = axes.some(ax => isSizeAttr(ax.name));
 
     // ─── Render ───────────────────────────────────────────────────────────────
     if (variants.length === 0) return null;
@@ -889,7 +890,7 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
 
 
             {/* ── Attribute axes ─────────────────────────────────────────── */}
-            <div className="flex flex-col gap-8 w-full mb-8 bg-surface-dark/40 border border-white/5 rounded-lg p-6 lg:p-8">
+            <div className={`relative flex flex-col gap-8 w-full mb-8 bg-surface-dark/40 border border-white/5 rounded-lg p-6 lg:p-8 ${hasSizeAxis ? 'md:pb-20' : ''}`}>
                 {axes.map(ax => {
                     const isMissing = !selected[ax.name] && shakeAttr === ax.name;
                     const isSizeAxis = isSizeAttr(ax.name);
@@ -922,18 +923,6 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                                         </motion.span>
                                     )}
                                 </div>
-                                {isSizeAxis && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setActiveSizeGuideTab('table');
-                                            setShowSizeGuide(true);
-                                        }}
-                                        className="hidden items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-primary/70 transition-colors hover:text-primary md:inline-flex"
-                                    >
-                                        <Ruler size={10} /> {t('variantSelector.viewSizeGuide')}
-                                    </button>
-                                )}
                             </div>
 
                             {/* Highlight ring on missing unselected attr */}
@@ -990,6 +979,21 @@ export const ProductVariantSelector: React.FC<ProductVariantSelectorProps> = ({
                         </motion.div>
                     );
                 })}
+
+                {hasSizeAxis && (
+                    <div className="pointer-events-none absolute bottom-6 right-6 hidden md:flex lg:bottom-8 lg:right-8">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setActiveSizeGuideTab('table');
+                                setShowSizeGuide(true);
+                            }}
+                            className="pointer-events-auto inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-primary/80 transition-colors hover:text-primary"
+                        >
+                            <Ruler size={10} /> {t('variantSelector.viewSizeGuide')}
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* ── Quantity + Add to Cart ──────────────────────────────────── */}

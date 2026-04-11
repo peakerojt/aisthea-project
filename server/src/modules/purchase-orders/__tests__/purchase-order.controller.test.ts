@@ -1,33 +1,37 @@
+const createPurchaseOrderRecordMock = jest.fn();
+const receivePurchaseOrderRecordMock = jest.fn();
+const cancelPurchaseOrderRecordMock = jest.fn();
+const listPurchaseOrdersDataMock = jest.fn();
+const getPurchaseOrderDetailDataMock = jest.fn();
+
+class MockPurchaseOrderServiceError extends Error {
+  status: number;
+  code: string;
+
+  constructor(status: number, code: string) {
+    super(code);
+    this.name = 'PurchaseOrderServiceError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+jest.mock('../purchase-order.service', () => ({
+  PurchaseOrderServiceError: MockPurchaseOrderServiceError,
+  createPurchaseOrderRecord: (...args: unknown[]) => createPurchaseOrderRecordMock(...args),
+  receivePurchaseOrderRecord: (...args: unknown[]) => receivePurchaseOrderRecordMock(...args),
+  cancelPurchaseOrderRecord: (...args: unknown[]) => cancelPurchaseOrderRecordMock(...args),
+  listPurchaseOrdersData: (...args: unknown[]) => listPurchaseOrdersDataMock(...args),
+  getPurchaseOrderDetailData: (...args: unknown[]) => getPurchaseOrderDetailDataMock(...args),
+  normalizePurchaseOrderStatus: jest.fn((value: unknown) =>
+    typeof value === 'string' ? value.toUpperCase() : null),
+}));
+
 import {
   cancelPurchaseOrder,
   createPurchaseOrder,
   receivePurchaseOrder,
 } from '../purchase-order.controller';
-import { prisma } from '../../../lib/prisma';
-
-jest.mock('../../../lib/prisma', () => ({
-  prisma: {
-    productVariant: {
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      update: jest.fn(),
-    },
-    purchaseOrder: {
-      findMany: jest.fn(),
-      count: jest.fn(),
-      findUnique: jest.fn(),
-      update: jest.fn(),
-    },
-    purchaseOrderItem: {
-      update: jest.fn(),
-      findMany: jest.fn(),
-    },
-    inventoryLog: {
-      create: jest.fn(),
-    },
-    $transaction: jest.fn(),
-  },
-}));
 
 type Req = {
   body?: any;
@@ -49,6 +53,10 @@ describe('purchase-order.controller', () => {
   });
 
   it('validates supplier email format on create', async () => {
+    createPurchaseOrderRecordMock.mockRejectedValue(
+      new MockPurchaseOrderServiceError(400, 'PURCHASE_ORDER_EMAIL_INVALID'),
+    );
+
     const req: Req = {
       body: {
         supplier: 'NCC A',
@@ -60,6 +68,7 @@ describe('purchase-order.controller', () => {
 
     await createPurchaseOrder(req as any, res as any);
 
+    expect(createPurchaseOrderRecordMock).toHaveBeenCalledWith(req.body, null);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ errorCode: 'PURCHASE_ORDER_EMAIL_INVALID', success: false }),
@@ -67,49 +76,37 @@ describe('purchase-order.controller', () => {
   });
 
   it('creates purchase order with extended fields', async () => {
-    const findManyMock = prisma.productVariant.findMany as unknown as jest.Mock;
-    findManyMock.mockResolvedValue([{ variantId: 1 }]);
-
-    const transactionMock = prisma.$transaction as unknown as jest.Mock;
-    transactionMock.mockImplementation(async (callback: any) => {
-      const tx = {
-        purchaseOrder: {
-          create: jest.fn().mockResolvedValue({ purchaseOrderId: 11 }),
-          findUniqueOrThrow: jest.fn().mockResolvedValue({
-            purchaseOrderId: 11,
-            purchaseOrderNumber: 'PO-TEST-0001',
-            supplier: 'NCC A',
-            expectedReceivedAt: new Date('2099-03-20T00:00:00.000Z'),
-            invoiceNumber: 'INV-100',
-            supplierContactName: 'Nguyen Van A',
-            supplierPhone: '+84912345678',
-            supplierEmail: 'supplier@example.com',
-            status: 'PENDING',
-            notes: 'ghi chu',
-            orderedAt: new Date('2026-03-13T00:00:00.000Z'),
-            receivedAt: null,
-            updatedAt: new Date('2026-03-13T00:00:00.000Z'),
-            createdBy: 99,
-            items: [
-              {
-                purchaseOrderItemId: 1,
-                variantId: 1,
-                orderedQty: 2,
-                receivedQty: 0,
-                unitCost: 1000,
-                variant: {
-                  variantId: 1,
-                  productId: 12,
-                  sku: 'SKU-1',
-                  stockQuantity: 10,
-                  product: { productId: 12, name: 'Ao' },
-                },
-              },
-            ],
-          }),
+    createPurchaseOrderRecordMock.mockResolvedValue({
+      purchaseOrderId: 11,
+      purchaseOrderNumber: 'PO-TEST-0001',
+      supplier: 'NCC A',
+      expectedReceivedAt: new Date('2099-03-20T00:00:00.000Z'),
+      invoiceNumber: 'INV-100',
+      supplierContactName: 'Nguyen Van A',
+      supplierPhone: '+84912345678',
+      supplierEmail: 'supplier@example.com',
+      status: 'PENDING',
+      notes: 'ghi chu',
+      orderedAt: new Date('2026-03-13T00:00:00.000Z'),
+      receivedAt: null,
+      updatedAt: new Date('2026-03-13T00:00:00.000Z'),
+      createdBy: 99,
+      totals: { orderedQty: 2, receivedQty: 0, totalCost: 2000 },
+      items: [
+        {
+          purchaseOrderItemId: 1,
+          variantId: 1,
+          sku: 'SKU-1',
+          productId: 12,
+          productName: 'Ao',
+          orderedQty: 2,
+          receivedQty: 0,
+          remainingQty: 2,
+          unitCost: 1000,
+          lineTotal: 2000,
+          currentStockQuantity: 10,
         },
-      };
-      return callback(tx);
+      ],
     });
 
     const req: Req = {
@@ -129,10 +126,12 @@ describe('purchase-order.controller', () => {
 
     await createPurchaseOrder(req as any, res as any);
 
+    expect(createPurchaseOrderRecordMock).toHaveBeenCalledWith(req.body, 99);
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({
         success: true,
+        code: 'PURCHASE_ORDER_CREATED',
         data: expect.objectContaining({
           supplier: 'NCC A',
           invoiceNumber: 'INV-100',
@@ -145,55 +144,9 @@ describe('purchase-order.controller', () => {
   });
 
   it('rejects over-receipt quantity', async () => {
-    const transactionMock = prisma.$transaction as unknown as jest.Mock;
-    transactionMock.mockImplementation(async (callback: any) => {
-      const tx = {
-        purchaseOrder: {
-          findUnique: jest.fn().mockResolvedValue({
-            purchaseOrderId: 1,
-            purchaseOrderNumber: 'PO-001',
-            status: 'PENDING',
-            invoiceNumber: null,
-            items: [
-              {
-                purchaseOrderItemId: 10,
-                variantId: 9,
-                orderedQty: 5,
-                receivedQty: 4,
-                unitCost: 1000,
-                variant: {
-                  variantId: 9,
-                  productId: 1,
-                  sku: 'SKU-9',
-                  stockQuantity: 20,
-                  product: { productId: 1, name: 'Ao khoac' },
-                },
-              },
-            ],
-          }),
-          update: jest.fn(),
-          findUniqueOrThrow: jest.fn(),
-        },
-        purchaseOrderItem: {
-          update: jest.fn(),
-          findMany: jest.fn().mockResolvedValue([]),
-        },
-        productVariant: {
-          findUnique: jest.fn().mockResolvedValue({ stockQuantity: 20 }),
-          update: jest.fn(),
-        },
-        inventoryLog: {
-          create: jest.fn(),
-        },
-        goodsReceipt: {
-          create: jest.fn().mockResolvedValue({ goodsReceiptId: 1 }),
-        },
-        goodsReceiptItem: {
-          create: jest.fn(),
-        },
-      };
-      return callback(tx);
-    });
+    receivePurchaseOrderRecordMock.mockRejectedValue(
+      new MockPurchaseOrderServiceError(400, 'RECEIPT_EXCEEDS_ORDERED_QTY'),
+    );
 
     const req: Req = {
       params: { id: '1' },
@@ -205,6 +158,7 @@ describe('purchase-order.controller', () => {
 
     await receivePurchaseOrder(req as any, res as any);
 
+    expect(receivePurchaseOrderRecordMock).toHaveBeenCalledWith(1, req.body, null);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ errorCode: 'RECEIPT_EXCEEDS_ORDERED_QTY', success: false }),
@@ -212,47 +166,38 @@ describe('purchase-order.controller', () => {
   });
 
   it('cancels pending purchase order and returns updated detail', async () => {
-    const findUniqueMock = prisma.purchaseOrder.findUnique as unknown as jest.Mock;
-    const updateMock = prisma.purchaseOrder.update as unknown as jest.Mock;
-
-    findUniqueMock
-      .mockResolvedValueOnce({
-        purchaseOrderId: 12,
-        status: 'PENDING',
-      })
-      .mockResolvedValueOnce({
-        purchaseOrderId: 12,
-        purchaseOrderNumber: 'PO-TEST-0012',
-        supplier: 'NCC B',
-        expectedReceivedAt: null,
-        invoiceNumber: null,
-        supplierContactName: null,
-        supplierPhone: null,
-        supplierEmail: null,
-        status: 'CANCELLED',
-        notes: 'Tam dung nhap hang',
-        orderedAt: new Date('2026-03-13T00:00:00.000Z'),
-        receivedAt: null,
-        updatedAt: new Date('2026-03-13T00:05:00.000Z'),
-        createdBy: 77,
-        items: [
-          {
-            purchaseOrderItemId: 3,
-            variantId: 9,
-            orderedQty: 4,
-            receivedQty: 0,
-            unitCost: 250000,
-            variant: {
-              variantId: 9,
-              productId: 21,
-              sku: 'SKU-9',
-              stockQuantity: 10,
-              product: { productId: 21, name: 'Ao so mi' },
-            },
-          },
-        ],
-      });
-    updateMock.mockResolvedValue({ purchaseOrderId: 12 });
+    cancelPurchaseOrderRecordMock.mockResolvedValue({
+      purchaseOrderId: 12,
+      purchaseOrderNumber: 'PO-TEST-0012',
+      supplier: 'NCC B',
+      expectedReceivedAt: null,
+      invoiceNumber: null,
+      supplierContactName: null,
+      supplierPhone: null,
+      supplierEmail: null,
+      status: 'CANCELLED',
+      notes: 'Tam dung nhap hang',
+      orderedAt: new Date('2026-03-13T00:00:00.000Z'),
+      receivedAt: null,
+      updatedAt: new Date('2026-03-13T00:05:00.000Z'),
+      createdBy: 77,
+      totals: { orderedQty: 4, receivedQty: 0, totalCost: 1000000 },
+      items: [
+        {
+          purchaseOrderItemId: 3,
+          variantId: 9,
+          sku: 'SKU-9',
+          productId: 21,
+          productName: 'Ao so mi',
+          orderedQty: 4,
+          receivedQty: 0,
+          remainingQty: 4,
+          unitCost: 250000,
+          lineTotal: 1000000,
+          currentStockQuantity: 10,
+        },
+      ],
+    });
 
     const req: Req = {
       params: { id: '12' },
@@ -262,15 +207,7 @@ describe('purchase-order.controller', () => {
 
     await cancelPurchaseOrder(req as any, res as any);
 
-    expect(updateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { purchaseOrderId: 12 },
-        data: expect.objectContaining({
-          status: 'CANCELLED',
-          notes: 'Tam dung nhap hang',
-        }),
-      }),
-    );
+    expect(cancelPurchaseOrderRecordMock).toHaveBeenCalledWith(12, { notes: 'Tam dung nhap hang' });
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({
         success: true,

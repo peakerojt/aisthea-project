@@ -4,7 +4,7 @@ import { Eye, EyeOff } from 'lucide-react';
 const cx = (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' ');
 
 const authInputClassName =
-  'ui-stable-click h-14 w-full rounded-sm border bg-white/[0.02] px-4 text-[15px] text-white outline-none transition-[border-color,box-shadow,background-color,color] duration-150 placeholder:text-zinc-600 disabled:cursor-not-allowed disabled:opacity-60';
+  'ui-stable-click h-[54px] w-full rounded-sm border bg-white/[0.02] px-4 text-[15px] text-white outline-none transition-[border-color,box-shadow,background-color,color] duration-150 placeholder:text-zinc-600 disabled:cursor-not-allowed disabled:opacity-60';
 
 const toneClasses = {
   error: 'text-red-400',
@@ -28,13 +28,13 @@ export const AuthPageHeader: React.FC<AuthPageHeaderProps> = ({
   align = 'left',
   className,
 }) => (
-  <div className={cx('space-y-4', align === 'center' && 'text-center', className)}>
+  <div className={cx('space-y-3.5', align === 'center' && 'text-center', className)}>
     {eyebrow ? (
-      <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-primary/95">{eyebrow}</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-primary/95">{eyebrow}</p>
     ) : null}
-    <div className="space-y-3">
-      <h1 className="text-4xl font-black uppercase tracking-[-0.04em] text-white sm:text-5xl">{title}</h1>
-      {subtitle ? <div className="max-w-xl text-sm leading-7 text-zinc-400 sm:text-[15px]">{subtitle}</div> : null}
+    <div className="space-y-2.5">
+      <h1 className="text-4xl font-black uppercase leading-[0.92] tracking-[-0.05em] text-white sm:text-5xl">{title}</h1>
+      {subtitle ? <div className="max-w-[26rem] text-sm leading-7 text-zinc-500 sm:text-[15px]">{subtitle}</div> : null}
     </div>
   </div>
 );
@@ -60,7 +60,7 @@ export const AuthHelperRow: React.FC<AuthHelperRowProps> = ({
     id={id}
     data-auth-helper="true"
     className={cx(
-      'min-h-[1.5rem] pt-2 text-[12px] leading-5',
+      'min-h-[1.375rem] pt-1.5 text-[12px] leading-5',
       align === 'center' ? 'text-center' : 'text-left',
       className,
     )}
@@ -96,7 +96,7 @@ export const AuthField = React.forwardRef<HTMLInputElement, AuthFieldProps>(func
       <label
         htmlFor={inputId}
         className={cx(
-          'mb-3 block text-[11px] font-bold uppercase tracking-[0.24em]',
+          'mb-2.5 block text-[11px] font-bold uppercase tracking-[0.26em]',
           hasError ? 'text-red-400' : 'text-zinc-500',
         )}
       >
@@ -182,9 +182,9 @@ export const AuthStatusRail: React.FC<AuthStatusRailProps> = ({
   }
 
   const styleByTone = {
-    info: 'border-white/12 bg-white/[0.03] text-zinc-300',
-    success: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
-    error: 'border-red-500/20 bg-[#150708] text-red-300',
+    info: 'border-white/10 bg-white/[0.025] text-zinc-300',
+    success: 'border-emerald-500/14 bg-emerald-500/[0.08] text-emerald-300',
+    error: 'border-red-500/12 bg-red-500/[0.06] text-red-200/90',
   };
 
   return (
@@ -196,8 +196,8 @@ export const AuthStatusRail: React.FC<AuthStatusRailProps> = ({
         aria-live={message ? 'polite' : undefined}
         className={cx(
           compact
-            ? 'rounded-sm border px-3 py-2 text-[12px] leading-5 shadow-[0_8px_20px_rgba(120,0,0,0.12)]'
-            : 'rounded-sm border px-4 py-3 text-sm leading-6 shadow-[0_16px_40px_rgba(0,0,0,0.22)]',
+            ? 'rounded-sm border px-3 py-2 text-[12px] leading-5 shadow-[0_4px_16px_rgba(0,0,0,0.16)]'
+            : 'rounded-sm border px-4 py-3 text-sm leading-6 shadow-[0_14px_34px_rgba(0,0,0,0.18)]',
           'transition-[opacity,transform] duration-150',
           styleByTone[tone],
           message ? 'opacity-100 translate-y-0' : 'pointer-events-none opacity-0 -translate-y-1',
@@ -229,7 +229,7 @@ export const AuthPrimaryButton: React.FC<AuthPrimaryButtonProps> = ({
     aria-busy={loading}
     aria-label={typeof (loading ? loadingLabel : label) === 'string' ? (loading ? loadingLabel : label) as string : undefined}
     className={cx(
-      'ui-stable-click relative flex min-h-[56px] w-full items-center justify-center overflow-hidden rounded-sm bg-primary px-4 py-4 text-sm font-bold uppercase tracking-[0.18em] text-white shadow-[0_18px_40px_rgba(220,38,38,0.28)] transition-[background-color,border-color,color,box-shadow,opacity] duration-150 hover:bg-red-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/45 disabled:cursor-not-allowed disabled:opacity-70',
+      'ui-stable-click relative flex min-h-[54px] w-full items-center justify-center overflow-hidden rounded-sm bg-primary px-4 py-4 text-sm font-bold uppercase tracking-[0.22em] text-white shadow-[0_10px_24px_rgba(220,38,38,0.2)] transition-[background-color,border-color,color,box-shadow,opacity] duration-150 hover:bg-red-700 hover:shadow-[0_12px_28px_rgba(220,38,38,0.22)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/45 disabled:cursor-not-allowed disabled:opacity-70',
       className,
     )}
   >
@@ -258,7 +258,7 @@ export const AuthOAuthButton: React.FC<AuthOAuthButtonProps> = ({ icon, label, c
   <button
     {...props}
     className={cx(
-      'ui-stable-click flex min-h-[56px] w-full items-center justify-center gap-3 rounded-sm border border-white/15 bg-white px-4 py-4 text-sm font-bold uppercase tracking-[0.16em] text-zinc-900 transition-[background-color,border-color,color,box-shadow,opacity] duration-150 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/30 disabled:cursor-not-allowed disabled:opacity-60',
+      'ui-stable-click flex min-h-[54px] w-full items-center justify-center gap-3 rounded-sm border border-white/12 bg-white px-4 py-3.5 text-sm font-bold uppercase tracking-[0.15em] text-zinc-900 transition-[background-color,border-color,color,box-shadow,opacity] duration-150 hover:bg-zinc-100 hover:shadow-[0_8px_24px_rgba(255,255,255,0.08)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/30 disabled:cursor-not-allowed disabled:opacity-60',
       className,
     )}
   >
@@ -268,12 +268,12 @@ export const AuthOAuthButton: React.FC<AuthOAuthButtonProps> = ({ icon, label, c
 );
 
 export const AuthDivider: React.FC<{ label: React.ReactNode; className?: string }> = ({ label, className }) => (
-  <div className={cx('relative py-2', className)}>
+  <div className={cx('relative py-1.5', className)}>
     <div className="absolute inset-0 flex items-center">
-      <div className="w-full border-t border-white/10" />
+      <div className="w-full border-t border-white/8" />
     </div>
     <div className="relative flex justify-center text-[11px] uppercase">
-      <span className="bg-black px-4 font-bold tracking-[0.24em] text-zinc-500">{label}</span>
+      <span className="bg-black px-3 font-bold tracking-[0.24em] text-zinc-500">{label}</span>
     </div>
   </div>
 );
@@ -284,7 +284,7 @@ interface AuthFooterLinksProps {
 }
 
 export const AuthFooterLinks: React.FC<AuthFooterLinksProps> = ({ children, className }) => (
-  <div className={cx('text-sm text-zinc-500', className)}>{children}</div>
+  <div className={cx('text-sm text-zinc-500/90', className)}>{children}</div>
 );
 
 interface AuthStatePanelProps {

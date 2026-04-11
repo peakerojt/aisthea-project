@@ -1048,12 +1048,14 @@ export async function createOrder(
   }
 
   const recipient = resolveOrderNotificationRecipient(order);
-  if (recipient) {
+  const shouldEnqueueOrderPlacedEmail =
+    !!recipient && (order.paymentMethod ?? '').trim().toUpperCase() !== 'VNPAY';
+  if (shouldEnqueueOrderPlacedEmail) {
     try {
       await notificationService.enqueueOrderPlacedEmail({
         orderId: order.orderId,
         orderNumber: order.orderNumber,
-        email: recipient,
+        email: recipient!,
         customerName: resolveOrderNotificationName(order),
         totalAmount: toNumericAmount(order.totalAmount),
         paymentMethod: order.paymentMethod ?? null,

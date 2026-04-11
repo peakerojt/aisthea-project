@@ -59,6 +59,24 @@ describe('auth email templates', () => {
     expect(rendered.text).toContain('http://localhost:3000/tracking/321');
   });
 
+  it('renders a payment-confirmed order placed email for VNPAY', () => {
+    const rendered = renderOrderPlacedEmail({
+      orderId: 322,
+      orderNumber: 'ORD-322',
+      customerName: 'VNPay User',
+      totalAmount: 1628000,
+      paymentMethod: 'VNPAY',
+      createdAt: '2026-04-09T06:27:00.000Z',
+      orderUrl: 'http://localhost:3000/orders/322',
+    });
+
+    expect(rendered.subject).toBe('Thanh toán VNPay thành công: ORD-322 - AISTHEA');
+    expect(rendered.html).toContain('ghi nhận thanh toán thành công cho đơn');
+    expect(rendered.html).toContain('đã được VNPay xác nhận thành công');
+    expect(rendered.text).toContain('VNPay xác nhận thành công');
+    expect(rendered.text).toContain('http://localhost:3000/orders/322');
+  });
+
   it('renders order status email with status label and tracking link', () => {
     const rendered = renderOrderStatusEmail({
       orderId: 321,

@@ -105,6 +105,39 @@ body {
 }
 
 @layer utilities {
+    .admin-shell-scrollbars,
+    .admin-shell-scrollbars * {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+    }
+
+    @media (pointer: fine) {
+        .admin-shell-scrollbars::-webkit-scrollbar,
+        .admin-shell-scrollbars *::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .admin-shell-scrollbars::-webkit-scrollbar-track,
+        .admin-shell-scrollbars *::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .admin-shell-scrollbars::-webkit-scrollbar-thumb,
+        .admin-shell-scrollbars *::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.18);
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+
+        .admin-shell-scrollbars::-webkit-scrollbar-thumb:hover,
+        .admin-shell-scrollbars *::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.28);
+            background-clip: content-box;
+        }
+    }
+
     .ui-stable-click {
         -webkit-tap-highlight-color: transparent;
         transform: translateZ(0);

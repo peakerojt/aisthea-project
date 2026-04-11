@@ -17,7 +17,6 @@ import {
     TicketPercent,
     Plus,
     Search,
-    RefreshCw,
     Pencil,
     Trash2,
     X,
@@ -37,6 +36,7 @@ import {
     AdminPageHeader,
     AdminPageShell,
     AdminPrimaryButton,
+    AdminRefreshButton,
     AdminRowIconButton,
     AdminSecondaryButton,
     AdminSectionCard,
@@ -505,6 +505,7 @@ export const Coupons: React.FC = () => {
     const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<Coupon | null>(null);
     const [deleting, setDeleting] = useState(false);
+    const [isManualRefreshing, setIsManualRefreshing] = useState(false);
     const hasLoadedRef = useRef(false);
     const requestIdRef = useRef(0);
 
@@ -564,6 +565,15 @@ export const Coupons: React.FC = () => {
     useEffect(() => {
         setPage(1);
     }, [debouncedSearch, statusFilter]);
+
+    const handleManualRefresh = useCallback(async () => {
+        setIsManualRefreshing(true);
+        try {
+            await loadCoupons();
+        } finally {
+            setIsManualRefreshing(false);
+        }
+    }, [loadCoupons]);
 
     const setToast = useCallback((toast: { message: string; type: 'success' | 'error' }) => {
         fireToast({ type: toast.type, title: toast.message });
@@ -639,10 +649,13 @@ export const Coupons: React.FC = () => {
 
             <AdminToolbar
                 actions={(
-                    <AdminSecondaryButton type="button" onClick={loadCoupons} disabled={loading}>
-                        <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                        {t('coupons:filters.refresh')}
-                    </AdminSecondaryButton>
+                    <AdminRefreshButton
+                        type="button"
+                        onClick={handleManualRefresh}
+                        isRefreshing={isManualRefreshing}
+                        disabled={loading || isRefreshing || isManualRefreshing}
+                        label={t('coupons:filters.refresh')}
+                    />
                 )}
             >
                 <div className="relative min-w-[220px] flex-1">

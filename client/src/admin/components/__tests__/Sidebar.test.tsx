@@ -82,14 +82,13 @@ describe('Sidebar', () => {
       user: {
         name: 'Support User',
         roles: ['Support'],
-        permissions: ['VIEW_ORDER', 'VIEW_NOTIFICATION_QUEUE'],
+        permissions: ['VIEW_ORDER'],
       },
     });
 
     render(<Sidebar />);
 
     expect(screen.getByText('sidebar:nav.orders')).toBeInTheDocument();
-    expect(screen.getByText('sidebar:nav.notifications')).toBeInTheDocument();
     expect(screen.queryByText('Hoàn trả')).not.toBeInTheDocument();
     expect(screen.queryByText('sidebar:nav.products')).not.toBeInTheDocument();
 
@@ -100,7 +99,7 @@ describe('Sidebar', () => {
     expect(preloadAdminRouteMock).toHaveBeenCalledWith('/admin/orders');
   });
 
-  it('shows the notification queue entry only when the explicit notification permission exists', () => {
+  it('does not show the removed notification queue entry even if the legacy permission exists', () => {
     useAuthMock.mockReturnValue({
       logout: logoutMock,
       user: {
@@ -112,14 +111,14 @@ describe('Sidebar', () => {
 
     render(<Sidebar />);
 
-    expect(screen.getByText('sidebar:nav.notifications')).toBeInTheDocument();
+    expect(screen.queryByText('sidebar:nav.notifications')).not.toBeInTheDocument();
     expect(screen.queryByText('sidebar:nav.orders')).not.toBeInTheDocument();
 
     act(() => {
       vi.advanceTimersByTime(250);
     });
 
-    expect(preloadAdminRouteMock).toHaveBeenCalledWith('/admin/notifications');
+    expect(preloadAdminRouteMock).not.toHaveBeenCalled();
   });
 
   it('shows the returns entry only when an explicit returns permission exists', () => {

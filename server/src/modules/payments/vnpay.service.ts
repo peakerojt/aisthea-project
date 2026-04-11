@@ -1,6 +1,7 @@
 import moment from 'moment';
 import { isSettledPaymentStatus } from '../../config/paymentStatus.config';
 import { logger } from '../../lib/logger';
+import { notificationService } from '../notifications/notification.service';
 import { sanitizeRefundLogContext, serializeRefundErrorForLogs } from '../../shared/refund-log-sanitizer';
 import { prisma } from '../../utils/prisma';
 import { buildSignedVnpUrl, createVnpSecureHash, extractSignedVnpQuery, type VnpParamRecord } from './vnpay.utils';
@@ -40,6 +41,8 @@ type VnpayQueryBody = {
 const hasCompletedPayment = (payments: PaymentSnapshot[]) =>
   payments.some((payment) => isSettledPaymentStatus(payment.status));
 
+type LoadedOrder = NonNullable<Awaited<ReturnType<typeof loadOrder>>>;
+
 const FAILED_VNPAY_QUERY_STATUSES = new Set(['01', '02', '04', '13', '24']);
 const CANCELLED_VNPAY_RESPONSE_CODES = new Set(['24']);
 
@@ -57,6 +60,44 @@ const loadOrder = (orderId: number) =>
       },
     },
   });
+
+const resolveOrderNotificationRecipient = (order: LoadedOrder) => {
+  const email = typeof order.customerEmail === 'string' ? order.customerEmail.trim() : '';
+  return email || null;
+};
+
+const resolveOrderNotificationName = (order: LoadedOrder) => {
+  const name = typeof order.customerName === 'string' ? order.customerName.trim() : '';
+  return name || 'Customer';
+};
+
+const buildOrderDetailUrl = (orderId: number) =>
+  `${String(process.env.CLIENT_URL || 'http://localhost:3000').replace(/\/$/, '')}/tracking/${orderId}`;
+
+const enqueuePaidVnpayOrderEmail = async (order: LoadedOrder) => {
+  const recipient = resolveOrderNotificationRecipient(order);
+  if (!recipient) {
+    return;
+  }
+
+  try {
+    await notificationService.enqueueOrderPlacedEmail({
+      orderId: order.orderId,
+      orderNumber: order.orderNumber,
+      email: recipient,
+      customerName: resolveOrderNotificationName(order),
+      totalAmount: Number(order.totalAmount),
+      paymentMethod: order.paymentMethod ?? null,
+      createdAt: order.createdAt?.toISOString() ?? null,
+      orderUrl: buildOrderDetailUrl(order.orderId),
+    });
+  } catch (notificationError: any) {
+    logger.warn('[vnpay] Failed to enqueue paid order email', {
+      orderId: order.orderId,
+      error: notificationError?.message ?? String(notificationError),
+    });
+  }
+};
 
 const buildVnpayQueryNeedsReviewNote = ({
   responseCode,
@@ -332,6 +373,8 @@ export const handleVnpayReturn = async (
     note: 'Confirmed from VNPay return fallback',
   });
 
+  await enqueuePaidVnpayOrderEmail(order);
+
   logger.info(
     'VNPay payment completed from return fallback',
     sanitizeRefundLogContext({
@@ -424,6 +467,8 @@ export const handleVnpayIpn = async (
         transactionCode: typeof params.vnp_TransactionNo === 'string' ? params.vnp_TransactionNo : null,
         note: null,
       });
+
+      await enqueuePaidVnpayOrderEmail(order);
 
       logger.info(
         'VNPay payment successful',
@@ -568,17 +613,19 @@ export const handleVnpayQueryResult = async (
       };
     }
 
-    await upsertVnpayPayment({
-      orderId: order.orderId,
-      payments: order.payments,
-      amount: gatewayAmount,
-      status: 'COMPLETED',
+  await upsertVnpayPayment({
+    orderId: order.orderId,
+    payments: order.payments,
+    amount: gatewayAmount,
+    status: 'COMPLETED',
       transactionCode,
-      note: 'Confirmed from VNPay query fallback',
-    });
+    note: 'Confirmed from VNPay query fallback',
+  });
 
-    logger.info(
-      'VNPay payment completed from query fallback',
+  await enqueuePaidVnpayOrderEmail(order);
+
+  logger.info(
+    'VNPay payment completed from query fallback',
       sanitizeRefundLogContext({
         orderId: order.orderId,
         transactionCode,

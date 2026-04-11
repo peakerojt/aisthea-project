@@ -12,6 +12,11 @@ export const PURCHASE_ORDER_STATUSES = {
 export type PurchaseOrderStatus =
   (typeof PURCHASE_ORDER_STATUSES)[keyof typeof PURCHASE_ORDER_STATUSES];
 
+const OPEN_PURCHASE_ORDER_STATUSES = [
+  PURCHASE_ORDER_STATUSES.PENDING,
+  PURCHASE_ORDER_STATUSES.PARTIALLY_RECEIVED,
+] as const;
+
 interface PurchaseOrderCreateItemInput {
   variantId: number;
   orderedQty: number;
@@ -332,6 +337,64 @@ function validateNotes(notes: unknown) {
   return normalizedNotes;
 }
 
+async function syncInventoryIncomingQuantities(
+  tx: Prisma.TransactionClient,
+  variantIds: number[],
+) {
+  const uniqueVariantIds = [...new Set(variantIds)].filter((variantId) => Number.isInteger(variantId) && variantId > 0);
+  if (uniqueVariantIds.length === 0) return;
+
+  const [variants, openPurchaseOrderItems] = await Promise.all([
+    tx.productVariant.findMany({
+      where: { variantId: { in: uniqueVariantIds } },
+      select: { variantId: true, stockQuantity: true },
+    }),
+    tx.purchaseOrderItem.findMany({
+      where: {
+        variantId: { in: uniqueVariantIds },
+        purchaseOrder: {
+          status: { in: [...OPEN_PURCHASE_ORDER_STATUSES] },
+        },
+      },
+      select: {
+        variantId: true,
+        orderedQty: true,
+        receivedQty: true,
+      },
+    }),
+  ]);
+
+  const stockByVariantId = new Map(
+    variants.map((variant) => [variant.variantId, Number(variant.stockQuantity ?? 0)] as const),
+  );
+  const incomingByVariantId = new Map<number, number>(
+    uniqueVariantIds.map((variantId) => [variantId, 0]),
+  );
+
+  for (const item of openPurchaseOrderItems) {
+    const currentIncoming = incomingByVariantId.get(item.variantId) ?? 0;
+    const remainingQty = Math.max(item.orderedQty - item.receivedQty, 0);
+    incomingByVariantId.set(item.variantId, currentIncoming + remainingQty);
+  }
+
+  await Promise.all(
+    uniqueVariantIds.map((variantId) =>
+      tx.inventory.upsert({
+        where: { variantId },
+        update: {
+          incomingQuantity: incomingByVariantId.get(variantId) ?? 0,
+        },
+        create: {
+          variantId,
+          availableQuantity: stockByVariantId.get(variantId) ?? 0,
+          reservedQuantity: 0,
+          incomingQuantity: incomingByVariantId.get(variantId) ?? 0,
+        },
+      }),
+    ),
+  );
+}
+
 export async function listPurchaseOrdersData(input: ListPurchaseOrdersInput) {
   const where: Prisma.PurchaseOrderWhereInput = {};
   if (input.status) where.status = input.status;
@@ -413,6 +476,8 @@ export async function createPurchaseOrderRecord(input: PurchaseOrderCreateInput,
       },
       select: { purchaseOrderId: true },
     });
+
+    await syncInventoryIncomingQuantities(tx, variantIds);
 
     return tx.purchaseOrder.findUniqueOrThrow({
       where: { purchaseOrderId: purchaseOrder.purchaseOrderId },
@@ -553,6 +618,11 @@ export async function receivePurchaseOrderRecord(
       },
     });
 
+    await syncInventoryIncomingQuantities(
+      tx,
+      purchaseOrder.items.map((item) => item.variantId),
+    );
+
     return tx.purchaseOrder.findUniqueOrThrow({
       where: { purchaseOrderId },
       include: purchaseOrderDetailInclude,
@@ -568,34 +638,46 @@ export async function cancelPurchaseOrderRecord(
 ) {
   const normalizedNotes = validateNotes(input.notes);
 
-  const existing = await prisma.purchaseOrder.findUnique({
-    where: { purchaseOrderId },
+  const purchaseOrder = await prisma.$transaction(async (tx) => {
+    const existing = await tx.purchaseOrder.findUnique({
+      where: { purchaseOrderId },
+      include: {
+        items: {
+          select: { variantId: true },
+        },
+      },
+    });
+
+    if (!existing) {
+      throwPurchaseOrderError(404, 'PURCHASE_ORDER_NOT_FOUND');
+    }
+    if (existing.status === PURCHASE_ORDER_STATUSES.CANCELLED) {
+      throwPurchaseOrderError(400, 'PURCHASE_ORDER_ALREADY_CANCELLED');
+    }
+    if (existing.status === PURCHASE_ORDER_STATUSES.RECEIVED) {
+      throwPurchaseOrderError(400, 'PURCHASE_ORDER_RECEIVED_CANNOT_CANCEL');
+    }
+
+    await tx.purchaseOrder.update({
+      where: { purchaseOrderId },
+      data: {
+        status: PURCHASE_ORDER_STATUSES.CANCELLED,
+        notes: typeof input.notes === 'string' ? normalizedNotes : undefined,
+      },
+    });
+
+    await syncInventoryIncomingQuantities(
+      tx,
+      existing.items.map((item) => item.variantId),
+    );
+
+    return tx.purchaseOrder.findUniqueOrThrow({
+      where: { purchaseOrderId },
+      include: purchaseOrderDetailInclude,
+    });
   });
 
-  if (!existing) {
-    throwPurchaseOrderError(404, 'PURCHASE_ORDER_NOT_FOUND');
-  }
-  if (existing.status === PURCHASE_ORDER_STATUSES.CANCELLED) {
-    throwPurchaseOrderError(400, 'PURCHASE_ORDER_ALREADY_CANCELLED');
-  }
-  if (existing.status === PURCHASE_ORDER_STATUSES.RECEIVED) {
-    throwPurchaseOrderError(400, 'PURCHASE_ORDER_RECEIVED_CANNOT_CANCEL');
-  }
-
-  const updated = await prisma.purchaseOrder.update({
-    where: { purchaseOrderId },
-    data: {
-      status: PURCHASE_ORDER_STATUSES.CANCELLED,
-      notes: typeof input.notes === 'string' ? normalizedNotes : undefined,
-    },
-  });
-
-  const purchaseOrder = await getPurchaseOrderByIdInternal(updated.purchaseOrderId);
-  if (!purchaseOrder) {
-    throwPurchaseOrderError(404, 'PURCHASE_ORDER_NOT_FOUND');
-  }
-
-  return mapPurchaseOrder(purchaseOrder);
+  return mapPurchaseOrder(purchaseOrder as NonNullable<PurchaseOrderDetailRecord>);
 }
 
 export { PurchaseOrderServiceError };

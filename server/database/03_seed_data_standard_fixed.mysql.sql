@@ -1,7 +1,7 @@
-﻿-- =============================================================
+-- =============================================================
 -- GENERATED FILE (MySQL)
 -- Source: server/database/03_seed_data_standard_fixed.sql (SQL Server)
--- Target schema: railway
+-- Target schema: AISTHEA
 --
 -- Notes:
 -- - Removes SQL Server-only statements: USE [db], GO, PRINT, IF OBJECT_ID, DBCC CHECKIDENT, SET IDENTITY_INSERT
@@ -10,13 +10,9 @@
 -- - Converts Unicode string prefix N'...' -> '...'.
 -- =============================================================
 
--- Railway-ready import target: use the existing Railway MySQL schema.
--- Application hosting can remain on Vercel or another platform.
-USE `railway`;
+USE `AISTHEA`;
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
-SET @OLD_SQL_SAFE_UPDATES = @@SQL_SAFE_UPDATES;
-SET SQL_SAFE_UPDATES = 0;
 
 /* =============================================================
    FILE: server/database/03_seed_data_standard_fixed.sql
@@ -8628,5 +8624,86 @@ UNION ALL SELECT 'Categories', COUNT(*) FROM `Categories`;
 
 
 
-SET SQL_SAFE_UPDATES = @OLD_SQL_SAFE_UPDATES;
+-- Post-import normalization to keep legacy/derived tables aligned after SQL Server -> MySQL conversion.
+-- Keep legacy ProductVariants.StockQuantity aligned with the Inventory snapshot.
+UPDATE `ProductVariants` pv
+INNER JOIN `Inventory` i ON i.`VariantId` = pv.`VariantId`
+SET pv.`StockQuantity` = i.`AvailableQuantity`
+WHERE COALESCE(pv.`StockQuantity`, 0) <> COALESCE(i.`AvailableQuantity`, 0);
+
+-- Backfill missing VariantId references from SKU to reduce report drift after import.
+UPDATE `OrderItems` oi
+INNER JOIN `ProductVariants` pv ON pv.`SKU` = oi.`SKU`
+SET oi.`VariantId` = pv.`VariantId`
+WHERE oi.`VariantId` IS NULL;
+
+-- Align payment rows with completed refund outcomes imported from return/refund tables.
+UPDATE `Payments` p
+INNER JOIN `ReturnRequests` rr ON rr.`OrderId` = p.`OrderId`
+INNER JOIN `RefundTransactions` rt ON rt.`ReturnRequestId` = rr.`ReturnRequestId` AND rt.`Status` = 'COMPLETED'
+SET p.`Status` = 'REFUNDED'
+WHERE rr.`RefundStatus` = 'REFUNDED'
+  AND p.`Status` <> 'REFUNDED';
+
+-- Backfill manual shipment rows for shipping/delivered orders imported without Shipments.
+INSERT INTO `Shipments`
+  (`OrderId`, `Carrier`, `TrackingNumber`, `Eta`, `LastKnownLocation`, `CreatedAt`, `UpdatedAt`, `ShippingMode`, `Provider`, `ProviderOrderCode`, `ProviderStatus`, `DeliveryProofImages`, `DeliveryProofReviewed`)
+SELECT
+  o.`OrderId`,
+  'AISTHEA Manual Delivery',
+  NULL,
+  NULL,
+  NULL,
+  COALESCE(o.`UpdatedAt`, o.`CreatedAt`),
+  COALESCE(o.`UpdatedAt`, o.`CreatedAt`),
+  'manual',
+  NULL,
+  o.`OrderNumber`,
+  CASE
+    WHEN o.`Status` = 'Delivered' THEN 'DELIVERED'
+    WHEN o.`Status` = 'Shipping' THEN 'SHIPPING'
+    ELSE NULL
+  END,
+  '[]',
+  0
+FROM `Orders` o
+LEFT JOIN `Shipments` s ON s.`OrderId` = o.`OrderId`
+WHERE s.`OrderId` IS NULL
+  AND o.`Status` IN ('Shipping', 'Delivered');
+
+-- Ensure Inventory rows exist for variants referenced by open purchase orders.
+INSERT INTO `Inventory` (`VariantId`, `AvailableQuantity`, `ReservedQuantity`, `IncomingQuantity`, `UpdatedAt`)
+SELECT
+  pv.`VariantId`,
+  COALESCE(pv.`StockQuantity`, 0),
+  0,
+  poagg.`ExpectedIncoming`,
+  NOW()
+FROM `ProductVariants` pv
+INNER JOIN (
+  SELECT
+    poi.`VariantId`,
+    COALESCE(SUM(GREATEST(poi.`OrderedQty` - poi.`ReceivedQty`, 0)), 0) AS `ExpectedIncoming`
+  FROM `PurchaseOrderItems` poi
+  INNER JOIN `PurchaseOrders` po ON po.`PurchaseOrderId` = poi.`PurchaseOrderId`
+  WHERE po.`Status` IN ('PENDING', 'PARTIALLY_RECEIVED')
+  GROUP BY poi.`VariantId`
+) poagg ON poagg.`VariantId` = pv.`VariantId`
+LEFT JOIN `Inventory` i ON i.`VariantId` = pv.`VariantId`
+WHERE i.`VariantId` IS NULL;
+
+-- Keep Inventory.IncomingQuantity aligned with outstanding PO balances after import.
+UPDATE `Inventory` i
+LEFT JOIN (
+  SELECT
+    poi.`VariantId`,
+    COALESCE(SUM(GREATEST(poi.`OrderedQty` - poi.`ReceivedQty`, 0)), 0) AS `ExpectedIncoming`
+  FROM `PurchaseOrderItems` poi
+  INNER JOIN `PurchaseOrders` po ON po.`PurchaseOrderId` = poi.`PurchaseOrderId`
+  WHERE po.`Status` IN ('PENDING', 'PARTIALLY_RECEIVED')
+  GROUP BY poi.`VariantId`
+) poagg ON poagg.`VariantId` = i.`VariantId`
+SET i.`IncomingQuantity` = COALESCE(poagg.`ExpectedIncoming`, 0)
+WHERE COALESCE(i.`IncomingQuantity`, 0) <> COALESCE(poagg.`ExpectedIncoming`, 0);
+
 SET FOREIGN_KEY_CHECKS = 1;

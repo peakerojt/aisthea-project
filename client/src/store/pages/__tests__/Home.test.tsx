@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, waitFor } from '@testing-library/react';
+import { fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Home } from '@/store/pages/Home';
@@ -91,12 +91,7 @@ describe('Home', () => {
     expect(screen.getByText('category.title')).toBeInTheDocument();
     expect(screen.getByText('styling.titleLine1')).toBeInTheDocument();
     expect(screen.getAllByTestId('product-card')).toHaveLength(4);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Mở trợ lý chat' }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('chat-widget')).toBeInTheDocument();
-    });
+    expect(screen.getByTestId('chat-widget')).toBeInTheDocument();
   });
 
   it('routes category quick links to stable collection paths', () => {

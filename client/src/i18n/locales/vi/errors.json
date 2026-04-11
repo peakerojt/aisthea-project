@@ -78,6 +78,7 @@
   "PERMISSION_DENIED": "Bạn không có quyền thực hiện thao tác này.",
   "FORBIDDEN_ROLE": "Truy cập bị từ chối. Bạn không có vai trò phù hợp.",
   "EMAIL_EXISTS": "Email này đã được sử dụng.",
+  "EMAIL_PENDING_VERIFICATION": "Email này đang chờ xác thực. Vui lòng tiếp tục xác thực tài khoản của bạn.",
   "INVALID_CREDENTIALS": "Email hoặc mật khẩu không chính xác.",
   "EMAIL_NOT_VERIFIED": "Vui lòng xác thực email của bạn trước khi đăng nhập.",
   "INVALID_TOKEN": "Mã xác thực không hợp lệ hoặc đã qua sử dụng.",

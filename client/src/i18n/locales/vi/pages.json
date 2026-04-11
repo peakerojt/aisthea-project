@@ -84,8 +84,8 @@
           "description": "Tailoring gọn gàng và essential sắc nét cho nhịp mặc hằng ngày.",
           "links": {
             "tailoring": "Áo khoác",
-            "shirts": "Sơ mi",
-            "essentials": "Essentials"
+            "shirts": "Áo",
+            "essentials": "Phụ kiện"
           }
         },
         "women": {
@@ -93,9 +93,9 @@
           "title": "Nữ",
           "description": "Độ mềm hiện đại đi cùng tinh thần tối giản và tự tin.",
           "links": {
-            "outerwear": "Outerwear",
-            "knitwear": "Knitwear",
-            "essentials": "Essentials"
+            "outerwear": "Áo",
+            "knitwear": "Váy & Đầm",
+            "essentials": "Phụ kiện"
           }
         }
       }
@@ -303,7 +303,6 @@
     "footer": {
       "newHere": "Mới đến với Aisthea?",
       "createAccount": "Tạo tài khoản",
-      "adminLogin": "Đăng nhập quản trị",
       "privacy": "Quyền riêng tư & Điều khoản"
     },
     "banned": {
@@ -321,7 +320,7 @@
   },
   "authLayout": {
     "desktopEyebrow": "Aisthea Auth",
-    "desktopTitle": "Điểm vào dark luxury giữ nhịp ổn định cho mọi trạng thái.",
+    "desktopTitle": "Tạo mở đầu rõ ràng và nhất quán trong mọi tình huống.",
     "desktopDescription": "Mọi trạng thái xác thực được giữ trong cùng một nhịp bố cục để người dùng không bị xao nhãng khi có lỗi hoặc đang tải.",
     "mobileEyebrow": "Truy cập bảo mật"
   },
@@ -389,6 +388,8 @@
     },
     "password": {
       "requirementsTitle": "Yêu cầu mật khẩu:",
+      "helperHint": "Cần ít nhất 8 ký tự, chữ hoa, chữ thường, số và ký tự đặc biệt",
+      "strong": "Mật khẩu mạnh",
       "minLength": "Ít nhất {{value}} ký tự",
       "uppercase": "ABC Một chữ hoa",
       "lowercase": "abc Một chữ thường",
@@ -404,7 +405,6 @@
     "errors": {
       "registerFailed": "Đăng ký thất bại"
     },
-    "newsletter": "Đăng ký nhận bản tin để nhận ưu đãi độc quyền.",
     "actions": {
       "create": "Tạo tài khoản",
       "creating": "Đang tạo tài khoản...",

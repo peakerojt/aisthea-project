@@ -114,7 +114,7 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
         const statusFunnel = statusGroups.map((g, i) => ({
             // 'status' is the i18n key the FE uses for translation lookup
             status: normalizeStatus(g.status),
-            value: g._count.orderId,
+            value: Number(g._count.orderId ?? 0),
             color: PIE_COLORS[i % PIE_COLORS.length],
         }));
 
@@ -271,14 +271,14 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
                 orders: Number(r.orders ?? 0),
             })),
             topCustomers: topCustomers.map(r => ({
-                userId: r.userId,
+                userId: Number(r.userId ?? 0),
                 fullName: r.fullName,
                 email: r.email,
                 totalSpent: Number(r.totalSpent ?? 0),
                 orderCount: Number(r.orderCount ?? 0),
             })),
             mostCancelled: mostCancelled.map(r => ({
-                productId: r.productId,
+                productId: Number(r.productId ?? 0),
                 productName: r.productName,
                 cancelCount: Number(r.cancelCount ?? 0),
                 lostRevenue: Number(r.lostRevenue ?? 0),
@@ -291,7 +291,14 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
 
         res.json(payload);
     } catch (error: unknown) {
-        logger.error('[analyticsController] getAnalyticsSummary failed', { error });
+        const serializedError = error instanceof Error
+            ? {
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+            }
+            : error;
+        logger.error('[analyticsController] getAnalyticsSummary failed', { error: serializedError });
         const e = error as { message?: string };
         res.status(500).json({ success: false, error: 'Internal server error', details: e.message });
     }

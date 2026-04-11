@@ -178,4 +178,33 @@ describe('api client auth/session flow', () => {
       code: 'VALIDATION_ERROR',
     });
   });
+
+  it('surfaces public error data for business-error redirects', async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(makeResponse(200, { data: { csrfToken: 'csrf-from-body' } }) as never)
+      .mockResolvedValueOnce(
+        makeResponse(409, {
+          success: false,
+          errorCode: 'EMAIL_PENDING_VERIFICATION',
+          messageKey: 'auth:errors.emailPendingVerification',
+          message: 'Email này đang chờ xác thực.',
+          data: {
+            email: 'pending@example.com',
+            requiresVerification: true,
+          },
+        }) as never,
+      );
+
+    const api = await loadApi();
+
+    await expect(api.post('/api/auth/register', { email: 'pending@example.com' })).rejects.toMatchObject({
+      status: 409,
+      code: 'EMAIL_PENDING_VERIFICATION',
+      data: {
+        email: 'pending@example.com',
+        requiresVerification: true,
+      },
+    });
+  });
 });

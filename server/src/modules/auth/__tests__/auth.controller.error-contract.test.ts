@@ -1,5 +1,5 @@
 import { authController } from '../auth.controller';
-import { AppError } from '../../../middlewares/error.middleware';
+import { AppError, AppErrorWithData } from '../../../middlewares/error.middleware';
 
 const registerUser = jest.fn();
 const loginUser = jest.fn();
@@ -58,6 +58,29 @@ describe('auth.controller error contract', () => {
     registerUser.mockRejectedValue(err);
 
     const req: any = { body: { email: 'demo@example.com', password: 'Secret123!', fullName: 'Demo' } };
+    const res: any = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    const next = jest.fn();
+
+    await authController.register(req, res, next);
+
+    expect(next).toHaveBeenCalledWith(err);
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).not.toHaveBeenCalled();
+  });
+
+  it('forwards register AppErrorWithData without custom branching in the controller', async () => {
+    const err = new AppErrorWithData(
+      409,
+      'EMAIL_PENDING_VERIFICATION',
+      'auth:errors.emailPendingVerification',
+      {
+        email: 'pending@example.com',
+        requiresVerification: true,
+      },
+    );
+    registerUser.mockRejectedValue(err);
+
+    const req: any = { body: { email: 'pending@example.com', password: 'Secret123!', fullName: 'Demo' } };
     const res: any = { status: jest.fn().mockReturnThis(), json: jest.fn() };
     const next = jest.fn();
 

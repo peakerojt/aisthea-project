@@ -5,7 +5,7 @@ import { RegisterInput, LoginInput } from '../utils/schemas/auth.schema';
 import { createVerificationToken } from './verification.service';
 import { logger } from '../lib/logger';
 import bcrypt from 'bcryptjs';
-import { AppError } from '../middlewares/error.middleware';
+import { AppError, AppErrorWithData } from '../middlewares/error.middleware';
 
 const LOCAL_LOGIN_PROVIDER = 'LOCAL';
 
@@ -19,6 +19,18 @@ export const registerUser = async (input: RegisterInput) => {
     });
 
     if (existingUser) {
+        if (existingUser.status === 'Pending') {
+            throw new AppErrorWithData(
+                409,
+                'EMAIL_PENDING_VERIFICATION',
+                'auth:errors.emailPendingVerification',
+                {
+                    email: existingUser.email,
+                    requiresVerification: true,
+                },
+            );
+        }
+
         throw new AppError(409, 'EMAIL_EXISTS', 'auth:errors.emailExists');
     }
 

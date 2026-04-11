@@ -1,7 +1,7 @@
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Ban, ChevronDown, ChevronLeft, ChevronRight, Eye, Plus, RefreshCw, Truck, X } from 'lucide-react';
+import { Ban, ChevronDown, ChevronLeft, ChevronRight, Eye, Plus, Truck, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import {
   AdminActionButton,
@@ -11,6 +11,7 @@ import {
   AdminPageHeader,
   AdminPageShell,
   AdminPrimaryButton,
+  AdminRefreshButton,
   AdminSectionCard,
   AdminSecondaryButton,
   AdminStatCards,
@@ -108,6 +109,7 @@ const getStatusBadgeTone = (status: PurchaseOrderStatus) => {
 const INVENTORY_PAGE_SIZE = 40;
 const PO_PAGE_SIZE = 20;
 const LOW_STOCK_THRESHOLD = 20;
+const INVENTORY_TABLE_VIEWPORT_HEIGHT = 'min(420px, 40vh)';
 function isLowStockQuantityValue(qty: number) {
   return qty > 0 && qty <= LOW_STOCK_THRESHOLD;
 }
@@ -838,9 +840,11 @@ export const Restock: React.FC = () => {
   const [variants, setVariants] = useState<InventoryVariant[]>([]);
   const [allVariants, setAllVariants] = useState<InventoryVariant[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
+  const [refreshingOrders, setRefreshingOrders] = useState(false);
   const [loadingInventory, setLoadingInventory] = useState(true);
   const [fetchingInventory, setFetchingInventory] = useState(false);
   const [loadingInventorySummary, setLoadingInventorySummary] = useState(true);
+  const [refreshingInventorySummary, setRefreshingInventorySummary] = useState(false);
   const [loadingVariantOptions, setLoadingVariantOptions] = useState(false);
   const [inventorySummary, setInventorySummary] = useState<InventorySummary>({ total: 0, out: 0, low: 0, ok: 0 });
   const [error, setError] = useState<string | null>(null);
@@ -874,7 +878,9 @@ export const Restock: React.FC = () => {
   const poRequestIdRef = useRef(0);
   const inventoryRequestIdRef = useRef(0);
   const summaryRequestIdRef = useRef(0);
+  const hasLoadedOrdersRef = useRef(false);
   const hasLoadedInventoryRef = useRef(false);
+  const hasLoadedInventorySummaryRef = useRef(false);
   const ttRef = useRef(tt);
   const inventoryScrollRef = useRef<HTMLDivElement | null>(null);
   const allVariantsRef = useRef<InventoryVariant[]>([]);
@@ -943,7 +949,12 @@ export const Restock: React.FC = () => {
 
   const loadOrders = useCallback(async () => {
     const requestId = ++poRequestIdRef.current;
-    setLoadingOrders(true);
+    const showInitialLoading = !hasLoadedOrdersRef.current;
+    if (showInitialLoading) {
+      setLoadingOrders(true);
+    } else {
+      setRefreshingOrders(true);
+    }
     setError(null);
     try {
       const res = await listPurchaseOrders({
@@ -952,8 +963,11 @@ export const Restock: React.FC = () => {
         search: debouncedPoSearch || undefined,
       });
       if (poRequestIdRef.current !== requestId) return;
-      setOrders(res.data ?? []);
-      setPoMeta(res.meta ?? makeDefaultMeta(PO_PAGE_SIZE));
+      startTransition(() => {
+        setOrders(res.data ?? []);
+        setPoMeta(res.meta ?? makeDefaultMeta(PO_PAGE_SIZE));
+      });
+      hasLoadedOrdersRef.current = true;
     } catch (e) {
       if (poRequestIdRef.current !== requestId) return;
       const err = e as Error;
@@ -961,6 +975,7 @@ export const Restock: React.FC = () => {
     } finally {
       if (poRequestIdRef.current === requestId) {
         setLoadingOrders(false);
+        setRefreshingOrders(false);
       }
     }
   }, [debouncedPoSearch, poPage]);
@@ -1006,26 +1021,35 @@ export const Restock: React.FC = () => {
 
   const loadInventorySummary = useCallback(async () => {
     const requestId = ++summaryRequestIdRef.current;
-    setLoadingInventorySummary(true);
+    const showInitialLoading = !hasLoadedInventorySummaryRef.current;
+    if (showInitialLoading) {
+      setLoadingInventorySummary(true);
+    } else {
+      setRefreshingInventorySummary(true);
+    }
     try {
       const summary = await fetchInventorySummary();
       if (summaryRequestIdRef.current !== requestId) return;
       const data = summary.data;
-      setInventorySummary({
-        total: Number(data?.totalVariants ?? 0),
-        out: Number(data?.outOfStock ?? 0),
-        low: Number(data?.lowStock ?? 0),
-        ok: Math.max(
-          0,
-          Number(data?.totalVariants ?? 0) - Number(data?.outOfStock ?? 0) - Number(data?.lowStock ?? 0),
-        ),
+      startTransition(() => {
+        setInventorySummary({
+          total: Number(data?.totalVariants ?? 0),
+          out: Number(data?.outOfStock ?? 0),
+          low: Number(data?.lowStock ?? 0),
+          ok: Math.max(
+            0,
+            Number(data?.totalVariants ?? 0) - Number(data?.outOfStock ?? 0) - Number(data?.lowStock ?? 0),
+          ),
+        });
       });
+      hasLoadedInventorySummaryRef.current = true;
     } catch {
       if (summaryRequestIdRef.current !== requestId) return;
       // Keep current summary when background aggregation fails.
     } finally {
       if (summaryRequestIdRef.current === requestId) {
         setLoadingInventorySummary(false);
+        setRefreshingInventorySummary(false);
       }
     }
   }, []);
@@ -1262,6 +1286,7 @@ export const Restock: React.FC = () => {
       tone: 'success' as const,
     },
   ];
+  const isRefreshPending = refreshingOrders || fetchingInventory || refreshingInventorySummary;
 
   const modalFieldClass = `${adminUiTokens.fieldControl} rounded-lg bg-black/20`;
   const modalTextareaClass = `${adminUiTokens.fieldControl} rounded-lg bg-black/20 min-h-[80px]`;
@@ -1350,17 +1375,20 @@ export const Restock: React.FC = () => {
       </div>
       <div
         ref={inventoryScrollRef}
+        data-testid="restock-inventory-viewport"
         className={`relative isolate overflow-auto transition-opacity ${fetchingInventory ? 'opacity-95' : 'opacity-100'}`}
-        style={{ maxHeight: 'min(420px, 40vh)' }}
+        style={{ height: INVENTORY_TABLE_VIEWPORT_HEIGHT }}
       >
         {loadingInventory && variants.length === 0 ? (
-          <div className="px-4 py-8 text-center text-white/40">{tt('restock:po.inventory.states.loading')}</div>
+          <div className="flex min-h-full items-center justify-center px-4 py-8 text-center text-white/40">
+            {tt('restock:po.inventory.states.loading')}
+          </div>
         ) : variants.length === 0 ? (
-          <div className="px-4 py-8 text-center text-white/30">
+          <div className="flex min-h-full items-center justify-center px-4 py-8 text-center text-white/30">
             {(inventorySearch || showLowStockOnly || showOutOfStockOnly) ? tt('restock:po.inventory.states.noMatch') : tt('restock:po.inventory.states.empty')}
           </div>
         ) : (
-          <div className="w-full">
+          <div className="min-h-full w-full">
             {variants.map((v) => {
               const s = renderInventoryStatus(v.stockQuantity);
               const isFocused = focusedVariantId === v.variantId;
@@ -1442,7 +1470,7 @@ export const Restock: React.FC = () => {
             <AdminIconButton
               type="button"
               onClick={() => setPoPage((prev) => Math.max(1, prev - 1))}
-              disabled={!poCanPrev || loadingOrders}
+              disabled={!poCanPrev || loadingOrders || refreshingOrders}
               aria-label={tt('restock:po.pagination.previousPo')}
               className="h-8 w-8 rounded-lg"
             >
@@ -1454,7 +1482,7 @@ export const Restock: React.FC = () => {
             <AdminIconButton
               type="button"
               onClick={() => setPoPage((prev) => Math.min(poMeta.totalPages, prev + 1))}
-              disabled={!poCanNext || loadingOrders}
+              disabled={!poCanNext || loadingOrders || refreshingOrders}
               aria-label={tt('restock:po.pagination.nextPo')}
               className="h-8 w-8 rounded-lg"
             >
@@ -1476,8 +1504,8 @@ export const Restock: React.FC = () => {
               <th className={`px-4 py-3 text-center ${adminUiTokens.tableHeader}`}>{tt('restock:po.columns.actions')}</th>
             </tr>
           </thead>
-          <tbody className={adminUiTokens.tableBody}>
-            {loadingOrders ? (
+          <tbody className={`${adminUiTokens.tableBody} transition-opacity ${refreshingOrders ? 'opacity-85' : 'opacity-100'}`}>
+            {loadingOrders && orders.length === 0 ? (
               <tr><td colSpan={7} className="px-4 py-8 text-center text-white/40">{tt('restock:po.states.loading')}</td></tr>
             ) : orders.length === 0 ? (
               <tr><td colSpan={7} className="px-4 py-10 text-center text-white/30">{tt('restock:po.states.empty')}</td></tr>
@@ -1528,6 +1556,7 @@ export const Restock: React.FC = () => {
     poMeta.total,
     poMeta.totalPages,
     poSearch,
+    refreshingOrders,
     tt,
   ]);
 
@@ -1538,9 +1567,12 @@ export const Restock: React.FC = () => {
         subtitle={tt('restock:po.subtitle')}
         actions={(
           <>
-            <AdminSecondaryButton onClick={handleRefresh}>
-              <RefreshCw size={14} />{tt('restock:po.actions.refresh')}
-            </AdminSecondaryButton>
+            <AdminRefreshButton
+              type="button"
+              onClick={handleRefresh}
+              isRefreshing={loadingOrders || isRefreshPending || loadingInventorySummary}
+              label={tt('restock:po.actions.refresh')}
+            />
             <AdminPrimaryButton onClick={openSupplierManager} className="min-w-[184px] justify-center">
               <Plus size={14} />{tt('restock:po.actions.suppliers')}
             </AdminPrimaryButton>

@@ -80,7 +80,7 @@ describe('Dashboard', () => {
     vi.useRealTimers();
   });
 
-  it('keeps the refresh rail mounted and only toggles its state during range changes', async () => {
+  it('keeps the shared refresh badge mounted and only toggles its state during range changes', async () => {
     let resolveWeekRequest: ((value: typeof baseSummary) => void) | null = null;
 
     fetchDashboardSummaryMock
@@ -94,9 +94,10 @@ describe('Dashboard', () => {
 
     const { container } = render(<Dashboard />);
 
-    const refreshRail = container.querySelector('[data-dashboard-refresh-rail="true"]');
-    expect(refreshRail).toBeInTheDocument();
-    expect(refreshRail).toHaveAttribute('data-refreshing', 'false');
+    const refreshBadge = container.querySelector('[data-admin-refresh-badge="true"]');
+    expect(refreshBadge).toBeInTheDocument();
+    expect(refreshBadge).toHaveAttribute('data-refreshing', 'false');
+    expect(container.querySelector('[data-dashboard-refresh-rail="true"]')).not.toBeInTheDocument();
 
     await act(async () => {
       vi.advanceTimersByTime(120);
@@ -120,13 +121,13 @@ describe('Dashboard', () => {
 
     expect(fetchDashboardSummaryMock).toHaveBeenCalledWith('week');
 
-    expect(refreshRail).toHaveAttribute('data-refreshing', 'true');
+    expect(refreshBadge).toHaveAttribute('data-refreshing', 'true');
 
     await act(async () => {
       resolveWeekRequest?.(baseSummary);
       await Promise.resolve();
     });
 
-    expect(refreshRail).toHaveAttribute('data-refreshing', 'false');
+    expect(refreshBadge).toHaveAttribute('data-refreshing', 'false');
   });
 });
