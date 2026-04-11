@@ -168,14 +168,7 @@ export const Login: React.FC = () => {
         </p>
       </AuthFooterLinks>
 
-      <div className="mt-8 flex items-center justify-between border-t border-white/6 pt-8 text-xs text-zinc-600">
-        <button
-          type="button"
-          onClick={() => navigate('/admin')}
-          className="ui-stable-click rounded-sm transition-colors duration-150 hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20"
-        >
-          {t('footer.adminLogin')}
-        </button>
+      <div className="mt-8 border-t border-white/6 pt-8 text-center text-xs text-zinc-600">
         <span>{t('footer.privacy')}</span>
       </div>
     </AuthLayout>

@@ -17,7 +17,6 @@ const loadCoupons = () => import('@/admin/pages/Coupons').then((m) => ({ default
 const loadRoles = () => import('@/admin/pages/Roles').then((m) => ({ default: m.Roles }));
 const loadRestock = () => import('@/admin/pages/Restock').then((m) => ({ default: m.Restock }));
 const loadTracking = () => import('@/admin/pages/Tracking').then((m) => ({ default: m.Tracking }));
-const loadEmailQueue = () => import('@/admin/pages/EmailQueue').then((m) => ({ default: m.EmailQueue }));
 
 const Dashboard = React.lazy(loadDashboard);
 const Products = React.lazy(loadProducts);
@@ -33,7 +32,6 @@ const Coupons = React.lazy(loadCoupons);
 const Roles = React.lazy(loadRoles);
 const Restock = React.lazy(loadRestock);
 const Tracking = React.lazy(loadTracking);
-const EmailQueue = React.lazy(loadEmailQueue);
 
 const AdminRouteAccessGate: React.FC<{ path: string; children: React.ReactNode }> = ({ path, children }) => {
   const { isInitialized, user } = useAuth();
@@ -68,7 +66,6 @@ export const adminRoutes = [
   { path: '/admin/roles', element: withAdminRouteAccess('/admin/roles', <Roles />) },
   { path: '/admin/restock', element: withAdminRouteAccess('/admin/restock', <Restock />) },
   { path: '/admin/tracking', element: withAdminRouteAccess('/admin/tracking', <Tracking />) },
-  { path: '/admin/notifications', element: withAdminRouteAccess('/admin/notifications', <EmailQueue />) },
 ];
 
 type RoutePreloader = {
@@ -98,7 +95,6 @@ const routePreloaders: RoutePreloader[] = [
   { match: (path) => path === '/admin/roles', load: loadRoles },
   { match: (path) => path === '/admin/restock', load: loadRestock },
   { match: (path) => path === '/admin/tracking', load: loadTracking },
-  { match: (path) => path === '/admin/notifications', load: loadEmailQueue },
 ];
 
 export const preloadAdminRoute = (path: string): void => {

@@ -2,9 +2,14 @@ import { api } from '@/common/utils/api';
 
 export type ChatRole = 'user' | 'assistant';
 export type ChatPage = 'home' | 'product' | 'stylist' | 'support' | 'weather';
-export type ChatIntent = 'STYLE' | 'PRODUCT' | 'GENERAL';
+export type ChatIntent = 'PRODUCT' | 'STYLE' | 'SUPPORT' | 'OUT_OF_SCOPE';
 export type ChatTelemetryEventName = 'chat_open' | 'chat_send' | 'chat_cta_click' | 'chat_product_click';
 export type ChatTelemetryPlacement = 'launcher' | 'initial_actions' | 'reply_actions' | 'product_card';
+export type ChatTelemetryInternalEvent =
+  | 'chat_out_of_scope_blocked'
+  | 'chat_support_redirected'
+  | 'chat_short_answer_returned'
+  | 'chat_clarification_asked';
 
 export interface ChatHistoryMessage {
   role: ChatRole;
@@ -15,6 +20,7 @@ export interface ChatRequestPayload {
   message: string;
   page: ChatPage;
   history: ChatHistoryMessage[];
+  sessionId?: string;
   productId?: number;
   contextSummary?: string;
 }
@@ -76,6 +82,28 @@ export interface ChatTelemetryDailyTrend {
   clicks: number;
 }
 
+export interface ChatTelemetryInternalMetric {
+  event: ChatTelemetryInternalEvent;
+  total: number;
+  rate: number;
+}
+
+export interface ChatTelemetryInternalByPage {
+  page: ChatPage;
+  outOfScopeBlocked: number;
+  supportRedirected: number;
+  clarificationAsked: number;
+  shortAnswerReturned: number;
+}
+
+export interface ChatTelemetryInternalTrend {
+  label: string;
+  outOfScopeBlocked: number;
+  supportRedirected: number;
+  clarificationAsked: number;
+  shortAnswerReturned: number;
+}
+
 export interface ChatTelemetrySummaryPayload {
   period: {
     start: string;
@@ -85,6 +113,9 @@ export interface ChatTelemetrySummaryPayload {
   byPage: ChatTelemetryByPage[];
   topTargets: ChatTelemetryTarget[];
   dailyTrend: ChatTelemetryDailyTrend[];
+  internalSignals: ChatTelemetryInternalMetric[];
+  internalSignalsByPage: ChatTelemetryInternalByPage[];
+  internalSignalsTrend: ChatTelemetryInternalTrend[];
   success?: boolean;
   message?: string;
   messageKey?: string;

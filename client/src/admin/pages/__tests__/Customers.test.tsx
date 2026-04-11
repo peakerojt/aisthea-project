@@ -150,6 +150,11 @@ vi.mock('@/admin/components/AdminUI', () => ({
     children,
     ...props
   }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props}>{children}</button>,
+  AdminRefreshButton: ({
+    label,
+    isRefreshing: _isRefreshing,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { label: React.ReactNode; isRefreshing?: boolean }) => <button {...props}>{label}</button>,
   AdminSecondaryButton: ({
     children,
     ...props

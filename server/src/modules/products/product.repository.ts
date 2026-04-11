@@ -13,6 +13,13 @@ export interface ProductFilter {
   sort?: string;
 }
 
+export interface ChatRecommendationFilter {
+  categorySlug?: string;
+  search?: string;
+  excludeProductId?: number;
+  limit?: number;
+}
+
 const buildOrderBy = (sort: string): Prisma.ProductOrderByWithRelationInput => {
   const [field, directionToken] = sort.split('_');
   const direction: Prisma.SortOrder = directionToken === 'asc' ? 'asc' : 'desc';
@@ -174,6 +181,56 @@ export const productRepository = {
           orderBy: { variantId: 'asc' },
         },
       },
+    });
+  },
+
+  async findChatRecommendations(filters: ChatRecommendationFilter = {}) {
+    const limit = filters.limit ?? 4;
+
+    return prisma.product.findMany({
+      where: {
+        isDeleted: false,
+        status: 'Active',
+        ...(filters.excludeProductId ? { productId: { not: filters.excludeProductId } } : {}),
+        ...(filters.categorySlug ? { category: { slug: filters.categorySlug } } : {}),
+        ...(filters.search
+          ? {
+              OR: [
+                { name: { contains: filters.search } },
+                { description: { contains: filters.search } },
+                {
+                  variants: {
+                    some: {
+                      isDeleted: false,
+                      sku: { contains: filters.search },
+                    },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        productId: true,
+        name: true,
+        basePrice: true,
+        category: {
+          select: {
+            slug: true,
+          },
+        },
+        images: {
+          select: {
+            imageUrl: true,
+            thumbnailUrl: true,
+            isPrimary: true,
+          },
+          orderBy: [{ isPrimary: 'desc' }, { imageId: 'asc' }],
+          take: 1,
+        },
+      },
+      take: limit,
+      orderBy: { createdAt: 'desc' },
     });
   },
 

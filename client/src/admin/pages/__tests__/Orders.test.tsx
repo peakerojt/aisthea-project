@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getAllMock = vi.hoisted(() => vi.fn());
@@ -10,6 +11,16 @@ const setSearchParamsMock = vi.hoisted(() => vi.fn());
 const i18nMode = vi.hoisted(() => ({ rawKeys: false }));
 const interpolateMock = (template: string, options?: Record<string, unknown>) =>
   template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, token: string) => String(options?.[token] ?? ''));
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+
+  return { promise, resolve, reject };
+};
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -70,21 +81,30 @@ vi.mock('@/admin/components/AdminUI', () => ({
   ),
   AdminStatusFilterBar: ({
     items,
+    onChange,
     isRefreshing,
   }: {
-    items: Array<{ label: React.ReactNode; count?: number }>;
+    items: Array<{ key: string; label: React.ReactNode; count?: number }>;
+    onChange: (key: string) => void;
     isRefreshing?: boolean;
   }) => (
     <div data-testid="status-filter-bar" data-refreshing={isRefreshing ? 'true' : 'false'}>
       {items.map((item, index) => (
-        <span key={index}>
+        <button key={index} type="button" onClick={() => onChange(item.key)}>
           {item.label} {item.count}
-        </span>
+        </button>
       ))}
     </div>
   ),
   AdminSecondaryButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props}>{children}</button>
+  ),
+  AdminRefreshButton: ({
+    label,
+    isRefreshing,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { label: React.ReactNode; isRefreshing?: boolean }) => (
+    <button {...props} data-refreshing={isRefreshing ? 'true' : 'false'}>{label}</button>
   ),
   AdminEmptyState: ({ title, description }: { title: React.ReactNode; description?: React.ReactNode }) => (
     <div>
@@ -214,6 +234,72 @@ describe('Admin Orders page', () => {
     });
 
     expect(screen.getByTestId('status-filter-bar')).toHaveAttribute('data-refreshing', 'false');
+  });
+
+  it('does not spin the manual refresh button when switching tabs', async () => {
+    const nextOrders = deferred<{
+      orders: Array<Record<string, unknown>>;
+      pagination: { page: number; pageSize: number; total: number; totalPages: number };
+    }>();
+
+    getAllMock
+      .mockResolvedValueOnce({
+        orders: [
+          {
+            orderId: 101,
+            orderNumber: 'ORD-101',
+            customerName: 'Nguyen Van A',
+            customerPhone: '0900000000',
+            status: 'COMPLETED',
+            statusLabel: 'COMPLETED',
+            paymentStatus: 'PAID',
+            paymentMethod: 'VNPAY',
+            totalAmount: '450000',
+            createdAt: '2026-03-25T10:00:00.000Z',
+            itemCount: 1,
+            user: null,
+          },
+        ],
+        pagination: {
+          page: 1,
+          pageSize: 15,
+          total: 1,
+          totalPages: 1,
+        },
+      })
+      .mockImplementationOnce(() => nextOrders.promise);
+
+    render(<Orders />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Làm mới' })).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /Đang xử lý/i }));
+
+    await waitFor(() => {
+      expect(getAllMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+
+    expect(
+      getAllMock.mock.calls.some((call) => call[0] && typeof call[0] === 'object' && 'status' in call[0] && call[0].status === 'Processing'),
+    ).toBe(true);
+
+    expect(screen.getByRole('button', { name: 'Làm mới' })).toHaveAttribute('data-refreshing', 'false');
+
+    nextOrders.resolve({
+      orders: [],
+      pagination: {
+        page: 1,
+        pageSize: 15,
+        total: 0,
+        totalPages: 1,
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Làm mới' })).toHaveAttribute('data-refreshing', 'false');
+    });
   });
 
   it('normalizes hyphenated return requested statuses before rendering compact labels', async () => {

@@ -5,6 +5,7 @@ import { NotificationBell } from '@/admin/components/NotificationBell';
 import {
   AdminPageHeader,
   AdminPageShell,
+  AdminRefreshState,
   AdminTabs,
 } from '@/admin/components/AdminUI';
 import { DashboardCards } from '@/admin/components/DashboardCards';
@@ -53,6 +54,10 @@ export const Dashboard: React.FC = () => {
     { value: 'month', label: t('range.month') },
     { value: 'year', label: t('range.year') },
   ];
+  const refreshingLabel = (() => {
+    const label = t('common.refreshing');
+    return label === 'common.refreshing' ? 'Đang cập nhật' : label;
+  })();
 
   const [range, setRange] = useState<DashboardRange>('month');
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -144,7 +149,7 @@ export const Dashboard: React.FC = () => {
 
   return (
     <AdminPageShell>
-      <div className="relative pb-3">
+      <div>
         <AdminPageHeader
           eyebrow={t('page.label')}
           title={t('page.title')}
@@ -159,24 +164,12 @@ export const Dashboard: React.FC = () => {
             </>
           }
         />
-
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-full"
-        >
-          <div
-            className={`absolute inset-0 rounded-full bg-white/[0.04] transition-opacity duration-150 ${
-              isRefreshing ? 'opacity-100' : 'opacity-0'
-            }`}
-          />
-          <div
-            data-dashboard-refresh-rail="true"
-            data-refreshing={isRefreshing ? 'true' : 'false'}
-            className={`absolute inset-y-0 left-0 w-1/3 rounded-full bg-primary/80 transition-[opacity,transform] duration-200 ${
-              isRefreshing ? 'animate-pulse opacity-100 translate-x-0' : 'opacity-0 -translate-y-1'
-            }`}
-          />
-        </div>
+        <AdminRefreshState
+          className="mt-3"
+          isRefreshing={isRefreshing}
+          label={refreshingLabel}
+          stabilizeDurationMs={0}
+        />
       </div>
 
       {error && (

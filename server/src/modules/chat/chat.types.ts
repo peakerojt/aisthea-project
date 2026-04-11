@@ -1,8 +1,13 @@
 export type ChatRole = 'user' | 'assistant';
 export type ChatPage = 'home' | 'product' | 'stylist' | 'support' | 'weather';
-export type ChatIntent = 'STYLE' | 'PRODUCT' | 'GENERAL';
+export type ChatIntent = 'PRODUCT' | 'STYLE' | 'SUPPORT' | 'OUT_OF_SCOPE';
 export type ChatTelemetryEventName = 'chat_open' | 'chat_send' | 'chat_cta_click' | 'chat_product_click';
 export type ChatTelemetryPlacement = 'launcher' | 'initial_actions' | 'reply_actions' | 'product_card';
+export type ChatTelemetryInternalEventDto =
+  | 'chat_out_of_scope_blocked'
+  | 'chat_support_redirected'
+  | 'chat_short_answer_returned'
+  | 'chat_clarification_asked';
 
 export interface ChatHistoryMessage {
   role: ChatRole;
@@ -13,6 +18,7 @@ export interface ChatRequestDto {
   message: string;
   page: ChatPage;
   history: ChatHistoryMessage[];
+  sessionId?: string;
   productId?: number;
   contextSummary?: string;
 }
@@ -74,6 +80,28 @@ export interface ChatTelemetryDailyTrendDto {
   clicks: number;
 }
 
+export interface ChatTelemetryInternalMetricDto {
+  event: ChatTelemetryInternalEventDto;
+  total: number;
+  rate: number;
+}
+
+export interface ChatTelemetryInternalByPageDto {
+  page: ChatPage;
+  outOfScopeBlocked: number;
+  supportRedirected: number;
+  clarificationAsked: number;
+  shortAnswerReturned: number;
+}
+
+export interface ChatTelemetryInternalTrendDto {
+  label: string;
+  outOfScopeBlocked: number;
+  supportRedirected: number;
+  clarificationAsked: number;
+  shortAnswerReturned: number;
+}
+
 export interface ChatTelemetrySummaryDto {
   period: {
     start: string;
@@ -83,6 +111,9 @@ export interface ChatTelemetrySummaryDto {
   byPage: ChatTelemetryByPageDto[];
   topTargets: ChatTelemetryTargetDto[];
   dailyTrend: ChatTelemetryDailyTrendDto[];
+  internalSignals: ChatTelemetryInternalMetricDto[];
+  internalSignalsByPage: ChatTelemetryInternalByPageDto[];
+  internalSignalsTrend: ChatTelemetryInternalTrendDto[];
 }
 
 export interface ChatResponseDto {

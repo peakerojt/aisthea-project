@@ -1,14 +1,13 @@
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, ChevronRight, Layers3, MessageCircleMore, ShieldCheck, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/store/components/Header';
 import { useProductsAPI } from '@/common/hooks/useProducts';
 import { ProductCard } from '@/common/components/ProductCard';
+import { ChatWidget } from '@/common/components/ChatWidget';
 import { ProductItem } from '@/types';
 import { Product } from '@/common/services/product.service';
 import { useTranslation } from 'react-i18next';
-
-const ChatWidget = React.lazy(() => import('@/common/components/ChatWidget').then((m) => ({ default: m.ChatWidget })));
 
 type HomeTabKey = 'Unisex' | 'Men' | 'Women';
 
@@ -58,7 +57,6 @@ export const Home: React.FC = () => {
   const navigate = useNavigate();
   const { data: rawProducts = [], isLoading: loading } = useProductsAPI();
   const [selectedGender, setSelectedGender] = useState<HomeTabKey>('Unisex');
-  const [shouldRenderChatWidget, setShouldRenderChatWidget] = useState(false);
   const sectionBorderClass = 'border-white/6';
   const cardBorderClass = 'border-white/12';
   const chipBorderClass = 'border-white/8';
@@ -68,7 +66,10 @@ export const Home: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleCollectionNavigate = (category: 'Men' | 'Women', collection: 'Outerwear' | 'Tops' | 'Bottoms' | 'Accessories') => {
+  const handleCollectionNavigate = (
+    category: 'Men' | 'Women',
+    collection: 'Outerwear' | 'Tops' | 'Bottoms' | 'Dresses' | 'Accessories'
+  ) => {
     navigate(`/collection/${category.toLowerCase()}/${collection.toLowerCase()}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -214,8 +215,8 @@ export const Home: React.FC = () => {
         description: t('category.cards.women.description'),
         image: '/images/home/category-women-960.webp',
         links: [
-          { label: t('category.cards.women.links.outerwear'), collection: 'Outerwear' as const },
-          { label: t('category.cards.women.links.knitwear'), collection: 'Tops' as const },
+          { label: t('category.cards.women.links.outerwear'), collection: 'Tops' as const },
+          { label: t('category.cards.women.links.knitwear'), collection: 'Dresses' as const },
           { label: t('category.cards.women.links.essentials'), collection: 'Accessories' as const },
         ],
       },
@@ -625,22 +626,7 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      {!shouldRenderChatWidget ? (
-        <button
-          type="button"
-          onClick={() => setShouldRenderChatWidget(true)}
-          className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-black/85 text-white shadow-2xl shadow-black/50 transition hover:scale-105 hover:border-primary/50 hover:text-primary md:bottom-6 md:right-6"
-          aria-label="Mở trợ lý chat"
-        >
-          <MessageCircleMore size={22} />
-        </button>
-      ) : null}
-
-      {shouldRenderChatWidget ? (
-        <Suspense fallback={null}>
-          <ChatWidget page="home" initialOpen />
-        </Suspense>
-      ) : null}
+      <ChatWidget page="home" />
     </div>
   );
 };

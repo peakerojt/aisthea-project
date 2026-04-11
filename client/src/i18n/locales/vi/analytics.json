@@ -94,7 +94,28 @@
       "clicks": "Lượt nhấn"
     },
     "topTargetsTitle": "CTA nổi bật",
-    "topTargetsSub": "Những liên kết được nhấn nhiều nhất từ trợ lý"
+    "topTargetsSub": "Những liên kết được nhấn nhiều nhất từ trợ lý",
+    "internalSignals": {
+      "title": "Điều hướng nội bộ của bot",
+      "subtitle": "Theo dõi các trường hợp bot tự chặn, điều hướng hỗ trợ, hỏi làm rõ và giữ câu trả lời ngắn.",
+      "rate": "{{value}}% trên số tin nhắn gửi",
+      "trendTitle": "Xu hướng nội bộ theo ngày",
+      "trendSub": "Biến động các case bot tự xử lý trong từng ngày của kỳ đã chọn.",
+      "byPageTitle": "Internal signals theo ngữ cảnh",
+      "byPageSub": "So sánh trang chủ, sản phẩm, stylist, thời tiết và hỗ trợ.",
+      "labels": {
+        "outOfScope": "Chặn ngoài phạm vi",
+        "supportRedirected": "Điều hướng hỗ trợ",
+        "clarificationAsked": "Yêu cầu làm rõ",
+        "shortAnswerReturned": "Trả lời ngắn"
+      },
+      "shortLabels": {
+        "outOfScope": "Ngoài phạm vi",
+        "supportRedirected": "Support",
+        "clarificationAsked": "Làm rõ",
+        "shortAnswerReturned": "Ngắn"
+      }
+    }
   },
   "retention": {
     "title": "Tỷ lệ khách quay lại",

@@ -1,6 +1,6 @@
-import React, { useEffect, useId, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Inbox, LucideIcon, X } from 'lucide-react';
+import { Inbox, LucideIcon, RefreshCw, X } from 'lucide-react';
 
 export type AdminStatCardItem = {
   key: string;
@@ -33,6 +33,7 @@ export interface AdminRefreshStateProps {
   className?: string;
   label?: React.ReactNode;
   align?: 'start' | 'end';
+  stabilizeDurationMs?: number;
 }
 
 export type AdminTableColumn<T> = {
@@ -87,6 +88,77 @@ export interface AdminModalShellProps {
   backdropClassName?: string;
   lockBodyScroll?: boolean;
 }
+
+const useStableRefreshSignal = (isRefreshing: boolean, minDurationMs = 450) => {
+  const [isVisible, setIsVisible] = useState(isRefreshing);
+  const hideTimerRef = useRef<number | null>(null);
+  const refreshStartedAtRef = useRef<number | null>(isRefreshing ? Date.now() : null);
+  const previousRefreshingRef = useRef(isRefreshing);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      setIsVisible(isRefreshing);
+      previousRefreshingRef.current = isRefreshing;
+      refreshStartedAtRef.current = isRefreshing ? Date.now() : null;
+      return undefined;
+    }
+
+    if (hideTimerRef.current !== null) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+
+    if (isRefreshing) {
+      if (!previousRefreshingRef.current) {
+        refreshStartedAtRef.current = Date.now();
+      } else if (refreshStartedAtRef.current === null) {
+        refreshStartedAtRef.current = Date.now();
+      }
+
+      previousRefreshingRef.current = true;
+      setIsVisible(true);
+      return undefined;
+    }
+
+    previousRefreshingRef.current = false;
+
+    if (!isVisible) {
+      refreshStartedAtRef.current = null;
+      return undefined;
+    }
+
+    const elapsed = refreshStartedAtRef.current === null ? minDurationMs : Date.now() - refreshStartedAtRef.current;
+    const remaining = Math.max(0, minDurationMs - elapsed);
+
+    if (remaining === 0) {
+      refreshStartedAtRef.current = null;
+      setIsVisible(false);
+      return undefined;
+    }
+
+    hideTimerRef.current = window.setTimeout(() => {
+      hideTimerRef.current = null;
+      refreshStartedAtRef.current = null;
+      setIsVisible(false);
+    }, remaining);
+
+    return () => {
+      if (hideTimerRef.current !== null) {
+        window.clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+    };
+  }, [isRefreshing, isVisible, minDurationMs]);
+
+  useEffect(() => () => {
+    if (hideTimerRef.current !== null && typeof window !== 'undefined') {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  }, []);
+
+  return isVisible;
+};
 
 const SURFACE_BASE = 'border border-white/[0.06] bg-[#101217] shadow-[0_18px_50px_rgba(0,0,0,0.24)]';
 
@@ -282,7 +354,7 @@ export const AdminTabs: React.FC<{
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                 isActive ? 'bg-white/12 text-white' : 'bg-white/[0.06] text-white/55'
-              }`}
+              } inline-flex min-w-[1.5rem] justify-center text-center tabular-nums`}
             >
               {item.count}
             </span>
@@ -301,89 +373,86 @@ export const AdminStatusFilterBar: React.FC<AdminStatusFilterBarProps> = ({
   className = '',
   tabsClassName = '',
   refreshLabel = 'Dang cap nhat',
-}) => (
-  <div data-testid="admin-status-filter-bar" className={`relative pb-3 ${className}`}>
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <AdminTabs
-        items={items}
-        activeKey={activeKey}
-        onChange={onChange}
-        className={`min-w-0 flex-1 ${tabsClassName}`}
-      />
-      <div className="flex min-h-[36px] items-center lg:justify-end">
-        <span
-          aria-live="polite"
-          data-admin-status-refresh-badge="true"
-          data-refreshing={isRefreshing ? 'true' : 'false'}
-          className={`inline-flex min-w-[9.5rem] items-center justify-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition-[opacity,border-color,background-color,color] duration-200 ${
-            isRefreshing
-              ? 'border-primary/25 bg-primary/10 text-primary opacity-100'
-              : 'border-white/[0.08] bg-white/[0.03] text-white/28 opacity-0'
-          }`}
-        >
-          <span className={`h-1.5 w-1.5 rounded-full ${isRefreshing ? 'bg-primary animate-pulse' : 'bg-white/25'}`} />
-          <span>{refreshLabel}</span>
-        </span>
+}) => {
+  const showRefreshingState = useStableRefreshSignal(isRefreshing);
+
+  return (
+    <div data-testid="admin-status-filter-bar" className={className}>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <AdminTabs
+          items={items}
+          activeKey={activeKey}
+          onChange={onChange}
+          className={`min-w-0 flex-1 ${tabsClassName}`}
+        />
+        <div className="lg:flex lg:justify-end">
+          <div
+            aria-hidden={showRefreshingState ? undefined : 'true'}
+            className={`overflow-hidden transition-[max-height,opacity] duration-200 ${
+              showRefreshingState ? 'max-h-12 opacity-100' : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div className="flex min-h-[36px] items-center">
+              <span
+                aria-live="polite"
+                data-admin-status-refresh-badge="true"
+                data-refreshing={showRefreshingState ? 'true' : 'false'}
+                className={`inline-flex min-w-[9.5rem] items-center justify-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition-[border-color,background-color,color] duration-200 ${
+                  showRefreshingState
+                    ? 'border-primary/25 bg-primary/10 text-primary'
+                    : 'border-white/[0.08] bg-white/[0.03] text-white/28'
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${showRefreshingState ? 'bg-primary animate-pulse' : 'bg-white/25'}`} />
+                <span>{refreshLabel}</span>
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-full"
-    >
-      <div className="absolute inset-0 rounded-full bg-white/[0.04]" />
-      <div
-        data-admin-status-refresh-rail="true"
-        data-refreshing={isRefreshing ? 'true' : 'false'}
-        className={`absolute inset-y-0 left-0 w-1/3 rounded-full bg-primary/75 transition-[opacity,transform] duration-200 ${
-          isRefreshing ? 'animate-pulse opacity-100 translate-x-0' : 'opacity-0 -translate-y-1'
-        }`}
-      />
-    </div>
-  </div>
-);
+  );
+};
 
 export const AdminRefreshState: React.FC<AdminRefreshStateProps> = ({
   isRefreshing = false,
   className = '',
   label = 'Dang cap nhat',
   align = 'end',
-}) => (
-  <div
-    data-testid="admin-refresh-state"
-    className={`relative min-h-[40px] pb-3 ${className}`}
-  >
-    <div className={`flex min-h-[36px] items-center ${align === 'start' ? 'justify-start' : 'justify-end'}`}>
-      <span
-        aria-live="polite"
-        data-admin-refresh-badge="true"
-        data-refreshing={isRefreshing ? 'true' : 'false'}
-        className={`inline-flex min-w-[9.5rem] items-center justify-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition-[opacity,border-color,background-color,color] duration-200 ${
-          isRefreshing
-            ? 'border-primary/25 bg-primary/10 text-primary opacity-100'
-            : 'border-white/[0.08] bg-white/[0.03] text-white/28 opacity-0'
+  stabilizeDurationMs = 450,
+}) => {
+  const showRefreshingState = useStableRefreshSignal(isRefreshing, stabilizeDurationMs);
+
+  return (
+    <div
+      data-testid="admin-refresh-state"
+      className={`relative h-2 ${className}`}
+    >
+      <div
+        aria-hidden={showRefreshingState ? undefined : 'true'}
+        className={`pointer-events-none absolute inset-x-0 top-0 z-10 transition-opacity duration-200 ${
+          showRefreshingState ? 'opacity-100' : 'opacity-0'
         }`}
       >
-        <span className={`h-1.5 w-1.5 rounded-full ${isRefreshing ? 'bg-primary animate-pulse' : 'bg-white/25'}`} />
-        <span>{label}</span>
-      </span>
+        <div className={`flex min-h-[36px] items-center ${align === 'start' ? 'justify-start' : 'justify-end'}`}>
+          <span
+            aria-live="polite"
+            data-admin-refresh-badge="true"
+            data-refreshing={showRefreshingState ? 'true' : 'false'}
+            className={`inline-flex min-w-[9.5rem] items-center justify-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition-[border-color,background-color,color] duration-200 ${
+              showRefreshingState
+                ? 'border-primary/25 bg-primary/10 text-primary'
+                : 'border-white/[0.08] bg-white/[0.03] text-white/28'
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${showRefreshingState ? 'bg-primary animate-pulse' : 'bg-white/25'}`} />
+            <span>{label}</span>
+          </span>
+        </div>
+      </div>
     </div>
-
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-full"
-    >
-      <div className="absolute inset-0 rounded-full bg-white/[0.04]" />
-      <div
-        data-admin-refresh-rail="true"
-        data-refreshing={isRefreshing ? 'true' : 'false'}
-        className={`absolute inset-y-0 left-0 w-1/3 rounded-full bg-primary/75 transition-[opacity,transform] duration-200 ${
-          isRefreshing ? 'animate-pulse opacity-100 translate-x-0' : 'opacity-0 -translate-y-1'
-        }`}
-      />
-    </div>
-  </div>
-);
+  );
+};
 
 export const AdminStatCards: React.FC<{
   items: AdminStatCardItem[];
@@ -472,6 +541,35 @@ export const AdminSecondaryButton: React.FC<React.ButtonHTMLAttributes<HTMLButto
     {children}
   </button>
 );
+
+export const AdminRefreshButton: React.FC<
+  Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
+    label: React.ReactNode;
+    isRefreshing?: boolean;
+  }
+> = ({
+  className = '',
+  label,
+  isRefreshing = false,
+  disabled,
+  ...props
+}) => {
+  const showRefreshingState = useStableRefreshSignal(isRefreshing);
+
+  return (
+    <AdminSecondaryButton
+      {...props}
+      disabled={disabled || isRefreshing}
+      aria-busy={showRefreshingState ? 'true' : 'false'}
+      className={`min-w-[7.75rem] justify-center ${className}`}
+    >
+      <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
+        <RefreshCw size={14} className={showRefreshingState ? 'animate-spin' : ''} />
+      </span>
+      <span>{label}</span>
+    </AdminSecondaryButton>
+  );
+};
 
 export const AdminIconButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({
   className = '',

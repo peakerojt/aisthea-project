@@ -84,8 +84,8 @@
           "description": "Tailoring gọn gàng và essential sắc nét cho nhịp mặc hằng ngày.",
           "links": {
             "tailoring": "Áo khoác",
-            "shirts": "Sơ mi",
-            "essentials": "Essentials"
+            "shirts": "Áo",
+            "essentials": "Phụ kiện"
           }
         },
         "women": {
@@ -93,9 +93,9 @@
           "title": "Nữ",
           "description": "Độ mềm hiện đại đi cùng tinh thần tối giản và tự tin.",
           "links": {
-            "outerwear": "Outerwear",
-            "knitwear": "Knitwear",
-            "essentials": "Essentials"
+            "outerwear": "Áo",
+            "knitwear": "Váy & Đầm",
+            "essentials": "Phụ kiện"
           }
         }
       }
@@ -303,7 +303,6 @@
     "footer": {
       "newHere": "Mới đến với Aisthea?",
       "createAccount": "Tạo tài khoản",
-      "adminLogin": "Đăng nhập quản trị",
       "privacy": "Quyền riêng tư & Điều khoản"
     },
     "banned": {
@@ -321,7 +320,7 @@
   },
   "authLayout": {
     "desktopEyebrow": "Aisthea Auth",
-    "desktopTitle": "Điểm vào dark luxury giữ nhịp ổn định cho mọi trạng thái.",
+    "desktopTitle": "Tạo mở đầu rõ ràng và nhất quán trong mọi tình huống.",
     "desktopDescription": "Mọi trạng thái xác thực được giữ trong cùng một nhịp bố cục để người dùng không bị xao nhãng khi có lỗi hoặc đang tải.",
     "mobileEyebrow": "Truy cập bảo mật"
   },
@@ -389,6 +388,8 @@
     },
     "password": {
       "requirementsTitle": "Yêu cầu mật khẩu:",
+      "helperHint": "Cần ít nhất 8 ký tự, chữ hoa, chữ thường, số và ký tự đặc biệt",
+      "strong": "Mật khẩu mạnh",
       "minLength": "Ít nhất {{value}} ký tự",
       "uppercase": "ABC Một chữ hoa",
       "lowercase": "abc Một chữ thường",
@@ -404,7 +405,6 @@
     "errors": {
       "registerFailed": "Đăng ký thất bại"
     },
-    "newsletter": "Đăng ký nhận bản tin để nhận ưu đãi độc quyền.",
     "actions": {
       "create": "Tạo tài khoản",
       "creating": "Đang tạo tài khoản...",
@@ -752,7 +752,8 @@
       "paymentMethod": "Phương thức thanh toán",
       "nextStepTitle": "Tiếp theo",
       "nextStepSuccess": "Thanh toán đã được ghi nhận. Bạn có thể xem xác nhận đơn hàng hoặc theo dõi trạng thái xử lý trong tài khoản.",
-      "nextStepFailed": "Bạn có thể quay lại checkout để thử lại thanh toán hoặc chọn phương thức khác mà không cần xây lại giỏ hàng.",
+      "nextStepFailed": "Bạn có thể tạo lại liên kết thanh toán cho chính đơn hàng này hoặc mở chi tiết đơn để xử lý tiếp.",
+      "nextStepRetryUnavailable": "Đơn hàng này không còn đủ điều kiện để tạo lại liên kết thanh toán. Vui lòng mở quản lý đơn hàng để xem trạng thái mới nhất hoặc liên hệ hỗ trợ.",
       "nextStepLoading": "Chờ hệ thống xác nhận với VNPAY. Ngay khi hoàn tất, thông tin đơn hàng sẽ được cập nhật đầy đủ.",
       "statusValues": {
         "loading": "Đang chờ kết quả từ cổng thanh toán",
@@ -777,7 +778,8 @@
     "actions": {
       "continueShopping": "Tiếp tục mua hàng",
       "manageOrders": "Quản lý đơn hàng",
-      "retryCheckout": "Quay lại thanh toán",
+      "retryCheckout": "Thử lại thanh toán",
+      "retryingPayment": "Đang tạo liên kết...",
       "viewConfirmation": "Xem xác nhận đơn"
     }
   },
@@ -1181,6 +1183,7 @@
       "back": "Quay lại",
       "goHome": "Về trang chủ",
       "retry": "Thử lại",
+      "retryPayment": "Thanh toán lại",
       "trackOrder": "Theo dõi đơn hàng",
       "confirmReceived": "Đã nhận được hàng",
       "cancelOrder": "Hủy đơn hàng",
@@ -1342,7 +1345,11 @@
       "emptyCart": "Giỏ hàng trống. Vui lòng thêm sản phẩm trước khi chuyển tới trang thanh toán.",
       "loginRequired": "Vui lòng đăng nhập để thực hiện đặt hàng.",
       "vnpayUrlFailed": "Không thể tạo liên kết thanh toán VNPAY.",
-      "placeOrderFailed": "Đã xảy ra lỗi khi đặt hàng."
+      "placeOrderFailed": "Đã xảy ra lỗi khi đặt hàng.",
+      "stockConflict": "Tồn kho vừa thay đổi. Giỏ hàng của bạn đã được làm mới, vui lòng kiểm tra lại trước khi thử đặt hàng lần nữa.",
+      "stockAdjusted": "Số lượng của một số sản phẩm đã được điều chỉnh theo tồn kho còn lại. Vui lòng kiểm tra lại đơn hàng trước khi thử lại.",
+      "stockRemoved": "Một số sản phẩm đã hết hàng và đã được xóa khỏi giỏ hàng của bạn. Vui lòng kiểm tra lại đơn hàng trước khi thử lại.",
+      "stockAdjustedAndRemoved": "Một số sản phẩm đã được điều chỉnh hoặc xóa khỏi giỏ hàng do tồn kho thay đổi. Vui lòng kiểm tra lại đơn hàng trước khi thử lại."
     },
     "actions": {
       "backToCart": "Quay lại giỏ hàng",

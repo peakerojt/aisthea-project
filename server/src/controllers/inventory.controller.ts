@@ -21,6 +21,80 @@ const toSnapshotStock = (variant: any): number => {
   return Number(variant.stockQuantity ?? 0);
 };
 
+const shapeInventoryVariant = (variant: any) => {
+  const attrs: { val: string; isSize: boolean }[] = (variant.variantAttributes ?? [])
+    .map((va: any) => ({
+      val: (va.value?.value ?? '') as string,
+      isSize: isSize(va.value?.value ?? ''),
+    }))
+    .filter((a: { val: string }) => a.val !== '');
+
+  attrs.sort((a, b) => {
+    if (a.isSize === b.isSize) return 0;
+    return a.isSize ? 1 : -1;
+  });
+
+  const variantLabel = attrs.map((a) => a.val).join('/');
+  const colorVal = attrs.find((a) => !a.isSize)?.val ?? '';
+  const sizeVal = attrs.find((a) => a.isSize)?.val ?? '';
+  const img = variant.product?.images?.[0];
+  const primaryImageUrl = img?.thumbnailUrl ?? img?.imageUrl ?? null;
+
+  return {
+    variantId: variant.variantId,
+    productId: variant.productId,
+    sku: variant.sku,
+    price: Number(variant.price ?? 0),
+    stockQuantity: toSnapshotStock(variant),
+    variantLabel,
+    _color: colorVal,
+    _sizeIdx: getSizeIndex(sizeVal),
+    product: {
+      name: variant.product?.name ?? 'Unknown',
+      primaryImageUrl,
+    },
+  };
+};
+
+const sortInventoryVariants = (variants: any[]) =>
+  variants.sort((a: any, b: any) => {
+    const byName = a.product.name.localeCompare(b.product.name, 'vi');
+    if (byName !== 0) return byName;
+
+    const byColor = a._color.localeCompare(b._color, 'vi');
+    if (byColor !== 0) return byColor;
+
+    return a._sizeIdx - b._sizeIdx;
+  });
+
+const stripInventorySortMeta = ({ _color, _sizeIdx, ...rest }: any) => rest;
+
+const inventoryVariantInclude = {
+  product: {
+    select: {
+      productId: true,
+      name: true,
+      images: {
+        where: { isPrimary: true },
+        select: { thumbnailUrl: true, imageUrl: true },
+        take: 1,
+      },
+    },
+  },
+  inventorySnapshot: {
+    select: { availableQuantity: true },
+  },
+  variantAttributes: {
+    include: {
+      value: {
+        include: {
+          attribute: { select: { name: true } },
+        },
+      },
+    },
+  },
+};
+
 export const getInventory = async (req: Request, res: Response) => {
   try {
     const { lowStock, search, page: pageQ, pageSize: pageSizeQ } = req.query as Record<string, string | undefined>;
@@ -34,10 +108,6 @@ export const getInventory = async (req: Request, res: Response) => {
       product: { isDeleted: false },
     };
 
-    if (lowStock === 'true') {
-      where.stockQuantity = { lte: LOW_STOCK_THRESHOLD };
-    }
-
     if (search && search.trim() !== '') {
       const q = search.trim();
       where.OR = [
@@ -46,90 +116,23 @@ export const getInventory = async (req: Request, res: Response) => {
       ];
     }
 
-    const [variants, total] = await Promise.all([
-      (prisma.productVariant.findMany as any)({
-        where,
-        include: {
-          product: {
-            select: {
-              productId: true,
-              name: true,
-              images: {
-                where: { isPrimary: true },
-                select: { thumbnailUrl: true, imageUrl: true },
-                take: 1,
-              },
-            },
-          },
-          inventorySnapshot: {
-            select: { availableQuantity: true },
-          },
-          variantAttributes: {
-            include: {
-              value: {
-                include: {
-                  attribute: { select: { name: true } },
-                },
-              },
-            },
-          },
-        },
-        orderBy: [{ product: { name: 'asc' } }],
-        skip,
-        take: pageSize,
-      }),
-      (prisma.productVariant.count as any)({ where }),
-    ]);
-
-    const shaped = variants.map((v: any) => {
-      const attrs: { val: string; isSize: boolean }[] = (v.variantAttributes ?? [])
-        .map((va: any) => ({
-          val: (va.value?.value ?? '') as string,
-          isSize: isSize(va.value?.value ?? ''),
-        }))
-        .filter((a: { val: string }) => a.val !== '');
-
-      attrs.sort((a, b) => {
-        if (a.isSize === b.isSize) return 0;
-        return a.isSize ? 1 : -1;
-      });
-
-      const variantLabel = attrs.map((a) => a.val).join('/');
-      const colorVal = attrs.find((a) => !a.isSize)?.val ?? '';
-      const sizeVal = attrs.find((a) => a.isSize)?.val ?? '';
-
-      const img = v.product?.images?.[0];
-      const primaryImageUrl = img?.thumbnailUrl ?? img?.imageUrl ?? null;
-
-      return {
-        variantId: v.variantId,
-        productId: v.productId,
-        sku: v.sku,
-        price: Number(v.price),
-        stockQuantity: toSnapshotStock(v),
-        variantLabel,
-        _color: colorVal,
-        _sizeIdx: getSizeIndex(sizeVal),
-        product: {
-          name: v.product?.name ?? 'Unknown',
-          primaryImageUrl,
-        },
-      };
+    const shouldResolveLowStockFromSnapshot = lowStock === 'true';
+    const variants = await (prisma.productVariant.findMany as any)({
+      where,
+      include: inventoryVariantInclude,
+      orderBy: [{ product: { name: 'asc' } }],
+      ...(shouldResolveLowStockFromSnapshot ? {} : { skip, take: pageSize }),
     });
 
-    shaped.sort((a: any, b: any) => {
-      const byName = a.product.name.localeCompare(b.product.name, 'vi');
-      if (byName !== 0) return byName;
-
-      const byColor = a._color.localeCompare(b._color, 'vi');
-      if (byColor !== 0) return byColor;
-
-      return a._sizeIdx - b._sizeIdx;
-    });
-
-    const result = shaped
-      .filter((row: any) => (lowStock === 'true' ? row.stockQuantity <= LOW_STOCK_THRESHOLD : true))
-      .map(({ _color, _sizeIdx, ...rest }: any) => rest);
+    const shaped = sortInventoryVariants(variants.map(shapeInventoryVariant));
+    const filtered = shaped.filter((row: any) =>
+      shouldResolveLowStockFromSnapshot ? row.stockQuantity <= LOW_STOCK_THRESHOLD : true,
+    );
+    const paged = shouldResolveLowStockFromSnapshot ? filtered.slice(skip, skip + pageSize) : filtered;
+    const total = shouldResolveLowStockFromSnapshot
+      ? filtered.length
+      : await (prisma.productVariant.count as any)({ where });
+    const result = paged.map(stripInventorySortMeta);
 
     res.json({
       data: result,
@@ -208,65 +211,10 @@ export const getLowStockAlerts = async (_req: Request, res: Response) => {
         isDeleted: false,
         product: { isDeleted: false },
       },
-      include: {
-        product: {
-          select: {
-            productId: true,
-            name: true,
-            images: {
-              where: { isPrimary: true },
-              select: { thumbnailUrl: true, imageUrl: true },
-              take: 1,
-            },
-          },
-        },
-        inventorySnapshot: {
-          select: { availableQuantity: true },
-        },
-        variantAttributes: {
-          include: {
-            value: {
-              include: {
-                attribute: { select: { name: true } },
-              },
-            },
-          },
-        },
-      },
-      orderBy: [{ stockQuantity: 'asc' }],
-      take: 200,
+      include: inventoryVariantInclude,
     });
 
-    const mapped = variants.map((v: any) => {
-      const attrs: { val: string; isSize: boolean }[] = (v.variantAttributes ?? [])
-        .map((va: any) => ({
-          val: (va.value?.value ?? '') as string,
-          isSize: isSize(va.value?.value ?? ''),
-        }))
-        .filter((a: { val: string }) => a.val !== '');
-
-      attrs.sort((a, b) => {
-        if (a.isSize === b.isSize) return 0;
-        return a.isSize ? 1 : -1;
-      });
-
-      const variantLabel = attrs.map((a) => a.val).join('/');
-      const img = v.product?.images?.[0];
-      const primaryImageUrl = img?.thumbnailUrl ?? img?.imageUrl ?? null;
-
-      return {
-        variantId: v.variantId,
-        productId: v.productId,
-        sku: v.sku,
-        stockQuantity: toSnapshotStock(v),
-        variantLabel,
-        product: {
-          name: v.product?.name ?? 'Unknown',
-          primaryImageUrl,
-        },
-      };
-    });
-
+    const mapped = variants.map(shapeInventoryVariant).map(stripInventorySortMeta);
     const allLowStock = mapped
       .filter((item: any) => item.stockQuantity <= LOW_STOCK_THRESHOLD)
       .sort((a: any, b: any) => a.stockQuantity - b.stockQuantity);

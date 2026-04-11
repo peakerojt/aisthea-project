@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { PaymentStatusBadge } from '@/common/components/PaymentStatusBadge';
+import { canRetryVnpayPayment, redirectToVnpayPayment } from '@/common/services/vnpay.service';
 import { type MyReturnSummary } from '@/common/services/return.summary.service';
 import { refundUi } from '@/common/styles/refundUi';
 import { formatCurrencyVND } from '@/common/utils/currency';
@@ -105,6 +106,8 @@ export const useCustomerOrdersText = () => {
       tabDeliveredLabel: resolveText('tabs.delivered', 'Đã giao hàng'),
       tabCancelledLabel: resolveText('tabs.cancelled', 'Đã hủy'),
       refreshLabel: resolveText('actions.refresh', 'Làm mới'),
+      retryPaymentLabel: resolveText('actions.retryPayment', 'Thanh toán lại'),
+      retryingPaymentLabel: resolveText('actions.retryingPayment', 'Đang tạo liên kết...'),
       viewLabel: resolveText('actions.view', 'Xem'),
       viewReturnLabel: resolveText('actions.viewReturn', 'Xem hoàn trả'),
       showReturnInfoLabel: resolveText('actions.showReturnInfo', 'Xem thông tin hoàn hàng'),
@@ -208,9 +211,15 @@ export const CustomerOrderCard: React.FC<{
   onViewReturn: (orderId: number) => void;
 }> = ({ order, isReturnExpanded, onToggleReturn, onViewOrder, onViewReturn }) => {
   const text = useCustomerOrdersText();
+  const [retryingPayment, setRetryingPayment] = useState(false);
   const normalizedOrderStatus = normalizeCustomerOrderStatus(order.status);
   const statusMeta = getCustomerOrderStatusMeta(order.status);
   const paymentStatusMeta = getPaymentStatusMeta(order.paymentMethod, order.paymentStatus);
+  const canRetryPayment = canRetryVnpayPayment({
+    orderStatus: order.status,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+  });
   const shouldShowPaymentBadge = Boolean(order.paymentMethod && order.paymentStatus)
     && !(
       normalizedOrderStatus === 'Cancelled'
@@ -329,6 +338,25 @@ export const CustomerOrderCard: React.FC<{
           </div>
 
           <div className="flex shrink-0 items-end gap-2 md:min-w-[104px] md:flex-col">
+            {canRetryPayment && (
+              <button
+                onClick={async () => {
+                  if (retryingPayment) return;
+                  try {
+                    setRetryingPayment(true);
+                    await redirectToVnpayPayment(order.orderId);
+                  } catch {
+                    onViewOrder(order.orderId);
+                  } finally {
+                    setRetryingPayment(false);
+                  }
+                }}
+                disabled={retryingPayment}
+                className={cardPrimaryButtonClassName}
+              >
+                {retryingPayment ? text.retryingPaymentLabel : text.retryPaymentLabel}
+              </button>
+            )}
             <button onClick={() => onViewOrder(order.orderId)} className={cardSecondaryButtonClassName}>
               {text.viewLabel}
             </button>

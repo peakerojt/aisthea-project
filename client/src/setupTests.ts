@@ -37,6 +37,7 @@ vi.mock('@/common/contexts/CartContext', () => {
     updateItem: vi.fn(),
     clearCart: vi.fn(),
     fetchCart: vi.fn(),
+    reconcileCheckoutStock: vi.fn(),
     syncWithMerge: vi.fn(),
     getStockStatus: vi.fn(() => 'ok' as const),
   };

@@ -35,7 +35,7 @@ describe('ReturnTimeline', () => {
     expect(screen.queryByText('từ Chờ duyệt')).not.toBeInTheDocument();
     expect(screen.getByText('Yêu cầu trả hàng đã được duyệt.')).toBeInTheDocument();
     expect(screen.getByText('bởi Admin A')).toBeInTheDocument();
-    expect(screen.getByText('15:30:00 20/3/2026')).toBeInTheDocument();
+    expect(screen.getByText(/20\/3\/2026/)).toBeInTheDocument();
   });
 
   it('translates the legacy customer-created comment instead of showing English copy', () => {

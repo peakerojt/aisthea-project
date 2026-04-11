@@ -14,8 +14,8 @@ const CATEGORY_IMAGES = {
     Shoes: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=2574&auto=format&fit=crop',
   },
   Women: {
-    Outerwear: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?q=80&w=2574&auto=format&fit=crop',
     Tops: 'https://images.unsplash.com/photo-1485218126466-34e6392ec754?q=80&w=2574&auto=format&fit=crop',
+    Dresses: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=2574&auto=format&fit=crop',
     Bottoms: 'https://images.unsplash.com/photo-1594633313593-bab3825d0caf?q=80&w=2574&auto=format&fit=crop',
     Shoes: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?q=80&w=2574&auto=format&fit=crop',
   },
@@ -41,9 +41,9 @@ const TRENDING_KEYWORDS = {
     Shoes: ['giay', 'giày', 'shoe', 'sneaker', 'loafer', 'boot'],
   },
   Women: {
-    Outerwear: ['ao khoac', 'áo khoác', 'jacket', 'coat', 'blazer', 'cardigan'],
     Tops: ['ao', 'áo', 'shirt', 'tee', 'blouse', 'crop', 'knit'],
-    Bottoms: ['quan', 'quần', 'pants', 'skirt', 'jeans', 'shorts'],
+    Dresses: ['vay', 'váy', 'dam', 'đầm', 'dress', 'gown'],
+    Bottoms: ['quan', 'quần', 'pants', 'jeans', 'shorts', 'trouser'],
     Shoes: ['giay', 'giày', 'shoe', 'heel', 'sandal', 'sneaker'],
   },
   Accessories: {
@@ -60,7 +60,8 @@ const SECTION_LABELS: Record<string, string> = {
   Outerwear: 'Áo khoác',
   Tops: 'Áo',
   Bottoms: 'Quần',
-  Shoes: 'Giày',
+  Dresses: 'Váy & Đầm',
+  Shoes: 'Giày dép',
   Accessories: 'Phụ kiện',
   Bags: 'Túi xách',
   Jewelry: 'Trang sức',

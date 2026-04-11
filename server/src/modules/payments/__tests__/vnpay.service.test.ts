@@ -13,6 +13,7 @@ const loggerMock = {
   warn: jest.fn(),
   error: jest.fn(),
 };
+const enqueueOrderPlacedEmailMock = jest.fn();
 
 jest.mock('../../../utils/prisma', () => ({
   prisma: prismaMock,
@@ -20,6 +21,12 @@ jest.mock('../../../utils/prisma', () => ({
 
 jest.mock('../../../lib/logger', () => ({
   logger: loggerMock,
+}));
+
+jest.mock('../../notifications/notification.service', () => ({
+  notificationService: {
+    enqueueOrderPlacedEmail: (...args: unknown[]) => enqueueOrderPlacedEmailMock(...args),
+  },
 }));
 
 import {
@@ -38,6 +45,7 @@ const signParams = (params: Record<string, string>) => ({
 describe('vnpay.service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    enqueueOrderPlacedEmailMock.mockResolvedValue(undefined);
     process.env.VNP_TMN_CODE = 'TESTTMN';
     process.env.VNP_HASH_SECRET = 'super-secret-key';
     process.env.VNP_URL = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html';
@@ -170,6 +178,7 @@ describe('vnpay.service', () => {
         status: 'PENDING',
         transactionCode: null,
         note: 'Awaiting VNPay reconciliation',
+        paymentDate: expect.any(Date),
       },
     });
     expect(result.status).toBe(200);
@@ -228,6 +237,7 @@ describe('vnpay.service', () => {
     prismaMock.order.findUnique.mockResolvedValueOnce({
       orderId: 27,
       userId: 5,
+      status: 'Pending',
       paymentMethod: 'COD',
       totalAmount: 500000,
       payments: [],
@@ -241,6 +251,27 @@ describe('vnpay.service', () => {
     expect(result).toEqual({
       status: 400,
       body: { errorCode: 'ORDER_NOT_VNPAY' },
+    });
+  });
+
+  it('rejects payment-url retries once the order is no longer pending payment', async () => {
+    prismaMock.order.findUnique.mockResolvedValueOnce({
+      orderId: 27,
+      userId: 5,
+      status: 'Cancelled',
+      paymentMethod: 'VNPAY',
+      totalAmount: 500000,
+      payments: [],
+    });
+
+    const result = await createVnpayPaymentUrl({
+      userId: 5,
+      orderId: 27,
+    });
+
+    expect(result).toEqual({
+      status: 409,
+      body: { errorCode: 'ORDER_NOT_PENDING_PAYMENT' },
     });
   });
 
@@ -376,6 +407,11 @@ describe('vnpay.service', () => {
   it('maps successful VNPay query fallback responses to the canonical paid outcome', async () => {
     prismaMock.order.findUnique.mockResolvedValueOnce({
       orderId: 37,
+      orderNumber: 'ORD-37',
+      customerName: 'Query User',
+      customerEmail: 'query@example.com',
+      paymentMethod: 'VNPAY',
+      createdAt: new Date('2026-04-09T06:27:00.000Z'),
       totalAmount: 326000,
       payments: [
         {
@@ -421,6 +457,16 @@ describe('vnpay.service', () => {
         transactionCode: expect.stringContaining('***'),
       }),
     );
+    expect(enqueueOrderPlacedEmailMock).toHaveBeenCalledWith({
+      orderId: 37,
+      orderNumber: 'ORD-37',
+      email: 'query@example.com',
+      customerName: 'Query User',
+      totalAmount: 326000,
+      paymentMethod: 'VNPAY',
+      createdAt: '2026-04-09T06:27:00.000Z',
+      orderUrl: expect.stringContaining('/tracking/37'),
+    });
   });
 
   it('marks payment as failed when VNPay query fallback reports a terminal failure status', async () => {
@@ -512,6 +558,11 @@ describe('vnpay.service', () => {
   it('maps successful VNPay return fallback responses to the canonical paid outcome', async () => {
     prismaMock.order.findUnique.mockResolvedValueOnce({
       orderId: 42,
+      orderNumber: 'ORD-42',
+      customerName: 'Return User',
+      customerEmail: 'return@example.com',
+      paymentMethod: 'VNPAY',
+      createdAt: new Date('2026-04-09T06:27:00.000Z'),
       totalAmount: 326000,
       payments: [
         {
@@ -555,6 +606,67 @@ describe('vnpay.service', () => {
         transactionCode: expect.stringContaining('***'),
       }),
     );
+    expect(enqueueOrderPlacedEmailMock).toHaveBeenCalledWith({
+      orderId: 42,
+      orderNumber: 'ORD-42',
+      email: 'return@example.com',
+      customerName: 'Return User',
+      totalAmount: 326000,
+      paymentMethod: 'VNPAY',
+      createdAt: '2026-04-09T06:27:00.000Z',
+      orderUrl: expect.stringContaining('/tracking/42'),
+    });
+  });
+
+  it('enqueues the order email only after a successful VNPay IPN confirmation', async () => {
+    prismaMock.order.findUnique.mockResolvedValueOnce({
+      orderId: 43,
+      orderNumber: 'ORD-43',
+      customerName: 'IPN User',
+      customerEmail: 'ipn@example.com',
+      paymentMethod: 'VNPAY',
+      createdAt: new Date('2026-04-09T06:27:00.000Z'),
+      totalAmount: 326000,
+      payments: [
+        {
+          paymentId: 54,
+          paymentMethod: 'VNPAY',
+          status: 'PENDING',
+          transactionCode: null,
+        },
+      ],
+    });
+
+    const result = await handleVnpayIpn(signParams({
+      vnp_TxnRef: '43',
+      vnp_Amount: '32600000',
+      vnp_ResponseCode: '00',
+      vnp_TransactionNo: 'TXN-IPN-43',
+    }));
+
+    expect(prismaMock.payment.update).toHaveBeenCalledWith({
+      where: { paymentId: 54 },
+      data: {
+        amount: 326000,
+        status: 'COMPLETED',
+        transactionCode: 'TXN-IPN-43',
+        note: null,
+      },
+    });
+    expect(result).toEqual({
+      status: 200,
+      body: { RspCode: '00', Message: 'Confirm Success' },
+    });
+    expect(enqueueOrderPlacedEmailMock).toHaveBeenCalledWith({
+      orderId: 43,
+      orderNumber: 'ORD-43',
+      email: 'ipn@example.com',
+      customerName: 'IPN User',
+      totalAmount: 326000,
+      paymentMethod: 'VNPAY',
+      createdAt: '2026-04-09T06:27:00.000Z',
+      orderUrl: expect.stringContaining('/tracking/43'),
+    });
   });
 
   it('marks payment as failed when VNPay return amount mismatches order total', async () => {
