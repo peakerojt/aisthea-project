@@ -33,7 +33,14 @@
     "orderTotalLabel": "Order total",
     "paymentMethodLabel": "Payment method: {{paymentMethod}}",
     "trackLinkLabel": "Track your order here:",
-    "footer": "If this order was not placed by you, please contact AISTHEA support."
+    "footer": "If this order was not placed by you, please contact AISTHEA support.",
+    "vnpayPaid": {
+      "subject": "VNPay payment successful: {{orderNumber}} - AISTHEA",
+      "intro": "We have received successful VNPay confirmation for order <strong>{{orderNumber}}</strong>. Your order is now moving forward for processing, and you can follow its latest status using the link below.",
+      "notice": "Your payment has been confirmed successfully by VNPay. AISTHEA will continue processing your order as soon as possible.",
+      "trackLinkLabel": "Track your order here:",
+      "footer": "If you did not authorize this transaction, please contact AISTHEA support immediately."
+    }
   },
   "orderStatus": {
     "subject": "Order Update: {{orderNumber}} is {{statusLabel}} - AISTHEA",

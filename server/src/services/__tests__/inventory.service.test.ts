@@ -62,6 +62,23 @@ describe('inventory.service batch stock reads', () => {
     });
   });
 
+  it('returns a stock-conflict error when checkout tries to consume unavailable stock', async () => {
+    const tx = createTransactionMock();
+    tx.productVariant.update.mockRejectedValue({ code: 'P2025' });
+
+    await expect(
+      atomicCheckoutDeduction(
+        9002,
+        7,
+        [{ variantId: 11, quantity: 2, productName: 'Ao' }],
+        tx as any,
+      ),
+    ).rejects.toMatchObject({
+      code: 'INSUFFICIENT_STOCK',
+      status: 409,
+    });
+  });
+
   it('uses one batched stock read for purchase receipts and preserves previous/new stock values', async () => {
     const tx = createTransactionMock();
     tx.productVariant.update.mockResolvedValue(undefined);
@@ -135,7 +152,7 @@ describe('inventory.service batch stock reads', () => {
         changeQuantity: 2,
         previousStock: 7,
         newStock: 9,
-        reason: 'RETURN_RESTORE',
+        reason: 'CANCEL_RESTORE',
       }),
     });
     expect(tx.inventoryLog.create).toHaveBeenNthCalledWith(2, {
@@ -144,7 +161,36 @@ describe('inventory.service batch stock reads', () => {
         changeQuantity: 1,
         previousStock: 3,
         newStock: 4,
+        reason: 'CANCEL_RESTORE',
+      }),
+    });
+  });
+
+  it('writes return-specific ledger reasons when restoring stock for returned orders', async () => {
+    const tx = createTransactionMock();
+    tx.productVariant.update.mockResolvedValue(undefined);
+    tx.productVariant.findMany.mockResolvedValue([{ variantId: 51, stockQuantity: 6 }]);
+
+    await atomicCancelRestore(
+      9090,
+      8,
+      [{ variantId: 51, quantity: 2 }],
+      tx as any,
+      { restoreType: 'return' },
+    );
+
+    expect(tx.inventoryLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        variantId: 51,
         reason: 'RETURN_RESTORE',
+        note: 'Returned order #9090',
+      }),
+    });
+    expect(tx.stockMovement.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        variantId: 51,
+        type: 'RETURN',
+        note: 'Returned order #9090',
       }),
     });
   });

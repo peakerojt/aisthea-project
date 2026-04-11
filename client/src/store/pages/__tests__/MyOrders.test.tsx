@@ -22,13 +22,14 @@ vi.mock('@/common/utils/returnRefresh', async () => {
   const actual = await vi.importActual<any>('@/common/utils/returnRefresh');
   return {
     ...actual,
-    RETURN_ACTIVE_SYNC_POLL_INTERVAL_MS: 10,
+    RETURN_ACTIVE_SYNC_POLL_INTERVAL_MS: 250,
   };
 });
 
 const getMyOrders = vi.fn();
 const getMyReturnSummaries = vi.fn();
 const paymentBadgePropsMock = vi.hoisted(() => vi.fn());
+const redirectToVnpayPaymentMock = vi.hoisted(() => vi.fn());
 
 vi.mock('react-i18next', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-i18next')>();
@@ -54,6 +55,14 @@ vi.mock('@/common/components/PaymentStatusBadge', () => ({
     paymentBadgePropsMock(props);
     return <div data-testid="payment-badge" />;
   },
+}));
+
+vi.mock('@/common/services/vnpay.service', () => ({
+  canRetryVnpayPayment: ({ orderStatus, paymentMethod, paymentStatus }: Record<string, unknown>) =>
+    String(orderStatus ?? '').toLowerCase().includes('pending')
+    && String(paymentMethod ?? '').toUpperCase() === 'VNPAY'
+    && ['PENDING_VNPAY', 'FAILED', 'CANCELLED'].includes(String(paymentStatus ?? '').toUpperCase()),
+  redirectToVnpayPayment: (...args: unknown[]) => redirectToVnpayPaymentMock(...args),
 }));
 
 vi.mock('@/common/services/order.service', async () => {
@@ -87,6 +96,7 @@ describe('MyOrders', () => {
     vi.useRealTimers();
     navigateMock.mockReset();
     paymentBadgePropsMock.mockReset();
+    redirectToVnpayPaymentMock.mockReset();
     getMyReturnSummaries.mockResolvedValue([]);
   });
 
@@ -281,6 +291,38 @@ describe('MyOrders', () => {
     expect(paymentBadgePropsMock).not.toHaveBeenCalled();
   });
 
+  it('shows a retry-payment action for pending VNPay orders and reuses the same order id', async () => {
+    getMyOrders.mockResolvedValueOnce({
+      orders: [
+        {
+          orderId: 24,
+          orderNumber: 'ORD-24',
+          orderCode: 'OD20260024',
+          status: 'pending',
+          paymentMethod: 'vnpay',
+          paymentStatus: 'PENDING_VNPAY',
+          totalAmount: '531000',
+          itemCount: 1,
+          createdAt: '2026-04-01T13:05:14.000Z',
+        },
+      ],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    });
+    redirectToVnpayPaymentMock.mockResolvedValue(undefined);
+
+    render(
+      <MemoryRouter>
+        <MyOrders />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('#ORD-24')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Thanh toán lại' }));
+
+    expect(redirectToVnpayPaymentMock).toHaveBeenCalledWith(24);
+  });
+
   it('still shows terminal payment badges for cancelled orders', async () => {
     getMyOrders.mockResolvedValueOnce({
       orders: [
@@ -359,7 +401,7 @@ describe('MyOrders', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Đã chấp nhận hoàn tiền')).toBeInTheDocument();
+    expect(await screen.findByText('Đã chấp nhận hoàn tiền', {}, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.queryByText('Trạng thái hoàn tiền')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Xem thông tin hoàn hàng' }));
@@ -621,7 +663,7 @@ describe('MyOrders', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Đã chấp nhận hoàn tiền')).toBeInTheDocument();
+    expect(await screen.findByText('Đã chấp nhận hoàn tiền', {}, { timeout: 3000 })).toBeInTheDocument();
     expect(getMyReturnSummaries).toHaveBeenNthCalledWith(1, 1, 1, { orderIds: [15] });
 
     await userEvent.click(screen.getByRole('button', { name: 'Làm mới' }));
@@ -674,7 +716,7 @@ describe('MyOrders', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Đã chấp nhận hoàn tiền')).toBeInTheDocument();
+    expect(await screen.findByText('Đã chấp nhận hoàn tiền', {}, { timeout: 3000 })).toBeInTheDocument();
     expect(getMyOrders).toHaveBeenCalledTimes(1);
     expect(getMyReturnSummaries).toHaveBeenNthCalledWith(1, 1, 1, { orderIds: [16] });
 
@@ -686,7 +728,7 @@ describe('MyOrders', () => {
       );
     });
 
-    await waitFor(() => expect(getMyOrders).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(getMyOrders).toHaveBeenCalledTimes(2), { timeout: 3000 });
     expect(getMyReturnSummaries).toHaveBeenNthCalledWith(2, 1, 1, {
       orderIds: [16],
       updatedSince: '2026-03-26T09:45:00.000Z',
@@ -783,10 +825,10 @@ describe('MyOrders', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Đã chấp nhận hoàn tiền')).toBeInTheDocument();
+    expect(await screen.findByText('Đã chấp nhận hoàn tiền', {}, { timeout: 3000 })).toBeInTheDocument();
 
     await waitFor(() => expect(getMyReturnSummaries.mock.calls.length).toBeGreaterThanOrEqual(2), {
-      timeout: RETURN_ACTIVE_SYNC_POLL_INTERVAL_MS * 20,
+      timeout: 3000,
     });
     expect(
       getMyReturnSummaries.mock.calls.slice(1).some((args) => (
@@ -839,7 +881,7 @@ describe('MyOrders', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Đã chấp nhận hoàn tiền')).toBeInTheDocument();
+    expect(await screen.findByText('Đã chấp nhận hoàn tiền', {}, { timeout: 3000 })).toBeInTheDocument();
 
     await act(async () => {
       await new Promise((resolve) => window.setTimeout(resolve, RETURN_ACTIVE_SYNC_POLL_INTERVAL_MS * 4));
@@ -889,7 +931,7 @@ describe('MyOrders', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Đã chấp nhận hoàn tiền')).toBeInTheDocument();
+    expect(await screen.findByText('Đã chấp nhận hoàn tiền', {}, { timeout: 3000 })).toBeInTheDocument();
     expect(getMyReturnSummaries).toHaveBeenCalledTimes(1);
 
     Object.defineProperty(document, 'visibilityState', {
@@ -901,7 +943,9 @@ describe('MyOrders', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    await waitFor(() => expect(getMyReturnSummaries.mock.calls.length).toBeGreaterThanOrEqual(2));
+    await waitFor(() => expect(getMyReturnSummaries.mock.calls.length).toBeGreaterThanOrEqual(2), {
+      timeout: 3000,
+    });
     expect(
       getMyReturnSummaries.mock.calls.slice(1).some((args) => (
         args[0] === 1

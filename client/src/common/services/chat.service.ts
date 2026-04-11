@@ -25,6 +25,10 @@ export type {
   ChatTelemetryByPage,
   ChatTelemetryTarget,
   ChatTelemetryDailyTrend,
+  ChatTelemetryInternalEvent,
+  ChatTelemetryInternalByPage,
+  ChatTelemetryInternalMetric,
+  ChatTelemetryInternalTrend,
 } from '@/common/api/chat.api';
 
 export const sendChatMessage = async (payload: ChatRequestPayload): Promise<ChatResponsePayload> => {

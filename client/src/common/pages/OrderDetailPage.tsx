@@ -41,6 +41,7 @@ import {
 import { refundUi } from '@/common/styles/refundUi';
 import { translateLegacyReturnCopy } from '@/common/utils/returnCopy';
 import { getPaymentStatusMeta } from '@/common/utils/paymentStatus';
+import { canRetryVnpayPayment, redirectToVnpayPayment } from '@/common/services/vnpay.service';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -132,6 +133,7 @@ export const OrderDetailPage: React.FC = () => {
     'Hủy đơn và yêu cầu hoàn tiền',
   );
   const requestReturnLabel = resolveText('actions.requestReturn', 'Yêu cầu trả hàng');
+  const retryPaymentLabel = resolveText('actions.retryPayment', 'Thanh toán lại');
   const buyAgainLabel = resolveText('actions.buyAgain', 'Mua lại');
   const confirmReceiptTitle = resolveText('confirmReceipt.title', 'Xác nhận đã nhận hàng?');
   const confirmReceiptDescription = resolveText(
@@ -500,12 +502,43 @@ export const OrderDetailPage: React.FC = () => {
     },
   });
 
+  const retryPaymentMutation = useMutation({
+    mutationFn: async () => {
+      if (!order?.orderId) {
+        throw new Error(resolveText('errors.retryPaymentMissingOrder', 'Không tìm thấy đơn hàng để thanh toán lại.'));
+      }
+
+      await redirectToVnpayPayment(order.orderId);
+    },
+    onError: (err: any) => {
+      showToast({
+        type: 'error',
+        title:
+          err?.response?.data?.message
+          ?? err?.message
+          ?? resolveText(
+            'errors.retryPaymentFailed',
+            'Không thể tạo lại liên kết thanh toán. Vui lòng thử lại sau.',
+          ),
+      });
+    },
+  });
+
 
 
   const canCancel = useMemo(() => {
     if (!order) return false;
     return canCancelStatus(order.status);
   }, [order]);
+  const canRetryPayment = useMemo(
+    () =>
+      canRetryVnpayPayment({
+        orderStatus: order?.status,
+        paymentMethod: order?.paymentMethod,
+        paymentStatus: order?.paymentStatus,
+      }),
+    [order?.paymentMethod, order?.paymentStatus, order?.status],
+  );
 
   const cancelActionLabel = useMemo(() => {
     if (!order) return cancelOrderLabel;
@@ -1049,6 +1082,30 @@ export const OrderDetailPage: React.FC = () => {
                         className={cancelMutation.isPending ? 'opacity-50' : 'group-hover:scale-110 transition-transform'}
                       />
                       {cancelMutation.isPending ? processingLabel : cancelActionLabel}
+                    </button>
+                  )}
+
+                  {canRetryPayment && (
+                    <button
+                      disabled={retryPaymentMutation.isPending}
+                      onClick={() => retryPaymentMutation.mutate()}
+                      className={`${actionButtonBaseClassName} ${
+                        retryPaymentMutation.isPending
+                          ? 'border-white/10 bg-white/5 text-white/30 cursor-not-allowed'
+                          : actionButtonPrimaryClassName
+                      }`}
+                    >
+                      {retryPaymentMutation.isPending ? (
+                        <span className="flex items-center gap-1.5">
+                          <Loader2 size={13} className="animate-spin" />
+                          {processingLabel}
+                        </span>
+                      ) : (
+                        <>
+                          <MapPin size={15} className="group-hover:scale-110 transition-transform" />
+                          {retryPaymentLabel}
+                        </>
+                      )}
                     </button>
                   )}
 

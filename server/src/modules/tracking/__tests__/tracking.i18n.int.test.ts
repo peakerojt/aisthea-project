@@ -17,7 +17,7 @@ import { trackingService } from '../tracking.service';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const sign = (payload: object) =>
-  jwt.sign(payload, process.env.JWT_SECRET || 'test-secret');
+  jwt.sign(payload, process.env.JWT_SECRET || '12345678901234567890123456789012');
 
 const customerToken = sign({ userId: 1, roles: ['Customer'] });
 const adminToken = sign({ userId: 99, roles: ['Admin'] });

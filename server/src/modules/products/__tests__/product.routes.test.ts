@@ -4,6 +4,7 @@ import request from 'supertest';
 const productController = {
   getCategories: jest.fn((_req, res) => res.json({ route: 'categories' })),
   getBrands: jest.fn((_req, res) => res.json({ route: 'brands' })),
+  getSizeGuideTemplates: jest.fn((_req, res) => res.json({ route: 'size-guides' })),
   getAll: jest.fn((_req, res) => res.json({ route: 'products' })),
   getForEdit: jest.fn((_req, res) => res.json({ route: 'edit' })),
   getOne: jest.fn((_req, res) => res.json({ route: 'detail' })),

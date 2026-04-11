@@ -44,6 +44,8 @@ interface CartContextType {
     clearCart: () => Promise<void>;
     /** Tải lại giỏ hàng từ DB */
     fetchCart: () => Promise<void>;
+    /** Đồng bộ lại giỏ hàng sau khi checkout thất bại vì thay đổi tồn kho */
+    reconcileCheckoutStock: () => Promise<{ adjustedCount: number; removedCount: number }>;
     /** Gộp giỏ guest vào DB sau đăng nhập */
     syncWithMerge: (localItems: GuestCartItem[]) => Promise<void>;
     /** Thêm nhiều sản phẩm vào giỏ bằng một request batch */
@@ -66,9 +68,18 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [guestItems, setGuestItems] = useState<GuestCartItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
-    const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
         fireToast({ type: type === 'success' ? 'success' : 'error', title: message });
-    };
+    }, [fireToast]);
+
+    const showAddFeedback = useCallback((productName?: string) => {
+        fireToast({
+            type: 'success',
+            title: t('toast.added'),
+            subtitle: productName,
+            duration: 3500,
+        });
+    }, [fireToast, t]);
 
     // ─── Computed ──────────────────────────────────────────────────────────
     const items = isAuthenticated ? dbItems : guestItems;
@@ -94,6 +105,54 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setIsLoading(false);
         }
     }, [isAuthenticated]);
+
+    const reconcileCheckoutStock = useCallback(async () => {
+        if (!isAuthenticated) {
+            return { adjustedCount: 0, removedCount: 0 };
+        }
+
+        setIsLoading(true);
+        try {
+            const latestCart = await fetchCartApi();
+            const latestItems = latestCart.items ?? [];
+            const invalidItems = latestItems.filter((item) => {
+                const availableStock = Math.max(item.variant.stockQuantity ?? 0, 0);
+                return item.quantity > availableStock;
+            });
+
+            if (invalidItems.length === 0) {
+                setDbItems(latestItems);
+                return { adjustedCount: 0, removedCount: 0 };
+            }
+
+            let adjustedCount = 0;
+            let removedCount = 0;
+            let syncedItems = latestItems;
+
+            for (const item of invalidItems) {
+                const availableStock = Math.max(item.variant.stockQuantity ?? 0, 0);
+                const nextCart = availableStock === 0
+                    ? await removeCartItemApi(item.cartItemId)
+                    : await updateCartItemApi(item.cartItemId, availableStock);
+
+                syncedItems = nextCart.items ?? syncedItems;
+                if (availableStock === 0) {
+                    removedCount += 1;
+                } else {
+                    adjustedCount += 1;
+                }
+            }
+
+            setDbItems(syncedItems);
+            return { adjustedCount, removedCount };
+        } catch (error) {
+            console.error('[Cart] Lỗi đồng bộ tồn kho sau checkout thất bại:', error);
+            await fetchCart();
+            return { adjustedCount: 0, removedCount: 0 };
+        } finally {
+            setIsLoading(false);
+        }
+    }, [fetchCart, isAuthenticated]);
 
     // ─── Khởi tạo khi auth thay đổi ────────────────────────────────────────
     useEffect(() => {
@@ -136,7 +195,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } finally {
             setIsLoading(false);
         }
-    }, [isAuthenticated, t]);
+    }, [fetchCart, fireToast, showToast, t]);
 
     // ─── Thêm / cộng dồn sản phẩm ──────────────────────────────────────────
     const addItem = useCallback(async (
@@ -144,14 +203,18 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         quantity: number,
         meta?: Partial<GuestCartItem>
     ) => {
+        if (!variantId || quantity <= 0) {
+            return;
+        }
+
         if (isAuthenticated) {
             setIsLoading(true);
             try {
                 const cart = await addToCartApi(variantId, quantity);
                 setDbItems(cart.items ?? []);
-                showToast(t('toast.added'), 'success');
+                showAddFeedback(meta?.productName);
             } catch (error) {
-            const err = error as { response?: { data?: { code?: string; available?: number } } };
+                const err = error as { response?: { data?: { code?: string; available?: number } } };
                 const code = err?.response?.data?.code;
                 if (code === 'INSUFFICIENT_STOCK') {
                     const available = err?.response?.data?.available ?? 0;
@@ -166,51 +229,65 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             // Chế độ guest: cập nhật localStorage
             setGuestItems(prev => {
                 const exists = prev.find(i => i.variantId === variantId);
+                const maxQty = meta?.stockQuantity ?? 99999;
                 let updated: GuestCartItem[];
                 if (exists) {
-                    const maxQty = meta?.stockQuantity ?? 99999;
                     updated = prev.map(i =>
                         Number(i.variantId) === Number(variantId)
                             ? { ...i, quantity: Math.min(i.quantity + quantity, maxQty) }
                             : i
                     );
                 } else {
-                    updated = [...prev, { variantId, quantity, ...meta }];
+                    const nextQuantity = Math.min(quantity, maxQty);
+                    updated = nextQuantity > 0
+                        ? [...prev, { variantId, quantity: nextQuantity, ...meta }]
+                        : prev;
                 }
                 saveGuestCart(updated);
                 return updated;
             });
-            showToast(t('toast.added'), 'success');
+            showAddFeedback(meta?.productName);
         }
-    }, [isAuthenticated, t]);
+    }, [isAuthenticated, showAddFeedback, showToast, t]);
 
     // ─── Cập nhật số lượng ──────────────────────────────────────────────────
     const updateItem = useCallback(async (cartItemId: number, quantity: number) => {
         if (isAuthenticated) {
             setIsLoading(true);
             try {
-                const cart = await updateCartItemApi(cartItemId, quantity);
+                const cart = quantity <= 0
+                    ? await removeCartItemApi(cartItemId)
+                    : await updateCartItemApi(cartItemId, quantity);
                 setDbItems(cart.items ?? []);
+                if (quantity <= 0) {
+                    showToast(t('toast.removed'), 'success');
+                }
             } catch (error) {
-            const err = error as { response?: { data?: { code?: string; available?: number } } };
+                const err = error as { response?: { data?: { code?: string; available?: number } } };
                 const code = err?.response?.data?.code;
                 if (code === 'INSUFFICIENT_STOCK') {
                     const available = err?.response?.data?.available ?? 0;
                     showToast(t('stock.exceedsStock', { count: available }), 'error');
+                } else if (quantity <= 0) {
+                    showToast(t('toast.addError'), 'error');
                 }
             } finally {
                 setIsLoading(false);
             }
         } else {
+            const shouldRemove = quantity <= 0;
             setGuestItems(prev => {
-                const updated = quantity <= 0
+                const updated = shouldRemove
                     ? prev.filter(i => Number(i.variantId) !== Number(cartItemId))
                     : prev.map(i => Number(i.variantId) === Number(cartItemId) ? { ...i, quantity } : i);
                 saveGuestCart(updated);
                 return updated;
             });
+            if (shouldRemove) {
+                showToast(t('toast.removed'), 'success');
+            }
         }
-    }, [isAuthenticated, t]);
+    }, [isAuthenticated, showToast, t]);
 
     // ─── Xoá một sản phẩm ──────────────────────────────────────────────────
     const removeItem = useCallback(async (cartItemId: number) => {
@@ -294,6 +371,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             updateItem,
             clearCart,
             fetchCart,
+            reconcileCheckoutStock,
             syncWithMerge,
             addItemsBatch,
             getStockStatus,

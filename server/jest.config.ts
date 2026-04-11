@@ -5,6 +5,7 @@ const config: Config = {
   testEnvironment: 'node',
   testMatch: ['**/__tests__/**/*.test.ts'],
   clearMocks: true,
+  setupFiles: ['<rootDir>/jest.setup-env.ts'],
   modulePathIgnorePatterns: ['<rootDir>/dist/'],
 };
 

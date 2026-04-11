@@ -191,15 +191,15 @@ describe('legacy-returns.write.adapter', () => {
       'Refunded in fallback flow',
     );
 
-    expect(service.getReturnDetail).toHaveBeenCalledWith(24);
-    expect(service.approveReturnRequest).toHaveBeenCalledWith(24, 9);
-    expect(service.markReturnInTransit).toHaveBeenCalledWith(24, 9);
-    expect(service.markReturnReceived).toHaveBeenCalledWith(24, 9);
-    expect(service.acceptReturnForRefund).toHaveBeenCalledWith(24, 9);
+    expect(service.getReturnDetail).toHaveBeenCalledWith(24, expect.anything());
+    expect(service.approveReturnRequest).toHaveBeenCalledWith(24, 9, expect.anything());
+    expect(service.markReturnInTransit).toHaveBeenCalledWith(24, 9, expect.anything());
+    expect(service.markReturnReceived).toHaveBeenCalledWith(24, 9, expect.anything());
+    expect(service.acceptReturnForRefund).toHaveBeenCalledWith(24, 9, expect.anything());
     expect(service.refundReturnRequest).toHaveBeenCalledWith(24, 9, {
       method: 'ORIGINAL_PAYMENT',
       idempotencyKey: 'legacy-return-refund-24',
-    });
+    }, expect.anything());
     expect(result).toEqual({ success: true, code: 'REFUND_COMPLETED' });
   });
 
@@ -222,12 +222,13 @@ describe('legacy-returns.write.adapter', () => {
 
     expect(service.approveReturnRequest).not.toHaveBeenCalled();
     expect(service.markReturnInTransit).not.toHaveBeenCalled();
-    expect(service.markReturnReceived).toHaveBeenCalledWith(25, 9);
-    expect(service.acceptReturnForRefund).toHaveBeenCalledWith(25, 9);
+    expect(service.getReturnDetail).toHaveBeenCalledWith(25, expect.anything());
+    expect(service.markReturnReceived).toHaveBeenCalledWith(25, 9, expect.anything());
+    expect(service.acceptReturnForRefund).toHaveBeenCalledWith(25, 9, expect.anything());
     expect(service.refundReturnRequest).toHaveBeenCalledWith(25, 9, {
       method: 'ORIGINAL_PAYMENT',
       idempotencyKey: 'legacy-return-refund-25',
-    });
+    }, expect.anything());
     expect(result).toEqual({ success: true, code: 'REFUND_COMPLETED' });
   });
 
@@ -248,14 +249,14 @@ describe('legacy-returns.write.adapter', () => {
 
     const result = await processReturnWithModernFallback(service, 29, 9, 'COMPLETE_REFUND');
 
-    expect(service.approveReturnRequest).toHaveBeenCalledWith(29, 9);
-    expect(service.markReturnInTransit).toHaveBeenCalledWith(29, 9);
-    expect(service.markReturnReceived).toHaveBeenCalledWith(29, 9);
-    expect(service.acceptReturnForRefund).toHaveBeenCalledWith(29, 9);
+    expect(service.approveReturnRequest).toHaveBeenCalledWith(29, 9, expect.anything());
+    expect(service.markReturnInTransit).toHaveBeenCalledWith(29, 9, expect.anything());
+    expect(service.markReturnReceived).toHaveBeenCalledWith(29, 9, expect.anything());
+    expect(service.acceptReturnForRefund).toHaveBeenCalledWith(29, 9, expect.anything());
     expect(service.refundReturnRequest).toHaveBeenCalledWith(29, 9, {
       method: 'ORIGINAL_PAYMENT',
       idempotencyKey: 'legacy-return-refund-29',
-    });
+    }, expect.anything());
     expect(result).toEqual({ success: true, code: 'REFUND_COMPLETED' });
   });
 
@@ -307,7 +308,8 @@ describe('legacy-returns.write.adapter', () => {
     const result = await processReturnWithModernFallback(service, 27, 9, 'MARK_IN_TRANSIT');
 
     expect(service.approveReturnRequest).not.toHaveBeenCalled();
-    expect(service.markReturnInTransit).toHaveBeenCalledWith(27, 9);
+    expect(service.getReturnDetail).toHaveBeenCalledWith(27, expect.anything());
+    expect(service.markReturnInTransit).toHaveBeenCalledWith(27, 9, expect.anything());
     expect(service.markReturnReceived).not.toHaveBeenCalled();
     expect(service.acceptReturnForRefund).not.toHaveBeenCalled();
     expect(service.refundReturnRequest).not.toHaveBeenCalled();
@@ -341,7 +343,7 @@ describe('legacy-returns.write.adapter', () => {
     expect(service.updateRefundStatus).toHaveBeenCalledWith(28, 9, {
       refundStatus: 'PROCESSING',
       comment: 'Gateway reconciliation started',
-    });
+    }, expect.anything());
     expect(service.refundReturnRequest).not.toHaveBeenCalled();
     expect(result).toEqual({ success: true, code: 'RETURN_REFUND_PROCESSING' });
   });

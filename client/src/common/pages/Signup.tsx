@@ -12,71 +12,26 @@ import {
 } from '@/common/components/auth';
 import { AuthLayout } from '@/common/layouts/AuthLayout';
 import { authService } from '@/common/services/auth.service';
-import { useForm, useWatch, type Control } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { passwordRequirements, calculatePasswordStrength } from '@/common/utils/passwordValidation';
+import { passwordRequirements } from '@/common/utils/passwordValidation';
 import { useTranslation } from 'react-i18next';
 import { SignupFormInput, signupFormSchema } from '@/common/validation/schemas';
 import type { input } from 'zod';
 
 type SignupFormValues = input<typeof signupFormSchema>;
-
-const ValidationItem = React.memo(({ met, text }: { met: boolean; text: string }) => (
-  <div className={`flex items-center gap-2 text-[11px] transition-colors ${met ? 'text-emerald-300' : 'text-zinc-500'}`}>
-    <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border ${met ? 'border-emerald-500 bg-emerald-500/20' : 'border-zinc-700'}`}>
-      {met && <span className="text-[8px]">✓</span>}
-    </span>
-    {text}
-  </div>
-));
-
-const PasswordGuidancePanel = React.memo(
-  ({
-    control,
-    t,
-  }: {
-    control: Control<SignupFormValues>;
-    t: (key: string, options?: any) => string;
-  }) => {
-    const passwordValue = useWatch({
-      control,
-      name: 'password',
-      defaultValue: '',
-    });
-
-    const strength = calculatePasswordStrength(passwordValue);
-    const progressColor = strength <= 2 ? 'bg-red-500' : strength <= 4 ? 'bg-amber-400' : 'bg-emerald-500';
-    const helperTone = passwordValue ? 'text-zinc-400' : 'text-zinc-500';
-
-    return (
-      <div className="min-h-[9.5rem] rounded-sm border border-white/10 bg-white/[0.02] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-zinc-400">{t('password.requirementsTitle')}</p>
-          <span className={`text-[11px] uppercase tracking-[0.18em] ${helperTone}`}>
-            {passwordValue ? `${strength}/5` : '0/5'}
-          </span>
-        </div>
-        <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-white/8">
-          <div
-            className={`h-full rounded-full transition-[width,background-color] duration-200 ${progressColor}`}
-            style={{ width: `${(strength / 5) * 100}%` }}
-          />
-        </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <ValidationItem met={passwordValue.length >= passwordRequirements.minLength} text={t('password.minLength', { value: passwordRequirements.minLength })} />
-          <ValidationItem met={passwordRequirements.hasUpperCase.test(passwordValue)} text={t('password.uppercase')} />
-          <ValidationItem met={passwordRequirements.hasLowerCase.test(passwordValue)} text={t('password.lowercase')} />
-          <ValidationItem met={passwordRequirements.hasNumber.test(passwordValue)} text={t('password.number')} />
-          <ValidationItem met={passwordRequirements.hasSpecialChar.test(passwordValue)} text={t('password.special')} />
-        </div>
-      </div>
-    );
-  },
-);
+type SignupRequestError = Error & {
+  code?: string;
+  data?: {
+    email?: string;
+    requiresVerification?: boolean;
+  };
+};
 
 export const Signup: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'signup' });
   const [serverError, setServerError] = useState<string | null>(null);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const navigate = useNavigate();
 
   const {
@@ -97,11 +52,37 @@ export const Signup: React.FC = () => {
   });
 
   const clearServerError = () => setServerError(null);
+  const passwordValue = useWatch({
+    control,
+    name: 'password',
+    defaultValue: '',
+  });
+  const passwordChecks = {
+    minLength: passwordValue.length >= passwordRequirements.minLength,
+    hasUpperCase: passwordRequirements.hasUpperCase.test(passwordValue),
+    hasLowerCase: passwordRequirements.hasLowerCase.test(passwordValue),
+    hasNumber: passwordRequirements.hasNumber.test(passwordValue),
+    hasSpecialChar: passwordRequirements.hasSpecialChar.test(passwordValue),
+  };
+  const isPasswordStrong = Object.values(passwordChecks).every(Boolean);
+  const passwordRegister = register('password', { onChange: clearServerError });
+  const passwordHelperText = isPasswordStrong ? t('password.strong') : t('password.helperHint');
+  const passwordErrorMessage = errors.password?.message;
+  const shouldShowPasswordError = Boolean(passwordErrorMessage) && !isPasswordFocused;
+  const passwordErrorContent = shouldShowPasswordError
+    ? <span className="inline-flex h-6 items-center">{passwordErrorMessage}</span>
+    : undefined;
 
   const fullNameRegister = register('fullName', { onChange: clearServerError });
   const emailRegister = register('email', { onChange: clearServerError });
-  const passwordRegister = register('password', { onChange: clearServerError });
   const confirmPasswordRegister = register('confirmPassword', { onChange: clearServerError });
+  const passwordHelperContent = shouldShowPasswordError
+    ? undefined
+    : (
+      <span className={`inline-flex h-6 items-center ${isPasswordStrong ? 'text-emerald-300' : ''}`}>
+        {passwordHelperText}
+      </span>
+    );
 
   const onSubmit = async (data: SignupFormInput) => {
     setServerError(null);
@@ -114,16 +95,25 @@ export const Signup: React.FC = () => {
       sessionStorage.setItem('pendingVerificationEmail', data.email);
       navigate('/email-verification');
     } catch (error) {
-      const err = error as Error | { message?: string };
+      const err = error as SignupRequestError;
+      if (err.code === 'EMAIL_PENDING_VERIFICATION') {
+        const pendingEmail = typeof err.data?.email === 'string' && err.data.email.trim().length > 0
+          ? err.data.email
+          : data.email;
+        sessionStorage.setItem('pendingVerificationEmail', pendingEmail);
+        navigate('/email-verification', { state: { email: pendingEmail } });
+        return;
+      }
+
       setServerError(err.message || t('errors.registerFailed'));
     }
   };
 
   return (
     <AuthLayout backgroundImage="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=2000">
-      <AuthPageHeader eyebrow={t('label')} title={t('title')} subtitle={t('subtitle')} className="mb-10" />
+      <AuthPageHeader eyebrow={t('label')} title={t('title')} subtitle={t('subtitle')} className="mb-8 lg:mb-9" />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <AuthField
           type="text"
           autoComplete="off"
@@ -144,16 +134,21 @@ export const Signup: React.FC = () => {
           {...emailRegister}
         />
 
-        <div className="space-y-3">
+        <div>
           <AuthPasswordField
+            {...passwordRegister}
             autoComplete="new-password"
             label={t('form.password')}
-            error={errors.password?.message}
+            error={passwordErrorContent}
+            helperText={passwordHelperContent}
             placeholder="••••••••"
             disabled={isSubmitting}
-            {...passwordRegister}
+            onFocus={() => setIsPasswordFocused(true)}
+            onBlur={(event) => {
+              passwordRegister.onBlur(event);
+              setIsPasswordFocused(false);
+            }}
           />
-          <PasswordGuidancePanel control={control} t={t} />
         </div>
 
         <AuthPasswordField
@@ -165,29 +160,8 @@ export const Signup: React.FC = () => {
           {...confirmPasswordRegister}
         />
 
-        <label className="group flex cursor-pointer items-start gap-3 pt-2">
-          <span className="relative mt-0.5 flex h-5 w-5 items-center justify-center">
-            <input
-              type="checkbox"
-              {...register('newsletter')}
-              className="peer absolute inset-0 h-full w-full cursor-pointer opacity-0"
-            />
-            <span className="h-5 w-5 rounded-sm border border-white/18 bg-white/[0.02] transition-colors duration-150 peer-checked:border-primary peer-checked:bg-primary" />
-            <svg
-              viewBox="0 0 16 16"
-              className="pointer-events-none absolute h-3 w-3 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
-            </svg>
-          </span>
-          <span className="text-sm leading-6 text-zinc-400 transition-colors duration-150 group-hover:text-zinc-200">{t('newsletter')}</span>
-        </label>
-
-        <div className="space-y-4 pt-3">
-          <AuthStatusRail message={serverError ?? undefined} tone="error" reserveSpace />
+        <div className="space-y-3 pt-0.5">
+          <AuthStatusRail message={serverError ?? undefined} tone="error" reserveSpace compact />
 
           <AuthPrimaryButton
             type="submit"
@@ -196,7 +170,7 @@ export const Signup: React.FC = () => {
             loadingLabel={t('actions.creating')}
           />
 
-          <AuthDivider label={t('divider.or')} />
+          <AuthDivider label={t('divider.or')} className="pt-1" />
 
           <AuthOAuthButton
             type="button"
@@ -215,8 +189,8 @@ export const Signup: React.FC = () => {
         </div>
       </form>
 
-      <AuthFooterLinks className="mt-10 text-center">
-        <p>
+      <AuthFooterLinks className="mt-8 text-center">
+        <p className="text-sm">
           {t('footer.hasAccount')}{' '}
           <button
             type="button"

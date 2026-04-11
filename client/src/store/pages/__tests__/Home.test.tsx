@@ -82,7 +82,7 @@ vi.mock('@/common/hooks/useProducts', () => ({
 }));
 
 describe('Home', () => {
-  it('renders the refreshed landing structure with key sections and product cards', () => {
+  it('renders the refreshed landing structure with key sections and product cards', async () => {
     render(<Home />);
 
     expect(screen.getByTestId('store-header')).toBeInTheDocument();

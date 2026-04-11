@@ -34,6 +34,7 @@ export interface RestoreItem {
 
 export type InventoryLogReason =
   | 'CHECKOUT'
+  | 'CANCEL_RESTORE'
   | 'PURCHASE_RECEIPT'
   | 'RETURN_RESTORE'
   | 'MANUAL_ADJUST';
@@ -81,6 +82,12 @@ interface PurchaseReceiptInput {
   goodsReceiptId?: number | null;
   purchaseOrderId?: number | null;
   note?: string | null;
+}
+
+type CancelRestoreType = 'cancel' | 'return';
+
+interface CancelRestoreOptions {
+  restoreType?: CancelRestoreType;
 }
 
 const readVariantStocks = async (
@@ -320,6 +327,7 @@ export async function atomicCheckoutDeduction(
         throw new InventoryError(
           'INSUFFICIENT_STOCK',
           'Product is out of stock or the requested quantity is unavailable.',
+          409,
         );
       }
       throw err;
@@ -373,7 +381,17 @@ export async function atomicCancelRestore(
   userId: number | null,
   items: RestoreItem[],
   tx: Prisma.TransactionClient,
+  options: CancelRestoreOptions = {},
 ) {
+  const restoreType = options.restoreType ?? 'cancel';
+  const inventoryReason: InventoryLogReason =
+    restoreType === 'return' ? 'RETURN_RESTORE' : 'CANCEL_RESTORE';
+  const stockMovementType: StockMovementType =
+    restoreType === 'return' ? 'RETURN' : 'CANCEL';
+  const restoreNote =
+    restoreType === 'return'
+      ? `Returned order #${orderId}`
+      : `Cancelled order #${orderId}`;
   const restoredItems: Array<{ variantId: number; quantity: number }> = [];
 
   for (const item of items) {
@@ -415,17 +433,17 @@ export async function atomicCancelRestore(
       changeQuantity: item.quantity,
       previousStock,
       newStock,
-      reason: 'RETURN_RESTORE',
-      note: `Cancelled order #${orderId}`,
+      reason: inventoryReason,
+      note: restoreNote,
     });
 
     await appendStockMovement(tx, {
       variantId: item.variantId,
-      type: 'CANCEL',
+      type: stockMovementType,
       quantity: item.quantity,
       referenceType: 'ORDER',
       referenceId: orderId,
-      note: `Cancelled order #${orderId}`,
+      note: restoreNote,
       createdBy: userId,
     });
   }

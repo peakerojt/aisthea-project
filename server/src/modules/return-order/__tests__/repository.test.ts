@@ -22,13 +22,11 @@ const expectedOrderItemInclude = {
     include: {
       variant: {
         select: {
-          images: {
-            select: { imageUrl: true, thumbnailUrl: true },
-            orderBy: [{ isPrimary: 'desc' }, { imageId: 'asc' }],
-            take: 1,
-          },
+          variantId: true,
+          productId: true,
           product: {
             select: {
+              productId: true,
               images: {
                 select: { imageUrl: true, thumbnailUrl: true },
                 orderBy: [{ isPrimary: 'desc' }, { imageId: 'asc' }],
@@ -36,6 +34,55 @@ const expectedOrderItemInclude = {
               },
             },
           },
+        },
+      },
+    },
+  },
+};
+
+const expectedReturnRequestDetailInclude = {
+  order: true,
+  user: {
+    select: {
+      userId: true,
+      fullName: true,
+      email: true,
+      customerBankAccounts: {
+        where: { isActive: true },
+        orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
+      },
+    },
+  },
+  items: { include: expectedOrderItemInclude },
+  attachments: true,
+  statusLogs: {
+    include: { changedByUser: { select: { userId: true, fullName: true } } },
+    orderBy: { createdAt: 'asc' },
+  },
+  refundTransactions: {
+    include: { processedByUser: { select: { userId: true, fullName: true } } },
+    orderBy: { createdAt: 'desc' },
+  },
+  refundBankSnapshots: {
+    orderBy: { capturedAt: 'desc' },
+  },
+  refundPayoutProofs: {
+    include: {
+      uploadedByUser: {
+        select: { userId: true, fullName: true },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  },
+  refundBenefits: {
+    include: {
+      coupon: {
+        select: {
+          couponId: true,
+          type: true,
+          source: true,
+          visibleInPublicList: true,
+          isHidden: true,
         },
       },
     },
@@ -249,17 +296,7 @@ describe('ReturnRequestRepository', () => {
     expect(prismaMock.returnRequest.findFirst).toHaveBeenCalledWith({
       where: { orderId: 12 },
       orderBy: { createdAt: 'desc' },
-      include: {
-        order: true,
-        user: { select: { userId: true, fullName: true, email: true } },
-        items: { include: expectedOrderItemInclude },
-        attachments: true,
-        statusLogs: {
-          include: { changedByUser: { select: { userId: true, fullName: true } } },
-          orderBy: { createdAt: 'asc' },
-        },
-        refundTransactions: { orderBy: { createdAt: 'desc' } },
-      },
+      include: expectedReturnRequestDetailInclude,
     });
     expect(result).toEqual({ returnRequestId: 88, orderId: 12 });
   });
@@ -317,17 +354,7 @@ describe('ReturnRequestRepository', () => {
 
     expect(prismaMock.returnRequest.findUnique).toHaveBeenCalledWith({
       where: { returnRequestId: 66 },
-      include: {
-        order: true,
-        user: { select: { userId: true, fullName: true, email: true } },
-        items: { include: expectedOrderItemInclude },
-        attachments: true,
-        statusLogs: {
-          include: { changedByUser: { select: { userId: true, fullName: true } } },
-          orderBy: { createdAt: 'asc' },
-        },
-        refundTransactions: { orderBy: { createdAt: 'desc' } },
-      },
+      include: expectedReturnRequestDetailInclude,
     });
     expect(result).toEqual({
       returnRequestId: 66,

@@ -26,6 +26,22 @@ export class AppError extends Error {
   }
 }
 
+export class AppErrorWithData extends AppError {
+  data: Record<string, unknown>;
+
+  constructor(
+    statusCode: number,
+    errorCode: string,
+    messageKey: string,
+    data: Record<string, unknown>,
+    messageParams?: Record<string, unknown>,
+    details?: unknown,
+  ) {
+    super(statusCode, errorCode, messageKey, messageParams, details);
+    this.data = data;
+  }
+}
+
 export function notFoundHandler(req: Request, res: Response) {
   const locale = resolveRequestLocale(req);
   const message = t(locale, 'common:errors.notFoundRoute', {
@@ -66,6 +82,7 @@ export function errorHandler(error: Error, req: Request, res: Response, _next: N
       code: error.errorCode,
       messageKey: error.messageKey,
       ...(error.messageParams ? { messageParams: error.messageParams } : {}),
+      ...(error instanceof AppErrorWithData ? { data: error.data } : {}),
       message,
       ...(isProd ? {} : { details: error.details }), // Hide sensitive details in prod if needed, or keep them. Often AppError details are safe (like validation mismatches)
     });

@@ -33,7 +33,14 @@
     "orderTotalLabel": "Tổng đơn hàng",
     "paymentMethodLabel": "Phương thức thanh toán: {{paymentMethod}}",
     "trackLinkLabel": "Theo dõi đơn hàng tại đây:",
-    "footer": "Nếu bạn không thực hiện đơn hàng này, vui lòng liên hệ bộ phận hỗ trợ của AISTHEA."
+    "footer": "Nếu bạn không thực hiện đơn hàng này, vui lòng liên hệ bộ phận hỗ trợ của AISTHEA.",
+    "vnpayPaid": {
+      "subject": "Thanh toán VNPay thành công: {{orderNumber}} - AISTHEA",
+      "intro": "Chúng tôi đã ghi nhận thanh toán thành công cho đơn <strong>{{orderNumber}}</strong> qua VNPay. Đơn hàng của bạn sẽ được tiếp tục xử lý và bạn có thể theo dõi trạng thái mới nhất qua liên kết bên dưới.",
+      "notice": "Khoản thanh toán của bạn đã được VNPay xác nhận thành công. AISTHEA sẽ tiếp tục xử lý đơn hàng trong thời gian sớm nhất.",
+      "trackLinkLabel": "Theo dõi đơn hàng tại đây:",
+      "footer": "Nếu bạn không thực hiện giao dịch này, vui lòng liên hệ bộ phận hỗ trợ của AISTHEA ngay lập tức."
+    }
   },
   "orderStatus": {
     "subject": "Cập nhật đơn hàng: {{orderNumber}} đang ở trạng thái {{statusLabel}} - AISTHEA",

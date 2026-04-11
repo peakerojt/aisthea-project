@@ -28,6 +28,17 @@ vi.mock('@/common/services/purchase-order.service', () => ({
   cancelPurchaseOrder: (...args: unknown[]) => cancelPurchaseOrderMock(...args),
 }));
 
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+
+  return { promise, resolve, reject };
+};
+
 describe('Restock page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -309,5 +320,174 @@ describe('Restock page', () => {
         expect.objectContaining({ variantId: 103, orderedQty: 2400, unitCost: 125000 }),
       ]),
     }));
+  });
+
+  it('keeps summary cards and purchase orders stable during manual refresh', async () => {
+    const initialInventory = {
+      data: [
+        {
+          variantId: 201,
+          productId: 11,
+          sku: 'SKU-RESTOCK-201',
+          price: 310000,
+          stockQuantity: 7,
+          variantLabel: 'Navy/M',
+          product: { name: 'Ao khoac Utility', primaryImageUrl: null },
+        },
+      ],
+      meta: { total: 1, page: 1, pageSize: 40, totalPages: 1 },
+    };
+    const initialSummary = {
+      data: { totalVariants: 12, outOfStock: 3, lowStock: 2 },
+    };
+    const initialOrders = {
+      data: [
+        {
+          purchaseOrderId: 77,
+          purchaseOrderNumber: 'PO-2026-001',
+          supplier: 'Xuong vai An Phu',
+          expectedReceivedAt: '2026-04-15T08:30:00.000Z',
+          orderedAt: '2026-04-11T08:30:00.000Z',
+          status: 'PENDING',
+          invoiceNumber: 'INV-77',
+          totals: { receivedQty: 0, orderedQty: 24, totalCost: 5400000 },
+          items: [],
+          notes: null,
+        },
+      ],
+      meta: { total: 1, page: 1, pageSize: 20, totalPages: 1 },
+    };
+
+    const inventoryRefresh = deferred<typeof initialInventory>();
+    const summaryRefresh = deferred<typeof initialSummary>();
+    const ordersRefresh = deferred<typeof initialOrders>();
+
+    fetchInventoryPageMock
+      .mockResolvedValueOnce(initialInventory)
+      .mockImplementationOnce(() => inventoryRefresh.promise);
+    fetchInventorySummaryMock
+      .mockResolvedValueOnce(initialSummary)
+      .mockImplementationOnce(() => summaryRefresh.promise);
+    listPurchaseOrdersMock
+      .mockResolvedValueOnce(initialOrders)
+      .mockImplementationOnce(() => ordersRefresh.promise);
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <Restock />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const user = userEvent.setup();
+
+    expect(await screen.findByText('PO-2026-001')).toBeInTheDocument();
+
+    const totalCard = screen.getByText('restock:po.inventory.stats.total').closest('div');
+    expect(totalCard).toHaveTextContent('12');
+
+    await user.click(screen.getByRole('button', { name: 'restock:po.actions.refresh' }));
+
+    const refreshButton = screen.getByRole('button', { name: 'restock:po.actions.refresh' });
+    await waitFor(() => {
+      expect(refreshButton).toHaveAttribute('aria-busy', 'true');
+    });
+
+    expect(screen.getByText('PO-2026-001')).toBeInTheDocument();
+    expect(screen.queryByText('restock:po.states.loading')).not.toBeInTheDocument();
+    expect(totalCard).toHaveTextContent('12');
+
+    ordersRefresh.resolve(initialOrders);
+    summaryRefresh.resolve(initialSummary);
+    inventoryRefresh.resolve(initialInventory);
+
+    await waitFor(() => {
+      expect(refreshButton).toHaveAttribute('aria-busy', 'false');
+    });
+  });
+
+  it('keeps the inventory viewport height stable when switching to low-stock items', async () => {
+    fetchInventoryPageMock
+      .mockResolvedValueOnce({
+        data: [
+          {
+            variantId: 301,
+            productId: 21,
+            sku: 'SKU-OK-301',
+            price: 300000,
+            stockQuantity: 50,
+            variantLabel: 'Den/S',
+            product: { name: 'Ao blazer Minimal', primaryImageUrl: null },
+          },
+          {
+            variantId: 302,
+            productId: 22,
+            sku: 'SKU-LOW-302',
+            price: 280000,
+            stockQuantity: 10,
+            variantLabel: 'Trang/S',
+            product: { name: 'Ao blouse Vintage', primaryImageUrl: null },
+          },
+        ],
+        meta: { total: 2, page: 1, pageSize: 40, totalPages: 1 },
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            variantId: 302,
+            productId: 22,
+            sku: 'SKU-LOW-302',
+            price: 280000,
+            stockQuantity: 10,
+            variantLabel: 'Trang/S',
+            product: { name: 'Ao blouse Vintage', primaryImageUrl: null },
+          },
+        ],
+        meta: { total: 1, page: 1, pageSize: 40, totalPages: 1 },
+      });
+    fetchInventorySummaryMock.mockResolvedValue({
+      data: { totalVariants: 2, outOfStock: 0, lowStock: 1 },
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <Restock />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const user = userEvent.setup();
+
+    expect(await screen.findByText('Ao blazer Minimal')).toBeInTheDocument();
+
+    const inventoryViewport = screen.getByTestId('restock-inventory-viewport');
+    expect(inventoryViewport).toHaveStyle({ height: 'min(420px, 40vh)' });
+
+    await user.click(screen.getByRole('button', { name: 'restock:po.inventory.stats.low' }));
+
+    await waitFor(() => {
+      expect(fetchInventoryPageMock).toHaveBeenLastCalledWith(
+        { search: undefined, lowStock: true },
+        1,
+        40,
+      );
+    });
+
+    expect(inventoryViewport).toHaveStyle({ height: 'min(420px, 40vh)' });
+    expect(await screen.findByText('Ao blouse Vintage')).toBeInTheDocument();
   });
 });

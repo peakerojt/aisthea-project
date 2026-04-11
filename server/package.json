@@ -14,6 +14,7 @@
     "repair:role-catalog": "tsx src/scripts/repair-role-catalog.ts",
     "repair:cod-return-locks": "tsx src/scripts/reconcile-cod-return-locks.ts",
     "seed:convert:mysql": "tsx src/scripts/convert-seed-sqlserver-to-mysql.ts",
+    "seed:filter:ssms:mysql": "tsx tools/filter-ssms-seed-to-mysql.ts",
     "test": "jest --runInBand",
     "test:watch": "jest --watch"
   },

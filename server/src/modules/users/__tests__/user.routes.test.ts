@@ -11,6 +11,13 @@ const userController = {
   updateAddress: jest.fn((_req, res) => res.json({ route: 'update-address' })),
   deleteAddress: jest.fn((_req, res) => res.json({ route: 'delete-address' })),
   setDefaultAddress: jest.fn((_req, res) => res.json({ route: 'default-address' })),
+  getBankAccounts: jest.fn((_req, res) => res.json({ route: 'bank-accounts' })),
+  createBankAccount: jest.fn((_req, res) => res.status(201).json({ route: 'create-bank-account' })),
+  updateBankAccount: jest.fn((_req, res) => res.json({ route: 'update-bank-account' })),
+  deleteBankAccount: jest.fn((_req, res) => res.json({ route: 'delete-bank-account' })),
+  setDefaultBankAccount: jest.fn((_req, res) => res.json({ route: 'default-bank-account' })),
+  uploadBankQrImage: jest.fn((_req, res) => res.json({ route: 'upload-bank-qr-image' })),
+  getRefundBenefits: jest.fn((_req, res) => res.json({ route: 'refund-benefits' })),
   getRecentOrders: jest.fn((_req, res) => res.json({ route: 'recent-orders' })),
   getAllUsers: jest.fn((_req, res) => res.json({ route: 'list-users' })),
   updateUserStatus: jest.fn((_req, res) => res.json({ route: 'status' })),
@@ -24,6 +31,7 @@ jest.mock('../../../middlewares/auth.middleware', () => ({
     next();
   },
   checkRole: () => (_req: unknown, _res: unknown, next: () => void) => next(),
+  requirePermission: () => (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 jest.mock('../../../middlewares/validate.middleware', () => ({
   validate: () => (_req: unknown, _res: unknown, next: () => void) => next(),
@@ -32,6 +40,10 @@ jest.mock('../../../middlewares/upload.middleware', () => ({
   upload: {
     single: () => (_req: unknown, _res: unknown, next: () => void) => next(),
   },
+}));
+jest.mock('../../../middlewares/security.middleware', () => ({
+  createAdminRateLimiters: () => [(_req: unknown, _res: unknown, next: () => void) => next()],
+  createCustomerMutationRateLimiters: () => [(_req: unknown, _res: unknown, next: () => void) => next()],
 }));
 
 import userRoutes from '../user.routes';

@@ -5,6 +5,7 @@ vi.unmock('@/admin/services/returns.command');
 const returnApiMock = vi.hoisted(() => ({
   approveReturnRequest: vi.fn(),
   acceptReturnForRefund: vi.fn(),
+  completeBankRefund: vi.fn(),
   getAdminReturnRequestDetail: vi.fn(),
   getAdminReturnRequests: vi.fn(),
   markReturnInTransit: vi.fn(),
@@ -94,129 +95,26 @@ describe('adminReturnRuntimeService', () => {
     );
   });
 
-  it('chains approve, receive, accept, and refund when completing refund from requested state', async () => {
-    returnApiMock.getAdminReturnRequestDetail.mockResolvedValueOnce({
-      data: {
-        returnRequestId: 88,
-        orderId: 2002,
-        userId: 4,
-        reason: 'WRONG_ITEM',
-        status: 'REQUESTED',
-        note: null,
-        totalRefundAmount: '99000',
-        createdAt: '2026-03-10T08:00:00.000Z',
-        attachments: [],
-        statusLogs: [],
-        refundTransactions: [],
-      },
-    });
+  it('submits the complete bank refund payload directly to the admin API', async () => {
+    const payload = {
+      amount: 99000,
+      transactionRef: 'BANK-88',
+      financeNote: 'Refunded via bank transfer',
+      proofImageUrls: ['https://cdn.example.com/refund-proof-88.jpg'],
+    };
 
-    const result = await adminReturnRuntimeService.adminCompleteRefund(88);
+    const result = await adminReturnRuntimeService.adminCompleteRefund(88, payload);
 
-    expect(returnApiMock.approveReturnRequest).toHaveBeenCalledWith(88);
-    expect(returnApiMock.markReturnInTransit).toHaveBeenCalledWith(88);
-    expect(returnApiMock.markReturnReceived).toHaveBeenCalledWith(88);
-    expect(returnApiMock.acceptReturnForRefund).toHaveBeenCalledWith(88);
-    expect(returnApiMock.refundReturnRequest).toHaveBeenCalledWith(
-      88,
-      expect.objectContaining({
-        method: 'ORIGINAL_PAYMENT',
-        idempotencyKey: expect.stringMatching(/^admin-return-88-\d+$/),
-      }),
-    );
-    expect(result).toEqual({
-      success: true,
-      messageKey: 'feedback.refundSuccess',
-    });
-  });
-
-  it('canonicalizes legacy workflow aliases before completing refund', async () => {
-    returnApiMock.getAdminReturnRequestDetail.mockResolvedValueOnce({
-      data: {
-        returnRequestId: 189,
-        orderId: 2203,
-        userId: 4,
-        reason: 'WRONG_ITEM',
-        status: 'REQUESTED',
-        workflowStatus: 'PENDING_APPROVAL',
-        refundStatus: 'PENDING',
-        note: null,
-        totalRefundAmount: '99000',
-        createdAt: '2026-03-10T08:00:00.000Z',
-        attachments: [],
-        statusLogs: [],
-        refundTransactions: [],
-      },
-    });
-
-    await adminReturnRuntimeService.adminCompleteRefund(189);
-
-    expect(returnApiMock.approveReturnRequest).toHaveBeenCalledWith(189);
-    expect(returnApiMock.markReturnInTransit).toHaveBeenCalledWith(189);
-    expect(returnApiMock.markReturnReceived).toHaveBeenCalledWith(189);
-    expect(returnApiMock.acceptReturnForRefund).toHaveBeenCalledWith(189);
-  });
-
-  it('jumps prepaid cancellation requests straight from approval to refund execution', async () => {
-    returnApiMock.getAdminReturnRequestDetail.mockResolvedValueOnce({
-      data: {
-        returnRequestId: 190,
-        orderId: 2204,
-        userId: 4,
-        reason: 'PRE_DELIVERY_CANCELLATION',
-        status: 'REQUESTED',
-        workflowStatus: 'PENDING_ADMIN_REVIEW',
-        refundStatus: 'PENDING',
-        note: null,
-        totalRefundAmount: '1492000',
-        createdAt: '2026-04-01T08:00:00.000Z',
-        attachments: [],
-        statusLogs: [],
-        refundTransactions: [],
-      },
-    });
-
-    const result = await adminReturnRuntimeService.adminCompleteRefund(190);
-
-    expect(returnApiMock.approveReturnRequest).toHaveBeenCalledWith(190);
+    expect(returnApiMock.completeBankRefund).toHaveBeenCalledWith(88, payload);
+    expect(returnApiMock.approveReturnRequest).not.toHaveBeenCalled();
     expect(returnApiMock.markReturnInTransit).not.toHaveBeenCalled();
     expect(returnApiMock.markReturnReceived).not.toHaveBeenCalled();
     expect(returnApiMock.acceptReturnForRefund).not.toHaveBeenCalled();
-    expect(returnApiMock.refundReturnRequest).toHaveBeenCalledWith(
-      190,
-      expect.objectContaining({
-        method: 'ORIGINAL_PAYMENT',
-        idempotencyKey: expect.stringMatching(/^admin-return-190-\d+$/),
-      }),
-    );
+    expect(returnApiMock.refundReturnRequest).not.toHaveBeenCalled();
     expect(result).toEqual({
       success: true,
       messageKey: 'feedback.refundSuccess',
     });
-  });
-
-  it('blocks complete refund when refund is locked pending payment confirmation', async () => {
-    returnApiMock.getAdminReturnRequestDetail.mockResolvedValueOnce({
-      data: {
-        returnRequestId: 109,
-        orderId: 3013,
-        userId: 2,
-        reason: 'OTHER',
-        status: 'PENDING_PAYMENT_CONFIRMATION',
-        note: null,
-        totalRefundAmount: '10000',
-        createdAt: '2026-03-12T09:00:00.000Z',
-        attachments: [],
-        statusLogs: [],
-        refundTransactions: [],
-      },
-    });
-
-    await expect(adminReturnRuntimeService.adminCompleteRefund(109)).rejects.toMatchObject({
-      messageKey: 'feedback.refundLocked',
-      code: 'RETURN_REFUND_LOCKED',
-    });
-    expect(returnApiMock.refundReturnRequest).not.toHaveBeenCalled();
   });
 
   it('requires and trims rejection notes', async () => {

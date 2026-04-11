@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Logo } from '@/common/components/Logo';
 import { useAuth } from '@/common/contexts/AuthContext';
 import { canAccessAdminPath } from '@/common/utils/adminAccess';
-import { LayoutDashboard, Shirt, ShoppingBag, Users, BarChart2, LogOut, PackagePlus, Tag, TicketPercent, ShieldCheck, RotateCcw, Mail } from 'lucide-react';
+import { LayoutDashboard, Shirt, ShoppingBag, Users, BarChart2, LogOut, PackagePlus, Tag, TicketPercent, ShieldCheck, RotateCcw } from 'lucide-react';
 import { preloadAdminRoute } from '@/app/routes/adminRoutes';
 
 const menuItems = [
@@ -17,7 +17,6 @@ const menuItems = [
   { icon: Users,           labelKey: 'sidebar:nav.customers', path: '/admin/customers' },
   { icon: BarChart2,       labelKey: 'sidebar:nav.analytics', path: '/admin/analytics' },
   { icon: TicketPercent,   labelKey: 'sidebar:nav.coupons',   path: '/admin/coupons' },
-  { icon: Mail,            labelKey: 'sidebar:nav.notifications', path: '/admin/notifications' },
   { icon: ShieldCheck,     labelKey: 'sidebar:nav.roles',     path: '/admin/roles', label: 'Phân quyền' },
 ];
 
