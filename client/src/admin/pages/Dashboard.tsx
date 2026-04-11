@@ -168,6 +168,7 @@ export const Dashboard: React.FC = () => {
           className="mt-3"
           isRefreshing={isRefreshing}
           label={refreshingLabel}
+          stabilizeDurationMs={0}
         />
       </div>
 

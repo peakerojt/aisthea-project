@@ -33,6 +33,7 @@ export interface AdminRefreshStateProps {
   className?: string;
   label?: React.ReactNode;
   align?: 'start' | 'end';
+  stabilizeDurationMs?: number;
 }
 
 export type AdminTableColumn<T> = {
@@ -128,6 +129,12 @@ const useStableRefreshSignal = (isRefreshing: boolean, minDurationMs = 450) => {
 
     const elapsed = refreshStartedAtRef.current === null ? minDurationMs : Date.now() - refreshStartedAtRef.current;
     const remaining = Math.max(0, minDurationMs - elapsed);
+
+    if (remaining === 0) {
+      refreshStartedAtRef.current = null;
+      setIsVisible(false);
+      return undefined;
+    }
 
     hideTimerRef.current = window.setTimeout(() => {
       hideTimerRef.current = null;
@@ -412,8 +419,9 @@ export const AdminRefreshState: React.FC<AdminRefreshStateProps> = ({
   className = '',
   label = 'Dang cap nhat',
   align = 'end',
+  stabilizeDurationMs = 450,
 }) => {
-  const showRefreshingState = useStableRefreshSignal(isRefreshing);
+  const showRefreshingState = useStableRefreshSignal(isRefreshing, stabilizeDurationMs);
 
   return (
     <div
