@@ -3,11 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { useToast } from '@/common/contexts/ToastContext';
 import {
     Search, Users, AlertCircle, Loader2, Shield,
-    ShieldCheck, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, FilterX,
+    ShieldCheck, ChevronDown, ChevronLeft, ChevronRight, FilterX,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import {
     AdminEmptyState,
+    AdminRefreshButton,
     AdminModalShell,
     AdminPageHeader,
     AdminPageShell,
@@ -137,6 +138,7 @@ export const Customers: React.FC = () => {
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isManualRefreshing, setIsManualRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const hasLoadedRef = useRef(false);
     const requestIdRef = useRef(0);
@@ -345,9 +347,14 @@ export const Customers: React.FC = () => {
     const rangeEnd = Math.min(total, page * pageSize);
     const visiblePages = getVisiblePages(page, totalPages);
 
-    const refreshUsers = () => {
-        void loadUsers();
-    };
+    const refreshUsers = useCallback(async () => {
+        setIsManualRefreshing(true);
+        try {
+            await loadUsers();
+        } finally {
+            setIsManualRefreshing(false);
+        }
+    }, [loadUsers]);
 
     const handleClearFilters = () => {
         setSearch('');
@@ -379,10 +386,13 @@ export const Customers: React.FC = () => {
             <AdminToolbar
                 actions={(
                     <>
-                        <AdminSecondaryButton type="button" onClick={refreshUsers}>
-                            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
-                            {t('actions.refresh', { defaultValue: 'Làm mới' })}
-                        </AdminSecondaryButton>
+                        <AdminRefreshButton
+                            type="button"
+                            onClick={refreshUsers}
+                            isRefreshing={isManualRefreshing}
+                            disabled={loading || isRefreshing || isManualRefreshing}
+                            label={t('actions.refresh', { defaultValue: 'Làm mới' })}
+                        />
                         {hasFilters && (
                             <AdminSecondaryButton type="button" onClick={handleClearFilters}>
                                 <FilterX size={14} />

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Search, Package, ChevronLeft, ChevronRight, Eye,
-  AlertCircle, FilterX, Calendar, Copy, RefreshCw,
+  AlertCircle, FilterX, Calendar, Copy,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -13,6 +13,7 @@ import {
   AdminEmptyState,
   AdminPageHeader,
   AdminPageShell,
+  AdminRefreshButton,
   AdminSectionCard,
   AdminSecondaryButton,
   AdminStatusFilterBar,
@@ -302,6 +303,7 @@ export const Orders: React.FC = () => {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<StatusTabKey>(initialActiveTab);
   const [search, setSearch] = useState(initialSearch);
@@ -478,8 +480,13 @@ export const Orders: React.FC = () => {
     setPage(1);
   };
 
-  const handleRefresh = () => {
-    void Promise.all([loadOrders(), loadTabCounts()]);
+  const handleRefresh = async () => {
+    setIsManualRefreshing(true);
+    try {
+      await Promise.all([loadOrders(), loadTabCounts()]);
+    } finally {
+      setIsManualRefreshing(false);
+    }
   };
 
   const handleCopyOrderNumber = useCallback(async (orderNumber: string) => {
@@ -511,10 +518,13 @@ export const Orders: React.FC = () => {
         <AdminToolbar
           actions={(
             <>
-              <AdminSecondaryButton type="button" onClick={handleRefresh}>
-                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                {resolveText('actions.refresh', { defaultValue: 'Làm mới' })}
-              </AdminSecondaryButton>
+              <AdminRefreshButton
+                type="button"
+                onClick={handleRefresh}
+                isRefreshing={isManualRefreshing}
+                disabled={loading || isRefreshing || isManualRefreshing}
+                label={resolveText('actions.refresh', { defaultValue: 'Làm mới' })}
+              />
               {hasFilters && (
                 <AdminSecondaryButton type="button" onClick={handleClearFilters}>
                   <FilterX size={14} />

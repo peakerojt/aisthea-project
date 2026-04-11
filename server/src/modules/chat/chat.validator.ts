@@ -9,6 +9,7 @@ export const chatRequestSchema = z.object({
   message: z.string().trim().min(1).max(1000),
   page: z.enum(['home', 'product', 'stylist', 'support', 'weather']),
   history: z.array(chatHistorySchema).max(12).optional().default([]),
+  sessionId: z.string().trim().min(8).max(64).optional(),
   productId: z.number().int().positive().optional(),
   contextSummary: z.string().trim().max(1200).optional(),
 });

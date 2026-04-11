@@ -15,6 +15,10 @@ import type {
   ChatTelemetryByPageDto,
   ChatTelemetryDailyTrendDto,
   ChatTelemetryEventDto,
+  ChatTelemetryInternalByPageDto,
+  ChatTelemetryInternalEventDto,
+  ChatTelemetryInternalMetricDto,
+  ChatTelemetryInternalTrendDto,
   ChatTelemetryOverviewDto,
   ChatTelemetrySummaryDto,
   ChatTelemetryTargetDto,
@@ -26,11 +30,29 @@ type CloudflareMessage = {
 };
 
 type ProductContext = Awaited<ReturnType<typeof productRepository.findById>>;
+type ChatRecommendationRecord = Awaited<ReturnType<typeof productRepository.findChatRecommendations>>[number];
+type CacheEntry<T> = {
+  expiresAt: number;
+  value: T;
+};
 
 const CLOUDFLARE_TIMEOUT_MS = 12_000;
+const CHAT_CACHE_TTL_MS = 45_000;
 const MAX_RECOMMENDATIONS = 4;
-const MAX_HISTORY_ITEMS = 8;
+const MAX_HISTORY_ITEMS = 6;
+const MAX_RESPONSE_SENTENCES = 2;
+const MAX_RESPONSE_WORDS = 60;
 const CHAT_TELEMETRY_TABLE = 'ChatTelemetryEvents';
+const OUT_OF_SCOPE_REPLY = 'Mình chỉ hỗ trợ câu hỏi liên quan sản phẩm AISTHEA.';
+const SUPPORT_REPLY =
+  'Mình hỗ trợ tư vấn sản phẩm. Nếu bạn cần hỗ trợ đơn hàng hoặc chính sách, vui lòng xem mục hỗ trợ của shop.';
+const NEED_MORE_INFO_REPLY = 'Bạn muốn mình tư vấn theo mẫu nào hoặc nhu cầu nào?';
+const INTERNAL_SIGNAL_EVENTS: ChatTelemetryInternalEventDto[] = [
+  'chat_out_of_scope_blocked',
+  'chat_support_redirected',
+  'chat_clarification_asked',
+  'chat_short_answer_returned',
+];
 
 const PRODUCT_DISCOVERY_HINTS = [
   'product',
@@ -52,6 +74,20 @@ const PRODUCT_DISCOVERY_HINTS = [
   'mua',
   'san pham',
   'sản phẩm',
+  'mẫu',
+  'form',
+  'material',
+  'chất liệu',
+  'màu',
+  'color',
+  'giá',
+  'price',
+  'available',
+  'còn hàng',
+  'đen',
+  'trắng',
+  'be',
+  'kem',
 ];
 
 const STYLE_HINTS = [
@@ -68,6 +104,14 @@ const STYLE_HINTS = [
   'phong cách',
   'kích thước',
   'vừa',
+  'form',
+  'rộng',
+  'ôm',
+  'đi làm',
+  'đi chơi',
+  'occasion',
+  'layer',
+  'hợp',
 ];
 
 const EXPLORE_MORE_HINTS = [
@@ -100,8 +144,14 @@ const SUPPORT_HINTS = [
   'privacy',
   'faq',
   'support',
-  'help',
   'contact',
+  'shipping',
+  'delivery',
+  'payment',
+  'order',
+  'đơn hàng',
+  'giao hàng',
+  'thanh toán',
   'đổi trả',
   'hoàn tiền',
   'chính sách',
@@ -109,6 +159,74 @@ const SUPPORT_HINTS = [
   'hỗ trợ',
   'liên hệ',
 ];
+
+const PRODUCT_CONTEXT_HINTS = [
+  'mẫu này',
+  'sản phẩm này',
+  'item này',
+  'áo này',
+  'quần này',
+  'váy này',
+  'đầm này',
+  'cái này',
+  'this product',
+  'this item',
+  'this one',
+];
+
+const SHOPPING_INTENT_HINTS = ['mua', 'tìm', 'tim', 'shop', 'shopping', 'browse', 'xem', 'gợi ý', 'goi y', 'kiếm', 'kiem'];
+
+const GENERIC_ADVICE_PATTERNS = [
+  /^(tư vấn|tu van)( giúp mình| giúp em| cho mình| cho em)?[.!?]*$/iu,
+  /^(giúp mình|giúp em|help me|recommend|suggest)[.!?]*$/iu,
+  /^(mình cần tư vấn|mình muốn tư vấn|tôi cần tư vấn|toi can tu van)[.!?]*$/iu,
+];
+
+const PRODUCT_QUERY_NOISE_PATTERNS = [
+  /\b(làm sao|thế nào|vì sao|bao giờ|ở đâu)\b/giu,
+  /\b(giúp mình|giúp em|cho mình hỏi|cho em hỏi|mình cần|mình muốn|tôi cần|tôi muốn|toi can|toi muon)\b/giu,
+  /\b(tư vấn|tu van|find|show|tim|tìm|please|can you|giup|mua|shop|shopping)\b/giu,
+];
+
+const PRODUCT_QUERY_STOP_WORDS = new Set([
+  'cách',
+  'cach',
+  'gì',
+  'gi',
+  'để',
+  'de',
+  'như',
+  'nào',
+  'nao',
+  'nên',
+  'nen',
+  'mặc',
+  'mac',
+  'này',
+  'nay',
+  'kia',
+  'đó',
+  'do',
+  'thời',
+  'tiết',
+  'weather',
+]);
+
+const MEN_COLLECTION_HINTS = ['nam', 'men', 'male', 'boy'];
+const WOMEN_COLLECTION_HINTS = ['nữ', 'nu', 'women', 'woman', 'female', 'girl', 'váy', 'vay', 'đầm', 'dam'];
+
+const COLLECTION_ROUTE_HINTS: Array<{ route: 'outerwear' | 'tops' | 'bottoms' | 'dresses' | 'shoes' | 'accessories'; hints: string[] }> = [
+  { route: 'outerwear', hints: ['áo khoác', 'ao khoac', 'khoác', 'khoac', 'jacket', 'blazer', 'hoodie', 'coat'] },
+  { route: 'tops', hints: ['áo sơ mi', 'ao so mi', 'sơ mi', 'so mi', 'shirt', 'tee', 't shirt', 'thun', 'polo', 'áo', 'ao', 'top'] },
+  { route: 'bottoms', hints: ['quần', 'quan', 'pants', 'trousers', 'jeans', 'skirt', 'chân váy', 'chan vay'] },
+  { route: 'dresses', hints: ['váy', 'vay', 'đầm', 'dam', 'dress'] },
+  { route: 'shoes', hints: ['giày', 'giay', 'shoes', 'sneaker', 'boots', 'boot', 'loafer', 'sandal', 'heels'] },
+  { route: 'accessories', hints: ['phụ kiện', 'phu kien', 'accessory', 'accessories', 'belt', 'thắt lưng', 'that lung', 'bag', 'túi', 'tui', 'mũ', 'mu', 'cap', 'kính', 'kinh', 'watch', 'đồng hồ', 'dong ho', 'jewelry', 'trang sức', 'trang suc'] },
+];
+
+const CANNED_REPLIES = new Set([OUT_OF_SCOPE_REPLY, SUPPORT_REPLY, NEED_MORE_INFO_REPLY]);
+const intentCache = new Map<string, CacheEntry<ChatIntent>>();
+const recommendationCache = new Map<string, CacheEntry<ChatProductRecommendation[]>>();
 
 const trimText = (value: string, maxLength = 600) => value.trim().slice(0, maxLength);
 
@@ -137,17 +255,66 @@ const toLoggableError = (error: unknown) => {
   };
 };
 
+const buildChatSessionId = (value?: string | null) => {
+  const trimmed = value?.trim();
+  if (trimmed) return trimText(trimmed, 64);
+  return `internal-${Date.now().toString(36)}`;
+};
+
+const isCannedReply = (content: string) => CANNED_REPLIES.has(content.trim());
+
+const readTimedCache = <T>(cache: Map<string, CacheEntry<T>>, key: string): T | null => {
+  const cached = cache.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return null;
+  }
+
+  return cached.value;
+};
+
+const writeTimedCache = <T>(cache: Map<string, CacheEntry<T>>, key: string, value: T) => {
+  cache.set(key, {
+    expiresAt: Date.now() + CHAT_CACHE_TTL_MS,
+    value,
+  });
+};
+
+const clearChatPerformanceCaches = () => {
+  intentCache.clear();
+  recommendationCache.clear();
+};
+
+const filterRelevantHistory = (history: ChatHistoryMessage[]) => {
+  const filtered: ChatHistoryMessage[] = [];
+
+  for (let index = 0; index < history.length; index += 1) {
+    const message = history[index];
+    const next = history[index + 1];
+
+    if (message.role === 'assistant' && isCannedReply(message.content)) continue;
+    if (message.role === 'user' && next?.role === 'assistant' && isCannedReply(next.content)) continue;
+
+    filtered.push(message);
+  }
+
+  return filtered.slice(-MAX_HISTORY_ITEMS);
+};
+
 const toCloudflareHistory = (history: ChatHistoryMessage[]): CloudflareMessage[] =>
-  history.slice(-MAX_HISTORY_ITEMS).map((message) => ({
+  filterRelevantHistory(history).map((message) => ({
     role: message.role,
     content: trimText(message.content),
   }));
 
-const normalizeIntent = (raw: string): ChatIntent => {
+const normalizeIntent = (raw: string): ChatIntent | null => {
   const value = raw.trim().toUpperCase();
+  if (value.includes('OUT_OF_SCOPE')) return 'OUT_OF_SCOPE';
+  if (value.includes('SUPPORT')) return 'SUPPORT';
   if (value.includes('STYLE')) return 'STYLE';
   if (value.includes('PRODUCT')) return 'PRODUCT';
-  return 'GENERAL';
+  return null;
 };
 
 const normalizeAssistantPage = (page: ChatPage): Exclude<ChatPage, 'weather'> => {
@@ -155,15 +322,45 @@ const normalizeAssistantPage = (page: ChatPage): Exclude<ChatPage, 'weather'> =>
   return page;
 };
 
-const keywordIntentFallback = (message: string, page: ChatPage): ChatIntent => {
+const inferCollectionGender = (message: string): 'men' | 'women' | null => {
+  if (hasAnyHint(message, MEN_COLLECTION_HINTS)) return 'men';
+  if (hasAnyHint(message, WOMEN_COLLECTION_HINTS)) return 'women';
+  return null;
+};
+
+const inferCollectionRoute = (message: string): 'outerwear' | 'tops' | 'bottoms' | 'dresses' | 'shoes' | 'accessories' | null => {
+  const match = COLLECTION_ROUTE_HINTS.find((entry) => hasAnyHint(message, entry.hints));
+  return match?.route ?? null;
+};
+
+const buildCollectionTarget = (message: string) => {
+  const normalizedQuery = normalizeProductQuery(message);
+  const inferredRoute = inferCollectionRoute(message);
+  const inferredGender = inferCollectionGender(message) ?? (inferredRoute === 'dresses' ? 'women' : null);
+  const basePath = inferredGender && inferredRoute ? `/collection/${inferredGender}/${inferredRoute}` : '/collection';
+
+  if (!normalizedQuery) return basePath;
+
+  const params = new URLSearchParams({ search: normalizedQuery });
+  return `${basePath}?${params.toString()}`;
+};
+
+const keywordIntentFallback = (
+  message: string,
+  page: ChatPage,
+  currentProduct?: NonNullable<ProductContext>,
+): ChatIntent => {
   const assistantPage = normalizeAssistantPage(page);
   const normalized = message.toLowerCase();
 
-  if (assistantPage === 'support' && SUPPORT_HINTS.some((hint) => normalized.includes(hint))) return 'GENERAL';
+  if (SUPPORT_HINTS.some((hint) => normalized.includes(hint))) return 'SUPPORT';
   if (STYLE_HINTS.some((hint) => normalized.includes(hint))) return 'STYLE';
   if (PRODUCT_DISCOVERY_HINTS.some((hint) => normalized.includes(hint))) return 'PRODUCT';
-  if (assistantPage === 'product' || assistantPage === 'stylist') return 'STYLE';
-  return 'GENERAL';
+  if (assistantPage === 'product' && currentProduct && PRODUCT_CONTEXT_HINTS.some((hint) => normalized.includes(hint))) {
+    return 'PRODUCT';
+  }
+
+  return 'OUT_OF_SCOPE';
 };
 
 const shouldRecommendProducts = (page: ChatPage, intent: ChatIntent, message: string): boolean => {
@@ -171,19 +368,131 @@ const shouldRecommendProducts = (page: ChatPage, intent: ChatIntent, message: st
   const normalized = message.toLowerCase();
   const isExploreMore = EXPLORE_MORE_HINTS.some((hint) => normalized.includes(hint));
 
-  if (assistantPage === 'support') {
-    return false;
-  }
-
-  if (assistantPage === 'home') {
-    return intent === 'PRODUCT' || isExploreMore;
-  }
-
-  if (assistantPage === 'stylist') {
-    return intent === 'PRODUCT' || intent === 'STYLE' || isExploreMore;
-  }
-
+  if (assistantPage === 'support') return false;
+  if (intent !== 'PRODUCT') return false;
+  if (assistantPage === 'product') return true;
+  if (assistantPage === 'home' || assistantPage === 'stylist') return true;
   return isExploreMore;
+};
+
+const normalizeProductQuery = (input: string): string => {
+  let normalized = input.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ');
+
+  for (const pattern of PRODUCT_QUERY_NOISE_PATTERNS) {
+    normalized = normalized.replace(pattern, ' ');
+  }
+
+  return normalized
+    .split(/\s+/)
+    .filter((token) => token && !PRODUCT_QUERY_STOP_WORDS.has(token))
+    .join(' ')
+    .trim();
+};
+
+const getRecentUserContext = (history: ChatHistoryMessage[]) => {
+  const filtered = filterRelevantHistory(history);
+
+  for (let index = filtered.length - 1; index >= 0; index -= 1) {
+    const message = filtered[index];
+    if (message.role !== 'user') continue;
+    if (normalizeProductQuery(message.content).length < 3) continue;
+    return trimText(message.content, 120);
+  }
+
+  return undefined;
+};
+
+const isShortFollowUpFragment = (message: string) => {
+  const normalized = normalizeProductQuery(message);
+  if (!normalized) return false;
+
+  const words = normalized.split(/\s+/).filter(Boolean);
+  return words.length <= 4 && normalized.length <= 24;
+};
+
+const buildContextualUserMessage = (message: string, history: ChatHistoryMessage[]) => {
+  const trimmed = trimText(message, 160);
+  const recentUserContext = getRecentUserContext(history);
+
+  if (!recentUserContext || !isShortFollowUpFragment(trimmed)) {
+    return trimmed;
+  }
+
+  const normalizedCurrent = normalizeProductQuery(trimmed);
+  const normalizedContext = normalizeProductQuery(recentUserContext);
+
+  if (!normalizedCurrent || !normalizedContext || normalizedContext.includes(normalizedCurrent)) {
+    return trimmed;
+  }
+
+  return trimText(`${recentUserContext} ${trimmed}`, 160);
+};
+
+const inferIntentFastPath = ({
+  message,
+  page,
+  history,
+  currentProduct,
+}: {
+  message: string;
+  page: ChatPage;
+  history: ChatHistoryMessage[];
+  currentProduct?: NonNullable<ProductContext>;
+}): ChatIntent | null => {
+  const rawMessage = trimText(message, 160);
+  const contextualMessage = buildContextualUserMessage(message, history);
+  const hasStyleHints = hasAnyHint(contextualMessage, STYLE_HINTS);
+  const hasDiscoveryHints =
+    hasAnyHint(contextualMessage, PRODUCT_DISCOVERY_HINTS) ||
+    Boolean(inferCollectionGender(contextualMessage)) ||
+    Boolean(inferCollectionRoute(contextualMessage));
+  const hasProductContextHints = hasAnyHint(contextualMessage, PRODUCT_CONTEXT_HINTS);
+  const hasShoppingIntent = hasAnyHint(contextualMessage, SHOPPING_INTENT_HINTS);
+
+  if (SUPPORT_HINTS.some((hint) => rawMessage.toLowerCase().includes(hint))) {
+    return 'SUPPORT';
+  }
+
+  if (GENERIC_ADVICE_PATTERNS.some((pattern) => pattern.test(rawMessage))) {
+    return 'PRODUCT';
+  }
+
+  if (hasDiscoveryHints && hasShoppingIntent) {
+    return 'PRODUCT';
+  }
+
+  if (hasStyleHints) {
+    return 'STYLE';
+  }
+
+  if (hasDiscoveryHints || hasProductContextHints) {
+    return 'PRODUCT';
+  }
+
+  if (isShortFollowUpFragment(rawMessage) && getRecentUserContext(history)) {
+    const inferredIntent = keywordIntentFallback(contextualMessage, page, currentProduct);
+    return inferredIntent === 'OUT_OF_SCOPE' ? null : inferredIntent;
+  }
+
+  return null;
+};
+
+const shouldAskForClarification = ({
+  message,
+  intent,
+  currentProduct,
+}: {
+  message: string;
+  intent: ChatIntent;
+  currentProduct?: NonNullable<ProductContext>;
+}) => {
+  if (intent !== 'PRODUCT' && intent !== 'STYLE') return false;
+  if (currentProduct) return false;
+
+  const trimmed = message.trim();
+  if (GENERIC_ADVICE_PATTERNS.some((pattern) => pattern.test(trimmed))) return true;
+
+  return normalizeProductQuery(trimmed).length < 3;
 };
 
 const getPrimaryImageUrl = (product: {
@@ -237,6 +546,7 @@ const buildReplyPrompt = ({
   page,
   message,
   history,
+  intent,
   product,
   hasRecommendations,
   contextSummary,
@@ -244,62 +554,53 @@ const buildReplyPrompt = ({
   page: ChatPage;
   message: string;
   history: ChatHistoryMessage[];
+  intent: Extract<ChatIntent, 'PRODUCT' | 'STYLE'>;
   product?: NonNullable<ProductContext>;
   hasRecommendations: boolean;
   contextSummary?: string;
 }): CloudflareMessage[] => {
   const assistantPage = normalizeAssistantPage(page);
-  const baseSystemPrompt = (() => {
-    if (assistantPage === 'product') {
-      return [
-        'You are AISTHEA product assistant.',
-        'Answer in the same language as the user.',
-        'Prioritize the current product first: fit, styling, quality, and whether it suits the request.',
-        'Only suggest alternative products if the user explicitly asks to compare, explore more, or pair with other items.',
-        hasRecommendations
-          ? 'If recommendation cards are shown separately, mention them briefly without listing a full catalog.'
-          : 'Do not invent product recommendations that are not supplied.',
-        'Keep the reply concise: at most 3 short paragraphs.',
-        product ? `Current product context:\n${buildProductSummary(product)}` : '',
-      ].filter(Boolean).join('\n');
-    }
-
-    if (assistantPage === 'stylist') {
-      return [
-        'You are AISTHEA stylist assistant.',
-        'Answer in the same language as the user.',
-        'Help with outfit ideas, pairing, silhouette, comfort, and weather-aware shopping suggestions.',
-        contextSummary
-          ? `Current styling context:\n${trimText(contextSummary, 500)}`
-          : 'If the user mentions weather, use practical styling guidance for the described conditions.',
-        hasRecommendations
-          ? 'If recommendation cards are shown separately, mention them briefly without listing a full catalog.'
-          : 'Do not invent unavailable products.',
-        'Keep the reply concise: at most 3 short paragraphs.',
-      ].join('\n');
-    }
-
-    if (assistantPage === 'support') {
-      return [
-        'You are AISTHEA support assistant.',
-        'Answer in the same language as the user.',
-        'Help with FAQ topics such as how to buy, returns, privacy, and support navigation.',
-        'Do not invent company policies, order data, or promises that are not provided.',
-        'If the answer depends on official policy details, tell the user to check the Support page or contact support directly.',
-        'Keep the reply concise: at most 3 short paragraphs.',
-      ].join('\n');
-    }
-
-    return [
-      'You are AISTHEA storefront assistant.',
-      'Answer in the same language as the user.',
-      'Help with product discovery, styling, and shopping guidance.',
-      hasRecommendations
-        ? 'If recommendation cards are shown separately, mention them briefly without listing a full catalog.'
-        : 'Do not invent unavailable products.',
-      'Keep the reply concise: at most 3 short paragraphs.',
-    ].join('\n');
-  })();
+  const baseSystemPrompt = [
+    "You are AISTHEA's product assistant.",
+    'Answer in the same language as the user.',
+    'Your job is ONLY to answer questions related to:',
+    '1. product details',
+    '2. size and fit',
+    '3. outfit pairing tied to AISTHEA products',
+    '4. product discovery and shopping guidance',
+    intent === 'STYLE'
+      ? 'This request is a styling request tied to AISTHEA products.'
+      : 'This request is a product detail or product discovery request tied to AISTHEA products.',
+    assistantPage === 'product'
+      ? 'Prioritize the current product before suggesting anything else.'
+      : 'Stay anchored to AISTHEA products and shopping guidance.',
+    contextSummary ? `Use this context when relevant:\n${trimText(contextSummary, 500)}` : null,
+    product ? `Current product context:\n${buildProductSummary(product)}` : null,
+    hasRecommendations
+      ? 'Recommendation cards are shown separately. Mention them briefly only when helpful.'
+      : 'Do not invent product recommendations that are not supplied.',
+    'Rules:',
+    '- If the question is outside these topics, do NOT answer it.',
+    `- Instead reply with exactly one short sentence: "${OUT_OF_SCOPE_REPLY}"`,
+    '- Keep every valid answer short, direct, and specific.',
+    `- Maximum ${MAX_RESPONSE_SENTENCES} sentences.`,
+    `- Maximum ${MAX_RESPONSE_WORDS} words.`,
+    '- No long explanations.',
+    '- No generic knowledge.',
+    '- No off-topic conversation.',
+    '- Do not restate the user question.',
+    '- Do not make up product facts not present in the provided context.',
+    `- If information is missing, ask exactly one short follow-up question, like: "${NEED_MORE_INFO_REPLY}"`,
+    'Response style:',
+    '- Answer directly.',
+    '- Prefer short phrases.',
+    '- No introduction.',
+    '- No conclusion.',
+    '- No emojis.',
+    '- No markdown list unless absolutely necessary.',
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   return [
     { role: 'system', content: baseSystemPrompt },
@@ -308,16 +609,22 @@ const buildReplyPrompt = ({
   ];
 };
 
-const buildIntentPrompt = (message: string, page: ChatPage): CloudflareMessage[] => [
+const buildIntentPrompt = (
+  message: string,
+  page: ChatPage,
+  currentProduct?: NonNullable<ProductContext>,
+): CloudflareMessage[] => [
   {
     role: 'system',
     content: [
-      'You classify messages for a fashion ecommerce chatbot.',
-      'Only answer with exactly one word: STYLE, PRODUCT, or GENERAL.',
+      'Classify the user message into exactly one label: PRODUCT, STYLE, SUPPORT, or OUT_OF_SCOPE.',
       `Current page context: ${page}.`,
-      'STYLE is for sizing, fit, styling, outfit, and pairing questions.',
-      'PRODUCT is for product discovery, finding alternatives, or browsing catalog items.',
-      'GENERAL is for everything else, including support, FAQ, returns, privacy, and help requests.',
+      currentProduct ? `Current product: ${currentProduct.name} (${currentProduct.category?.name || 'Unknown category'}).` : null,
+      'PRODUCT: asks about product details, price, color, material, size, fit, availability, or finding products.',
+      'STYLE: asks how to style, pair, wear, fit, or evaluate suitability, but still related to AISTHEA products.',
+      'SUPPORT: asks about shipping, orders, returns, payment, policy, or customer support.',
+      'OUT_OF_SCOPE: anything not related to AISTHEA products, styling with AISTHEA products, or shopping with AISTHEA.',
+      'Return only one label.',
     ].join('\n'),
   },
   {
@@ -325,6 +632,27 @@ const buildIntentPrompt = (message: string, page: ChatPage): CloudflareMessage[]
     content: trimText(message),
   },
 ];
+
+const trimAnswer = (value: string) => {
+  const sanitized = value
+    .replace(/\r?\n+/g, ' ')
+    .replace(/^[*-]\s+/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const sentenceMatches = sanitized.match(/[^.!?。！？]+[.!?。！？]?/g) ?? [sanitized];
+  const limitedSentences = sentenceMatches
+    .slice(0, MAX_RESPONSE_SENTENCES)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+  const words = limitedSentences.split(/\s+/).filter(Boolean);
+  if (words.length <= MAX_RESPONSE_WORDS) return limitedSentences;
+
+  return words.slice(0, MAX_RESPONSE_WORDS).join(' ').trim();
+};
 
 const buildFallbackReply = (page: ChatPage, hasRecommendations: boolean, productName?: string) => {
   const assistantPage = normalizeAssistantPage(page);
@@ -416,18 +744,11 @@ const buildSmartActions = ({
 }): ChatAction[] => {
   const assistantPage = normalizeAssistantPage(page);
   const actions: ChatAction[] = [];
+  const collectionTarget = buildCollectionTarget(message);
   const pushAction = (action: ChatAction) => {
     if (isRedundantActionForPage(page, action.to)) return;
     actions.push(action);
   };
-
-  if (products.length > 0) {
-    pushAction({
-      type: 'navigate',
-      label: 'Mở sản phẩm phù hợp',
-      to: `/product/${products[0].productId}`,
-    });
-  }
 
   if (assistantPage === 'support' || hasAnyHint(message, SUPPORT_HINTS)) {
     if (hasAnyHint(message, RETURN_HINTS)) {
@@ -441,22 +762,16 @@ const buildSmartActions = ({
     if (hasAnyHint(message, FAQ_HINTS) || page === 'support') {
       pushAction({ type: 'navigate', label: 'Xem FAQ', to: '/support?section=faq' });
     }
+
+    return uniqueActions(actions);
   }
 
-  if (page === 'weather' || hasAnyHint(message, WEATHER_HINTS)) {
-    pushAction({ type: 'navigate', label: 'Mở Stylist', to: '/stylist' });
-  }
-
-  if (assistantPage === 'product') {
-    pushAction({ type: 'navigate', label: 'Nhờ Stylist tư vấn', to: '/stylist' });
-  }
-
-  if (assistantPage === 'home' && intent === 'PRODUCT') {
-    pushAction({ type: 'navigate', label: 'Xem bộ sưu tập', to: '/collection' });
-  }
-
-  if (assistantPage === 'stylist' && products.length === 0) {
-    pushAction({ type: 'navigate', label: 'Xem bộ sưu tập', to: '/collection' });
+  if (intent === 'PRODUCT' || intent === 'STYLE') {
+    pushAction({
+      type: 'navigate',
+      label: 'Xem bộ sưu tập',
+      to: collectionTarget,
+    });
   }
 
   return uniqueActions(actions);
@@ -502,13 +817,56 @@ const callCloudflare = async (messages: CloudflareMessage[]): Promise<string> =>
   }
 };
 
-const classifyIntent = async (message: string, page: ChatPage): Promise<ChatIntent> => {
+const classifyIntent = async ({
+  message,
+  page,
+  history,
+  currentProduct,
+}: {
+  message: string;
+  page: ChatPage;
+  history: ChatHistoryMessage[];
+  currentProduct?: NonNullable<ProductContext>;
+}): Promise<ChatIntent> => {
+  const rawMessage = trimText(message, 160);
+  const contextualMessage = buildContextualUserMessage(message, history);
+  const fastPathIntent = inferIntentFastPath({
+    message,
+    page,
+    history,
+    currentProduct,
+  });
+
+  if (fastPathIntent) {
+    return fastPathIntent;
+  }
+
+  const cacheKey = [
+    page,
+    currentProduct?.productId ?? 'none',
+    contextualMessage.toLowerCase(),
+  ].join('::');
+  const cachedIntent = readTimedCache(intentCache, cacheKey);
+
+  if (cachedIntent) {
+    return cachedIntent;
+  }
+
   try {
-    const response = await callCloudflare(buildIntentPrompt(message, page));
-    return normalizeIntent(response);
+    const response = await callCloudflare(buildIntentPrompt(contextualMessage, page, currentProduct));
+    const normalizedIntent = normalizeIntent(response);
+    const resolvedIntent =
+      normalizedIntent === 'OUT_OF_SCOPE' && contextualMessage !== rawMessage
+        ? keywordIntentFallback(contextualMessage, page, currentProduct)
+        : normalizedIntent ?? keywordIntentFallback(contextualMessage, page, currentProduct);
+
+    writeTimedCache(intentCache, cacheKey, resolvedIntent);
+    return resolvedIntent;
   } catch (error) {
     logger.warn('[chatService] Intent classification fallback engaged', { error: toLoggableError(error) });
-    return keywordIntentFallback(message, page);
+    const fallbackIntent = keywordIntentFallback(contextualMessage, page, currentProduct);
+    writeTimedCache(intentCache, cacheKey, fallbackIntent);
+    return fallbackIntent;
   }
 };
 
@@ -521,56 +879,124 @@ const searchProducts = async ({
   page: ChatPage;
   currentProduct?: NonNullable<ProductContext>;
 }): Promise<ChatProductRecommendation[]> => {
+  const normalizedQuery = normalizeProductQuery(message);
+  const cacheKey = [
+    page,
+    currentProduct?.productId ?? 'none',
+    currentProduct?.category?.slug ?? 'none',
+    normalizedQuery || 'none',
+  ].join('::');
+  const cachedRecommendations = readTimedCache(recommendationCache, cacheKey);
+
+  if (cachedRecommendations) {
+    return cachedRecommendations;
+  }
+
   const searchTerms = Array.from(
     new Set(
       [
-        trimText(message, 80),
+        normalizedQuery ? trimText(normalizedQuery, 80) : undefined,
         page === 'product' ? currentProduct?.category?.name : undefined,
       ].filter((value): value is string => Boolean(value)),
     ),
   );
 
   const found = new Map<number, ChatProductRecommendation>();
+  const mapRecommendationRecord = (product: ChatRecommendationRecord): ChatProductRecommendation => ({
+    productId: product.productId,
+    name: product.name,
+    basePrice: Number(product.basePrice),
+    primaryImageUrl: getPrimaryImageUrl(product),
+  });
 
-  for (const term of searchTerms) {
-    const result = await productRepository.findMany({
-      search: term,
-      limit: MAX_RECOMMENDATIONS + 2,
-      status: 'Active',
-    });
+  const searchResults = await Promise.all(
+    searchTerms.map((term) =>
+      productRepository.findChatRecommendations({
+        search: term,
+        limit: MAX_RECOMMENDATIONS + 2,
+        excludeProductId: page === 'product' ? currentProduct?.productId : undefined,
+      }),
+    ),
+  );
 
-    for (const product of result.data) {
-      if (page === 'product' && product.productId === currentProduct?.productId) continue;
-      found.set(product.productId, {
-        productId: product.productId,
-        name: product.name,
-        basePrice: Number(product.basePrice),
-        primaryImageUrl: getPrimaryImageUrl(product),
-      });
-      if (found.size >= MAX_RECOMMENDATIONS) return Array.from(found.values());
+  for (const result of searchResults) {
+    for (const product of result) {
+      found.set(product.productId, mapRecommendationRecord(product));
+      if (found.size >= MAX_RECOMMENDATIONS) {
+        const recommendations = Array.from(found.values());
+        writeTimedCache(recommendationCache, cacheKey, recommendations);
+        return recommendations;
+      }
     }
   }
 
   if (page === 'product' && currentProduct?.category?.slug) {
-    const result = await productRepository.findMany({
+    const result = await productRepository.findChatRecommendations({
       categorySlug: currentProduct.category.slug,
       limit: MAX_RECOMMENDATIONS + 1,
-      status: 'Active',
+      excludeProductId: currentProduct.productId,
     });
 
-    for (const product of result.data) {
-      if (product.productId === currentProduct.productId) continue;
-      found.set(product.productId, {
-        productId: product.productId,
-        name: product.name,
-        basePrice: Number(product.basePrice),
-        primaryImageUrl: getPrimaryImageUrl(product),
-      });
+    for (const product of result) {
+      found.set(product.productId, mapRecommendationRecord(product));
       if (found.size >= MAX_RECOMMENDATIONS) break;
     }
   }
 
-  return Array.from(found.values()).slice(0, MAX_RECOMMENDATIONS);
+  const recommendations = Array.from(found.values()).slice(0, MAX_RECOMMENDATIONS);
+  writeTimedCache(recommendationCache, cacheKey, recommendations);
+  return recommendations;
+};
+
+const logInternalChatEvent = (
+  event: 'chat_out_of_scope_blocked' | 'chat_support_redirected' | 'chat_short_answer_returned' | 'chat_clarification_asked',
+  meta: Record<string, unknown>,
+) => {
+  logger.info('[chatService] Internal chat event', {
+    event,
+    ...meta,
+  });
+};
+
+const trackInternalChatEvent = async ({
+  event,
+  payload,
+  target,
+  label,
+}: {
+  event: 'chat_out_of_scope_blocked' | 'chat_support_redirected' | 'chat_short_answer_returned' | 'chat_clarification_asked';
+  payload: ChatRequestDto;
+  target?: string;
+  label?: string;
+}) => {
+  logInternalChatEvent(event, {
+    page: payload.page,
+    target,
+    label,
+    hasContextSummary: Boolean(payload.contextSummary),
+  });
+
+  if (!payload.sessionId) return;
+
+  try {
+    await persistTelemetryEvent({
+      event,
+      page: payload.page,
+      sessionId: payload.sessionId,
+      productId: payload.page === 'product' ? payload.productId ?? null : null,
+      messageLength: payload.message.length,
+      conversationLength: payload.history.length + 1,
+      target: target ?? null,
+      label: label ?? null,
+      placement: 'reply_actions',
+      hasContextSummary: Boolean(payload.contextSummary),
+    });
+  } catch (error) {
+    logger.warn('[chatTelemetry] Failed to persist internal chat event', {
+      error: toLoggableError(error),
+      event,
+    });
+  }
 };
 
 const resolveCurrentProduct = async (page: ChatPage, productId?: number) => {
@@ -622,35 +1048,175 @@ const ensureTelemetryTable = async () => {
   await telemetryTableReady;
 };
 
+const persistTelemetryEvent = async (payload: {
+  event: string;
+  page: ChatPage;
+  sessionId?: string | null;
+  productId?: number | null;
+  messageLength?: number | null;
+  conversationLength?: number | null;
+  target?: string | null;
+  label?: string | null;
+  placement?: string | null;
+  hasContextSummary?: boolean;
+  ip?: string | null;
+  userAgent?: string | null;
+}) => {
+  const normalized = {
+    event: trimText(payload.event, 40),
+    page: payload.page,
+    sessionId: buildChatSessionId(payload.sessionId),
+    productId: payload.productId ?? null,
+    messageLength: payload.messageLength ?? null,
+    conversationLength: payload.conversationLength ?? null,
+    target: payload.target ? trimText(payload.target, 200) : null,
+    label: payload.label ? trimText(payload.label, 80) : null,
+    placement: payload.placement ?? null,
+    hasContextSummary: payload.hasContextSummary ?? false,
+    ip: payload.ip ? trimText(payload.ip, 64) : null,
+    userAgent: payload.userAgent ? trimText(payload.userAgent, 200) : null,
+  };
+
+  await ensureTelemetryTable();
+  await prisma.$executeRaw`
+    INSERT INTO ChatTelemetryEvents (
+      Event,
+      Page,
+      SessionId,
+      ProductId,
+      MessageLength,
+      ConversationLength,
+      Target,
+      Label,
+      Placement,
+      HasContextSummary,
+      IpAddress,
+      UserAgent
+    )
+    VALUES (
+      ${normalized.event},
+      ${normalized.page},
+      ${normalized.sessionId},
+      ${normalized.productId},
+      ${normalized.messageLength},
+      ${normalized.conversationLength},
+      ${normalized.target},
+      ${normalized.label},
+      ${normalized.placement},
+      ${normalized.hasContextSummary},
+      ${normalized.ip},
+      ${normalized.userAgent}
+    )
+  `;
+};
+
 export const chatService = {
   async chat(payload: ChatRequestDto): Promise<ChatResponseDto> {
     const currentProduct = await resolveCurrentProduct(payload.page, payload.productId);
-    const intent = await classifyIntent(payload.message, payload.page);
-    const products = shouldRecommendProducts(payload.page, intent, payload.message)
-      ? await searchProducts({
-          message: payload.message,
-          page: payload.page,
-          currentProduct: currentProduct ?? undefined,
-        })
-      : [];
-    const actions = buildSmartActions({
-      page: payload.page,
+    const contextualMessage = buildContextualUserMessage(payload.message, payload.history);
+    const intent = await classifyIntent({
       message: payload.message,
-      intent,
-      products,
+      page: payload.page,
+      history: payload.history,
+      currentProduct: currentProduct ?? undefined,
     });
 
+    if (intent === 'OUT_OF_SCOPE') {
+      void trackInternalChatEvent({
+        event: 'chat_out_of_scope_blocked',
+        payload,
+        label: intent,
+      });
+
+      return {
+        reply: OUT_OF_SCOPE_REPLY,
+        intent,
+        products: [],
+        actions: [],
+      };
+    }
+
+    if (intent === 'SUPPORT') {
+      const actions = buildSmartActions({
+        page: payload.page,
+        message: payload.message,
+        intent,
+        products: [],
+      });
+
+      void trackInternalChatEvent({
+        event: 'chat_support_redirected',
+        payload,
+        target: actions[0]?.to,
+        label: actions[0]?.label ?? intent,
+      });
+
+      return {
+        reply: SUPPORT_REPLY,
+        intent,
+        products: [],
+        actions,
+      };
+    }
+
+    if (shouldAskForClarification({
+      message: contextualMessage,
+      intent,
+      currentProduct: currentProduct ?? undefined,
+    })) {
+      void trackInternalChatEvent({
+        event: 'chat_clarification_asked',
+        payload,
+        label: intent,
+      });
+
+      return {
+        reply: NEED_MORE_INFO_REPLY,
+        intent,
+        products: [],
+        actions: [],
+      };
+    }
+
+    const shouldFetchRecommendations = shouldRecommendProducts(payload.page, intent, contextualMessage);
+    const productsPromise = shouldFetchRecommendations
+      ? searchProducts({
+          message: contextualMessage,
+          page: payload.page,
+          currentProduct: currentProduct ?? undefined,
+        }).catch((error) => {
+          logger.warn('[chatService] Recommendation fallback engaged', { error: toLoggableError(error) });
+          return [] as ChatProductRecommendation[];
+        })
+      : Promise.resolve([] as ChatProductRecommendation[]);
+
     try {
-      const reply = await callCloudflare(
+      const replyPromise = callCloudflare(
         buildReplyPrompt({
           page: payload.page,
-          message: payload.message,
+          message: contextualMessage,
           history: payload.history,
+          intent,
           product: currentProduct ?? undefined,
-          hasRecommendations: products.length > 0,
+          hasRecommendations: shouldFetchRecommendations,
           contextSummary: payload.contextSummary,
         }),
-      );
+      ).then(trimAnswer);
+
+      const [products, reply] = await Promise.all([productsPromise, replyPromise]);
+      const actions = buildSmartActions({
+        page: payload.page,
+        message: contextualMessage,
+        intent,
+        products,
+      });
+
+      void trackInternalChatEvent({
+        event: 'chat_short_answer_returned',
+        payload,
+        target: products[0] ? `/product/${products[0].productId}` : undefined,
+        label: intent,
+      });
 
       return {
         reply,
@@ -659,6 +1225,13 @@ export const chatService = {
         actions,
       };
     } catch (error) {
+      const products = await productsPromise;
+      const actions = buildSmartActions({
+        page: payload.page,
+        message: contextualMessage,
+        intent,
+        products,
+      });
       logger.error('[chatService] Reply generation fallback engaged', { error: toLoggableError(error) });
       return {
         reply: buildFallbackReply(payload.page, products.length > 0, currentProduct?.name),
@@ -669,6 +1242,10 @@ export const chatService = {
     }
   },
 
+  __resetCachesForTests() {
+    clearChatPerformanceCaches();
+  },
+
   async trackEvent(
     payload: ChatTelemetryEventDto,
     requestMeta?: { ip?: string; userAgent?: string },
@@ -676,7 +1253,7 @@ export const chatService = {
     const normalized = {
       event: payload.event,
       page: payload.page,
-      sessionId: trimText(payload.sessionId, 64),
+      sessionId: buildChatSessionId(payload.sessionId),
       productId: payload.productId,
       messageLength: payload.messageLength,
       conversationLength: payload.conversationLength,
@@ -689,37 +1266,7 @@ export const chatService = {
     };
 
       try {
-      await ensureTelemetryTable();
-      await prisma.$executeRaw`
-        INSERT INTO ChatTelemetryEvents (
-          Event,
-          Page,
-          SessionId,
-          ProductId,
-          MessageLength,
-          ConversationLength,
-          Target,
-          Label,
-          Placement,
-          HasContextSummary,
-          IpAddress,
-          UserAgent
-        )
-        VALUES (
-          ${normalized.event},
-          ${normalized.page},
-          ${normalized.sessionId},
-          ${normalized.productId ?? null},
-          ${normalized.messageLength ?? null},
-          ${normalized.conversationLength ?? null},
-          ${normalized.target},
-          ${normalized.label},
-          ${normalized.placement},
-          ${normalized.hasContextSummary},
-          ${normalized.ip},
-          ${normalized.userAgent}
-        )
-      `;
+      await persistTelemetryEvent(normalized);
     } catch (error) {
       logger.warn('[chatTelemetry] Failed to persist event', { error: toLoggableError(error), event: normalized.event });
     }
@@ -740,7 +1287,8 @@ export const chatService = {
     const start = parseDate(startDate, startOfMonth(now));
     const end = endOfDay(parseDate(endDate, now));
 
-    const [overviewRows, byPageRows, topTargetRows, dailyTrendRows] = await Promise.all([
+    const [overviewRows, byPageRows, topTargetRows, dailyTrendRows, internalSignalRows, internalByPageRows, internalTrendRows] =
+      await Promise.all([
       prisma.$queryRaw<Array<{
         opens: number | bigint | null;
         sends: number | bigint | null;
@@ -809,6 +1357,74 @@ export const chatService = {
         GROUP BY DATE_FORMAT(CreatedAt, '%Y-%m-%d')
         ORDER BY label ASC
       `,
+      prisma.$queryRaw<Array<{
+        event: string;
+        total: number | bigint | null;
+      }>>`
+        SELECT
+          Event AS event,
+          COUNT(*) AS total
+        FROM ChatTelemetryEvents
+        WHERE CreatedAt >= ${start}
+          AND CreatedAt <= ${end}
+          AND Event IN (
+            'chat_out_of_scope_blocked',
+            'chat_support_redirected',
+            'chat_short_answer_returned',
+            'chat_clarification_asked'
+          )
+        GROUP BY Event
+      `,
+      prisma.$queryRaw<Array<{
+        page: string;
+        outOfScopeBlocked: number | bigint | null;
+        supportRedirected: number | bigint | null;
+        clarificationAsked: number | bigint | null;
+        shortAnswerReturned: number | bigint | null;
+      }>>`
+        SELECT
+          Page AS page,
+          SUM(CASE WHEN Event = 'chat_out_of_scope_blocked' THEN 1 ELSE 0 END) AS outOfScopeBlocked,
+          SUM(CASE WHEN Event = 'chat_support_redirected' THEN 1 ELSE 0 END) AS supportRedirected,
+          SUM(CASE WHEN Event = 'chat_clarification_asked' THEN 1 ELSE 0 END) AS clarificationAsked,
+          SUM(CASE WHEN Event = 'chat_short_answer_returned' THEN 1 ELSE 0 END) AS shortAnswerReturned
+        FROM ChatTelemetryEvents
+        WHERE CreatedAt >= ${start}
+          AND CreatedAt <= ${end}
+          AND Event IN (
+            'chat_out_of_scope_blocked',
+            'chat_support_redirected',
+            'chat_short_answer_returned',
+            'chat_clarification_asked'
+          )
+        GROUP BY Page
+        ORDER BY Page ASC
+      `,
+      prisma.$queryRaw<Array<{
+        label: string;
+        outOfScopeBlocked: number | bigint | null;
+        supportRedirected: number | bigint | null;
+        clarificationAsked: number | bigint | null;
+        shortAnswerReturned: number | bigint | null;
+      }>>`
+        SELECT
+          DATE_FORMAT(CreatedAt, '%Y-%m-%d') AS label,
+          SUM(CASE WHEN Event = 'chat_out_of_scope_blocked' THEN 1 ELSE 0 END) AS outOfScopeBlocked,
+          SUM(CASE WHEN Event = 'chat_support_redirected' THEN 1 ELSE 0 END) AS supportRedirected,
+          SUM(CASE WHEN Event = 'chat_clarification_asked' THEN 1 ELSE 0 END) AS clarificationAsked,
+          SUM(CASE WHEN Event = 'chat_short_answer_returned' THEN 1 ELSE 0 END) AS shortAnswerReturned
+        FROM ChatTelemetryEvents
+        WHERE CreatedAt >= ${start}
+          AND CreatedAt <= ${end}
+          AND Event IN (
+            'chat_out_of_scope_blocked',
+            'chat_support_redirected',
+            'chat_short_answer_returned',
+            'chat_clarification_asked'
+          )
+        GROUP BY DATE_FORMAT(CreatedAt, '%Y-%m-%d')
+        ORDER BY label ASC
+      `,
     ]);
 
     const overviewRow = overviewRows[0] ?? {
@@ -852,6 +1468,36 @@ export const chatService = {
       clicks: Number(row.clicks ?? 0),
     }));
 
+    const internalSignalLookup = new Map(
+      internalSignalRows.map((row) => [row.event as ChatTelemetryInternalEventDto, Number(row.total ?? 0)]),
+    );
+
+    const internalSignals: ChatTelemetryInternalMetricDto[] = INTERNAL_SIGNAL_EVENTS.map((event) => {
+      const total = internalSignalLookup.get(event) ?? 0;
+
+      return {
+        event,
+        total,
+        rate: overview.sends ? roundRate((total / overview.sends) * 100) : 0,
+      };
+    });
+
+    const internalSignalsByPage: ChatTelemetryInternalByPageDto[] = internalByPageRows.map((row) => ({
+      page: row.page as ChatPage,
+      outOfScopeBlocked: Number(row.outOfScopeBlocked ?? 0),
+      supportRedirected: Number(row.supportRedirected ?? 0),
+      clarificationAsked: Number(row.clarificationAsked ?? 0),
+      shortAnswerReturned: Number(row.shortAnswerReturned ?? 0),
+    }));
+
+    const internalSignalsTrend: ChatTelemetryInternalTrendDto[] = internalTrendRows.map((row) => ({
+      label: row.label,
+      outOfScopeBlocked: Number(row.outOfScopeBlocked ?? 0),
+      supportRedirected: Number(row.supportRedirected ?? 0),
+      clarificationAsked: Number(row.clarificationAsked ?? 0),
+      shortAnswerReturned: Number(row.shortAnswerReturned ?? 0),
+    }));
+
     return {
       period: {
         start: start.toISOString(),
@@ -861,6 +1507,9 @@ export const chatService = {
       byPage,
       topTargets,
       dailyTrend,
+      internalSignals,
+      internalSignalsByPage,
+      internalSignalsTrend,
     };
   },
 };

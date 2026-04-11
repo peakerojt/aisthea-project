@@ -18,6 +18,18 @@ import {
 export type ReturnStatusFilter = 'ALL' | 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'RECEIVED' | 'REFUNDED';
 
 const PAGE_SIZE = 15;
+const STATUS_COUNTS_PAGE_SIZE = 100;
+
+type ReturnStatusCounts = Record<ReturnStatusFilter, number>;
+
+const createEmptyStatusCounts = (): ReturnStatusCounts => ({
+  ALL: 0,
+  REQUESTED: 0,
+  APPROVED: 0,
+  REJECTED: 0,
+  RECEIVED: 0,
+  REFUNDED: 0,
+});
 
 type UseAdminReturnsOptions = {
   initialStatusFilter?: ReturnStatusFilter;
@@ -74,15 +86,18 @@ export const useAdminReturns = (options: UseAdminReturnsOptions = {}) => {
   const [returns, setReturns] = useState<OrderReturn[]>([]);
   const [loading, setLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [statusCounts, setStatusCounts] = useState<ReturnStatusCounts | null>(null);
   const normalizedInitialPage = Number.isFinite(options.initialPage) && (options.initialPage ?? 0) > 0
     ? Math.floor(options.initialPage as number)
     : 1;
   const [statusFilter, setStatusFilter] = useState<ReturnStatusFilter>(options.initialStatusFilter ?? 'ALL');
   const [page, setPage] = useState(normalizedInitialPage);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalReturns, setTotalReturns] = useState(0);
   const [selectedReturn, setSelectedReturn] = useState<OrderReturn | null>(null);
   const hasLoadedRef = useRef(false);
   const requestIdRef = useRef(0);
+  const statusCountsRequestIdRef = useRef(0);
   const previousInitialStatusFilterRef = useRef<ReturnStatusFilter | undefined>(options.initialStatusFilter);
   const previousInitialPageRef = useRef<number | undefined>(options.initialPage);
 
@@ -95,9 +110,45 @@ export const useAdminReturns = (options: UseAdminReturnsOptions = {}) => {
     { label: resolveText('status.REFUNDED', 'Đã hoàn tiền'), value: 'REFUNDED' },
   ], [resolveText]);
 
-  const load = useCallback(async () => {
+  const loadStatusCounts = useCallback(async () => {
+    const requestId = ++statusCountsRequestIdRef.current;
+    const nextCounts = createEmptyStatusCounts();
+    let nextPage = 1;
+    let aggregatedTotalPages = 1;
+
+    do {
+      const data = await adminReturnReviewService.list({
+        status: 'ALL',
+        page: nextPage,
+        pageSize: STATUS_COUNTS_PAGE_SIZE,
+      });
+
+      if (statusCountsRequestIdRef.current !== requestId) {
+        return null;
+      }
+
+      aggregatedTotalPages = data.pagination.totalPages;
+      nextCounts.ALL = data.pagination.total;
+
+      data.returns.forEach((item) => {
+        const bucket = getStatusBucket(item);
+        nextCounts[bucket] += 1;
+      });
+
+      nextPage += 1;
+    } while (nextPage <= aggregatedTotalPages);
+
+    if (statusCountsRequestIdRef.current !== requestId) {
+      return null;
+    }
+
+    return nextCounts;
+  }, [getStatusBucket]);
+
+  const load = useCallback(async (options?: { includeStatusCounts?: boolean }) => {
     const requestId = ++requestIdRef.current;
     const isFirstLoad = !hasLoadedRef.current;
+    const shouldSyncStatusCounts = options?.includeStatusCounts ?? statusFilter !== 'ALL';
 
     if (isFirstLoad) {
       setLoading(true);
@@ -106,10 +157,17 @@ export const useAdminReturns = (options: UseAdminReturnsOptions = {}) => {
     }
 
     try {
-      const data = await adminReturnReviewService.list({ status: statusFilter, page, pageSize: PAGE_SIZE });
+      const [data, nextStatusCounts] = await Promise.all([
+        adminReturnReviewService.list({ status: statusFilter, page, pageSize: PAGE_SIZE }),
+        shouldSyncStatusCounts ? loadStatusCounts() : Promise.resolve(),
+      ]);
       if (requestIdRef.current !== requestId) return;
 
       setReturns(data.returns);
+      setTotalReturns(data.pagination.total);
+      if (nextStatusCounts) {
+        setStatusCounts(nextStatusCounts);
+      }
       setSelectedReturn((current) => {
         if (!current) {
           return current;
@@ -136,7 +194,7 @@ export const useAdminReturns = (options: UseAdminReturnsOptions = {}) => {
         setIsRefreshing(false);
       }
     }
-  }, [page, showToast, statusFilter, t]);
+  }, [loadStatusCounts, page, showToast, statusFilter, t]);
 
   useEffect(() => {
     void load();
@@ -159,7 +217,7 @@ export const useAdminReturns = (options: UseAdminReturnsOptions = {}) => {
   useReturnAutoRefresh({
     enabled: returns.some((item) => shouldAutoRefreshRefundState(item.refundStatus)),
     onRefresh: () => {
-      void load();
+      void load({ includeStatusCounts: statusCounts !== null || statusFilter !== 'ALL' });
     },
   });
 
@@ -190,7 +248,7 @@ export const useAdminReturns = (options: UseAdminReturnsOptions = {}) => {
       if (closeOnSuccess) {
         setSelectedReturn(null);
       }
-      await load();
+      await load({ includeStatusCounts: true });
     } catch (error) {
       const err = error as Error & { message?: string; messageKey?: string };
       showToast({
@@ -309,17 +367,19 @@ export const useAdminReturns = (options: UseAdminReturnsOptions = {}) => {
   ]);
 
   const pendingCount = useMemo(
-    () => returns.filter((item) => getStatusBucket(item) === 'REQUESTED').length,
-    [getStatusBucket, returns],
+    () => statusCounts?.REQUESTED ?? returns.filter((item) => getStatusBucket(item) === 'REQUESTED').length,
+    [getStatusBucket, returns, statusCounts],
   );
 
   const statusTabs = useMemo(() => statusFilters.map((filter) => ({
     key: filter.value,
     label: filter.label,
-    count: filter.value === 'ALL'
-      ? returns.length
-      : returns.filter((item) => getStatusBucket(item) === filter.value).length,
-  })), [getStatusBucket, returns, statusFilters]);
+    count: statusCounts
+      ? statusCounts[filter.value]
+      : filter.value === 'ALL'
+        ? totalReturns
+        : returns.filter((item) => getStatusBucket(item) === filter.value).length,
+  })), [getStatusBucket, returns, statusFilters, statusCounts, totalReturns]);
 
   const changeStatusFilter = useCallback((nextFilter: ReturnStatusFilter) => {
     setStatusFilter(nextFilter);

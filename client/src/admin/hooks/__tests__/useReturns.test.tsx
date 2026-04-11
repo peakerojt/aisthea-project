@@ -23,30 +23,33 @@ const adminSetRefundPendingMock = vi.fn();
 const adminSetRefundProcessingMock = vi.fn();
 const adminSetRefundFailedMock = vi.fn();
 const adminSetRefundManualReviewMock = vi.fn();
+const translateMock = vi.hoisted(() => (
+  (key: string) => {
+    if (key === 'feedback.refundSuccess') {
+      return 'Đã hoàn tiền thành công';
+    }
+    if (key === 'feedback.receivedSuccess') {
+      return 'Đã đánh dấu nhận hàng';
+    }
+    if (key === 'feedback.refundRejected') {
+      return 'Yêu cầu đã bị từ chối, không thể hoàn tiền.';
+    }
+    if (key === 'feedback.refundWorkflowForbidden') {
+      return 'Chỉ quản trị viên được phép xử lý bước hoàn tiền.';
+    }
+    if (key === 'feedback.returnWorkflowForbidden') {
+      return 'Bạn không có quyền xử lý quy trình trả hàng.';
+    }
+    return key;
+  }
+));
 
 vi.mock('react-i18next', async () => {
   const actual = await vi.importActual<typeof import('react-i18next')>('react-i18next');
   return {
     ...actual,
     useTranslation: () => ({
-      t: (key: string, options?: Record<string, unknown>) => {
-        if (key === 'feedback.refundSuccess') {
-          return 'Đã hoàn tiền thành công';
-        }
-        if (key === 'feedback.receivedSuccess') {
-          return 'Đã đánh dấu nhận hàng';
-        }
-        if (key === 'feedback.refundRejected') {
-          return 'Yêu cầu đã bị từ chối, không thể hoàn tiền.';
-        }
-        if (key === 'feedback.refundWorkflowForbidden') {
-          return 'Chỉ quản trị viên được phép xử lý bước hoàn tiền.';
-        }
-        if (key === 'feedback.returnWorkflowForbidden') {
-          return 'Bạn không có quyền xử lý quy trình trả hàng.';
-        }
-        return key;
-      },
+      t: translateMock,
       i18n: { changeLanguage: vi.fn() },
     }),
   };
@@ -167,15 +170,28 @@ describe('useAdminReturns', () => {
   });
 
   it('hydrates the initial status filter and page from the caller options', async () => {
-    listMock.mockResolvedValue({
-      returns: [makeReturn({ returnId: 7, status: 'APPROVED' })],
-      pagination: {
-        page: 3,
-        pageSize: 15,
-        total: 1,
-        totalPages: 5,
-      },
-    });
+    listMock
+      .mockResolvedValueOnce({
+        returns: [makeReturn({ returnId: 7, status: 'APPROVED' })],
+        pagination: {
+          page: 3,
+          pageSize: 15,
+          total: 1,
+          totalPages: 5,
+        },
+      })
+      .mockResolvedValueOnce({
+        returns: [
+          makeReturn({ returnId: 7, status: 'APPROVED' }),
+          makeReturn({ returnId: 8, status: 'REJECTED' }),
+        ],
+        pagination: {
+          page: 1,
+          pageSize: 100,
+          total: 2,
+          totalPages: 1,
+        },
+      });
 
     const { result } = renderHook(() => useAdminReturns({
       initialStatusFilter: 'APPROVED',
@@ -186,9 +202,20 @@ describe('useAdminReturns', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    expect(listMock).toHaveBeenCalledWith({ status: 'APPROVED', page: 3, pageSize: 15 });
+    expect(listMock).toHaveBeenNthCalledWith(1, { status: 'APPROVED', page: 3, pageSize: 15 });
+    expect(listMock).toHaveBeenNthCalledWith(2, { status: 'ALL', page: 1, pageSize: 100 });
     expect(result.current.statusFilter).toBe('APPROVED');
     expect(result.current.page).toBe(3);
+    await waitFor(() => {
+      expect(result.current.statusTabs).toEqual([
+        { key: 'ALL', label: 'Tất cả', count: 2 },
+        { key: 'REQUESTED', label: 'Chờ duyệt', count: 0 },
+        { key: 'APPROVED', label: 'Đã duyệt', count: 1 },
+        { key: 'REJECTED', label: 'Đã từ chối', count: 1 },
+        { key: 'RECEIVED', label: 'Đã nhận hàng', count: 0 },
+        { key: 'REFUNDED', label: 'Đã hoàn tiền', count: 0 },
+      ]);
+    });
   });
 
   it('keeps both return and refund workflow actions disabled for staff sessions without explicit returns permissions', async () => {
@@ -324,11 +351,22 @@ describe('useAdminReturns', () => {
     listMock
       .mockResolvedValueOnce({
         returns: [makeReturn({ returnId: 1, status: 'REQUESTED' })],
+        pagination: { page: 1, pageSize: 15, total: 1, totalPages: 3 },
+      })
+      .mockResolvedValueOnce({
+        returns: [makeReturn({ returnId: 1, status: 'REQUESTED' })],
         pagination: { page: 3, pageSize: 15, total: 1, totalPages: 3 },
       })
       .mockResolvedValueOnce({
         returns: [makeReturn({ returnId: 2, status: 'APPROVED' })],
         pagination: { page: 1, pageSize: 15, total: 1, totalPages: 1 },
+      })
+      .mockResolvedValueOnce({
+        returns: [
+          makeReturn({ returnId: 1, status: 'REQUESTED' }),
+          makeReturn({ returnId: 2, status: 'APPROVED' }),
+        ],
+        pagination: { page: 1, pageSize: 100, total: 2, totalPages: 1 },
       });
 
     const { result } = renderHook(() => useAdminReturns());
@@ -350,11 +388,46 @@ describe('useAdminReturns', () => {
     });
 
     await waitFor(() => {
-      expect(listMock).toHaveBeenLastCalledWith({ status: 'APPROVED', page: 1, pageSize: 15 });
+      expect(listMock).toHaveBeenNthCalledWith(3, { status: 'APPROVED', page: 1, pageSize: 15 });
+      expect(listMock).toHaveBeenNthCalledWith(4, { status: 'ALL', page: 1, pageSize: 100 });
     });
 
     expect(result.current.page).toBe(1);
     expect(result.current.statusFilter).toBe('APPROVED');
+  });
+
+  it('keeps off-tab counts accurate when the initial filter is not ALL', async () => {
+    listMock
+      .mockResolvedValueOnce({
+        returns: [makeReturn({ returnId: 40, status: 'APPROVED' })],
+        pagination: { page: 1, pageSize: 15, total: 1, totalPages: 1 },
+      })
+      .mockResolvedValueOnce({
+        returns: [
+          makeReturn({ returnId: 40, status: 'APPROVED' }),
+          makeReturn({ returnId: 41, status: 'REJECTED' }),
+        ],
+        pagination: { page: 1, pageSize: 100, total: 2, totalPages: 1 },
+      });
+
+    const { result } = renderHook(() => useAdminReturns({
+      initialStatusFilter: 'APPROVED',
+    }));
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    await waitFor(() => {
+      expect(result.current.statusTabs).toEqual([
+        { key: 'ALL', label: 'Tất cả', count: 2 },
+        { key: 'REQUESTED', label: 'Chờ duyệt', count: 0 },
+        { key: 'APPROVED', label: 'Đã duyệt', count: 1 },
+        { key: 'REJECTED', label: 'Đã từ chối', count: 1 },
+        { key: 'RECEIVED', label: 'Đã nhận hàng', count: 0 },
+        { key: 'REFUNDED', label: 'Đã hoàn tiền', count: 0 },
+      ]);
+    });
   });
 
   it('shows success toast, clears selection, and reloads after complete refund succeeds', async () => {

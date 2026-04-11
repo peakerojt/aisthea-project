@@ -9,7 +9,7 @@ describe('AdminStatusFilterBar', () => {
     { key: 'OPEN', label: 'Dang mo', count: 3 },
   ];
 
-  it('keeps the refresh rail mounted and only toggles its state', () => {
+  it('keeps the refresh badge mounted and only toggles its state', () => {
     const { rerender } = render(
       <AdminStatusFilterBar
         items={items}
@@ -20,9 +20,10 @@ describe('AdminStatusFilterBar', () => {
       />,
     );
 
-    const rail = screen.getByTestId('admin-status-filter-bar').querySelector('[data-admin-status-refresh-rail="true"]');
-    expect(rail).toBeInTheDocument();
-    expect(rail).toHaveAttribute('data-refreshing', 'false');
+    const badge = screen.getByTestId('admin-status-filter-bar').querySelector('[data-admin-status-refresh-badge="true"]');
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveAttribute('data-refreshing', 'false');
+    expect(screen.getByTestId('admin-status-filter-bar').querySelector('[data-admin-status-refresh-rail="true"]')).not.toBeInTheDocument();
 
     rerender(
       <AdminStatusFilterBar
@@ -34,6 +35,6 @@ describe('AdminStatusFilterBar', () => {
       />,
     );
 
-    expect(screen.getByTestId('admin-status-filter-bar').querySelector('[data-admin-status-refresh-rail="true"]')).toHaveAttribute('data-refreshing', 'true');
+    expect(screen.getByTestId('admin-status-filter-bar').querySelector('[data-admin-status-refresh-badge="true"]')).toHaveAttribute('data-refreshing', 'true');
   });
 });

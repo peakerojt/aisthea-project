@@ -4,15 +4,16 @@ import { describe, expect, it } from 'vitest';
 import { AdminRefreshState } from '@/admin/components/AdminUI';
 
 describe('AdminRefreshState', () => {
-  it('keeps the refresh rail mounted and only toggles its state', () => {
+  it('keeps the refresh badge mounted and only toggles its state', () => {
     const { rerender } = render(<AdminRefreshState isRefreshing={false} label="Dang tai lai" />);
 
-    const rail = screen.getByTestId('admin-refresh-state').querySelector('[data-admin-refresh-rail="true"]');
-    expect(rail).toBeInTheDocument();
-    expect(rail).toHaveAttribute('data-refreshing', 'false');
+    const badge = screen.getByTestId('admin-refresh-state').querySelector('[data-admin-refresh-badge="true"]');
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveAttribute('data-refreshing', 'false');
+    expect(screen.getByTestId('admin-refresh-state').querySelector('[data-admin-refresh-rail="true"]')).not.toBeInTheDocument();
 
     rerender(<AdminRefreshState isRefreshing label="Dang tai lai" />);
 
-    expect(screen.getByTestId('admin-refresh-state').querySelector('[data-admin-refresh-rail="true"]')).toHaveAttribute('data-refreshing', 'true');
+    expect(screen.getByTestId('admin-refresh-state').querySelector('[data-admin-refresh-badge="true"]')).toHaveAttribute('data-refreshing', 'true');
   });
 });

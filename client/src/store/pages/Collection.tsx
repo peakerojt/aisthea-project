@@ -228,14 +228,8 @@ export const Collection: React.FC = () => {
   }, [category, collection, t]);
 
   // 1. Filter products based on Route (Category + Collection)
-  const categoryProducts = React.useMemo(() => {
+  const routeScopedProducts = React.useMemo(() => {
     if (loading || products.length === 0) return [];
-
-    if (searchTerm && searchTerm.trim() !== '') {
-      return products.filter((product) =>
-        matchesSearchQuery(searchTerm, [product.name, product.type, ...product.searchIndex]),
-      );
-    }
 
     if (!category || !collection) {
       return products;
@@ -253,7 +247,17 @@ export const Collection: React.FC = () => {
     }
 
     return products.filter(p => validSqlCategories.includes(p.type));
-  }, [products, category, collection, loading, searchTerm]);
+  }, [products, category, collection, loading]);
+
+  const categoryProducts = React.useMemo(() => {
+    if (searchTerm && searchTerm.trim() !== '') {
+      return routeScopedProducts.filter((product) =>
+        matchesSearchQuery(searchTerm, [product.name, product.type, ...product.searchIndex]),
+      );
+    }
+
+    return routeScopedProducts;
+  }, [routeScopedProducts, searchTerm]);
 
   // 2. Get unique categories for the Horizontal Filter Bar from the *filtered* list
   // This ensures we only show "Nam - Áo" when in Men's Tops, etc.

@@ -24,6 +24,38 @@ import {
 } from '@/common/services/analytics.service';
 import { fetchChatTelemetrySummary, type ChatTelemetrySummaryPayload } from '@/common/services/chat.service';
 
+const INTERNAL_SIGNAL_META = {
+    chat_out_of_scope_blocked: {
+        icon: AlertTriangle,
+        accentColor: 'text-rose-400',
+        labelKey: 'chatFunnel.internalSignals.labels.outOfScope',
+    },
+    chat_support_redirected: {
+        icon: Users,
+        accentColor: 'text-cyan-400',
+        labelKey: 'chatFunnel.internalSignals.labels.supportRedirected',
+    },
+    chat_clarification_asked: {
+        icon: MessageCircleMore,
+        accentColor: 'text-amber-400',
+        labelKey: 'chatFunnel.internalSignals.labels.clarificationAsked',
+    },
+    chat_short_answer_returned: {
+        icon: Sparkles,
+        accentColor: 'text-emerald-400',
+        labelKey: 'chatFunnel.internalSignals.labels.shortAnswerReturned',
+    },
+} as const;
+
+const INTERNAL_SIGNAL_COLORS = {
+    outOfScopeBlocked: '#fb7185',
+    supportRedirected: '#22d3ee',
+    clarificationAsked: '#f59e0b',
+    shortAnswerReturned: '#34d399',
+} as const;
+
+const formatInternalDayLabel = (label: string) => label.slice(5).replace('-', '/');
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared tooltip
 // ─────────────────────────────────────────────────────────────────────────────
@@ -282,6 +314,22 @@ const StatusFunnelTooltip = ({ active, payload }: any) => {
                 {t(`orderStatuses.${item.status}`, { defaultValue: item.status })}
             </p>
             <p className="font-bold text-white">{Number(item.value ?? 0).toLocaleString('vi-VN')}</p>
+        </div>
+    );
+};
+
+const InternalSignalsTooltip = ({ active, payload, label }: any) => {
+    const { t } = useTranslation('analytics');
+    if (!active || !payload?.length) return null;
+
+    return (
+        <div className="rounded-lg border border-white/10 bg-[#1a1a2e] px-3 py-2 text-xs shadow-xl">
+            <p className="mb-2 font-semibold text-white/70">{label}</p>
+            {payload.map((item: any) => (
+                <p key={item.dataKey} className="font-bold" style={{ color: item.color }}>
+                    {item.name}: {Number(item.value ?? 0).toLocaleString('vi-VN')}
+                </p>
+            ))}
         </div>
     );
 };
@@ -565,6 +613,164 @@ export const Analytics: React.FC = () => {
                                                 <td className="px-4 py-3 font-semibold text-white/80">{row.label ?? 'Direct navigation'}</td>
                                                 <td className="px-4 py-3 text-white/45 font-mono">{row.target}</td>
                                                 <td className="px-4 py-3 text-right font-bold text-sky-400">{row.clicks.toLocaleString('vi-VN')}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </motion.div>
+                </div>
+
+                <div className="space-y-3">
+                    <div className="flex flex-col gap-1">
+                        <h3 className="text-sm font-bold text-white uppercase tracking-widest">
+                            {t('chatFunnel.internalSignals.title')}
+                        </h3>
+                        <p className="text-[10px] text-white/30">
+                            {t('chatFunnel.internalSignals.subtitle')}
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                        {(chatData?.internalSignals ?? []).map((signal) => {
+                            const meta = INTERNAL_SIGNAL_META[signal.event];
+
+                            return (
+                                <KPICard
+                                    key={signal.event}
+                                    label={t(meta.labelKey)}
+                                    value={signal.total.toLocaleString('vi-VN')}
+                                    sub={t('chatFunnel.internalSignals.rate', { value: signal.rate.toFixed(1) })}
+                                    positive={signal.rate > 0 ? true : null}
+                                    icon={meta.icon}
+                                    accentColor={meta.accentColor}
+                                />
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-[6fr_6fr] gap-5">
+                    <motion.div
+                        initial={false}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.45 }}
+                        className="bg-surface-dark border border-white/15 rounded-sm p-6"
+                    >
+                        <div className="mb-5">
+                            <h3 className="text-sm font-bold text-white uppercase tracking-widest">
+                                {t('chatFunnel.internalSignals.trendTitle')}
+                            </h3>
+                            <p className="text-[10px] text-white/30 mt-0.5">
+                                {t('chatFunnel.internalSignals.trendSub')}
+                            </p>
+                        </div>
+                        {loading ? (
+                            <SkeletonChart height="h-64" />
+                        ) : !chatData?.internalSignalsTrend.length ? (
+                            <div className="h-64 flex items-center justify-center text-white/20 text-sm">{t('chatFunnel.noData')}</div>
+                        ) : (
+                            <div className="h-64">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <ComposedChart
+                                        data={chatData.internalSignalsTrend.map((row) => ({
+                                            ...row,
+                                            label: formatInternalDayLabel(row.label),
+                                        }))}
+                                        margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                        <XAxis
+                                            dataKey="label"
+                                            tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <YAxis
+                                            tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            allowDecimals={false}
+                                        />
+                                        <Tooltip content={<InternalSignalsTooltip />} />
+                                        <Legend wrapperStyle={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)' }} />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="outOfScopeBlocked"
+                                            name={t('chatFunnel.internalSignals.labels.outOfScope')}
+                                            stroke={INTERNAL_SIGNAL_COLORS.outOfScopeBlocked}
+                                            strokeWidth={2}
+                                            dot={false}
+                                        />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="supportRedirected"
+                                            name={t('chatFunnel.internalSignals.labels.supportRedirected')}
+                                            stroke={INTERNAL_SIGNAL_COLORS.supportRedirected}
+                                            strokeWidth={2}
+                                            dot={false}
+                                        />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="clarificationAsked"
+                                            name={t('chatFunnel.internalSignals.labels.clarificationAsked')}
+                                            stroke={INTERNAL_SIGNAL_COLORS.clarificationAsked}
+                                            strokeWidth={2}
+                                            dot={false}
+                                        />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="shortAnswerReturned"
+                                            name={t('chatFunnel.internalSignals.labels.shortAnswerReturned')}
+                                            stroke={INTERNAL_SIGNAL_COLORS.shortAnswerReturned}
+                                            strokeWidth={2}
+                                            dot={false}
+                                        />
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+                    </motion.div>
+
+                    <motion.div
+                        initial={false}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5 }}
+                        className="bg-surface-dark border border-white/15 rounded-sm overflow-hidden"
+                    >
+                        <div className="px-6 py-4 border-b border-white/15">
+                            <h3 className="text-sm font-bold text-white uppercase tracking-widest">
+                                {t('chatFunnel.internalSignals.byPageTitle')}
+                            </h3>
+                            <p className="text-[10px] text-white/30 mt-0.5">
+                                {t('chatFunnel.internalSignals.byPageSub')}
+                            </p>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                                <thead>
+                                    <tr className="border-b border-white/15">
+                                        <th className="px-4 py-3 text-left font-semibold text-white/30 uppercase tracking-widest">{t('chatFunnel.columns.page')}</th>
+                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">{t('chatFunnel.internalSignals.shortLabels.outOfScope')}</th>
+                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">{t('chatFunnel.internalSignals.shortLabels.supportRedirected')}</th>
+                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">{t('chatFunnel.internalSignals.shortLabels.clarificationAsked')}</th>
+                                        <th className="px-4 py-3 text-right font-semibold text-white/30 uppercase tracking-widest">{t('chatFunnel.internalSignals.shortLabels.shortAnswerReturned')}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/[0.04]">
+                                    {loading ? (
+                                        Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
+                                    ) : !chatData?.internalSignalsByPage.length ? (
+                                        <tr><td colSpan={5} className="px-4 py-10 text-center text-white/20">{t('chatFunnel.noData')}</td></tr>
+                                    ) : (
+                                        chatData.internalSignalsByPage.map((row) => (
+                                            <tr key={row.page} className="hover:bg-white/[0.025] transition-colors">
+                                                <td className="px-4 py-3 font-semibold uppercase text-white/75">{row.page}</td>
+                                                <td className="px-4 py-3 text-right font-bold" style={{ color: INTERNAL_SIGNAL_COLORS.outOfScopeBlocked }}>{row.outOfScopeBlocked.toLocaleString('vi-VN')}</td>
+                                                <td className="px-4 py-3 text-right font-bold" style={{ color: INTERNAL_SIGNAL_COLORS.supportRedirected }}>{row.supportRedirected.toLocaleString('vi-VN')}</td>
+                                                <td className="px-4 py-3 text-right font-bold" style={{ color: INTERNAL_SIGNAL_COLORS.clarificationAsked }}>{row.clarificationAsked.toLocaleString('vi-VN')}</td>
+                                                <td className="px-4 py-3 text-right font-bold" style={{ color: INTERNAL_SIGNAL_COLORS.shortAnswerReturned }}>{row.shortAnswerReturned.toLocaleString('vi-VN')}</td>
                                             </tr>
                                         ))
                                     )}
