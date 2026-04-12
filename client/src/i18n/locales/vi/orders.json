@@ -3,6 +3,7 @@
         "title": "Quản lý đơn hàng",
         "detail": "Chi tiết đơn hàng",
         "orderCount": "{{count}} đơn hàng",
+        "orderCountCompact": "{{count}} đơn",
         "loading": "Đang tải đơn hàng...",
         "loadError": "Không thể tải danh sách đơn hàng.",
         "dataError": "Không thể tải danh sách đơn hàng.",
@@ -54,6 +55,7 @@
         "searchPlaceholder": "Tìm theo mã đơn hoặc tên khách hàng…",
         "searchPlaceholderAdmin": "Tìm tên, SĐT, mã đơn...",
         "clear": "Xóa bộ lọc",
+        "dateRange": "Khoảng ngày",
         "dateFrom": "Từ ngày",
         "dateTo": "Đến ngày",
         "sortLabel": "Sắp xếp"
@@ -106,9 +108,76 @@
         "copyOrderNumber": "Sao chép mã đơn",
         "updateStatus": "Cập nhật trạng thái",
         "viewDetail": "Xem chi tiết",
+        "viewDetailShort": "Chi tiết",
         "printInvoice": "In hóa đơn",
         "confirmOrder": "Xác nhận đơn hàng",
         "cancelOrder": "Hủy đơn hàng"
+    },
+    "bulk": {
+        "enterSelectionMode": "Chọn nhiều",
+        "exitSelectionMode": "Thoát chọn nhiều",
+        "exitSelectionModeShort": "Thoát",
+        "selectionModeHint": "Đang ở chế độ chọn nhiều",
+        "selectedCount": "Đã chọn {{count}} đơn",
+        "clearSelection": "Bỏ chọn",
+        "idleHint": "Chọn các đơn trên trang hiện tại để thao tác hàng loạt.",
+        "selectCurrentPageHint": "Chọn tất cả chỉ áp dụng cho trang hiện tại.",
+        "actions": {
+            "markProcessing": "Chuyển sang xử lý",
+            "markProcessingShort": "Xử lý",
+            "markShipping": "Chuyển sang giao hàng",
+            "markShippingShort": "Giao hàng",
+            "cancel": "Hủy đơn đã chọn",
+            "cancelShort": "Hủy",
+            "exportSelected": "Xuất đơn đã chọn",
+            "exportSelectedShort": "Xuất"
+        },
+        "table": {
+            "selectOrder": "Chọn đơn {{orderNumber}}",
+            "selectAllCurrentPage": "Chọn tất cả đơn trên trang hiện tại"
+        },
+        "dialog": {
+            "defaultSubtitle": "Áp dụng thao tác cho {{count}} đơn đang được chọn. Các đơn không hợp lệ sẽ được bỏ qua.",
+            "cancelSubtitle": "Các đơn đủ điều kiện trong {{count}} đơn đã chọn sẽ bị hủy. Những đơn không còn hợp lệ sẽ được bỏ qua an toàn.",
+            "exportSubtitle": "Xuất {{count}} đơn đang được chọn trên trang hiện tại ra tệp CSV.",
+            "keepSelection": "Quay lại",
+            "confirm": "Xác nhận",
+            "confirmExport": "Xuất CSV",
+            "processing": "Đang xử lý...",
+            "noteLabel": "Ghi chú nội bộ",
+            "notePlaceholder": "Ví dụ: khách yêu cầu đổi địa chỉ, đơn cần dừng xử lý..."
+        },
+        "manualDelivery": {
+            "idleHint": "Đơn đang giao phải được xác minh thủ công trong chi tiết đơn sau khi tải lên và duyệt ảnh bằng chứng.",
+            "title": "Xác nhận đã giao cần xác minh thủ công",
+            "description": "{{count}} đơn đang ở trạng thái giao hàng. Nhân viên cần mở chi tiết đơn để tải lên và duyệt ảnh bằng chứng trước khi xác nhận đã giao.",
+            "inlineHint": "Đơn giao hàng cần xác minh thủ công.",
+            "openSingle": "Mở chi tiết",
+            "openFirst": "Mở đơn đầu tiên"
+        },
+        "summary": {
+            "title": "Đã cập nhật {{updated}} đơn · bỏ qua {{skipped}} · lỗi {{failed}}",
+            "description": "Máy chủ đã kiểm tra {{total}} đơn và chỉ áp dụng cho các đơn hợp lệ.",
+            "toastTitle": "Đã xử lý {{updated}} đơn hàng",
+            "toastSuccess": "Danh sách và số liệu đã được làm mới.",
+            "toastPartial": "Một số đơn không hợp lệ đã được bỏ qua an toàn.",
+            "requestFailed": "Không thể xử lý thao tác hàng loạt",
+            "dismiss": "Đóng",
+            "moreSkipped": "+{{count}} đơn khác",
+            "skippedBadge": "Đơn #{{orderId}} · {{reason}}"
+        },
+        "export": {
+            "successTitle": "Đã xuất danh sách đơn hàng",
+            "errorTitle": "Không thể xuất đơn hàng đã chọn"
+        },
+        "errors": {
+            "invalidTransition": "Không đúng luồng chuyển trạng thái.",
+            "deliveryProofRequired": "Chưa có bằng chứng giao hàng đã duyệt.",
+            "deliveryProofReviewRequired": "Bằng chứng giao hàng chưa được xác nhận.",
+            "notFound": "Không còn tìm thấy đơn hàng.",
+            "stateConflict": "Đơn đã đổi trạng thái ở nơi khác.",
+            "generic": "Không thể áp dụng thao tác cho đơn này."
+        }
     },
     "feedback": {
         "updateSuccess": "Đã cập nhật đơn hàng thành công",

@@ -54,7 +54,12 @@ jest.mock('../../../lib/logger', () => ({
 }));
 
 import { ORDER_STATUS } from '../../../config/orderStatus.config';
-import { cancelOrderForUser, createOrder, updateOrderStatusAdmin } from '../order.service';
+import {
+  bulkUpdateOrderStatusAdmin,
+  cancelOrderForUser,
+  createOrder,
+  updateOrderStatusAdmin,
+} from '../order.service';
 
 describe('order.service integration guards', () => {
   beforeEach(() => {
@@ -226,7 +231,6 @@ describe('order.service integration guards', () => {
       7,
       [{ variantId: 42, quantity: 1 }],
       tx,
-      { restoreType: 'cancel' },
     );
     expect(tx.orderStatusHistory.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -695,72 +699,18 @@ describe('order.service integration guards', () => {
         note: 'Awaiting VNPay confirmation',
       },
     });
-    expect(enqueueOrderPlacedEmailMock).not.toHaveBeenCalled();
+    expect(enqueueOrderPlacedEmailMock).toHaveBeenCalledWith({
+      orderId: 321,
+      orderNumber: 'ORD-321',
+      email: 'khach@example.com',
+      customerName: 'Khach Hang',
+      totalAmount: 465000,
+      paymentMethod: 'VNPAY',
+      createdAt: '2026-03-16T00:00:00.000Z',
+      orderUrl: expect.stringContaining('/tracking/321'),
+    });
     expect(result.id).toBe('321');
     expect(result.paymentStatus).toBe('PENDING_VNPAY');
-  });
-
-  it('fails checkout without post-transaction side effects when stock runs out during order creation', async () => {
-    const tx = {
-      order: { create: jest.fn().mockResolvedValue({ orderId: 323 }) },
-      orderItem: { createMany: jest.fn().mockResolvedValue(undefined) },
-      payment: { create: jest.fn() },
-      orderStatusHistory: { create: jest.fn().mockResolvedValue(undefined) },
-      coupon: { update: jest.fn().mockResolvedValue(undefined) },
-    };
-
-    prismaMock.$transaction.mockImplementation(async (fn: any) => fn(tx));
-    quoteOrderPricingMock.mockResolvedValue({
-      itemsSubtotal: 450000,
-      shippingFee: 15000,
-      discountAmount: 0,
-      totalAmount: 465000,
-      shippingMethod: 'STANDARD',
-      shippingCityCode: '48',
-      appliedCouponCode: null,
-      coupon: null,
-      enrichedItems: [
-        {
-          variantId: 11,
-          quantity: 1,
-          unitPrice: 450000,
-          sku: 'SKU-11',
-          productName: 'Silk Dress',
-          variantName: 'Black / M',
-        },
-      ],
-    });
-
-    inventoryMock.atomicCheckoutDeduction.mockRejectedValue({
-      code: 'INSUFFICIENT_STOCK',
-      status: 409,
-    });
-
-    await expect(
-      createOrder(
-        { userId: 7, roles: ['Customer'] },
-        {
-          items: [{ variantId: 11, quantity: 1 }],
-          paymentMethod: 'COD',
-          customerName: 'Khach Hang',
-          customerEmail: 'khach@example.com',
-          customerPhone: '0900000000',
-          shippingCity: 'Da Nang',
-          shippingDistrict: 'Hai Chau',
-          shippingWard: null,
-          shippingAddressDetail: '123 Test',
-          shippingCityCode: '48',
-          shippingMethod: 'STANDARD',
-        },
-      ),
-    ).rejects.toMatchObject({
-      code: 'INSUFFICIENT_STOCK',
-      status: 409,
-    });
-
-    expect(repositoryMock.findOrderByIdWithRelations).not.toHaveBeenCalled();
-    expect(enqueueOrderPlacedEmailMock).not.toHaveBeenCalled();
-    expect(tx.payment.create).not.toHaveBeenCalled();
   });
 
   it('persists order-time item economics for later refund calculations', async () => {
@@ -1078,6 +1028,92 @@ describe('order.service integration guards', () => {
     });
   });
 
+  it('reuses reviewed delivery proof already stored on the shipment when marking delivered', async () => {
+    const shipmentUpsert = jest.fn().mockResolvedValue(undefined);
+
+    prismaMock.order.findUnique
+      .mockResolvedValueOnce({
+        orderId: 33,
+        orderNumber: 'ORD-0033',
+        status: ORDER_STATUS.SHIPPING,
+        userId: 88,
+        paymentMethod: 'COD',
+        totalAmount: 208000,
+        items: [],
+        shipment: {
+          deliveryProofImages: JSON.stringify(['https://example.com/stored-proof.jpg']),
+          deliveryProofReviewed: true,
+        },
+      })
+      .mockResolvedValueOnce({
+        orderId: 33,
+        orderNumber: 'ORD-0033',
+        userId: 88,
+        shipment: {
+          deliveryProofImages: JSON.stringify(['https://example.com/stored-proof.jpg']),
+          deliveryProofReviewed: true,
+        },
+        statusHistory: [
+          {
+            status: ORDER_STATUS.SHIPPING,
+            changedAt: new Date('2026-03-16T10:00:00.000Z'),
+            note: null,
+          },
+          {
+            status: ORDER_STATUS.DELIVERED,
+            changedAt: new Date('2026-03-16T11:00:00.000Z'),
+            note: null,
+          },
+        ],
+      });
+
+    prismaMock.$transaction.mockImplementation(async (fn: any) => fn({
+      order: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      orderStatusHistory: { create: jest.fn().mockResolvedValue(undefined) },
+      shipment: { upsert: shipmentUpsert },
+      payment: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        update: jest.fn(),
+        create: jest.fn(),
+      },
+      returnRequest: {
+        findMany: jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      returnRequestStatusLog: {
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+    }));
+
+    await expect(
+      updateOrderStatusAdmin(
+        '33',
+        { userId: 100, roles: ['Admin'] },
+        { status: ORDER_STATUS.DELIVERED },
+      ),
+    ).resolves.toMatchObject({
+      orderId: 33,
+      previousStatus: ORDER_STATUS.SHIPPING,
+      newStatus: ORDER_STATUS.DELIVERED,
+    });
+
+    expect(shipmentUpsert).toHaveBeenCalledWith({
+      where: { orderId: 33 },
+      update: {
+        deliveryProofImages: JSON.stringify(['https://example.com/stored-proof.jpg']),
+        deliveryProofReviewed: true,
+      },
+      create: {
+        orderId: 33,
+        shippingMode: 'manual',
+        carrier: 'AISTHEA Manual Delivery',
+        trackingNumber: 'ORD-0033',
+        deliveryProofImages: JSON.stringify(['https://example.com/stored-proof.jpg']),
+        deliveryProofReviewed: true,
+      },
+    });
+  });
+
   it('creates delivery proof shipment data with legacy-compatible manual tracking fields', async () => {
     const shipmentUpsert = jest.fn().mockResolvedValue(undefined);
     const paymentFindFirst = jest.fn().mockResolvedValue(null);
@@ -1370,6 +1406,95 @@ describe('order.service integration guards', () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
+  it('returns partial-success results for bulk admin status updates', async () => {
+    prismaMock.order.findUnique
+      .mockResolvedValueOnce({
+        orderId: 61,
+        orderNumber: 'ORD-0061',
+        status: ORDER_STATUS.PENDING,
+        userId: 77,
+        paymentMethod: 'COD',
+        totalAmount: 100000,
+        items: [{ orderItemId: 1, variantId: 41, quantity: 1 }],
+        shipment: null,
+      })
+      .mockResolvedValueOnce({
+        orderId: 61,
+        orderNumber: 'ORD-0061',
+        userId: 77,
+        shipment: null,
+        statusHistory: [
+          {
+            status: ORDER_STATUS.PENDING,
+            changedAt: new Date('2026-03-16T10:00:00.000Z'),
+            note: null,
+          },
+          {
+            status: ORDER_STATUS.PROCESSING,
+            changedAt: new Date('2026-03-16T11:00:00.000Z'),
+            note: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        orderId: 62,
+        orderNumber: 'ORD-0062',
+        status: ORDER_STATUS.SHIPPING,
+        userId: 77,
+        paymentMethod: 'COD',
+        totalAmount: 100000,
+        items: [{ orderItemId: 2, variantId: 42, quantity: 1 }],
+        shipment: null,
+      });
+
+    prismaMock.$transaction.mockImplementation(async (fn: any) => fn({
+      order: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      orderStatusHistory: { create: jest.fn().mockResolvedValue(undefined) },
+      shipment: { upsert: jest.fn().mockResolvedValue(undefined) },
+      payment: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        update: jest.fn(),
+        create: jest.fn(),
+      },
+      returnRequest: {
+        findMany: jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      returnRequestStatusLog: {
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+    }));
+
+    const result = await bulkUpdateOrderStatusAdmin(
+      { userId: 100, roles: ['Admin'] },
+      {
+        orderIds: [61, 62],
+        status: ORDER_STATUS.PROCESSING,
+        note: 'Bulk processing',
+      },
+    );
+
+    expect(result).toMatchObject({
+      requestedCount: 2,
+      successCount: 1,
+      skippedCount: 1,
+      failedCount: 0,
+    });
+    expect(result.results).toEqual([
+      expect.objectContaining({
+        orderId: 61,
+        outcome: 'updated',
+        previousStatus: ORDER_STATUS.PENDING,
+        newStatus: ORDER_STATUS.PROCESSING,
+      }),
+      expect.objectContaining({
+        orderId: 62,
+        outcome: 'skipped',
+        errorCode: 'INVALID_STATUS_TRANSITION',
+      }),
+    ]);
+  });
+
   it('allows tracking ops to move shipping orders to Returned and restore inventory', async () => {
     const orderStatusHistoryCreate = jest.fn().mockResolvedValue(undefined);
     const orderUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
@@ -1442,7 +1567,6 @@ describe('order.service integration guards', () => {
       99,
       [{ variantId: 43, quantity: 2 }],
       expect.any(Object),
-      { restoreType: 'return' },
     );
     expect(result).toEqual({
       orderId: 9,

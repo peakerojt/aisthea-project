@@ -17,6 +17,8 @@ const buildPermissionRows = (permissionCodes: string[]) => [
 const getAllOrdersMock = jest.fn((_req, res) => res.json({ route: 'admin-orders' }));
 const getAdminOrderTabCountsMock = jest.fn((_req, res) => res.json({ route: 'admin-order-tab-counts' }));
 const getAdminOrderDetailMock = jest.fn((_req, res) => res.json({ route: 'admin-order-detail' }));
+const bulkUpdateOrderStatusMock = jest.fn((_req, res) => res.json({ route: 'bulk-update-order-status' }));
+const exportSelectedAdminOrdersMock = jest.fn((_req, res) => res.json({ route: 'export-selected-admin-orders' }));
 const updateOrderStatusMock = jest.fn((_req, res) => res.json({ route: 'update-order-status' }));
 const uploadDeliveryProofImagesMock = jest.fn((_req, res) => res.status(201).json({ route: 'upload-delivery-proof' }));
 
@@ -40,6 +42,8 @@ jest.mock('../../controllers/order.controller', () => ({
   getAllOrders: getAllOrdersMock,
   getAdminOrderTabCounts: getAdminOrderTabCountsMock,
   getAdminOrderDetail: getAdminOrderDetailMock,
+  bulkUpdateOrderStatus: bulkUpdateOrderStatusMock,
+  exportSelectedAdminOrders: exportSelectedAdminOrdersMock,
   updateOrderStatus: updateOrderStatusMock,
   confirmReceipt: jest.fn(),
   uploadDeliveryProofImages: uploadDeliveryProofImagesMock,
@@ -122,6 +126,32 @@ describe('legacy order admin routes authorization', () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ route: 'update-order-status' });
     expect(updateOrderStatusMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows staff to bulk update order statuses when EDIT_ORDER is assigned', async () => {
+    currentPermissions = ['EDIT_ORDER'];
+
+    const response = await request(app)
+      .patch('/admin/bulk-status')
+      .set('Authorization', 'Bearer test-token')
+      .send({ orderIds: [55, 56], status: 'Shipping' });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ route: 'bulk-update-order-status' });
+    expect(bulkUpdateOrderStatusMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows staff to export selected admin orders when VIEW_ORDER is assigned', async () => {
+    currentPermissions = ['VIEW_ORDER'];
+
+    const response = await request(app)
+      .post('/admin/export')
+      .set('Authorization', 'Bearer test-token')
+      .send({ orderIds: [42, 43] });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ route: 'export-selected-admin-orders' });
+    expect(exportSelectedAdminOrdersMock).toHaveBeenCalledTimes(1);
   });
 
   it('blocks staff order mutations without EDIT_ORDER', async () => {

@@ -253,11 +253,36 @@ export interface AdminOrdersResponse {
 
 export type AdminOrderTabCounts = Record<string, number>;
 
+export interface AdminBulkOrderUpdateResultItem {
+  orderId: number;
+  outcome: 'updated' | 'skipped' | 'failed';
+  previousStatus?: string;
+  newStatus?: string;
+  stockRestored?: boolean;
+  errorCode?: string;
+  messageKey?: string;
+  details?: unknown;
+}
+
+export interface AdminBulkOrderUpdateResponse {
+  requestedCount: number;
+  successCount: number;
+  skippedCount: number;
+  failedCount: number;
+  results: AdminBulkOrderUpdateResultItem[];
+}
+
 export interface UpdateStatusPayload {
   status: string;
   note?: string;
   deliveryProofImages?: string[];
   deliveryProofReviewed?: boolean;
+}
+
+export interface BulkUpdateStatusPayload {
+  orderIds: number[];
+  status: string;
+  note?: string;
 }
 
 export interface CancelOrderPayload {
@@ -541,6 +566,11 @@ export const adminOrderService = {
     return response.data || {};
   },
 
+  async bulkUpdateStatus(payload: BulkUpdateStatusPayload): Promise<AdminBulkOrderUpdateResponse> {
+    const response = await orderApi.bulkUpdateOrderStatus(payload);
+    return response.data;
+  },
+
   /**
    * Get full order detail including items with images, shipping, payments.
    */
@@ -629,5 +659,24 @@ export const adminOrderService = {
     payload: UpdateStatusPayload
   ): Promise<{ success: boolean; message: string; stockRestored: boolean }> {
     return orderApi.updateOrderStatus(orderId, payload);
+  },
+
+  async exportSelectedOrders(orderIds: number[]) {
+    const blob = await orderApi.exportSelectedAdminOrders({ orderIds });
+    const exportDate = new Date().toISOString().slice(0, 10);
+    const fileName = `orders-selected-${exportDate}.csv`;
+
+    if (typeof window !== 'undefined') {
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    }
+
+    return { fileName };
   },
 };

@@ -95,6 +95,25 @@ type UpdateOrderStatusPayload = {
   transitionSource?: OrderTransitionSource;
 };
 
+export type BulkOrderUpdateResultItem = {
+  orderId: number;
+  outcome: 'updated' | 'skipped' | 'failed';
+  previousStatus?: string;
+  newStatus?: string;
+  stockRestored?: boolean;
+  errorCode?: string;
+  messageKey?: string;
+  details?: unknown;
+};
+
+export type BulkOrderUpdateResult = {
+  requestedCount: number;
+  successCount: number;
+  skippedCount: number;
+  failedCount: number;
+  results: BulkOrderUpdateResultItem[];
+};
+
 const ORDER_STATUS_POLICY_BY_SOURCE: Record<OrderTransitionSource, Record<string, string[]>> = {
   admin_order: {
     [ORDER_STATUS.PENDING]: [ORDER_STATUS.PROCESSING, ORDER_STATUS.PAID, ORDER_STATUS.CANCELLED],
@@ -166,6 +185,19 @@ const toNumericAmount = (value: unknown): number => {
   }
 
   return 0;
+};
+
+const parseStoredDeliveryProofImages = (value: string | null | undefined): string[] => {
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string' && item.length > 0)
+      : [];
+  } catch {
+    return [];
+  }
 };
 
 const roundCurrencyAmount = (value: number) =>
@@ -577,7 +609,6 @@ export async function cancelOrderForUser(
         quantity: item.quantity,
       })),
       tx,
-      { restoreType: 'cancel' },
     );
 
     return updatedOrder;
@@ -616,16 +647,6 @@ export async function updateOrderStatusAdmin(
     throw new AppError(400, 'BAD_REQUEST', 'orders:errors.statusRequired');
   }
 
-  const isDeliveredTransition = normalizeOrderStatus(newStatus) === 'delivered';
-  if (isDeliveredTransition) {
-    if (!Array.isArray(deliveryProofImages) || deliveryProofImages.length === 0) {
-      throw new AppError(400, 'DELIVERY_PROOF_REQUIRED', 'orders:errors.deliveryProofRequired');
-    }
-    if (deliveryProofReviewed !== true) {
-      throw new AppError(400, 'DELIVERY_PROOF_REVIEW_REQUIRED', 'orders:errors.deliveryProofReviewRequired');
-    }
-  }
-
   const order = await prisma.order.findUnique({
     where: { orderId: parsedId },
     select: {
@@ -638,11 +659,36 @@ export async function updateOrderStatusAdmin(
       items: {
         select: { orderItemId: true, variantId: true, quantity: true },
       },
+      shipment: {
+        select: {
+          deliveryProofImages: true,
+          deliveryProofReviewed: true,
+        },
+      },
     },
   });
 
   if (!order) {
     throw new AppError(404, 'NOT_FOUND', 'orders:errors.notFound');
+  }
+
+  const isDeliveredTransition = normalizeOrderStatus(newStatus) === 'delivered';
+  const existingDeliveryProofImages = parseStoredDeliveryProofImages(order.shipment?.deliveryProofImages);
+  const resolvedDeliveryProofImages =
+    Array.isArray(deliveryProofImages) && deliveryProofImages.length > 0
+      ? deliveryProofImages
+      : existingDeliveryProofImages;
+  const resolvedDeliveryProofReviewed =
+    deliveryProofReviewed === true ||
+    (deliveryProofReviewed === undefined && Boolean(order.shipment?.deliveryProofReviewed));
+
+  if (isDeliveredTransition) {
+    if (resolvedDeliveryProofImages.length === 0) {
+      throw new AppError(400, 'DELIVERY_PROOF_REQUIRED', 'orders:errors.deliveryProofRequired');
+    }
+    if (!resolvedDeliveryProofReviewed) {
+      throw new AppError(400, 'DELIVERY_PROOF_REVIEW_REQUIRED', 'orders:errors.deliveryProofReviewRequired');
+    }
   }
 
   const currentStatus = order.status ?? ORDER_STATUS.PENDING;
@@ -674,9 +720,6 @@ export async function updateOrderStatusAdmin(
           quantity: item.quantity,
         })),
         tx,
-        {
-          restoreType: transitionSource === 'tracking_ops' ? 'return' : 'cancel',
-        },
       );
     }
 
@@ -709,8 +752,8 @@ export async function updateOrderStatusAdmin(
       await (tx.shipment.upsert as any)({
         where: { orderId: parsedId },
         update: {
-          deliveryProofImages: JSON.stringify(deliveryProofImages ?? []),
-          deliveryProofReviewed: Boolean(deliveryProofReviewed),
+          deliveryProofImages: JSON.stringify(resolvedDeliveryProofImages),
+          deliveryProofReviewed: resolvedDeliveryProofReviewed,
         },
         create: {
           orderId: parsedId,
@@ -718,8 +761,8 @@ export async function updateOrderStatusAdmin(
           // Legacy databases may still require carrier/tracking columns on insert.
           carrier: LEGACY_MANUAL_CARRIER,
           trackingNumber: order.orderNumber,
-          deliveryProofImages: JSON.stringify(deliveryProofImages ?? []),
-          deliveryProofReviewed: Boolean(deliveryProofReviewed),
+          deliveryProofImages: JSON.stringify(resolvedDeliveryProofImages),
+          deliveryProofReviewed: resolvedDeliveryProofReviewed,
         },
       });
 
@@ -836,6 +879,72 @@ export async function updateOrderStatusAdmin(
     previousStatus: currentStatus,
     newStatus,
     stockRestored: shouldRestoreInventory,
+  };
+}
+
+export async function bulkUpdateOrderStatusAdmin(
+  currentUser: CurrentUser,
+  payload: {
+    orderIds: number[];
+    status: string;
+    note?: string;
+    transitionSource?: OrderTransitionSource;
+  },
+): Promise<BulkOrderUpdateResult> {
+  const requestedOrderIds = [...new Set(payload.orderIds)];
+  const results: BulkOrderUpdateResultItem[] = [];
+  let successCount = 0;
+  let skippedCount = 0;
+  let failedCount = 0;
+
+  for (const orderId of requestedOrderIds) {
+    try {
+      const result = await updateOrderStatusAdmin(String(orderId), currentUser, {
+        status: payload.status,
+        note: payload.note,
+        transitionSource: payload.transitionSource,
+      });
+
+      results.push({
+        orderId,
+        outcome: 'updated',
+        previousStatus: result.previousStatus,
+        newStatus: result.newStatus,
+        stockRestored: result.stockRestored,
+      });
+      successCount += 1;
+    } catch (error: any) {
+      const statusCode = error?.statusCode ?? error?.status;
+      const outcome = statusCode && statusCode >= 500 ? 'failed' : 'skipped';
+
+      results.push({
+        orderId,
+        outcome,
+        errorCode: error?.errorCode ?? error?.code ?? 'REQUEST_FAILED',
+        messageKey: error?.messageKey,
+        details: error?.details,
+      });
+
+      if (outcome === 'failed') {
+        failedCount += 1;
+        logger.error('[bulkUpdateOrderStatusAdmin] Unexpected per-order failure', {
+          orderId,
+          actorId: currentUser.userId,
+          message: error?.message,
+          errorCode: error?.errorCode ?? error?.code,
+        });
+      } else {
+        skippedCount += 1;
+      }
+    }
+  }
+
+  return {
+    requestedCount: requestedOrderIds.length,
+    successCount,
+    skippedCount,
+    failedCount,
+    results,
   };
 }
 
@@ -1048,14 +1157,12 @@ export async function createOrder(
   }
 
   const recipient = resolveOrderNotificationRecipient(order);
-  const shouldEnqueueOrderPlacedEmail =
-    !!recipient && (order.paymentMethod ?? '').trim().toUpperCase() !== 'VNPAY';
-  if (shouldEnqueueOrderPlacedEmail) {
+  if (recipient) {
     try {
       await notificationService.enqueueOrderPlacedEmail({
         orderId: order.orderId,
         orderNumber: order.orderNumber,
-        email: recipient!,
+        email: recipient,
         customerName: resolveOrderNotificationName(order),
         totalAmount: toNumericAmount(order.totalAmount),
         paymentMethod: order.paymentMethod ?? null,

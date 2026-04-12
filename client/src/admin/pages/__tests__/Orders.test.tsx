@@ -5,22 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getAllMock = vi.hoisted(() => vi.fn());
 const getTabCountsMock = vi.hoisted(() => vi.fn());
+const bulkUpdateStatusMock = vi.hoisted(() => vi.fn());
+const exportSelectedOrdersMock = vi.hoisted(() => vi.fn());
 const navigateMock = vi.hoisted(() => vi.fn());
 const searchParamsState = vi.hoisted(() => ({ value: '' }));
 const setSearchParamsMock = vi.hoisted(() => vi.fn());
 const i18nMode = vi.hoisted(() => ({ rawKeys: false }));
 const interpolateMock = (template: string, options?: Record<string, unknown>) =>
   template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, token: string) => String(options?.[token] ?? ''));
-const deferred = <T,>() => {
-  let resolve!: (value: T) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-
-  return { promise, resolve, reject };
-};
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -52,22 +44,43 @@ vi.mock('@/common/services/order.service', () => ({
   adminOrderService: {
     getAll: (...args: unknown[]) => getAllMock(...args),
     getTabCounts: (...args: unknown[]) => getTabCountsMock(...args),
+    bulkUpdateStatus: (...args: unknown[]) => bulkUpdateStatusMock(...args),
+    exportSelectedOrders: (...args: unknown[]) => exportSelectedOrdersMock(...args),
   },
+}));
+
+vi.mock('@/common/contexts/ToastContext', () => ({
+  useToast: () => ({
+    showToast: vi.fn(),
+  }),
 }));
 
 vi.mock('@/admin/components/AdminUI', () => ({
   AdminPageShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   AdminSectionCard: ({ children }: { children: React.ReactNode }) => <section>{children}</section>,
+  AdminBadge: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
   AdminPageHeader: ({ title, meta }: { title: React.ReactNode; meta?: React.ReactNode }) => (
     <header>
       <h1>{title}</h1>
       {meta ? <div>{meta}</div> : null}
     </header>
   ),
+  AdminPrimaryButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props}>{children}</button>
+  ),
   AdminToolbar: ({ children, actions }: { children: React.ReactNode; actions?: React.ReactNode }) => (
     <div>
       <div>{children}</div>
       <div>{actions}</div>
+    </div>
+  ),
+  AdminActionButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props}>{children}</button>
+  ),
+  AdminModalShell: ({ children, footer }: { children?: React.ReactNode; footer?: React.ReactNode }) => (
+    <div>
+      {children}
+      {footer}
     </div>
   ),
   AdminTabs: ({ items }: { items: Array<{ label: React.ReactNode; count?: number }> }) => (
@@ -81,30 +94,21 @@ vi.mock('@/admin/components/AdminUI', () => ({
   ),
   AdminStatusFilterBar: ({
     items,
-    onChange,
     isRefreshing,
   }: {
-    items: Array<{ key: string; label: React.ReactNode; count?: number }>;
-    onChange: (key: string) => void;
+    items: Array<{ label: React.ReactNode; count?: number }>;
     isRefreshing?: boolean;
   }) => (
     <div data-testid="status-filter-bar" data-refreshing={isRefreshing ? 'true' : 'false'}>
       {items.map((item, index) => (
-        <button key={index} type="button" onClick={() => onChange(item.key)}>
+        <span key={index}>
           {item.label} {item.count}
-        </button>
+        </span>
       ))}
     </div>
   ),
   AdminSecondaryButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props}>{children}</button>
-  ),
-  AdminRefreshButton: ({
-    label,
-    isRefreshing,
-    ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { label: React.ReactNode; isRefreshing?: boolean }) => (
-    <button {...props} data-refreshing={isRefreshing ? 'true' : 'false'}>{label}</button>
   ),
   AdminEmptyState: ({ title, description }: { title: React.ReactNode; description?: React.ReactNode }) => (
     <div>
@@ -173,11 +177,12 @@ describe('Admin Orders page', () => {
       expect(screen.getByText('Đơn hàng')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('1 đơn hàng')).toBeInTheDocument();
+    expect(screen.getByText('1 đơn')).toBeInTheDocument();
     expect(screen.getByText('Làm mới')).toBeInTheDocument();
+    expect(screen.getByText('Chọn nhiều')).toBeInTheDocument();
     expect(screen.getByText('Tìm kiếm')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Tìm theo mã đơn, tên khách hàng, số điện thoại...')).toBeInTheDocument();
-    expect(screen.getByText('Tất cả 1')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Tìm tên, SĐT, mã đơn...')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tất cả/i })).toBeInTheDocument();
     expect(screen.getByText('Mã đơn')).toBeInTheDocument();
     expect(screen.getByText('Thanh toán')).toBeInTheDocument();
     expect(screen.getByText('1 sản phẩm')).toBeInTheDocument();
@@ -234,72 +239,6 @@ describe('Admin Orders page', () => {
     });
 
     expect(screen.getByTestId('status-filter-bar')).toHaveAttribute('data-refreshing', 'false');
-  });
-
-  it('does not spin the manual refresh button when switching tabs', async () => {
-    const nextOrders = deferred<{
-      orders: Array<Record<string, unknown>>;
-      pagination: { page: number; pageSize: number; total: number; totalPages: number };
-    }>();
-
-    getAllMock
-      .mockResolvedValueOnce({
-        orders: [
-          {
-            orderId: 101,
-            orderNumber: 'ORD-101',
-            customerName: 'Nguyen Van A',
-            customerPhone: '0900000000',
-            status: 'COMPLETED',
-            statusLabel: 'COMPLETED',
-            paymentStatus: 'PAID',
-            paymentMethod: 'VNPAY',
-            totalAmount: '450000',
-            createdAt: '2026-03-25T10:00:00.000Z',
-            itemCount: 1,
-            user: null,
-          },
-        ],
-        pagination: {
-          page: 1,
-          pageSize: 15,
-          total: 1,
-          totalPages: 1,
-        },
-      })
-      .mockImplementationOnce(() => nextOrders.promise);
-
-    render(<Orders />);
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Làm mới' })).toBeInTheDocument();
-    });
-
-    await userEvent.click(screen.getByRole('button', { name: /Đang xử lý/i }));
-
-    await waitFor(() => {
-      expect(getAllMock.mock.calls.length).toBeGreaterThanOrEqual(2);
-    });
-
-    expect(
-      getAllMock.mock.calls.some((call) => call[0] && typeof call[0] === 'object' && 'status' in call[0] && call[0].status === 'Processing'),
-    ).toBe(true);
-
-    expect(screen.getByRole('button', { name: 'Làm mới' })).toHaveAttribute('data-refreshing', 'false');
-
-    nextOrders.resolve({
-      orders: [],
-      pagination: {
-        page: 1,
-        pageSize: 15,
-        total: 0,
-        totalPages: 1,
-      },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Làm mới' })).toHaveAttribute('data-refreshing', 'false');
-    });
   });
 
   it('normalizes hyphenated return requested statuses before rendering compact labels', async () => {
@@ -486,5 +425,97 @@ describe('Admin Orders page', () => {
     });
 
     expect(screen.getByText('Cần kiểm tra thanh toán')).toBeInTheDocument();
+  });
+
+  it('shows the bulk toolbar after selecting an order on the current page', async () => {
+    const user = userEvent.setup();
+
+    render(<Orders />);
+
+    expect(screen.queryByLabelText('Chọn đơn ORD-101')).not.toBeInTheDocument();
+    expect(screen.queryByText('Đã chọn 1 đơn')).not.toBeInTheDocument();
+
+    await user.click(await screen.findByText('Chọn nhiều'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Chọn đơn ORD-101')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByLabelText('Chọn đơn ORD-101'));
+
+    expect(screen.getAllByText('Đã chọn 1 đơn').length).toBeGreaterThan(0);
+    expect(screen.getByText('Xuất')).toBeInTheDocument();
+    expect(screen.getByText('Xử lý')).toBeInTheDocument();
+    expect(screen.queryByText('Chuyển sang đã giao')).not.toBeInTheDocument();
+  });
+
+  it('guides shipping selections to the manual verification flow instead of exposing bulk delivered', async () => {
+    const user = userEvent.setup();
+
+    getAllMock.mockResolvedValueOnce({
+      orders: [
+        {
+          orderId: 202,
+          orderNumber: 'ORD-202',
+          customerName: 'Tran Van Shipping',
+          customerPhone: '0900999999',
+          status: 'SHIPPING',
+          statusLabel: 'SHIPPING',
+          paymentStatus: 'PAID',
+          paymentMethod: 'VNPAY',
+          totalAmount: '720000',
+          createdAt: '2026-03-25T10:00:00.000Z',
+          itemCount: 2,
+          user: null,
+        },
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 15,
+        total: 1,
+        totalPages: 1,
+      },
+    });
+
+    render(<Orders />);
+
+    await user.click(await screen.findByText('Chọn nhiều'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Chọn đơn ORD-202')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByLabelText('Chọn đơn ORD-202'));
+
+    expect(screen.getByText('Đơn giao hàng cần xác minh thủ công.')).toBeInTheDocument();
+    expect(screen.getByText('Mở chi tiết')).toBeInTheDocument();
+    expect(screen.queryByText('Chuyển sang đã giao')).not.toBeInTheDocument();
+
+    await user.click(screen.getByText('Mở chi tiết'));
+
+    expect(navigateMock).toHaveBeenCalledWith('/admin/orders/202');
+  });
+
+  it('keeps the default table layout free of selection checkboxes until bulk mode is enabled', async () => {
+    const user = userEvent.setup();
+
+    render(<Orders />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Mã đơn')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByLabelText('Chọn tất cả đơn trên trang hiện tại')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Chọn đơn ORD-101')).not.toBeInTheDocument();
+
+    await user.click(screen.getByText('Chọn nhiều'));
+
+    expect(screen.getByLabelText('Chọn tất cả đơn trên trang hiện tại')).toBeInTheDocument();
+    expect(screen.getByLabelText('Chọn đơn ORD-101')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Thoát'));
+
+    expect(screen.queryByLabelText('Chọn tất cả đơn trên trang hiện tại')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Chọn đơn ORD-101')).not.toBeInTheDocument();
   });
 });
