@@ -19,6 +19,7 @@ const getAdminOrderTabCountsMock = jest.fn((_req, res) => res.json({ route: 'adm
 const getAdminOrderDetailMock = jest.fn((_req, res) => res.json({ route: 'admin-order-detail' }));
 const bulkUpdateOrderStatusMock = jest.fn((_req, res) => res.json({ route: 'bulk-update-order-status' }));
 const exportSelectedAdminOrdersMock = jest.fn((_req, res) => res.json({ route: 'export-selected-admin-orders' }));
+const exportSelectedAdminShippingLabelsMock = jest.fn((_req, res) => res.json({ route: 'export-selected-admin-shipping-labels' }));
 const updateOrderStatusMock = jest.fn((_req, res) => res.json({ route: 'update-order-status' }));
 const uploadDeliveryProofImagesMock = jest.fn((_req, res) => res.status(201).json({ route: 'upload-delivery-proof' }));
 
@@ -44,6 +45,7 @@ jest.mock('../../controllers/order.controller', () => ({
   getAdminOrderDetail: getAdminOrderDetailMock,
   bulkUpdateOrderStatus: bulkUpdateOrderStatusMock,
   exportSelectedAdminOrders: exportSelectedAdminOrdersMock,
+  exportSelectedAdminShippingLabels: exportSelectedAdminShippingLabelsMock,
   updateOrderStatus: updateOrderStatusMock,
   confirmReceipt: jest.fn(),
   uploadDeliveryProofImages: uploadDeliveryProofImagesMock,
@@ -152,6 +154,19 @@ describe('legacy order admin routes authorization', () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ route: 'export-selected-admin-orders' });
     expect(exportSelectedAdminOrdersMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows staff to export shipping labels when VIEW_ORDER is assigned', async () => {
+    currentPermissions = ['VIEW_ORDER'];
+
+    const response = await request(app)
+      .post('/admin/export-shipping-labels')
+      .set('Authorization', 'Bearer test-token')
+      .send({ orderIds: [42, 43] });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ route: 'export-selected-admin-shipping-labels' });
+    expect(exportSelectedAdminShippingLabelsMock).toHaveBeenCalledTimes(1);
   });
 
   it('blocks staff order mutations without EDIT_ORDER', async () => {
