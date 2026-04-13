@@ -252,8 +252,8 @@ const OrderTableRow = React.memo(({
   onToggleSelect,
 }: OrderTableRowProps) => {
   const created = formatDateParts(order.createdAt);
-  const selectedRowClasses = 'bg-[rgba(19,39,67,0.72)] shadow-[inset_0_0_0_1px_rgba(56,189,248,0.16)]';
-  const selectedStickyCellClasses = 'bg-[rgba(17,34,58,0.98)] shadow-[-1px_0_0_rgba(56,189,248,0.16),inset_0_0_0_1px_rgba(56,189,248,0.08)]';
+  const selectedRowClasses = 'bg-[rgba(31,41,55,0.62)] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.14)]';
+  const selectedStickyCellClasses = 'bg-[rgba(24,32,46,0.92)] shadow-[-1px_0_0_rgba(148,163,184,0.1),inset_0_0_0_1px_rgba(148,163,184,0.08)]';
 
   const handleOpen = () => onOpen(order.orderId);
 
@@ -359,7 +359,7 @@ const OrderTableRow = React.memo(({
       <td
         className={`w-[116px] px-2.5 py-2 align-middle text-right transition-colors duration-150 lg:w-[120px] lg:px-3 ${
           isSelected
-            ? `${selectedStickyCellClasses} group-hover:bg-[rgba(16,28,46,0.98)]`
+            ? `${selectedStickyCellClasses} group-hover:bg-[rgba(28,37,52,0.94)]`
             : 'bg-[#0f1014] shadow-[-1px_0_0_rgba(255,255,255,0.04)] group-hover:bg-[#14161b]'
         } 2xl:sticky 2xl:right-0 2xl:z-10`}
       >
@@ -900,9 +900,9 @@ export const Orders: React.FC = () => {
   const hasSelectedShippingOrders = selectedShippingOrders.length > 0;
   const firstSelectedShippingOrder = selectedShippingOrders[0] ?? null;
   const showBulkSelectionPanel = isSelectionMode;
-  const stableTableViewportHeightClass = 'min-h-[280px] lg:min-h-[340px] xl:min-h-[400px]';
-  const stableFooterHeightClass = 'min-h-[56px]';
-  const stableToolbarHeightClass = showBulkSelectionPanel ? 'min-h-[64px]' : 'min-h-[52px]';
+  const stableTableViewportHeightClass = 'min-h-[292px] lg:min-h-[352px] xl:min-h-[412px]';
+  const stableFooterHeightClass = 'min-h-[64px]';
+  const stableToolbarHeightClass = 'min-h-[64px]';
 
   const handleOpenOrder = useCallback((orderId: number) => {
     navigate(`/admin/orders/${orderId}`);
@@ -1204,8 +1204,8 @@ export const Orders: React.FC = () => {
 
         <div className={`border-b border-white/[0.06] bg-white/[0.015] px-4 py-2 lg:px-5 ${stableToolbarHeightClass}`}>
           {showBulkSelectionPanel ? (
-            <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-              <div className="min-w-0 space-y-1.5">
+            <div className="grid min-h-[48px] gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <div className="min-w-0">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <AdminBadge tone="default" dot className="px-2.5 py-0.5 text-[11px]">
                     {resolveText('bulk.selectedCount', {
@@ -1224,24 +1224,6 @@ export const Orders: React.FC = () => {
                     </span>
                   )}
                 </div>
-                {hasSelectedShippingOrders && (
-                  <button
-                    type="button"
-                    onClick={handleOpenManualVerification}
-                    className="inline-flex text-[11px] font-bold uppercase tracking-[0.1em] text-sky-300 transition-colors hover:text-sky-200"
-                  >
-                    {resolveText(
-                      selectedShippingOrders.length > 1
-                        ? 'bulk.manualDelivery.openFirst'
-                        : 'bulk.manualDelivery.openSingle',
-                      {
-                        defaultValue: selectedShippingOrders.length > 1
-                          ? 'Mở đơn đầu tiên'
-                          : 'Mở chi tiết',
-                      },
-                    )}
-                  </button>
-                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5 lg:flex-nowrap lg:justify-self-end">
@@ -1299,7 +1281,7 @@ export const Orders: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="flex min-h-[32px] items-center justify-end">
+            <div className="flex min-h-[48px] items-center justify-end">
               <AdminSecondaryButton
                 type="button"
                 onClick={handleEnterSelectionMode}
@@ -1313,7 +1295,7 @@ export const Orders: React.FC = () => {
           )}
         </div>
 
-        <div className="flex min-h-[44px] flex-col gap-2 border-b border-white/[0.06] px-4 py-2 text-[12px] text-white/45 sm:flex-row sm:items-center sm:justify-between lg:px-5">
+        <div className="flex min-h-[44px] items-center border-b border-white/[0.06] px-4 py-2 text-[12px] text-white/45 lg:px-5">
           {orders.length > 0 && !loading && !error ? (
             <span>
               {resolveText('pagination.rangeSummary', {
@@ -1439,7 +1421,7 @@ export const Orders: React.FC = () => {
           )}
         </div>
 
-        <div className={`border-t border-white/[0.06] px-4 py-3 lg:px-5 ${stableFooterHeightClass}`}>
+        <div className={`border-t border-white/[0.06] px-4 pt-3 pb-4 lg:px-5 ${stableFooterHeightClass}`}>
           {!loading && !error && orders.length > 0 && totalPages > 1 ? (
             <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
               <p className="text-xs text-white/42">

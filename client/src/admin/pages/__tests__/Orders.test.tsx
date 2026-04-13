@@ -525,12 +525,9 @@ describe('Admin Orders page', () => {
     await user.click(screen.getByLabelText('Chọn đơn ORD-202'));
 
     expect(screen.getByText('Đơn giao hàng cần xác minh thủ công.')).toBeInTheDocument();
-    expect(screen.getByText('Mở chi tiết')).toBeInTheDocument();
+    expect(screen.queryByText('Mở chi tiết')).not.toBeInTheDocument();
     expect(screen.queryByText('Chuyển sang đã giao')).not.toBeInTheDocument();
-
-    await user.click(screen.getByText('Mở chi tiết'));
-
-    expect(navigateMock).toHaveBeenCalledWith('/admin/orders/202');
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
   it('keeps selection checkboxes visible and enters bulk mode when a checkbox is clicked', async () => {
