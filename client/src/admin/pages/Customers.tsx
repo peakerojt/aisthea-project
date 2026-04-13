@@ -34,8 +34,8 @@ import { UserActionMenu } from '@/admin/components/UserActionMenu';
 import { getImageUrl } from '@/common/utils/cloudinary';
 import { roleService, type RoleItem } from '@/admin/services/role.service';
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
-const DEFAULT_PAGE_SIZE = 20;
+const PAGE_SIZE_OPTIONS = [8, 10, 20, 50] as const;
+const DEFAULT_PAGE_SIZE = 8;
 
 const parsePositiveInt = (value: string | null, fallback: number) => {
     const parsed = Number.parseInt(value ?? '', 10);
@@ -472,7 +472,7 @@ export const Customers: React.FC = () => {
     );
 
     return (
-        <AdminPageShell className="relative h-full">
+        <AdminPageShell className="relative min-h-full">
             {/* ── Ban Confirmation Dialog ───────────────────────────────────── */}
             {banTarget && (
                 <AdminModalShell
