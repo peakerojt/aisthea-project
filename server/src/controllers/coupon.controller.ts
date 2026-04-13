@@ -3,6 +3,7 @@ import { prisma } from '../utils/prisma';
 import { validateCoupon, CouponError } from '../services/coupon.service';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { logger } from '../lib/logger';
+import { DEFAULT_ADMIN_COUPON_MIN_ORDER_VALUE } from '../shared/validation';
 import type {
     CouponIdParams,
     CouponListQueryInput,
@@ -79,6 +80,81 @@ function resolveCouponPayloadError(payload: {
     return null;
 }
 
+function resolveCouponStatus(coupon: {
+    isActive: boolean;
+    startDate: Date | string;
+    endDate: Date | string;
+    usedCount: number;
+    usageLimit: number;
+}) {
+    const now = new Date();
+    const start = new Date(coupon.startDate);
+    const end = new Date(coupon.endDate);
+
+    if (!coupon.isActive) return 'INACTIVE' as const;
+    if (now < start) return 'UPCOMING' as const;
+    if (now > end) return 'EXPIRED' as const;
+    if (coupon.usedCount >= coupon.usageLimit) return 'DEPLETED' as const;
+    return 'ACTIVE' as const;
+}
+
+type CouponStatusFilter = NonNullable<CouponListQueryInput['status']>;
+type CouponSortValue = NonNullable<CouponListQueryInput['sort']>;
+
+function buildCouponStatusWhere(status: CouponStatusFilter, now: Date) {
+    switch (status) {
+        case 'ACTIVE':
+            return {
+                isActive: true,
+                startDate: { lte: now },
+                endDate: { gte: now },
+                usedCount: { lt: prisma.coupon.fields.usageLimit },
+            };
+        case 'EXPIRED':
+            return {
+                isActive: true,
+                endDate: { lt: now },
+            };
+        case 'DEPLETED':
+            return {
+                isActive: true,
+                startDate: { lte: now },
+                endDate: { gte: now },
+                usedCount: { gte: prisma.coupon.fields.usageLimit },
+            };
+        case 'UPCOMING':
+            return {
+                isActive: true,
+                startDate: { gt: now },
+            };
+        case 'INACTIVE':
+            return {
+                isActive: false,
+            };
+        case 'ALL':
+        default:
+            return {};
+    }
+}
+
+function buildCouponOrderBy(sort: CouponSortValue) {
+    switch (sort) {
+        case 'createdAt_asc':
+            return { createdAt: 'asc' } as const;
+        case 'endDate_asc':
+            return [{ endDate: 'asc' }, { createdAt: 'desc' }] as const;
+        case 'endDate_desc':
+            return [{ endDate: 'desc' }, { createdAt: 'desc' }] as const;
+        case 'usedCount_desc':
+            return [{ usedCount: 'desc' }, { createdAt: 'desc' }] as const;
+        case 'usedCount_asc':
+            return [{ usedCount: 'asc' }, { createdAt: 'desc' }] as const;
+        case 'createdAt_desc':
+        default:
+            return { createdAt: 'desc' } as const;
+    }
+}
+
 // ─── POST /api/coupons/validate ───────────────────────────────────────────────
 // Body: { code: string, cartSubtotal: number }
 // Returns discountAmount on success, CouponError on failure.
@@ -104,12 +180,22 @@ export const validateCouponHandler = async (req: AuthRequest, res: Response) => 
 
 // ─── GET /api/coupons ─────────────────────────────────────────────────────────
 // Admin only. Returns paginated coupon list.
-// Query: ?page=1&pageSize=20&search=&isActive=
+// Query: ?page=1&pageSize=20&search=&status=&isActive=
 
 export const listCoupons = async (req: Request, res: Response) => {
     try {
-        const { page, pageSize, search, includeHidden, isActive } = req.query as unknown as CouponListQueryInput;
+        const {
+            page,
+            pageSize,
+            search,
+            sort,
+            status,
+            includeHidden,
+            isActive,
+        } = req.query as unknown as CouponListQueryInput;
         const skip = (page - 1) * pageSize;
+        const now = new Date();
+        const normalizedStatus: CouponStatusFilter = status ?? 'ALL';
 
         const baseWhere: any = {
             ...(includeHidden ? {} : { isHidden: false }),
@@ -123,17 +209,17 @@ export const listCoupons = async (req: Request, res: Response) => {
             ...baseWhere,
         };
 
-        if (typeof isActive === 'boolean') {
+        if (normalizedStatus !== 'ALL') {
+            Object.assign(where, buildCouponStatusWhere(normalizedStatus, now));
+        } else if (typeof isActive === 'boolean') {
             where.isActive = isActive;
         }
-
-        const now = new Date();
 
         const [total, coupons, summaryTotal, summaryActive, summaryExpired, summaryDepleted, summaryUpcoming, summaryInactive] = await Promise.all([
             (prisma.coupon as any).count({ where }),
             (prisma.coupon as any).findMany({
                 where,
-                orderBy: { createdAt: 'desc' },
+                orderBy: buildCouponOrderBy(sort ?? 'createdAt_desc'),
                 skip,
                 take: pageSize,
             }),
@@ -141,39 +227,31 @@ export const listCoupons = async (req: Request, res: Response) => {
             (prisma.coupon as any).count({
                 where: {
                     ...baseWhere,
-                    isActive: true,
-                    startDate: { lte: now },
-                    endDate: { gte: now },
-                    usedCount: { lt: prisma.coupon.fields.usageLimit },
+                    ...buildCouponStatusWhere('ACTIVE', now),
                 },
             }),
             (prisma.coupon as any).count({
                 where: {
                     ...baseWhere,
-                    isActive: true,
-                    endDate: { lt: now },
+                    ...buildCouponStatusWhere('EXPIRED', now),
                 },
             }),
             (prisma.coupon as any).count({
                 where: {
                     ...baseWhere,
-                    isActive: true,
-                    startDate: { lte: now },
-                    endDate: { gte: now },
-                    usedCount: { gte: prisma.coupon.fields.usageLimit },
+                    ...buildCouponStatusWhere('DEPLETED', now),
                 },
             }),
             (prisma.coupon as any).count({
                 where: {
                     ...baseWhere,
-                    isActive: true,
-                    startDate: { gt: now },
+                    ...buildCouponStatusWhere('UPCOMING', now),
                 },
             }),
             (prisma.coupon as any).count({
                 where: {
                     ...baseWhere,
-                    isActive: false,
+                    ...buildCouponStatusWhere('INACTIVE', now),
                 },
             }),
         ]);
@@ -282,7 +360,7 @@ export const createCoupon = async (req: Request, res: Response) => {
                 type: payload.type,
                 value: payload.value,
                 maxDiscountAmount: payload.maxDiscountAmount ?? null,
-                minOrderValue: payload.minOrderValue ?? 0,
+                minOrderValue: payload.minOrderValue ?? DEFAULT_ADMIN_COUPON_MIN_ORDER_VALUE,
                 startDate: payload.startDate,
                 endDate: payload.endDate,
                 usageLimit: payload.usageLimit,
@@ -314,6 +392,16 @@ export const updateCoupon = async (req: Request, res: Response) => {
         const existing = await (prisma.coupon as any).findUnique({ where: { couponId } });
         if (!existing) {
             return res.status(404).json({ error: 'Không tìm thấy mã giảm giá.', code: 'NOT_FOUND' });
+        }
+
+        const existingStatus = resolveCouponStatus(existing);
+        if (existingStatus === 'INACTIVE' || existingStatus === 'EXPIRED') {
+            return res.status(409).json({
+                error: existingStatus === 'INACTIVE'
+                    ? 'Mã giảm giá vô hiệu không thể chỉnh sửa.'
+                    : 'Mã giảm giá đã hết hạn không thể chỉnh sửa.',
+                code: 'COUPON_EDIT_LOCKED',
+            });
         }
 
         const payloadError = resolveCouponPayloadError({

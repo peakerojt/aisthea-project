@@ -1,7 +1,7 @@
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Ban, ChevronDown, ChevronLeft, ChevronRight, Eye, Plus, Truck, X } from 'lucide-react';
+import { Ban, ChevronLeft, ChevronRight, Eye, Plus, Truck, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import {
   AdminActionButton,
@@ -658,7 +658,6 @@ const CreatePurchaseOrderModal = React.memo(({
                     </option>
                   ))}
                 </select>
-                <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/55" />
               </div>
               <p className="text-xs text-white/40">{tt('restock:po.create.savedSupplierHint')}</p>
             </div>
@@ -743,7 +742,6 @@ const CreatePurchaseOrderModal = React.memo(({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-white/42" aria-hidden="true" />
                 </div>
                 {bulkGroupError && <p role="alert" className="mt-2 text-xs text-red-300">{bulkGroupError}</p>}
               </div>

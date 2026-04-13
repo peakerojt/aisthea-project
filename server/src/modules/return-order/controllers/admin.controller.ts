@@ -26,7 +26,17 @@ export const createReturnRequestAdminHandlers = (
       res,
       async () => {
         const filters = parseOrError(listAdminReturnsSchema, req.query);
-        return service.getAdminReturns(filters, getWorkflowActor(req));
+        const actor = getWorkflowActor(req);
+        const { page, limit, status, sort: _sort, ...summaryFilters } = filters;
+        const [pagedResult, summary] = await Promise.all([
+          service.getAdminReturns(filters, actor),
+          service.getAdminReturnSummary(summaryFilters, actor),
+        ]);
+
+        return {
+          ...pagedResult,
+          summary,
+        };
       },
       { failureCode: 'GET_ADMIN_RETURNS_FAILED' },
     );

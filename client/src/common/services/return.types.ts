@@ -150,6 +150,14 @@ export interface ReturnListResponse {
     total: number;
     totalPages: number;
   };
+  summary?: {
+    ALL: number;
+    REQUESTED: number;
+    APPROVED: number;
+    REJECTED: number;
+    RECEIVED: number;
+    REFUNDED: number;
+  };
 }
 
 export type ReturnServiceEnvelope<T> = {

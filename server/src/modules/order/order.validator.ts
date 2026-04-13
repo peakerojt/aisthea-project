@@ -1,4 +1,6 @@
 export {
+  adminOrderExportSchema,
+  bulkUpdateOrderStatusSchema,
   cancelOrderBodySchema,
   createOrderSchema,
   myOrderIdParamSchema,
@@ -8,6 +10,8 @@ export {
 } from '../../shared/validation/schemas/order';
 
 export type {
+  AdminOrderExportInput,
+  BulkUpdateOrderStatusInput,
   CancelOrderBodyInput,
   CreateOrderInput,
   OrderIdParams,

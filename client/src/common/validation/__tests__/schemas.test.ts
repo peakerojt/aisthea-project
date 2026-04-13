@@ -60,14 +60,19 @@ describe('client shared validation schemas', () => {
   });
 
   it('keeps coupon admin form validation aligned with backend', () => {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() + 1);
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 30);
+
     const parsed = createCouponClientSchema.parse({
       code: ' save15 ',
       type: 'PERCENTAGE',
       value: 15,
       maxDiscountAmount: 50000,
-      minOrderValue: 200000,
-      startDate: '2026-03-01',
-      endDate: '2026-03-31',
+      minOrderValue: 500000,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
       usageLimit: 100,
       usagePerUser: 1,
       isActive: true,
@@ -75,6 +80,28 @@ describe('client shared validation schemas', () => {
 
     expect(parsed.code).toBe('SAVE15');
     expect(parsed.startDate).toBeInstanceOf(Date);
+  });
+
+  it('rejects coupon min order values outside the shared preset list', () => {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() + 1);
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 30);
+
+    expect(() =>
+      createCouponClientSchema.parse({
+        code: 'save15',
+        type: 'PERCENTAGE',
+        value: 15,
+        maxDiscountAmount: 50000,
+        minOrderValue: 200000,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        usageLimit: 100,
+        usagePerUser: 1,
+        isActive: true,
+      }),
+    ).toThrow('Điều kiện đơn tối thiểu chỉ chấp nhận các mức');
   });
 
   it('validates address and product status helper schemas', () => {

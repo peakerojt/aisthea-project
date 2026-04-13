@@ -3,6 +3,7 @@ const serviceMock = {
   getMyReturns: jest.fn(),
   getReturnDetail: jest.fn(),
   getAdminReturns: jest.fn(),
+  getAdminReturnSummary: jest.fn(),
   approveReturnRequest: jest.fn(),
   rejectReturnRequest: jest.fn(),
   markReturnInTransit: jest.fn(),
@@ -80,6 +81,7 @@ describe('ReturnRequestController', () => {
     serviceMock.getMyReturns.mockReset();
     serviceMock.getReturnDetail.mockReset();
     serviceMock.getAdminReturns.mockReset();
+    serviceMock.getAdminReturnSummary.mockReset();
     serviceMock.approveReturnRequest.mockReset();
     serviceMock.rejectReturnRequest.mockReset();
     serviceMock.markReturnInTransit.mockReset();
@@ -375,6 +377,14 @@ describe('ReturnRequestController', () => {
       limit: 20,
       totalPages: 1,
     });
+    serviceMock.getAdminReturnSummary.mockResolvedValueOnce({
+      ALL: 8,
+      REQUESTED: 3,
+      APPROVED: 2,
+      REJECTED: 1,
+      RECEIVED: 1,
+      REFUNDED: 1,
+    });
 
     const req: any = {
       query: { page: '3', limit: '20', status: 'REQUESTED' },
@@ -388,10 +398,12 @@ describe('ReturnRequestController', () => {
       {
         page: 3,
         limit: 20,
+        sort: 'createdAt_desc',
         status: 'REQUESTED',
       },
       adminWorkflowActor,
     );
+    expect(serviceMock.getAdminReturnSummary).toHaveBeenCalledWith({}, adminWorkflowActor);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       success: true,
@@ -401,6 +413,14 @@ describe('ReturnRequestController', () => {
         page: 3,
         limit: 20,
         totalPages: 1,
+        summary: {
+          ALL: 8,
+          REQUESTED: 3,
+          APPROVED: 2,
+          REJECTED: 1,
+          RECEIVED: 1,
+          REFUNDED: 1,
+        },
       },
     });
   });

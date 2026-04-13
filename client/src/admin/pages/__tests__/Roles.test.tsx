@@ -240,6 +240,9 @@ describe('Roles permission-management page', () => {
     expect(screen.getByText('Xác nhận hoàn tiền & chứng từ')).toBeInTheDocument();
     expect(screen.getByText('Quyền chuyên biệt khác')).toBeInTheDocument();
     expect(screen.getByText('Quản lý tài khoản nhận hoàn tiền')).toBeInTheDocument();
+    expect(screen.queryByText('RETURN_REFUND_FINANCE_VIEW')).not.toBeInTheDocument();
+    expect(screen.queryByText('RETURN_REFUND_FINANCE_COMPLETE')).not.toBeInTheDocument();
+    expect(screen.queryByText('CUSTOMER_BANK_ACCOUNT_MANAGE')).not.toBeInTheDocument();
   });
 
   it('keeps Super Admin read-only while visible', async () => {
@@ -257,6 +260,15 @@ describe('Roles permission-management page', () => {
       expect(screen.getByText('Vai trò được bảo vệ')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toBeDisabled();
       expect(screen.getByLabelText('perm-101')).toBeDisabled();
+    });
+  });
+
+  it('disables Save when no permissions have been changed since loading', async () => {
+    render(<Roles />);
+
+    await waitFor(() => {
+      // Admin role has permissionIds: [101] — pre-loaded with no changes
+      expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toBeDisabled();
     });
   });
 });

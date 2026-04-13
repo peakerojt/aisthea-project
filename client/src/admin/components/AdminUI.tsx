@@ -729,7 +729,7 @@ export const AdminModalShell: React.FC<AdminModalShellProps> = ({
         }`}
         onClick={closeOnOverlayClick && onClose ? onClose : undefined}
       />
-      <div className="fixed inset-0 z-50 overflow-hidden p-3 md:p-4">
+      <div className="admin-shell-scrollbars fixed inset-0 z-50 overflow-hidden p-3 md:p-4">
         <div className={`flex h-full justify-center ${align === 'center' ? 'items-center' : 'items-start py-6'}`}>
           <div
             role="dialog"
