@@ -1,23 +1,25 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { startTransition, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Search, Package, ChevronLeft, ChevronRight, Eye,
-  AlertCircle, FilterX, Calendar, Copy,
+  AlertCircle, FilterX, Calendar, Copy, RefreshCw, Download, CheckCircle2, Truck, Box, Ban, X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { adminOrderService, AdminOrder } from '@/common/services/order.service';
+import { useToast } from '@/common/contexts/ToastContext';
+import { ORDER_STATUS, getValidNextStatuses, normalizeStatus, type OrderStatusValue } from '@/config/orderStatus.config';
 import { getPaymentMethodMeta, getPaymentStatusMeta } from '@/common/utils/paymentStatus';
 import { getOrderStatusDisplayMeta } from '@/common/utils/orderUiStatus';
 import { formatCurrencyFullVND } from '@/common/utils/currency';
 import {
+  AdminActionButton,
+  AdminBadge,
   AdminEmptyState,
-  AdminPageHeader,
+  AdminModalShell,
   AdminPageShell,
-  AdminRefreshButton,
+  AdminPrimaryButton,
   AdminSectionCard,
   AdminSecondaryButton,
-  AdminStatusFilterBar,
-  AdminToolbar,
   adminUiTokens,
 } from '@/admin/components/AdminUI';
 
@@ -32,7 +34,7 @@ type OrderSortValue =
   | 'paymentStatus_desc';
 type OrdersTranslator = (key: string, options?: Record<string, unknown>) => string;
 const DEFAULT_SORT: OrderSortValue = 'createdAt_desc';
-const DEFAULT_PAGE_SIZE = 15;
+const DEFAULT_PAGE_SIZE = 10;
 const ORDER_STATUS_QUERY_VALUES = new Set<StatusTabKey>(['ALL', 'Pending', 'Processing', 'Shipping', 'Delivered', 'Cancelled']);
 const ORDER_SORT_QUERY_VALUES = new Set<OrderSortValue>([
   'createdAt_desc',
@@ -42,6 +44,20 @@ const ORDER_SORT_QUERY_VALUES = new Set<OrderSortValue>([
   'status_asc',
   'paymentStatus_desc',
 ]);
+
+type BulkActionKey = 'mark-processing' | 'mark-shipping' | 'cancel' | 'export' | 'export-labels';
+
+type BulkActionState = {
+  key: BulkActionKey;
+  status?: OrderStatusValue;
+} | null;
+
+type BulkFeedbackState = {
+  kind: 'success' | 'warning' | 'error' | 'info';
+  title: string;
+  description?: string;
+  skipped?: Array<{ orderId: number; errorCode?: string }>;
+} | null;
 
 const parseStatusTab = (value: string | null): StatusTabKey =>
   value && ORDER_STATUS_QUERY_VALUES.has(value as StatusTabKey)
@@ -85,9 +101,37 @@ const getCompactPaymentMethodLabel = (
   return label === meta.labelKey ? meta.defaultLabel : label;
 };
 
+const getCompactStatusLabel = (
+  canonical: string | null,
+  fallback: string,
+  t: OrdersTranslator,
+) => {
+  switch (canonical) {
+    case 'Pending':
+      return t('statusCompact.PENDING', { defaultValue: 'Chờ xác nhận' });
+    case 'Processing':
+      return t('statusCompact.PROCESSING', { defaultValue: 'Đang xử lý' });
+    case 'Shipping':
+      return t('statusCompact.SHIPPING', { defaultValue: 'Đang giao' });
+    case 'Delivered':
+      return t('statusCompact.DELIVERED', { defaultValue: 'Đã giao' });
+    case 'Cancelled':
+      return t('statusCompact.CANCELLED', { defaultValue: 'Đã hủy' });
+    default:
+      return fallback;
+  }
+};
+
 const shortenOrderNumber = (value: string) => {
-  if (value.length <= 18) return value;
-  return `${value.slice(0, 10)}...${value.slice(-4)}`;
+  if (value.length <= 13) return value;
+
+  if (value.startsWith('ORD-')) {
+    const body = value.slice(4);
+    if (body.length <= 5) return value;
+    return `ORD-${body.slice(0, 2)}...${body.slice(-3)}`;
+  }
+
+  return `${value.slice(0, 6)}...${value.slice(-3)}`;
 };
 
 const formatDateParts = (iso?: string) => {
@@ -118,18 +162,55 @@ const getVisiblePages = (page: number, totalPages: number) => {
   );
 };
 
-const StatusBadge: React.FC<{ status: string; t: OrdersTranslator }> = ({ status, t }) => {
+const BULK_ACTION_STATUS_BY_KEY: Record<Exclude<BulkActionKey, 'export' | 'export-labels'>, OrderStatusValue> = {
+  'mark-processing': ORDER_STATUS.PROCESSING,
+  'mark-shipping': ORDER_STATUS.SHIPPING,
+  cancel: ORDER_STATUS.CANCELLED,
+};
+
+const resolveBulkActionErrorText = (
+  errorCode: string | undefined,
+  t: OrdersTranslator,
+) => {
+  switch (errorCode) {
+    case 'INVALID_STATUS_TRANSITION':
+      return t('bulk.errors.invalidTransition', { defaultValue: 'Không đúng luồng chuyển trạng thái.' });
+    case 'DELIVERY_PROOF_REQUIRED':
+      return t('bulk.errors.deliveryProofRequired', { defaultValue: 'Chưa có bằng chứng giao hàng đã duyệt.' });
+    case 'DELIVERY_PROOF_REVIEW_REQUIRED':
+      return t('bulk.errors.deliveryProofReviewRequired', { defaultValue: 'Bằng chứng giao hàng chưa được xác nhận.' });
+    case 'ORDER_NOT_FOUND':
+    case 'NOT_FOUND':
+      return t('bulk.errors.notFound', { defaultValue: 'Không còn tìm thấy đơn hàng.' });
+    case 'ORDER_STATE_CONFLICT':
+      return t('bulk.errors.stateConflict', { defaultValue: 'Đơn đã đổi trạng thái ở nơi khác.' });
+    default:
+      return t('bulk.errors.generic', { defaultValue: 'Không thể áp dụng thao tác cho đơn này.' });
+  }
+};
+
+const StatusBadge: React.FC<{ status: string; t: OrdersTranslator; compact?: boolean }> = ({
+  status,
+  t,
+  compact = false,
+}) => {
   const { canonical, meta } = getOrderStatusDisplayMeta(status);
   const translationKey = canonical ? `status.${canonical.toUpperCase()}` : 'status.other';
   const translated = t(translationKey, {
     defaultValue: canonical ? meta.label : status || 'Khác',
   });
-  const label = translated === translationKey ? (canonical ? meta.label : status || 'Khác') : translated;
+  const fullLabel = translated === translationKey ? (canonical ? meta.label : status || 'Khác') : translated;
+  const label = compact ? getCompactStatusLabel(canonical, fullLabel, t) : fullLabel;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${meta.badgeClass} ${meta.textClass}`}>
+    <span
+      title={fullLabel}
+      className={`inline-flex max-w-full items-center gap-1 overflow-hidden rounded-full border px-2 py-0.5 text-[11px] font-semibold ${meta.badgeClass} ${meta.textClass} ${
+        compact ? 'px-1.5 text-[11px]' : ''
+      }`}
+    >
       <span className={`h-1.5 w-1.5 rounded-full ${meta.dotClass}`} />
-      {label}
+      <span className="truncate whitespace-nowrap">{label}</span>
     </span>
   );
 };
@@ -139,35 +220,48 @@ const PaymentBadge: React.FC<{ paymentStatus: string; paymentMethod?: string; t:
   paymentMethod,
   t,
 }) => (
-  <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getPaymentBadgeTone(paymentStatus, paymentMethod)}`}>
+  <span
+    title={getCompactPaymentLabel(paymentStatus, paymentMethod, t)}
+    className={`inline-flex max-w-full items-center overflow-hidden rounded-full border px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap ${getPaymentBadgeTone(paymentStatus, paymentMethod)}`}
+  >
     {getCompactPaymentLabel(paymentStatus, paymentMethod, t)}
   </span>
 );
 
 interface OrderTableRowProps {
   order: AdminOrder;
+  selectionEnabled: boolean;
+  isSelected: boolean;
   t: OrdersTranslator;
   copyOrderNumberTitle: string;
   detailLabel: string;
   onOpen: (orderId: number) => void;
   onCopy: (orderNumber: string) => void;
+  onToggleSelect: (orderId: number) => void;
 }
 
 const OrderTableRow = React.memo(({
   order,
+  selectionEnabled,
+  isSelected,
   t,
   copyOrderNumberTitle,
   detailLabel,
   onOpen,
   onCopy,
+  onToggleSelect,
 }: OrderTableRowProps) => {
   const created = formatDateParts(order.createdAt);
+  const selectedRowClasses = 'bg-[rgba(31,41,55,0.62)] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.14)]';
+  const selectedStickyCellClasses = 'bg-[rgba(24,32,46,0.92)] shadow-[-1px_0_0_rgba(148,163,184,0.1),inset_0_0_0_1px_rgba(148,163,184,0.08)]';
 
   const handleOpen = () => onOpen(order.orderId);
 
   return (
     <tr
-      className="group cursor-pointer border-b border-white/[0.04] text-sm transition-colors hover:bg-white/[0.03]"
+      className={`group cursor-pointer border-b border-white/[0.04] text-sm transition-colors hover:bg-white/[0.03] ${
+        isSelected ? selectedRowClasses : ''
+      }`}
       onClick={handleOpen}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -177,9 +271,29 @@ const OrderTableRow = React.memo(({
       }}
       tabIndex={0}
     >
-      <td className="px-5 py-3.5 align-middle">
+      <td className="w-12 px-2.5 py-2 text-center align-middle lg:px-3">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => {
+            event.stopPropagation();
+            onToggleSelect(order.orderId);
+          }}
+          aria-label={t('bulk.table.selectOrder', {
+            defaultValue: 'Chọn đơn {{orderNumber}}',
+            orderNumber: order.orderNumber,
+          })}
+          className={`h-4 w-4 rounded border text-primary transition-opacity focus:ring-0 ${
+            selectionEnabled
+              ? 'border-white/20 bg-transparent opacity-100'
+              : 'border-white/[0.12] bg-white/[0.015] opacity-40 hover:opacity-70'
+          }`}
+        />
+      </td>
+      <td className="w-[15%] px-3 py-2 align-middle lg:px-3.5">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span className="font-mono text-sm font-semibold text-white/92">
               {shortenOrderNumber(order.orderNumber)}
             </span>
@@ -189,13 +303,13 @@ const OrderTableRow = React.memo(({
                 event.stopPropagation();
                 onCopy(order.orderNumber);
               }}
-              className="rounded-md border border-white/10 p-1 text-white/35 transition-colors duration-150 hover:border-white/20 hover:text-white/80"
+              className="rounded-md border border-white/10 p-0.5 text-white/35 transition-colors duration-150 hover:border-white/20 hover:text-white/80"
               title={copyOrderNumberTitle}
             >
-              <Copy size={12} />
+              <Copy size={11} />
             </button>
           </div>
-          <p className="text-[11px] text-white/50">
+          <p className="text-[11.5px] text-white/50">
             {t('table.itemCount', {
               count: order.itemCount,
               defaultValue: '{{count}} sản phẩm',
@@ -204,52 +318,60 @@ const OrderTableRow = React.memo(({
         </div>
       </td>
 
-      <td className="px-5 py-3.5 align-middle">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[11px] font-bold uppercase text-white/70">
+      <td className="w-[23.5%] px-3 py-2 align-middle lg:px-3.5">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[10px] font-bold uppercase text-white/70">
             {order.customerName?.charAt(0) ?? '?'}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-white/90">{order.customerName}</p>
-            <p className="mt-0.5 text-[11px] text-white/52">{order.customerPhone}</p>
+            <p className="truncate text-[14px] font-medium text-white/90">{order.customerName}</p>
+            <p className="mt-0.5 truncate text-[11.5px] text-white/56">{order.customerPhone}</p>
           </div>
         </div>
       </td>
 
-      <td className="px-5 py-3.5 align-middle">
+      <td className="w-[11.5%] px-3 py-2 align-middle lg:px-3.5">
         <div className="space-y-1">
-          <p className="text-sm font-medium text-white/88">{created.time}</p>
-          <p className="text-[11px] text-white/52">{created.date}</p>
+          <p className="text-[14px] font-medium text-white/90">{created.time}</p>
+          <p className="text-[11.5px] text-white/56">{created.date}</p>
         </div>
       </td>
 
-      <td className="px-5 py-3.5 align-middle">
-        <span className="text-sm font-bold text-white">{formatVND(order.totalAmount)}</span>
+      <td className="w-[12.5%] px-3 py-2 align-middle lg:px-3.5">
+        <span className="text-[14px] font-bold text-white">{formatVND(order.totalAmount)}</span>
       </td>
 
-      <td className="px-5 py-3.5 align-middle">
-        <div className="space-y-1.5">
+      <td className="w-[13.5%] px-3 py-2 align-middle lg:px-3.5">
+        <div className="min-w-0 space-y-0.5">
           <PaymentBadge paymentStatus={order.paymentStatus} paymentMethod={order.paymentMethod} t={t} />
-          <p className="text-[11px] uppercase tracking-[0.14em] text-white/42">
+          <p className="truncate text-[11.5px] uppercase tracking-[0.04em] text-white/48">
             {getCompactPaymentMethodLabel(order.paymentMethod, t)}
           </p>
         </div>
       </td>
 
-      <td className="px-5 py-3.5 align-middle">
-        <StatusBadge status={order.status} t={t} />
+      <td className="w-[13.5%] px-3 py-2 pr-3 align-middle lg:px-3.5 lg:pr-4">
+        <div className="min-w-0">
+          <StatusBadge status={order.status} t={t} compact />
+        </div>
       </td>
 
-      <td className="sticky right-0 px-5 py-3.5 align-middle text-right bg-[#0f1014] transition-colors duration-150 group-hover:bg-[#14161b]">
+      <td
+        className={`w-[116px] px-2.5 py-2 align-middle text-right transition-colors duration-150 lg:w-[120px] lg:px-3 ${
+          isSelected
+            ? `${selectedStickyCellClasses} group-hover:bg-[rgba(28,37,52,0.94)]`
+            : 'bg-[#0f1014] shadow-[-1px_0_0_rgba(255,255,255,0.04)] group-hover:bg-[#14161b]'
+        } 2xl:sticky 2xl:right-0 2xl:z-10`}
+      >
         <button
           type="button"
           onClick={(event) => {
             event.stopPropagation();
             handleOpen();
           }}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white/70 transition-colors duration-150 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+          className="inline-flex min-w-[92px] items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-white/72 transition-colors duration-150 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
         >
-          <Eye size={13} />
+          <Eye size={11} />
           {detailLabel}
         </button>
       </td>
@@ -257,9 +379,179 @@ const OrderTableRow = React.memo(({
   );
 });
 
+const BulkFeedbackBar: React.FC<{
+  feedback: BulkFeedbackState;
+  t: OrdersTranslator;
+  onDismiss: () => void;
+}> = ({ feedback, t, onDismiss }) => {
+  const toneClassMap = {
+    success: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-100',
+    warning: 'border-amber-500/20 bg-amber-500/10 text-amber-100',
+    error: 'border-red-500/20 bg-red-500/10 text-red-100',
+    info: 'border-sky-500/20 bg-sky-500/10 text-sky-100',
+  } as const;
+
+  return (
+    <div className={`mx-5 mt-5 rounded-2xl border px-4 py-3 lg:mx-6 ${toneClassMap[feedback.kind]}`}>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold">{feedback.title}</p>
+          {feedback.description && <p className="text-xs text-white/75">{feedback.description}</p>}
+          {feedback.skipped && feedback.skipped.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {feedback.skipped.slice(0, 4).map((item) => (
+                <AdminBadge key={item.orderId} tone="warning" className="text-[10px]">
+                  {t('bulk.summary.skippedBadge', {
+                    orderId: item.orderId,
+                    reason: resolveBulkActionErrorText(item.errorCode, t),
+                    defaultValue: 'Đơn #{{orderId}} · {{reason}}',
+                  })}
+                </AdminBadge>
+              ))}
+              {feedback.skipped.length > 4 && (
+                <AdminBadge tone="default" className="text-[10px]">
+                  {t('bulk.summary.moreSkipped', {
+                    count: feedback.skipped.length - 4,
+                    defaultValue: '+{{count}} đơn khác',
+                  })}
+                </AdminBadge>
+              )}
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/70 hover:text-white"
+        >
+          {t('bulk.summary.dismiss', { defaultValue: 'Đóng' })}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const BulkActionModal: React.FC<{
+  action: BulkActionState;
+  selectedCount: number;
+  loading: boolean;
+  t: OrdersTranslator;
+  onClose: () => void;
+  onConfirm: (note?: string) => void;
+}> = ({ action, selectedCount, loading, t, onClose, onConfirm }) => {
+  const [note, setNote] = useState('');
+
+  useEffect(() => {
+    setNote('');
+  }, [action]);
+
+  if (!action) return null;
+
+  const actionIcon =
+    action.key === 'mark-processing'
+      ? Box
+      : action.key === 'mark-shipping'
+        ? Truck
+        : action.key === 'cancel'
+          ? Ban
+          : action.key === 'export-labels'
+            ? Package
+            : Download;
+
+  const title =
+    action.key === 'mark-processing'
+      ? t('bulk.actions.markProcessing', { defaultValue: 'Chuyển sang xử lý' })
+      : action.key === 'mark-shipping'
+        ? t('bulk.actions.markShipping', { defaultValue: 'Chuyển sang giao hàng' })
+        : action.key === 'cancel'
+          ? t('bulk.actions.cancel', { defaultValue: 'Hủy đơn đã chọn' })
+          : action.key === 'export-labels'
+            ? t('bulk.actions.exportLabels', { defaultValue: 'Xuất phiếu gửi hàng' })
+            : t('bulk.actions.exportSelected', { defaultValue: 'Xuất đơn đã chọn' });
+
+  const subtitle =
+    action.key === 'cancel'
+      ? t('bulk.dialog.cancelSubtitle', {
+        count: selectedCount,
+        defaultValue: 'Các đơn đủ điều kiện trong {{count}} đơn đã chọn sẽ bị hủy. Những đơn không còn hợp lệ sẽ được bỏ qua an toàn.',
+      })
+      : action.key === 'export'
+        ? t('bulk.dialog.exportSubtitle', {
+          count: selectedCount,
+          defaultValue: 'Xuất {{count}} đơn đang được chọn trên trang hiện tại ra tệp CSV.',
+        })
+        : action.key === 'export-labels'
+          ? t('bulk.dialog.exportLabelsSubtitle', {
+            count: selectedCount,
+            defaultValue: 'Xuất phiếu gửi hàng PDF cho {{count}} đơn đang được chọn. Chỉ đơn "Đang xử lý" được xuất.',
+          })
+          : t('bulk.dialog.defaultSubtitle', {
+            count: selectedCount,
+            defaultValue: 'Áp dụng thao tác cho {{count}} đơn đang được chọn. Các đơn không hợp lệ sẽ được bỏ qua.',
+          });
+
+  const confirmLabel =
+    action.key === 'export'
+      ? t('bulk.dialog.confirmExport', { defaultValue: 'Xuất CSV' })
+      : action.key === 'export-labels'
+        ? t('bulk.dialog.confirmExportLabels', { defaultValue: 'Xuất phiếu' })
+        : t('bulk.dialog.confirm', { defaultValue: 'Xác nhận' });
+
+  return (
+    <AdminModalShell
+      icon={actionIcon}
+      title={title}
+      subtitle={subtitle}
+      onClose={loading ? undefined : onClose}
+      maxWidthClassName="max-w-lg"
+      bodyClassName="space-y-5 p-6"
+      footer={(
+        <div className="flex justify-end gap-3">
+          <AdminSecondaryButton type="button" onClick={onClose} disabled={loading}>
+            {t('bulk.dialog.keepSelection', { defaultValue: 'Quay lại' })}
+          </AdminSecondaryButton>
+          <AdminPrimaryButton
+            type="button"
+            onClick={() => onConfirm(note)}
+            disabled={loading}
+          >
+            {loading ? (
+              <RefreshCw size={14} className="animate-spin" />
+            ) : action.key === 'export' || action.key === 'export-labels' ? (
+              <Download size={14} />
+            ) : (
+              <CheckCircle2 size={14} />
+            )}
+            {loading
+              ? t('bulk.dialog.processing', { defaultValue: 'Đang xử lý...' })
+              : confirmLabel}
+          </AdminPrimaryButton>
+        </div>
+      )}
+    >
+      {action.key === 'cancel' && (
+        <label className="block">
+          <span className={`${adminUiTokens.fieldLabel} mb-2 block`}>
+            {t('bulk.dialog.noteLabel', { defaultValue: 'Ghi chú nội bộ' })}
+          </span>
+          <textarea
+            rows={4}
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder={t('bulk.dialog.notePlaceholder', { defaultValue: 'Ví dụ: khách yêu cầu đổi địa chỉ, đơn cần dừng xử lý...' })}
+            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-white/28 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+          />
+        </label>
+      )}
+    </AdminModalShell>
+  );
+};
+
 export const Orders: React.FC = () => {
   const { t } = useTranslation(['orders']);
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const interpolateFallback = useCallback(
     (template: string, options?: Record<string, unknown>) =>
@@ -271,6 +563,9 @@ export const Orders: React.FC = () => {
     const value = t(key, options);
     return value === key ? interpolateFallback(fallback, options) : value;
   }, [interpolateFallback, t]);
+  // Keep a ref so loadOrders doesn't re-create (and re-fetch) on every i18n render cycle
+  const resolveTextRef = useRef(resolveText);
+  resolveTextRef.current = resolveText;
   const statusTabs = useMemo(
     () => ([
       { key: 'ALL', label: resolveText('filters.all', { defaultValue: 'Tất cả' }) },
@@ -315,6 +610,7 @@ export const Orders: React.FC = () => {
   const [pageSize, setPageSize] = useState<number>(initialPageSize);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [tabCounts, setTabCounts] = useState<Record<StatusTabKey, number>>({
     ALL: 0,
     Pending: 0,
@@ -323,15 +619,36 @@ export const Orders: React.FC = () => {
     Delivered: 0,
     Cancelled: 0,
   });
+  const [selectedOrderIds, setSelectedOrderIds] = useState<number[]>([]);
+  const [bulkAction, setBulkAction] = useState<BulkActionState>(null);
+  const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
+  const [isBulkExporting, setIsBulkExporting] = useState(false);
+  const [bulkFeedback, setBulkFeedback] = useState<BulkFeedbackState>(null);
 
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoadedRef = useRef(false);
+  const hasLoadedTabCountsRef = useRef(false);
   const requestIdRef = useRef(0);
   const tabCountsRequestIdRef = useRef(0);
+  const ordersAbortControllerRef = useRef<AbortController | null>(null);
+  const tabCountsAbortControllerRef = useRef<AbortController | null>(null);
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (reason: 'initial' | 'filters' | 'manual' | 'bulk' = 'filters') => {
     const requestId = ++requestIdRef.current;
     const isFirstLoad = !hasLoadedRef.current;
+    const shouldUseAbortSignal = reason !== 'initial';
+
+    if (shouldUseAbortSignal) {
+      ordersAbortControllerRef.current?.abort();
+    } else {
+      ordersAbortControllerRef.current = null;
+    }
+
+    const controller = shouldUseAbortSignal ? new AbortController() : null;
+    if (controller) {
+      ordersAbortControllerRef.current = controller;
+    }
+
     if (isFirstLoad) setLoading(true);
     else setIsRefreshing(true);
     setError(null);
@@ -345,6 +662,7 @@ export const Orders: React.FC = () => {
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         sort,
+        signal: controller?.signal,
       });
 
       if (requestIdRef.current !== requestId) return;
@@ -353,24 +671,41 @@ export const Orders: React.FC = () => {
       setTotal(res.pagination.total);
       hasLoadedRef.current = true;
     } catch (e: unknown) {
+      if (controller?.signal.aborted || (e as Error).name === 'AbortError') return;
       if (requestIdRef.current !== requestId) return;
       const requestError = e as { message?: string };
-      setError(requestError.message || resolveText('page.loadError', { defaultValue: 'Không thể tải danh sách đơn hàng.' }));
+      setError(requestError.message || resolveTextRef.current('page.loadError', { defaultValue: 'Không thể tải danh sách đơn hàng.' }));
     } finally {
+      if (controller && ordersAbortControllerRef.current === controller) {
+        ordersAbortControllerRef.current = null;
+      }
       if (requestIdRef.current !== requestId) return;
       if (isFirstLoad) setLoading(false);
       else setIsRefreshing(false);
     }
   }, [activeTab, endDate, page, pageSize, search, sort, startDate]);
 
-  const loadTabCounts = useCallback(async () => {
+  const loadTabCounts = useCallback(async (reason: 'initial' | 'filters' | 'manual' | 'bulk' = 'filters') => {
     const requestId = ++tabCountsRequestIdRef.current;
+    const shouldUseAbortSignal = reason !== 'initial';
+
+    if (shouldUseAbortSignal) {
+      tabCountsAbortControllerRef.current?.abort();
+    } else {
+      tabCountsAbortControllerRef.current = null;
+    }
+
+    const controller = shouldUseAbortSignal ? new AbortController() : null;
+    if (controller) {
+      tabCountsAbortControllerRef.current = controller;
+    }
 
     try {
       const counts = await adminOrderService.getTabCounts({
         search: search || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
+        signal: controller?.signal,
       });
 
       if (tabCountsRequestIdRef.current !== requestId) return;
@@ -383,23 +718,31 @@ export const Orders: React.FC = () => {
         Delivered: counts.Delivered ?? 0,
         Cancelled: counts.Cancelled ?? 0,
       });
-    } catch {
+      hasLoadedTabCountsRef.current = true;
+    } catch (error: unknown) {
+      if (controller?.signal.aborted || (error as Error).name === 'AbortError') return;
       // Keep the previous counts if the auxiliary request fails.
+    } finally {
+      if (controller && tabCountsAbortControllerRef.current === controller) {
+        tabCountsAbortControllerRef.current = null;
+      }
     }
   }, [endDate, search, startDate]);
 
   useEffect(() => {
-    void loadOrders();
+    void loadOrders(hasLoadedRef.current ? 'filters' : 'initial');
   }, [loadOrders]);
 
   useEffect(() => {
-    void loadTabCounts();
+    void loadTabCounts(hasLoadedTabCountsRef.current ? 'filters' : 'initial');
   }, [loadTabCounts]);
 
   useEffect(() => () => {
     if (searchDebounce.current) {
       clearTimeout(searchDebounce.current);
     }
+    ordersAbortControllerRef.current?.abort();
+    tabCountsAbortControllerRef.current?.abort();
   }, []);
 
   useEffect(() => {
@@ -420,6 +763,11 @@ export const Orders: React.FC = () => {
     setPage((current) => (current === nextPage ? current : nextPage));
     setPageSize((current) => (current === nextPageSize ? current : nextPageSize));
   }, [searchParams]);
+
+  useEffect(() => {
+    setSelectedOrderIds([]);
+    setIsSelectionMode(false);
+  }, [activeTab, search, startDate, endDate, sort, page, pageSize]);
 
   useEffect(() => {
     const nextSearchParams = new URLSearchParams();
@@ -447,13 +795,15 @@ export const Orders: React.FC = () => {
     }
 
     if (nextSearchParams.toString() !== searchParams.toString()) {
-      setSearchParams(nextSearchParams);
+      setSearchParams(nextSearchParams, { replace: true });
     }
   }, [activeTab, endDate, page, pageSize, search, searchParams, setSearchParams, sort, startDate]);
 
   const handleTabChange = (tab: StatusTabKey) => {
-    setActiveTab(tab);
-    setPage(1);
+    startTransition(() => {
+      setActiveTab(tab);
+      setPage(1);
+    });
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -465,29 +815,44 @@ export const Orders: React.FC = () => {
     }
 
     searchDebounce.current = setTimeout(() => {
-      setSearch(nextValue);
-      setPage(1);
+      startTransition(() => {
+        setSearch(nextValue);
+        setPage(1);
+      });
     }, 400);
   };
 
   const handleClearFilters = () => {
-    setSearch('');
-    setSearchInput('');
-    setStartDate('');
-    setEndDate('');
-    setActiveTab('ALL');
-    setSort(DEFAULT_SORT);
-    setPage(1);
+    startTransition(() => {
+      setSearch('');
+      setSearchInput('');
+      setStartDate('');
+      setEndDate('');
+      setActiveTab('ALL');
+      setSort(DEFAULT_SORT);
+      setPage(1);
+    });
   };
 
-  const handleRefresh = async () => {
+  const handleRefresh = () => {
     setIsManualRefreshing(true);
-    try {
-      await Promise.all([loadOrders(), loadTabCounts()]);
-    } finally {
+    const minSpinDelay = new Promise<void>((r) => setTimeout(r, 600));
+    void Promise.all([loadOrders('manual'), loadTabCounts('manual'), minSpinDelay]).finally(() => {
       setIsManualRefreshing(false);
-    }
+    });
   };
+
+  const handleEnterSelectionMode = useCallback(() => {
+    setBulkFeedback(null);
+    setIsSelectionMode(true);
+  }, []);
+
+  const handleExitSelectionMode = useCallback(() => {
+    setSelectedOrderIds([]);
+    setBulkAction(null);
+    setBulkFeedback(null);
+    setIsSelectionMode(false);
+  }, []);
 
   const handleCopyOrderNumber = useCallback(async (orderNumber: string) => {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
@@ -501,59 +866,260 @@ export const Orders: React.FC = () => {
     }
   }, []);
 
+  const selectedOrderIdSet = useMemo(() => new Set(selectedOrderIds), [selectedOrderIds]);
+
+  const selectedOrders = useMemo(
+    () => orders.filter((order) => selectedOrderIdSet.has(order.orderId)),
+    [orders, selectedOrderIdSet],
+  );
+
+  const selectedShippingOrders = useMemo(
+    () => selectedOrders.filter((order) => normalizeStatus(order.status) === ORDER_STATUS.SHIPPING),
+    [selectedOrders],
+  );
+
+  const bulkActionAvailability = useMemo(() => ({
+    processing: selectedOrders.some((order) => {
+      const normalized = normalizeStatus(order.status);
+      return normalized ? getValidNextStatuses(normalized).includes(ORDER_STATUS.PROCESSING) : false;
+    }),
+    shipping: selectedOrders.some((order) => {
+      const normalized = normalizeStatus(order.status);
+      return normalized ? getValidNextStatuses(normalized).includes(ORDER_STATUS.SHIPPING) : false;
+    }),
+    cancelled: selectedOrders.some((order) => {
+      const normalized = normalizeStatus(order.status);
+      return normalized ? getValidNextStatuses(normalized).includes(ORDER_STATUS.CANCELLED) : false;
+    }),
+  }), [selectedOrders]);
+
+  const toggleOrderSelection = useCallback((orderId: number) => {
+    setBulkFeedback(null);
+    setIsSelectionMode(true);
+    setSelectedOrderIds((current) => (
+      current.includes(orderId)
+        ? current.filter((currentOrderId) => currentOrderId !== orderId)
+        : [...current, orderId]
+    ));
+  }, []);
+
+  const handleSelectAllCurrentPage = useCallback((checked: boolean) => {
+    setBulkFeedback(null);
+    setIsSelectionMode(checked || selectedOrderIds.length > 0);
+    setSelectedOrderIds(checked ? orders.map((order) => order.orderId) : []);
+  }, [orders, selectedOrderIds.length]);
+
+  const selectedCount = selectedOrderIds.length;
+  const isAllCurrentPageSelected = orders.length > 0 && orders.every((order) => selectedOrderIdSet.has(order.orderId));
+  const hasSelectedShippingOrders = selectedShippingOrders.length > 0;
+  const firstSelectedShippingOrder = selectedShippingOrders[0] ?? null;
+  const showBulkSelectionPanel = isSelectionMode;
+  const stableTableViewportHeightClass = 'min-h-[292px] lg:min-h-[352px] xl:min-h-[412px]';
+  const stableFooterHeightClass = 'min-h-[64px]';
+  const stableToolbarHeightClass = 'min-h-[64px]';
+
+  const handleOpenOrder = useCallback((orderId: number) => {
+    navigate(`/admin/orders/${orderId}`);
+  }, [navigate]);
+
+  const handleCopyOrder = useCallback((orderNumber: string) => {
+    void handleCopyOrderNumber(orderNumber);
+  }, [handleCopyOrderNumber]);
+
+  const handleBulkActionRequest = useCallback((key: BulkActionKey) => {
+    setBulkFeedback(null);
+
+    if (key === 'export' || key === 'export-labels') {
+      setBulkAction({ key });
+      return;
+    }
+
+    setBulkAction({
+      key,
+      status: BULK_ACTION_STATUS_BY_KEY[key],
+    });
+  }, []);
+
+  const handleOpenManualVerification = useCallback(() => {
+    if (!firstSelectedShippingOrder) return;
+
+    navigate(`/admin/orders/${firstSelectedShippingOrder.orderId}`);
+  }, [firstSelectedShippingOrder, navigate]);
+
+  const handleBulkActionConfirm = useCallback(async (note?: string) => {
+    if (!bulkAction || selectedOrderIds.length === 0) return;
+
+    if (bulkAction.key === 'export' || bulkAction.key === 'export-labels') {
+      setIsBulkExporting(true);
+
+      try {
+        const isLabel = bulkAction.key === 'export-labels';
+        const { fileName } = isLabel
+          ? await adminOrderService.exportSelectedShippingLabels(selectedOrderIds)
+          : await adminOrderService.exportSelectedOrders(selectedOrderIds);
+        showToast({
+          type: 'success',
+          title: resolveText(
+            isLabel ? 'bulk.exportLabels.successTitle' : 'bulk.export.successTitle',
+            { defaultValue: isLabel ? 'Đã xuất phiếu gửi hàng' : 'Đã xuất danh sách đơn hàng' },
+          ),
+          subtitle: fileName,
+        });
+        setSelectedOrderIds([]);
+        setIsSelectionMode(false);
+      } catch (error: unknown) {
+        const exportError = error as { message?: string };
+        showToast({
+          type: 'error',
+          title: resolveText('bulk.export.errorTitle', { defaultValue: 'Không thể xuất đơn hàng đã chọn' }),
+          subtitle: exportError.message,
+        });
+      } finally {
+        setIsBulkExporting(false);
+        setBulkAction(null);
+      }
+
+      return;
+    }
+
+    if (!bulkAction.status) return;
+
+    setIsBulkSubmitting(true);
+
+    try {
+      const result = await adminOrderService.bulkUpdateStatus({
+        orderIds: selectedOrderIds,
+        status: bulkAction.status,
+        note: note?.trim() || undefined,
+      });
+
+      const skipped = result.results
+        .filter((item) => item.outcome !== 'updated')
+        .map((item) => ({ orderId: item.orderId, errorCode: item.errorCode }));
+
+      const feedbackKind =
+        result.failedCount > 0
+          ? 'error'
+          : result.skippedCount > 0
+            ? 'warning'
+            : 'success';
+
+      setBulkFeedback({
+        kind: feedbackKind,
+        title: resolveText('bulk.summary.title', {
+          updated: result.successCount,
+          skipped: result.skippedCount,
+          failed: result.failedCount,
+          defaultValue: 'Đã cập nhật {{updated}} đơn · bỏ qua {{skipped}} · lỗi {{failed}}',
+        }),
+        description: resolveText('bulk.summary.description', {
+          total: result.requestedCount,
+          defaultValue: 'Máy chủ đã kiểm tra {{total}} đơn và chỉ áp dụng cho các đơn hợp lệ.',
+        }),
+        skipped,
+      });
+
+      showToast({
+        type: feedbackKind === 'error' ? 'error' : feedbackKind === 'warning' ? 'info' : 'success',
+        title: resolveText('bulk.summary.toastTitle', {
+          updated: result.successCount,
+          defaultValue: 'Đã xử lý {{updated}} đơn hàng',
+        }),
+        subtitle: feedbackKind === 'success'
+          ? resolveText('bulk.summary.toastSuccess', { defaultValue: 'Danh sách và số liệu đã được làm mới.' })
+          : resolveText('bulk.summary.toastPartial', { defaultValue: 'Một số đơn không hợp lệ đã được bỏ qua an toàn.' }),
+      });
+
+      await Promise.all([loadOrders('bulk'), loadTabCounts('bulk')]);
+      setSelectedOrderIds([]);
+      setIsSelectionMode(false);
+    } catch (error: unknown) {
+      const bulkError = error as { message?: string };
+      setBulkFeedback({
+        kind: 'error',
+        title: resolveText('bulk.summary.requestFailed', { defaultValue: 'Không thể xử lý thao tác hàng loạt' }),
+        description: bulkError.message,
+      });
+      showToast({
+        type: 'error',
+        title: resolveText('bulk.summary.requestFailed', { defaultValue: 'Không thể xử lý thao tác hàng loạt' }),
+        subtitle: bulkError.message,
+      });
+    } finally {
+      setIsBulkSubmitting(false);
+      setBulkAction(null);
+    }
+  }, [bulkAction, loadOrders, loadTabCounts, resolveText, selectedOrderIds, showToast]);
+
   const hasFilters = !!search || !!startDate || !!endDate || sort !== DEFAULT_SORT;
   const rangeStart = total === 0 ? 0 : ((page - 1) * pageSize) + 1;
   const rangeEnd = Math.min(total, page * pageSize);
   const visiblePages = getVisiblePages(page, totalPages);
 
   return (
-    <AdminPageShell>
-      <AdminSectionCard bodyClassName="space-y-5 p-5 lg:p-6">
-        <AdminPageHeader
-          icon={Package}
-          title={resolveText('page.title', { defaultValue: 'Đơn hàng' })}
-          meta={resolveText('page.orderCount', { count: total, defaultValue: '{{count}} đơn hàng' })}
-        />
+    <AdminPageShell className="h-full min-h-full">
+      <AdminSectionCard bodyClassName="space-y-3 p-3.5 lg:space-y-3 lg:p-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${adminUiTokens.brandIconSurface}`}>
+                  <Package size={17} className="text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-[1.95rem] font-black leading-none tracking-tight text-white lg:text-[2.05rem]">
+                      {resolveText('page.title', { defaultValue: 'Đơn hàng' })}
+                    </h1>
+                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/55">
+                      {resolveText('page.orderCountCompact', { count: total, defaultValue: '{{count}} đơn' })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-        <AdminToolbar
-          actions={(
-            <>
-              <AdminRefreshButton
-                type="button"
-                onClick={handleRefresh}
-                isRefreshing={isManualRefreshing}
-                disabled={loading || isRefreshing || isManualRefreshing}
-                label={resolveText('actions.refresh', { defaultValue: 'Làm mới' })}
-              />
-              {hasFilters && (
-                <AdminSecondaryButton type="button" onClick={handleClearFilters}>
-                  <FilterX size={14} />
-                  {resolveText('actions.reset', { defaultValue: 'Đặt lại' })}
-                </AdminSecondaryButton>
-              )}
-            </>
-          )}
-        >
-          <div className="grid w-full gap-3 md:grid-cols-2 2xl:min-w-[960px] 2xl:grid-cols-[minmax(280px,1.4fr)_repeat(4,minmax(0,1fr))]">
-              <label className="relative">
-                <span className={adminUiTokens.fieldLabel}>
+            <AdminSecondaryButton type="button" onClick={handleRefresh} className="shrink-0 px-3.5 py-1.5 text-sm">
+              <RefreshCw size={13} className={loading || isManualRefreshing ? 'animate-spin' : ''} />
+              {resolveText('actions.refresh', { defaultValue: 'Làm mới' })}
+            </AdminSecondaryButton>
+          </div>
+
+          <div className="grid gap-2.5 lg:grid-cols-[minmax(260px,1.55fr)_minmax(250px,1.15fr)_minmax(152px,0.8fr)_minmax(104px,0.52fr)]">
+            <label className="relative">
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <span className={`${adminUiTokens.fieldLabel} text-[12px] tracking-[0.14em] text-white/44`}>
                   {resolveText('filters.searchLabel', { defaultValue: 'Tìm kiếm' })}
                 </span>
-                <Search size={15} className="pointer-events-none absolute left-3 top-[38px] -translate-y-1/2 text-white/30" />
+                {hasFilters && (
+                  <button
+                    type="button"
+                    onClick={handleClearFilters}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white/40 transition-colors hover:text-white/75"
+                  >
+                    <FilterX size={12} />
+                    {resolveText('actions.reset', { defaultValue: 'Đặt lại' })}
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
                 <input
                   type="text"
                   value={searchInput}
                   onChange={handleSearchChange}
-                  placeholder={resolveText('filters.searchPlaceholderAdmin', { defaultValue: 'Tìm theo mã đơn, tên khách hàng, số điện thoại...' })}
-                  className={adminUiTokens.searchFieldControl}
+                  placeholder={resolveText('filters.searchPlaceholderAdmin', { defaultValue: 'Tìm tên, SĐT, mã đơn...' })}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 pl-9 pr-3.5 text-[15px] text-white placeholder:text-white/32 transition-colors duration-150 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
                 />
-              </label>
+              </div>
+            </label>
 
-              <label>
-                <span className={`${adminUiTokens.fieldLabel} flex items-center gap-1.5`}>
-                  <Calendar size={12} />
-                  {resolveText('filters.dateFrom', { defaultValue: 'Từ ngày' })}
-                </span>
+            <div>
+              <span className={`${adminUiTokens.fieldLabel} mb-1 flex items-center gap-1.5 text-[12px] tracking-[0.14em] text-white/44`}>
+                <Calendar size={12} />
+                {resolveText('filters.dateRange', { defaultValue: 'Khoảng ngày' })}
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
                 <input
                   type="date"
                   value={startDate}
@@ -561,15 +1127,8 @@ export const Orders: React.FC = () => {
                     setStartDate(e.target.value);
                     setPage(1);
                   }}
-                  className={adminUiTokens.fieldControl}
+                  className={`${adminUiTokens.fieldControl} text-[15px]`}
                 />
-              </label>
-
-              <label>
-                <span className={`${adminUiTokens.fieldLabel} flex items-center gap-1.5`}>
-                  <Calendar size={12} />
-                  {resolveText('filters.dateTo', { defaultValue: 'Đến ngày' })}
-                </span>
                 <input
                   type="date"
                   value={endDate}
@@ -577,202 +1136,368 @@ export const Orders: React.FC = () => {
                     setEndDate(e.target.value);
                     setPage(1);
                   }}
-                  className={adminUiTokens.fieldControl}
+                  className={`${adminUiTokens.fieldControl} text-[15px]`}
                 />
-              </label>
-
-              <label>
-                <span className={adminUiTokens.fieldLabel}>
-                  {resolveText('filters.sortLabel', { defaultValue: 'Sắp xếp' })}
-                </span>
-                <select
-                  value={sort}
-                  onChange={(e) => {
-                    setSort(parseSortValue(e.target.value));
-                    setPage(1);
-                  }}
-                  className={adminUiTokens.fieldControl}
-                >
-                  {sortOptions.map((option) => (
-                    <option key={option.value} value={option.value} className="bg-[#111318]">
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div>
-                <label>
-                  <span className={adminUiTokens.fieldLabel}>
-                    {resolveText('pagination.perPage', { defaultValue: 'Mỗi trang' })}
-                  </span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setPage(1);
-                    }}
-                    className={adminUiTokens.fieldControl}
-                  >
-                    {PAGE_SIZE_OPTIONS.map((option) => (
-                      <option key={option} value={option} className="bg-[#111318]">
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
               </div>
             </div>
-        </AdminToolbar>
 
-        <AdminStatusFilterBar
-          items={statusTabs.map((tab) => ({
-            key: tab.key,
-            label: tab.label,
-            count: tabCounts[tab.key] ?? 0,
-          }))}
-          activeKey={activeTab}
-          onChange={(key) => handleTabChange(key as StatusTabKey)}
-          isRefreshing={isRefreshing && !loading}
-          refreshLabel={resolveText('page.refreshing', { defaultValue: 'Đang cập nhật' })}
-        />
+            <label>
+              <span className={`${adminUiTokens.fieldLabel} text-[12px] tracking-[0.14em] text-white/44`}>
+                {resolveText('filters.sortLabel', { defaultValue: 'Sắp xếp' })}
+              </span>
+              <select
+                value={sort}
+                onChange={(e) => {
+                  setSort(parseSortValue(e.target.value));
+                  setPage(1);
+                }}
+                className={`${adminUiTokens.fieldControl} text-[15px]`}
+              >
+                {sortOptions.map((option) => (
+                  <option key={option.value} value={option.value} className="bg-[#111318]">
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span className={`${adminUiTokens.fieldLabel} text-[12px] tracking-[0.14em] text-white/44`}>
+                {resolveText('pagination.perPage', { defaultValue: '/ trang' })}
+              </span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className={`${adminUiTokens.fieldControl} text-[15px]`}
+              >
+                {PAGE_SIZE_OPTIONS.map((option) => (
+                  <option key={option} value={option} className="bg-[#111318]">
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div data-testid="status-filter-bar" data-refreshing={isRefreshing && !loading ? 'true' : 'false'}>
+            <div className="flex flex-wrap gap-1.5">
+              {statusTabs.map((tab) => {
+                const isActive = tab.key === activeTab;
+
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => handleTabChange(tab.key)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[14px] font-semibold transition-colors duration-150 ${
+                      isActive
+                        ? 'border-primary/55 bg-primary/[0.18] text-white shadow-[inset_0_0_0_1px_rgba(227,24,55,0.14)]'
+                        : 'border-white/10 bg-white/[0.03] text-white/62 hover:border-white/18 hover:text-white'
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span className={`inline-flex min-w-[1.2rem] justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                      isActive ? 'bg-white/12 text-white' : 'bg-white/[0.06] text-white/52'
+                    }`}>
+                      {tabCounts[tab.key] ?? 0}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </AdminSectionCard>
 
       <AdminSectionCard
         className="flex min-h-0 flex-1 flex-col bg-[#0f1014]"
         bodyClassName="flex min-h-0 flex-1 flex-col"
       >
-        {loading ? (
-          <div className="flex flex-1 items-center justify-center">
-              <div className="flex flex-col items-center gap-4">
-                <div className="h-10 w-10 rounded-full border-4 border-white/10 border-t-primary animate-spin" />
-              <p className="text-sm text-white/45">{resolveText('page.loading', { defaultValue: 'Đang tải danh sách đơn hàng...' })}</p>
-            </div>
-          </div>
-        ) : error ? (
-          <div className="flex flex-1 items-center justify-center">
-            <div className="max-w-sm text-center">
-              <AlertCircle size={40} className="mx-auto text-red-400" />
-              <h3 className="mt-4 text-base font-bold text-white">{resolveText('page.dataError', { defaultValue: 'Không thể hiển thị dữ liệu' })}</h3>
-              <p className="mt-2 text-sm text-white/55">{error}</p>
-              <button
-                type="button"
-                onClick={handleRefresh}
-                className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-primary hover:underline"
-              >
-                {resolveText('page.retry', { defaultValue: 'Thử lại' })}
-              </button>
-            </div>
-          </div>
-        ) : orders.length === 0 ? (
-          <AdminEmptyState
-            icon={Package}
-            title={resolveText('page.noOrders', { defaultValue: 'Chưa có đơn hàng nào' })}
-            description={resolveText('page.changeFilter', { defaultValue: 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.' })}
+        {bulkFeedback && (
+          <BulkFeedbackBar
+            feedback={bulkFeedback}
+            t={resolveText}
+            onDismiss={() => setBulkFeedback(null)}
           />
-        ) : (
-          <>
-            <div className="border-b border-white/[0.06] px-5 py-3 text-xs text-white/45 lg:px-6">
-              {resolveText('pagination.rangeSummary', {
-                start: rangeStart,
-                end: rangeEnd,
-                total,
-                defaultValue: 'Hiển thị {{start}}-{{end}} / {{total}} đơn',
-              })}
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-auto">
-              <table className="min-w-[980px] w-full border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-white/[0.06]">
-                    {[
-                      resolveText('table.orderId', { defaultValue: 'Mã đơn' }),
-                      resolveText('table.customer', { defaultValue: 'Khách hàng' }),
-                      resolveText('table.time', { defaultValue: 'Thời gian' }),
-                      resolveText('table.total', { defaultValue: 'Tổng tiền' }),
-                      resolveText('table.payment', { defaultValue: 'Thanh toán' }),
-                      resolveText('table.shipping', { defaultValue: 'Trạng thái' }),
-                      resolveText('table.actions', { defaultValue: 'Thao tác' }),
-                    ].map((label, index) => (
-                      <th
-                        key={label}
-                        className={`sticky top-0 z-10 bg-[#111319] px-5 py-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white/34 lg:px-6 ${
-                          index === 6 ? 'sticky right-0 z-20 text-right' : ''
-                        }`}
-                      >
-                        {label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((order) => (
-                    <OrderTableRow
-                      key={order.orderId}
-                      order={order}
-                      t={resolveText}
-                      copyOrderNumberTitle={resolveText('actions.copyOrderNumber', { defaultValue: 'Sao chép mã đơn' })}
-                      detailLabel={resolveText('actions.viewDetail', { defaultValue: 'Chi tiết' })}
-                      onOpen={(orderId) => navigate(`/admin/orders/${orderId}`)}
-                      onCopy={(orderNumber) => {
-                        void handleCopyOrderNumber(orderNumber);
-                      }}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
         )}
 
-        {!loading && !error && totalPages > 1 && (
-          <div className="flex flex-col gap-3 border-t border-white/[0.06] px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
-            <p className="text-xs text-white/42">
-              {resolveText('pagination.summary', {
-                page,
-                totalPages,
-                total,
-                defaultValue: 'Trang {{page}} / {{totalPages}} · {{total}} đơn',
-              })}
-            </p>
+        <div className={`border-b border-white/[0.06] bg-white/[0.015] px-4 py-2 lg:px-5 ${stableToolbarHeightClass}`}>
+          {showBulkSelectionPanel ? (
+            <div className="grid min-h-[48px] gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <div className="min-w-0">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <AdminBadge tone="default" dot className="px-2.5 py-0.5 text-[11px]">
+                    {resolveText('bulk.selectedCount', {
+                      count: selectedCount,
+                      defaultValue: 'Đã chọn {{count}} đơn',
+                    })}
+                  </AdminBadge>
+                  <span className="text-[10px] uppercase tracking-[0.12em] text-white/34">
+                    {resolveText('bulk.selectCurrentPageHint', { defaultValue: 'Chọn tất cả chỉ áp dụng cho trang hiện tại.' })}
+                  </span>
+                  {hasSelectedShippingOrders && (
+                    <span className="text-[10px] text-sky-200/80">
+                      {resolveText('bulk.manualDelivery.inlineHint', {
+                        defaultValue: 'Đơn giao hàng cần xác minh thủ công.',
+                      })}
+                    </span>
+                  )}
+                </div>
+              </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
-                disabled={page <= 1}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 text-white/55 transition-colors duration-150 hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-              >
-                <ChevronLeft size={15} />
-              </button>
-
-              {visiblePages.map((visiblePage) => (
-                <button
-                  key={visiblePage}
+              <div className="flex flex-wrap items-center gap-1.5 lg:flex-nowrap lg:justify-self-end">
+                <AdminActionButton
                   type="button"
-                  onClick={() => setPage(visiblePage)}
-                  className={`h-9 min-w-9 rounded-xl px-3 text-xs font-bold transition-colors duration-150 ${
-                    visiblePage === page
-                      ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                      : 'border border-white/10 text-white/55 hover:border-white/20 hover:text-white'
-                  }`}
+                  tone="info"
+                  size="sm"
+                  className="text-sm"
+                  onClick={() => handleBulkActionRequest('mark-processing')}
+                  disabled={isBulkSubmitting || isBulkExporting || !bulkActionAvailability.processing}
                 >
-                  {visiblePage}
-                </button>
-              ))}
-
-              <button
-                type="button"
-                onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}
-                disabled={page >= totalPages}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 text-white/55 transition-colors duration-150 hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-              >
-                <ChevronRight size={15} />
-              </button>
+                  <Box size={14} />
+                  {resolveText('bulk.actions.markProcessingShort', { defaultValue: 'Xử lý' })}
+                </AdminActionButton>
+                <AdminActionButton
+                  type="button"
+                  tone="cyan"
+                  size="sm"
+                  className="text-sm"
+                  onClick={() => handleBulkActionRequest('mark-shipping')}
+                  disabled={isBulkSubmitting || isBulkExporting || !bulkActionAvailability.shipping}
+                >
+                  <Truck size={14} />
+                  {resolveText('bulk.actions.markShippingShort', { defaultValue: 'Giao hàng' })}
+                </AdminActionButton>
+                <AdminActionButton
+                  type="button"
+                  tone="danger"
+                  size="sm"
+                  className="text-sm"
+                  onClick={() => handleBulkActionRequest('cancel')}
+                  disabled={isBulkSubmitting || isBulkExporting || !bulkActionAvailability.cancelled}
+                >
+                  <Ban size={14} />
+                  {resolveText('bulk.actions.cancelShort', { defaultValue: 'Hủy' })}
+                </AdminActionButton>
+                <AdminSecondaryButton
+                  type="button"
+                  onClick={() => handleBulkActionRequest('export')}
+                  disabled={isBulkSubmitting || isBulkExporting}
+                  className="px-3 py-1.5 text-sm"
+                >
+                  {isBulkExporting ? <RefreshCw size={13} className="animate-spin" /> : <Download size={13} />}
+                  {resolveText('bulk.actions.exportSelectedShort', { defaultValue: 'Xuất' })}
+                </AdminSecondaryButton>
+                <AdminSecondaryButton
+                  type="button"
+                  onClick={() => handleBulkActionRequest('export-labels')}
+                  disabled={isBulkSubmitting || isBulkExporting}
+                  className="px-3 py-1.5 text-sm"
+                >
+                  {isBulkExporting ? <RefreshCw size={13} className="animate-spin" /> : <Package size={13} />}
+                  {resolveText('bulk.actions.exportLabelsShort', { defaultValue: 'Phiếu gửi hàng' })}
+                </AdminSecondaryButton>
+                <AdminSecondaryButton
+                  type="button"
+                  onClick={handleExitSelectionMode}
+                  className="px-2.5 py-1.5 text-sm"
+                  title={resolveText('bulk.exitSelectionMode', { defaultValue: 'Thoát chọn nhiều' })}
+                >
+                  <X size={12} />
+                  {resolveText('bulk.exitSelectionModeShort', { defaultValue: 'Thoát' })}
+                </AdminSecondaryButton>
+              </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="flex min-h-[48px] items-center justify-end">
+              <AdminSecondaryButton
+                type="button"
+                onClick={handleEnterSelectionMode}
+                disabled={orders.length === 0}
+                className="px-2.5 py-1.5 text-sm"
+              >
+                <CheckCircle2 size={13} />
+                {resolveText('bulk.enterSelectionMode', { defaultValue: 'Chọn nhiều' })}
+              </AdminSecondaryButton>
+            </div>
+          )}
+        </div>
+
+
+        <div className={`orders-table-scroll-region min-h-0 flex-1 overflow-y-scroll overflow-x-hidden transition-opacity duration-150 ${stableTableViewportHeightClass} ${isRefreshing && !loading ? 'opacity-60' : 'opacity-100'}`}>
+          {loading ? (
+            <div className="flex h-full min-h-full items-center justify-center">
+              <div className="flex flex-col items-center gap-4">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-primary" />
+                <p className="text-sm text-white/45">{resolveText('page.loading', { defaultValue: 'Đang tải danh sách đơn hàng...' })}</p>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="flex h-full min-h-full items-center justify-center">
+              <div className="max-w-sm text-center">
+                <AlertCircle size={40} className="mx-auto text-red-400" />
+                <h3 className="mt-4 text-base font-bold text-white">{resolveText('page.dataError', { defaultValue: 'Không thể hiển thị dữ liệu' })}</h3>
+                <p className="mt-2 text-sm text-white/55">{error}</p>
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-primary hover:underline"
+                >
+                  {resolveText('page.retry', { defaultValue: 'Thử lại' })}
+                </button>
+              </div>
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="flex h-full min-h-full w-full items-center justify-center">
+              <AdminEmptyState
+                icon={Package}
+                title={resolveText('page.noOrders', { defaultValue: 'Chưa có đơn hàng nào' })}
+                description={resolveText('page.changeFilter', { defaultValue: 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.' })}
+              />
+            </div>
+          ) : (
+            <table className="w-full table-fixed border-collapse text-left">
+              <colgroup>
+                <col style={{ width: '48px' }} />
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '23.5%' }} />
+                <col style={{ width: '11.5%' }} />
+                <col style={{ width: '12.5%' }} />
+                <col style={{ width: '13.5%' }} />
+                <col style={{ width: '13.5%' }} />
+                <col style={{ width: '116px' }} />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-white/[0.06]">
+                  {[
+                    {
+                      key: 'select',
+                      label: (
+                        <input
+                          type="checkbox"
+                          checked={isAllCurrentPageSelected}
+                          onChange={(event) => handleSelectAllCurrentPage(event.target.checked)}
+                          aria-label={resolveText('bulk.table.selectAllCurrentPage', { defaultValue: 'Chọn tất cả đơn trên trang hiện tại' })}
+                          className={`h-4 w-4 rounded border text-primary transition-opacity focus:ring-0 ${
+                            isSelectionMode
+                              ? 'border-white/20 bg-transparent opacity-100'
+                              : 'border-white/[0.12] bg-white/[0.015] opacity-40 hover:opacity-70'
+                          }`}
+                        />
+                      ),
+                      className: 'w-12 text-center',
+                    },
+                    { key: 'orderId', label: resolveText('table.orderId', { defaultValue: 'Mã đơn' }), className: 'w-[15%]' },
+                    { key: 'customer', label: resolveText('table.customer', { defaultValue: 'Khách hàng' }), className: 'w-[23.5%]' },
+                    { key: 'time', label: resolveText('table.time', { defaultValue: 'Thời gian' }), className: 'w-[11.5%]' },
+                    { key: 'total', label: resolveText('table.total', { defaultValue: 'Tổng tiền' }), className: 'w-[12.5%]' },
+                    { key: 'payment', label: resolveText('table.payment', { defaultValue: 'Thanh toán' }), className: 'w-[13.5%]' },
+                    { key: 'shipping', label: resolveText('table.shipping', { defaultValue: 'Giao hàng' }), className: 'w-[13.5%] pr-3 lg:pr-4' },
+                    { key: 'actions', label: resolveText('table.actions', { defaultValue: 'Thao tác' }), className: 'w-[116px] pr-2 text-right lg:w-[120px] lg:pr-3' },
+                  ].map((column, index) => (
+                    <th
+                      key={column.key}
+                      className={`sticky top-0 z-10 bg-[#111319] px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white/38 lg:px-4 ${
+                        column.className ?? ''
+                      } ${
+                        index === 7 ? '2xl:sticky 2xl:right-0 2xl:z-20 2xl:bg-[#111319] 2xl:shadow-[-1px_0_0_rgba(255,255,255,0.05)]' : ''
+                      }`}
+                    >
+                      {column.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <OrderTableRow
+                    key={order.orderId}
+                    order={order}
+                    selectionEnabled={isSelectionMode}
+                    isSelected={selectedOrderIdSet.has(order.orderId)}
+                    t={resolveText}
+                    copyOrderNumberTitle={resolveText('actions.copyOrderNumber', { defaultValue: 'Sao chép mã đơn' })}
+                    detailLabel={resolveText('actions.viewDetailShort', { defaultValue: 'Chi tiết' })}
+                    onOpen={handleOpenOrder}
+                    onCopy={handleCopyOrder}
+                    onToggleSelect={toggleOrderSelection}
+                  />
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className={`border-t border-white/[0.06] px-4 pt-3 pb-4 lg:px-5 ${stableFooterHeightClass}`}>
+          {!loading && !error && orders.length > 0 ? (
+            <div className="flex min-h-[36px] flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+              <p className="text-xs text-white/42">
+                {resolveText('pagination.summary', {
+                  page,
+                  totalPages,
+                  start: rangeStart,
+                  end: rangeEnd,
+                  total,
+                  defaultValue: 'Trang {{page}}/{{totalPages}} · Hiển thị {{start}}-{{end}} trên · {{total}} đơn hàng',
+                })}
+              </p>
+
+              {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+                  disabled={page <= 1}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 text-white/55 transition-colors duration-150 hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  <ChevronLeft size={15} />
+                </button>
+
+                {visiblePages.map((visiblePage) => (
+                  <button
+                    key={visiblePage}
+                    type="button"
+                    onClick={() => setPage(visiblePage)}
+                    className={`h-8 min-w-8 rounded-xl px-2.5 text-xs font-bold transition-colors duration-150 ${
+                      visiblePage === page
+                        ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                        : 'border border-white/10 text-white/55 hover:border-white/20 hover:text-white'
+                    }`}
+                  >
+                    {visiblePage}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}
+                  disabled={page >= totalPages}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 text-white/55 transition-colors duration-150 hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+              )}
+            </div>
+          ) : (
+            <div aria-hidden="true" className="h-[36px]" />
+          )}
+        </div>
       </AdminSectionCard>
+
+      <BulkActionModal
+        action={bulkAction}
+        selectedCount={selectedCount}
+        loading={isBulkSubmitting || isBulkExporting}
+        t={resolveText}
+        onClose={() => setBulkAction(null)}
+        onConfirm={(note) => {
+          void handleBulkActionConfirm(note);
+        }}
+      />
     </AdminPageShell>
   );
 };

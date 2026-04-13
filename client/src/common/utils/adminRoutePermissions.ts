@@ -43,7 +43,7 @@ const ADMIN_ROUTE_PERMISSION_RULES = [
   },
   {
     matches: (path: string) => path === '/admin/coupons',
-    permissionCodes: ['MANAGE_COUPON', 'REFUND_BENEFIT_VIEW'],
+    permissionCodes: ['MANAGE_COUPON'],
   },
   {
     matches: (path: string) => path === '/admin/restock',

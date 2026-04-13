@@ -1,3 +1,4 @@
+import './load-env';
 import { PrismaClient } from '../generated/client';
 import { registerPrismaQueryMonitor } from './query-monitor';
 

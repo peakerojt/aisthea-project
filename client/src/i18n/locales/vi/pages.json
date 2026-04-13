@@ -1302,7 +1302,7 @@
         "selectProvinceFirst": "Vui lòng chọn Tỉnh/Thành để xem phương thức vận chuyển",
         "free": "Miễn phí",
         "freeShipBadge": "Đủ điều kiện freeship",
-        "freeShipPolicy": "Đơn từ 500.000 đ sẽ được miễn phí vận chuyển.",
+        "freeShipPolicy": "Đơn trên {{amount}} sẽ được miễn phí vận chuyển.",
         "standard": {
           "title": "Giao tiêu chuẩn",
           "eta": "Nhận hàng sau 3-4 ngày"

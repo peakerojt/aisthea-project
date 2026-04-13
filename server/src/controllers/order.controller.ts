@@ -1,7 +1,11 @@
 import { Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { countOrdersByStatus, findManyOrders } from '../modules/order/order.repository';
-import { updateOrderStatusAdmin, createOrder as createOrderService } from '../modules/order/order.service';
+import {
+  bulkUpdateOrderStatusAdmin,
+  updateOrderStatusAdmin,
+  createOrder as createOrderService,
+} from '../modules/order/order.service';
 import { quoteOrderPricing, ShippingMethod } from '../modules/order/order-pricing.service';
 import { reconcileCodReturnUnlockAfterDeliveryConfirmation } from '../modules/order/cod-return-reconciliation';
 import { AuthRequest } from '../middlewares/auth.middleware';
@@ -23,6 +27,7 @@ import { fileToBase64 } from '../middlewares/upload.middleware';
 import { cloudinaryService } from '../services/cloudinary.service';
 import { getRefundsForOrder } from '../services/refund.service';
 import { notificationService } from '../modules/notifications/notification.service';
+import { generateBulkShippingLabels, type ShippingLabelData } from '../services/shipping-label.service';
 import type { CreateOrderInput, QuoteOrderInput } from '../modules/order/order.validator';
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
@@ -128,6 +133,27 @@ function parseDeliveryProofImages(value: string | null | undefined): string[] {
   } catch {
     return [];
   }
+}
+
+function escapeCsvCell(value: unknown) {
+  const normalized = value == null ? '' : String(value);
+  return /[",\r\n]/.test(normalized)
+    ? `"${normalized.replace(/"/g, '""')}"`
+    : normalized;
+}
+
+function buildSelectedOrdersCsv(rows: Array<Record<string, unknown>>) {
+  if (rows.length === 0) {
+    return '';
+  }
+
+  const headers = Object.keys(rows[0]);
+  const lines = [
+    headers.join(','),
+    ...rows.map((row) => headers.map((header) => escapeCsvCell(row[header])).join(',')),
+  ];
+
+  return `\uFEFF${lines.join('\r\n')}`;
 }
 
 // ─── ADMIN: Get All Orders | GET /api/orders/admin ───────────────────────────
@@ -346,6 +372,211 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       });
       return;
     }
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR' });
+  }
+};
+
+// ─── ADMIN: Bulk Update Order Status | PATCH /api/orders/admin/bulk-status ───
+
+export const bulkUpdateOrderStatus = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ errorCode: 'UNAUTHORIZED' });
+
+    const { orderIds, status, note } = req.body as {
+      orderIds: number[];
+      status: string;
+      note?: string;
+    };
+
+    const result = await bulkUpdateOrderStatusAdmin(req.user, {
+      orderIds,
+      status,
+      note,
+      transitionSource: 'admin_order',
+    });
+
+    res.json({
+      success: true,
+      code: SUCCESS_MESSAGES.ORDER_STATUS_UPDATED,
+      data: result,
+    });
+  } catch (error: any) {
+    logger.error('[bulkUpdateOrderStatus] Failed', {
+      message: error?.message,
+      stack: error?.stack,
+      payload: req.body,
+      url: req.originalUrl,
+    });
+
+    const statusCode = error?.statusCode ?? error?.status;
+    const errorCode = error?.errorCode ?? error?.code;
+    const messageKey = error?.messageKey;
+
+    if (statusCode) {
+      res.status(statusCode).json({
+        success: false,
+        errorCode: errorCode ?? 'REQUEST_FAILED',
+        code: errorCode ?? 'REQUEST_FAILED',
+        messageKey,
+        ...(process.env.NODE_ENV === 'production' ? {} : { details: error?.details }),
+      });
+      return;
+    }
+
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR' });
+  }
+};
+
+// ─── ADMIN: Export Selected Orders | POST /api/orders/admin/export ───────────
+
+export const exportSelectedAdminOrders = async (req: AuthRequest, res: Response) => {
+  try {
+    const orderIds = [...new Set(((req.body as { orderIds?: number[] })?.orderIds ?? []).map(Number))];
+
+    const orders = await prisma.order.findMany({
+      where: { orderId: { in: orderIds } },
+      include: {
+        user: {
+          select: {
+            userId: true,
+            email: true,
+            fullName: true,
+            avatarUrl: true,
+          },
+        },
+        payments: {
+          select: {
+            status: true,
+          },
+        },
+        _count: {
+          select: { items: true },
+        },
+      },
+    });
+
+    if (orders.length === 0) {
+      return res.status(404).json({ success: false, errorCode: 'ORDER_NOT_FOUND' });
+    }
+
+    const orderById = new Map(orders.map((order) => [order.orderId, order]));
+    const selectedRows = orderIds
+      .map((orderId) => orderById.get(orderId))
+      .filter((order): order is (typeof orders)[number] => Boolean(order))
+      .map((order) => {
+        const summary = buildOrderSummaryRow(order);
+        return {
+          orderId: summary.orderId,
+          orderNumber: summary.orderNumber,
+          customerName: summary.customerName,
+          customerPhone: summary.customerPhone,
+          status: summary.status,
+          paymentStatus: summary.paymentStatus,
+          paymentMethod: summary.paymentMethod ?? '',
+          itemCount: summary.itemCount,
+          totalAmount: summary.totalAmount,
+          createdAt: summary.createdAt,
+        };
+      });
+
+    const csv = buildSelectedOrdersCsv(selectedRows);
+    const exportDate = new Date().toISOString().slice(0, 10);
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="orders-selected-${exportDate}.csv"`);
+    res.status(200).send(csv);
+  } catch (error: any) {
+    logger.error('[exportSelectedAdminOrders] Failed', {
+      message: error?.message,
+      payload: req.body,
+      url: req.originalUrl,
+    });
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR' });
+  }
+};
+
+// ─── ADMIN: Export Shipping Labels (PDF) | POST /api/orders/admin/export-shipping-labels ───
+
+export const exportSelectedAdminShippingLabels = async (req: AuthRequest, res: Response) => {
+  try {
+    const orderIds = [...new Set(((req.body as { orderIds?: number[] })?.orderIds ?? []).map(Number))];
+
+    const orders = await prisma.order.findMany({
+      where: { orderId: { in: orderIds } },
+      include: {
+        items: {
+          include: {
+            variant: {
+              include: {
+                product: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (orders.length === 0) {
+      return res.status(404).json({ success: false, errorCode: 'ORDER_NOT_FOUND' });
+    }
+
+    // Filter to Processing orders only
+    const processingOrders = orders.filter((o) => toCanonicalOrderStatus(o.status) === 'Processing');
+    const skippedCount = orders.length - processingOrders.length;
+
+    if (processingOrders.length === 0) {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'NO_PROCESSING_ORDERS',
+        message: 'Không có đơn nào ở trạng thái "Đang xử lý" để xuất phiếu.',
+      });
+    }
+
+    const orderById = new Map(processingOrders.map((o) => [o.orderId, o]));
+    const labelData: ShippingLabelData[] = orderIds
+      .map((id) => orderById.get(id))
+      .filter((order): order is (typeof processingOrders)[number] => Boolean(order))
+      .map((order) => {
+        const items = order.items.map((item) => ({
+          productName: item.productName,
+          variantName: item.variantName,
+          quantity: item.quantity,
+        }));
+
+        const addressParts = [
+          order.shippingAddressDetail,
+          order.shippingWard,
+          order.shippingDistrict,
+          order.shippingCity,
+        ].filter(Boolean);
+
+        return {
+          orderNumber: order.orderNumber,
+          createdAt: order.createdAt?.toISOString() ?? new Date().toISOString(),
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
+          shippingAddress: addressParts.join(', '),
+          items,
+          paymentMethod: order.paymentMethod ?? 'COD',
+          codAmount: Number(order.totalAmount ?? 0),
+        };
+      });
+
+    const pdfBuffer = await generateBulkShippingLabels(labelData);
+    const exportDate = new Date().toISOString().slice(0, 10);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="shipping-labels-${exportDate}.pdf"`);
+    if (skippedCount > 0) {
+      res.setHeader('X-Skipped-Orders', String(skippedCount));
+    }
+    res.status(200).send(pdfBuffer);
+  } catch (error: any) {
+    logger.error('[exportSelectedAdminShippingLabels] Failed', {
+      message: error?.message,
+      payload: req.body,
+      url: req.originalUrl,
+    });
     res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR' });
   }
 };

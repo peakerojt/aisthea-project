@@ -1,4 +1,5 @@
 import { CSSProperties } from 'react';
+import { CHECKOUT_STANDARD_FREESHIP_THRESHOLD } from '@validation';
 import { CheckoutSectionCard } from '@/common/components/CheckoutSectionCard';
 import { CheckoutShippingSectionProps } from '@/common/types/checkout.types';
 import { formatCurrencyVND } from '@/common/utils/currency';
@@ -186,13 +187,15 @@ export const CheckoutShippingSection = ({
                 <div>
                   <h4 className="text-base font-bold text-white">{t('shipping.standard.title')}</h4>
                   <p className="mt-1 text-sm text-gray-300">{t('shipping.standard.eta')}</p>
-                  <p className="mt-3 text-xs text-gray-400">{t('shipping.freeShipPolicy')}</p>
+                  <p className="mt-3 text-xs text-gray-400">
+                    {t('shipping.freeShipPolicy', { amount: formatCurrencyVND(CHECKOUT_STANDARD_FREESHIP_THRESHOLD) })}
+                  </p>
                 </div>
                 <div className="text-right">
                   <p className={`text-base font-black ${standardPreviewFee === 0 ? 'text-emerald-400' : 'text-white'}`}>
                     {standardPreviewFee === 0 ? t('shipping.free') : formatCurrencyVND(standardPreviewFee)}
                   </p>
-                  {subtotal > 500000 && (
+                  {subtotal > CHECKOUT_STANDARD_FREESHIP_THRESHOLD && (
                     <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-400">
                       {t('shipping.freeShipBadge')}
                     </p>

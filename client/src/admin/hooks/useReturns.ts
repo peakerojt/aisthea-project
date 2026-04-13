@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AdminReturnReviewActions } from '@/admin/services/types';
+import type { AdminReturnSortValue } from '@/admin/services/returns.query';
 import type { CompleteBankRefundPayload, OrderReturn } from '@/common/services/return.types';
 import { adminReturnReviewService } from '@/admin/services';
 import { dispatchReturnSummaryChanged } from '@/common/events/returnSummary.events';
@@ -16,9 +17,10 @@ import {
 } from '@/common/utils/adminAccess';
 
 export type ReturnStatusFilter = 'ALL' | 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'RECEIVED' | 'REFUNDED';
-
-const PAGE_SIZE = 15;
-const STATUS_COUNTS_PAGE_SIZE = 100;
+export type ReturnSortValue = AdminReturnSortValue;
+export const DEFAULT_RETURN_PAGE_SIZE = 15;
+export const DEFAULT_RETURN_SORT: ReturnSortValue = 'createdAt_desc';
+export const RETURN_PAGE_SIZE_OPTIONS = [15, 30, 50] as const;
 
 type ReturnStatusCounts = Record<ReturnStatusFilter, number>;
 
@@ -33,8 +35,13 @@ const createEmptyStatusCounts = (): ReturnStatusCounts => ({
 
 type UseAdminReturnsOptions = {
   initialStatusFilter?: ReturnStatusFilter;
+  initialSearch?: string;
+  initialSort?: ReturnSortValue;
   initialPage?: number;
+  initialPageSize?: number;
 };
+
+type AdminReturnsLoadMode = 'navigation' | 'background';
 
 type AdminReturnActionError = Error & {
   code?: string;
@@ -90,16 +97,26 @@ export const useAdminReturns = (options: UseAdminReturnsOptions = {}) => {
   const normalizedInitialPage = Number.isFinite(options.initialPage) && (options.initialPage ?? 0) > 0
     ? Math.floor(options.initialPage as number)
     : 1;
+  const normalizedInitialPageSize = Number.isFinite(options.initialPageSize) && (options.initialPageSize ?? 0) > 0
+    ? Math.floor(options.initialPageSize as number)
+    : DEFAULT_RETURN_PAGE_SIZE;
+  const normalizedInitialSort = options.initialSort ?? DEFAULT_RETURN_SORT;
   const [statusFilter, setStatusFilter] = useState<ReturnStatusFilter>(options.initialStatusFilter ?? 'ALL');
+  const [search, setSearch] = useState(options.initialSearch ?? '');
+  const [debouncedSearch, setDebouncedSearch] = useState((options.initialSearch ?? '').trim());
+  const [sort, setSort] = useState<ReturnSortValue>(normalizedInitialSort);
   const [page, setPage] = useState(normalizedInitialPage);
+  const [pageSize, setPageSize] = useState(normalizedInitialPageSize);
   const [totalPages, setTotalPages] = useState(1);
   const [totalReturns, setTotalReturns] = useState(0);
   const [selectedReturn, setSelectedReturn] = useState<OrderReturn | null>(null);
   const hasLoadedRef = useRef(false);
   const requestIdRef = useRef(0);
-  const statusCountsRequestIdRef = useRef(0);
   const previousInitialStatusFilterRef = useRef<ReturnStatusFilter | undefined>(options.initialStatusFilter);
+  const previousInitialSearchRef = useRef<string | undefined>(options.initialSearch);
+  const previousInitialSortRef = useRef<ReturnSortValue | undefined>(options.initialSort);
   const previousInitialPageRef = useRef<number | undefined>(options.initialPage);
+  const previousInitialPageSizeRef = useRef<number | undefined>(options.initialPageSize);
 
   const statusFilters = useMemo<{ label: string; value: ReturnStatusFilter }[]>(() => [
     { label: resolveText('filters.all', 'Tất cả'), value: 'ALL' },
@@ -110,64 +127,40 @@ export const useAdminReturns = (options: UseAdminReturnsOptions = {}) => {
     { label: resolveText('status.REFUNDED', 'Đã hoàn tiền'), value: 'REFUNDED' },
   ], [resolveText]);
 
-  const loadStatusCounts = useCallback(async () => {
-    const requestId = ++statusCountsRequestIdRef.current;
-    const nextCounts = createEmptyStatusCounts();
-    let nextPage = 1;
-    let aggregatedTotalPages = 1;
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 350);
 
-    do {
-      const data = await adminReturnReviewService.list({
-        status: 'ALL',
-        page: nextPage,
-        pageSize: STATUS_COUNTS_PAGE_SIZE,
-      });
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
-      if (statusCountsRequestIdRef.current !== requestId) {
-        return null;
-      }
-
-      aggregatedTotalPages = data.pagination.totalPages;
-      nextCounts.ALL = data.pagination.total;
-
-      data.returns.forEach((item) => {
-        const bucket = getStatusBucket(item);
-        nextCounts[bucket] += 1;
-      });
-
-      nextPage += 1;
-    } while (nextPage <= aggregatedTotalPages);
-
-    if (statusCountsRequestIdRef.current !== requestId) {
-      return null;
-    }
-
-    return nextCounts;
-  }, [getStatusBucket]);
-
-  const load = useCallback(async (options?: { includeStatusCounts?: boolean }) => {
+  const load = useCallback(async (mode: AdminReturnsLoadMode = 'navigation') => {
     const requestId = ++requestIdRef.current;
     const isFirstLoad = !hasLoadedRef.current;
-    const shouldSyncStatusCounts = options?.includeStatusCounts ?? statusFilter !== 'ALL';
 
     if (isFirstLoad) {
       setLoading(true);
-    } else {
+      setIsRefreshing(false);
+    } else if (mode === 'background') {
       setIsRefreshing(true);
+    } else {
+      setIsRefreshing(false);
     }
 
     try {
-      const [data, nextStatusCounts] = await Promise.all([
-        adminReturnReviewService.list({ status: statusFilter, page, pageSize: PAGE_SIZE }),
-        shouldSyncStatusCounts ? loadStatusCounts() : Promise.resolve(),
-      ]);
+      const data = await adminReturnReviewService.list({
+        status: statusFilter,
+        search: debouncedSearch || undefined,
+        sort,
+        page,
+        pageSize,
+      });
       if (requestIdRef.current !== requestId) return;
 
       setReturns(data.returns);
       setTotalReturns(data.pagination.total);
-      if (nextStatusCounts) {
-        setStatusCounts(nextStatusCounts);
-      }
+      setStatusCounts(data.summary ?? null);
       setSelectedReturn((current) => {
         if (!current) {
           return current;
@@ -190,14 +183,14 @@ export const useAdminReturns = (options: UseAdminReturnsOptions = {}) => {
 
       if (isFirstLoad) {
         setLoading(false);
-      } else {
-        setIsRefreshing(false);
       }
+
+      setIsRefreshing(false);
     }
-  }, [loadStatusCounts, page, showToast, statusFilter, t]);
+  }, [debouncedSearch, page, pageSize, showToast, sort, statusFilter, t]);
 
   useEffect(() => {
-    void load();
+    void load('navigation');
   }, [load]);
 
   useEffect(() => {
@@ -208,16 +201,39 @@ export const useAdminReturns = (options: UseAdminReturnsOptions = {}) => {
   }, [options.initialStatusFilter]);
 
   useEffect(() => {
+    if (previousInitialSearchRef.current !== options.initialSearch) {
+      previousInitialSearchRef.current = options.initialSearch;
+      const nextSearch = options.initialSearch ?? '';
+      setSearch(nextSearch);
+      setDebouncedSearch(nextSearch.trim());
+    }
+  }, [options.initialSearch]);
+
+  useEffect(() => {
+    if (previousInitialSortRef.current !== options.initialSort) {
+      previousInitialSortRef.current = options.initialSort;
+      setSort(options.initialSort ?? DEFAULT_RETURN_SORT);
+    }
+  }, [options.initialSort]);
+
+  useEffect(() => {
     if (previousInitialPageRef.current !== options.initialPage) {
       previousInitialPageRef.current = options.initialPage;
       setPage(normalizedInitialPage);
     }
   }, [normalizedInitialPage, options.initialPage]);
 
+  useEffect(() => {
+    if (previousInitialPageSizeRef.current !== options.initialPageSize) {
+      previousInitialPageSizeRef.current = options.initialPageSize;
+      setPageSize(normalizedInitialPageSize);
+    }
+  }, [normalizedInitialPageSize, options.initialPageSize]);
+
   useReturnAutoRefresh({
     enabled: returns.some((item) => shouldAutoRefreshRefundState(item.refundStatus)),
     onRefresh: () => {
-      void load({ includeStatusCounts: statusCounts !== null || statusFilter !== 'ALL' });
+      void load('background');
     },
   });
 
@@ -248,7 +264,7 @@ export const useAdminReturns = (options: UseAdminReturnsOptions = {}) => {
       if (closeOnSuccess) {
         setSelectedReturn(null);
       }
-      await load({ includeStatusCounts: true });
+      await load('background');
     } catch (error) {
       const err = error as Error & { message?: string; messageKey?: string };
       showToast({
@@ -386,19 +402,40 @@ export const useAdminReturns = (options: UseAdminReturnsOptions = {}) => {
     setPage(1);
   }, []);
 
+  const changeSearch = useCallback((nextSearch: string) => {
+    setSearch(nextSearch);
+    setPage(1);
+  }, []);
+
+  const changeSort = useCallback((nextSort: ReturnSortValue) => {
+    setSort(nextSort);
+    setPage(1);
+  }, []);
+
+  const changePageSize = useCallback((nextPageSize: number) => {
+    setPageSize(nextPageSize);
+    setPage(1);
+  }, []);
+
   return {
     canManageRefundWorkflow,
     canManageReturnWorkflow,
+    changePageSize,
+    changeSearch,
+    changeSort,
     changeStatusFilter,
     isRefreshing,
     loading,
     page,
+    pageSize,
     pendingCount,
     reviewActions,
     returns,
+    search,
     selectedReturn,
     setPage,
     setSelectedReturn,
+    sort,
     statusFilter,
     statusTabs,
     totalPages,

@@ -54,6 +54,27 @@ export const myOrderIdParamSchema = z.object({
   orderId: z.coerce.number().int('Mã đơn hàng phải là số nguyên').positive('Mã đơn hàng phải lớn hơn 0'),
 });
 
+const adminOrderIdsField = z.array(
+  z.coerce.number().int('Mã đơn hàng phải là số nguyên').positive('Mã đơn hàng phải lớn hơn 0'),
+).min(1, 'Vui lòng chọn ít nhất một đơn hàng')
+  .max(100, 'Chỉ có thể thao tác tối đa 100 đơn hàng mỗi lần')
+  .superRefine((orderIds, ctx) => {
+    const seen = new Set<number>();
+
+    orderIds.forEach((orderId, index) => {
+      if (seen.has(orderId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [index],
+          message: 'Danh sách đơn hàng chứa mã trùng lặp',
+        });
+        return;
+      }
+
+      seen.add(orderId);
+    });
+  });
+
 export const cancelOrderBodySchema = z.object({
   reason: z.preprocess(
     normalizeOptionalTextInput,
@@ -72,7 +93,19 @@ export const updateOrderStatusSchema = z.object({
   deliveryProofReviewed: z.boolean().optional(),
 }).strict();
 
+export const bulkUpdateOrderStatusSchema = z.object({
+  orderIds: adminOrderIdsField,
+  status: z.string().trim().min(1, 'Vui lòng nhập trạng thái'),
+  note: noteField,
+}).strict();
+
+export const adminOrderExportSchema = z.object({
+  orderIds: adminOrderIdsField,
+}).strict();
+
 export type OrderIdParams = z.infer<typeof orderIdParamSchema>;
 export type QuoteOrderInput = z.infer<typeof quoteOrderSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type CancelOrderBodyInput = z.infer<typeof cancelOrderBodySchema>;
+export type BulkUpdateOrderStatusInput = z.infer<typeof bulkUpdateOrderStatusSchema>;
+export type AdminOrderExportInput = z.infer<typeof adminOrderExportSchema>;

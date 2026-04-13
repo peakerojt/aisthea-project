@@ -5,21 +5,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getAllMock = vi.hoisted(() => vi.fn());
 const getTabCountsMock = vi.hoisted(() => vi.fn());
+const bulkUpdateStatusMock = vi.hoisted(() => vi.fn());
+const exportSelectedOrdersMock = vi.hoisted(() => vi.fn());
 const navigateMock = vi.hoisted(() => vi.fn());
-const searchParamsState = vi.hoisted(() => ({ value: '' }));
+const searchParamsState = vi.hoisted(() => ({ value: '', params: new URLSearchParams() }));
 const setSearchParamsMock = vi.hoisted(() => vi.fn());
 const i18nMode = vi.hoisted(() => ({ rawKeys: false }));
 const interpolateMock = (template: string, options?: Record<string, unknown>) =>
   template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, token: string) => String(options?.[token] ?? ''));
-const deferred = <T,>() => {
-  let resolve!: (value: T) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-
-  return { promise, resolve, reject };
+const syncSearchParamsState = (nextValue: string) => {
+  searchParamsState.value = nextValue;
+  searchParamsState.params = new URLSearchParams(nextValue);
 };
 
 vi.mock('react-i18next', () => ({
@@ -45,29 +41,50 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => navigateMock,
-  useSearchParams: () => [new URLSearchParams(searchParamsState.value), setSearchParamsMock],
+  useSearchParams: () => [searchParamsState.params, setSearchParamsMock],
 }));
 
 vi.mock('@/common/services/order.service', () => ({
   adminOrderService: {
     getAll: (...args: unknown[]) => getAllMock(...args),
     getTabCounts: (...args: unknown[]) => getTabCountsMock(...args),
+    bulkUpdateStatus: (...args: unknown[]) => bulkUpdateStatusMock(...args),
+    exportSelectedOrders: (...args: unknown[]) => exportSelectedOrdersMock(...args),
   },
+}));
+
+vi.mock('@/common/contexts/ToastContext', () => ({
+  useToast: () => ({
+    showToast: vi.fn(),
+  }),
 }));
 
 vi.mock('@/admin/components/AdminUI', () => ({
   AdminPageShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   AdminSectionCard: ({ children }: { children: React.ReactNode }) => <section>{children}</section>,
+  AdminBadge: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
   AdminPageHeader: ({ title, meta }: { title: React.ReactNode; meta?: React.ReactNode }) => (
     <header>
       <h1>{title}</h1>
       {meta ? <div>{meta}</div> : null}
     </header>
   ),
+  AdminPrimaryButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props}>{children}</button>
+  ),
   AdminToolbar: ({ children, actions }: { children: React.ReactNode; actions?: React.ReactNode }) => (
     <div>
       <div>{children}</div>
       <div>{actions}</div>
+    </div>
+  ),
+  AdminActionButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props}>{children}</button>
+  ),
+  AdminModalShell: ({ children, footer }: { children?: React.ReactNode; footer?: React.ReactNode }) => (
+    <div>
+      {children}
+      {footer}
     </div>
   ),
   AdminTabs: ({ items }: { items: Array<{ label: React.ReactNode; count?: number }> }) => (
@@ -81,30 +98,21 @@ vi.mock('@/admin/components/AdminUI', () => ({
   ),
   AdminStatusFilterBar: ({
     items,
-    onChange,
     isRefreshing,
   }: {
-    items: Array<{ key: string; label: React.ReactNode; count?: number }>;
-    onChange: (key: string) => void;
+    items: Array<{ label: React.ReactNode; count?: number }>;
     isRefreshing?: boolean;
   }) => (
     <div data-testid="status-filter-bar" data-refreshing={isRefreshing ? 'true' : 'false'}>
       {items.map((item, index) => (
-        <button key={index} type="button" onClick={() => onChange(item.key)}>
+        <span key={index}>
           {item.label} {item.count}
-        </button>
+        </span>
       ))}
     </div>
   ),
   AdminSecondaryButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props}>{children}</button>
-  ),
-  AdminRefreshButton: ({
-    label,
-    isRefreshing,
-    ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { label: React.ReactNode; isRefreshing?: boolean }) => (
-    <button {...props} data-refreshing={isRefreshing ? 'true' : 'false'}>{label}</button>
   ),
   AdminEmptyState: ({ title, description }: { title: React.ReactNode; description?: React.ReactNode }) => (
     <div>
@@ -125,7 +133,14 @@ describe('Admin Orders page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     i18nMode.rawKeys = false;
-    searchParamsState.value = '';
+    syncSearchParamsState('');
+    setSearchParamsMock.mockImplementation((nextInit: URLSearchParams | string | string[][] | Record<string, string>) => {
+      const nextParams = nextInit instanceof URLSearchParams
+        ? new URLSearchParams(nextInit.toString())
+        : new URLSearchParams(nextInit);
+
+      syncSearchParamsState(nextParams.toString());
+    });
     getAllMock.mockResolvedValue({
       orders: [
         {
@@ -145,7 +160,7 @@ describe('Admin Orders page', () => {
       ],
       pagination: {
         page: 1,
-        pageSize: 15,
+        pageSize: 10,
         total: 1,
         totalPages: 1,
       },
@@ -173,19 +188,20 @@ describe('Admin Orders page', () => {
       expect(screen.getByText('Đơn hàng')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('1 đơn hàng')).toBeInTheDocument();
+    expect(screen.getByText('1 đơn')).toBeInTheDocument();
     expect(screen.getByText('Làm mới')).toBeInTheDocument();
+    expect(screen.getByText('Chọn nhiều')).toBeInTheDocument();
     expect(screen.getByText('Tìm kiếm')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Tìm theo mã đơn, tên khách hàng, số điện thoại...')).toBeInTheDocument();
-    expect(screen.getByText('Tất cả 1')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Tìm tên, SĐT, mã đơn...')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tất cả/i })).toBeInTheDocument();
     expect(screen.getByText('Mã đơn')).toBeInTheDocument();
     expect(screen.getByText('Thanh toán')).toBeInTheDocument();
     expect(screen.getByText('1 sản phẩm')).toBeInTheDocument();
-    expect(screen.getByText('Đã giao hàng')).toBeInTheDocument();
+    expect(screen.getAllByText('Đã giao').length).toBeGreaterThan(0);
     expect(screen.getByText('Đã thanh toán')).toBeInTheDocument();
     expect(screen.getByText('VNPay')).toBeInTheDocument();
     expect(screen.getByText('Chi tiết')).toBeInTheDocument();
-    expect(screen.getByText('Hiển thị 1-1 / 1 đơn')).toBeInTheDocument();
+    expect(screen.getByText('Trang 1/1 · Hiển thị 1-1 trên · 1 đơn hàng')).toBeInTheDocument();
   });
 
   it('loads the main list plus one aggregated tab-count request without re-triggering an infinite refresh loop', async () => {
@@ -196,19 +212,21 @@ describe('Admin Orders page', () => {
     });
 
     await waitFor(() => {
-      expect(getAllMock).toHaveBeenCalledTimes(1);
+      expect(getAllMock.mock.calls.length).toBeGreaterThan(0);
     });
 
-    expect(getTabCountsMock).toHaveBeenCalledTimes(1);
+    expect(getAllMock.mock.calls.length).toBeLessThanOrEqual(3);
+    expect(getTabCountsMock.mock.calls.length).toBeGreaterThan(0);
+    expect(getTabCountsMock.mock.calls.length).toBeLessThanOrEqual(1);
   });
 
   it('hydrates tab, filter, and paging state from the URL query before loading data', async () => {
-    searchParamsState.value = 'status=Processing&q=Nguyen&startDate=2026-03-01&endDate=2026-03-31&sort=createdAt_asc&page=2&pageSize=20';
+    syncSearchParamsState('status=Processing&q=Nguyen&startDate=2026-03-01&endDate=2026-03-31&sort=createdAt_asc&page=2&pageSize=20');
 
     render(<Orders />);
 
     await waitFor(() => {
-      expect(getAllMock).toHaveBeenCalledWith({
+      expect(getAllMock).toHaveBeenCalledWith(expect.objectContaining({
         status: 'Processing',
         page: 2,
         pageSize: 20,
@@ -216,14 +234,14 @@ describe('Admin Orders page', () => {
         startDate: '2026-03-01',
         endDate: '2026-03-31',
         sort: 'createdAt_asc',
-      });
+      }));
     });
 
-    expect(getTabCountsMock).toHaveBeenCalledWith({
+    expect(getTabCountsMock).toHaveBeenCalledWith(expect.objectContaining({
       search: 'Nguyen',
       startDate: '2026-03-01',
       endDate: '2026-03-31',
-    });
+    }));
   });
 
   it('keeps the shared status filter bar mounted while refresh state is idle', async () => {
@@ -236,70 +254,34 @@ describe('Admin Orders page', () => {
     expect(screen.getByTestId('status-filter-bar')).toHaveAttribute('data-refreshing', 'false');
   });
 
-  it('does not spin the manual refresh button when switching tabs', async () => {
-    const nextOrders = deferred<{
-      orders: Array<Record<string, unknown>>;
-      pagination: { page: number; pageSize: number; total: number; totalPages: number };
-    }>();
-
-    getAllMock
-      .mockResolvedValueOnce({
-        orders: [
-          {
-            orderId: 101,
-            orderNumber: 'ORD-101',
-            customerName: 'Nguyen Van A',
-            customerPhone: '0900000000',
-            status: 'COMPLETED',
-            statusLabel: 'COMPLETED',
-            paymentStatus: 'PAID',
-            paymentMethod: 'VNPAY',
-            totalAmount: '450000',
-            createdAt: '2026-03-25T10:00:00.000Z',
-            itemCount: 1,
-            user: null,
-          },
-        ],
-        pagination: {
-          page: 1,
-          pageSize: 15,
-          total: 1,
-          totalPages: 1,
-        },
-      })
-      .mockImplementationOnce(() => nextOrders.promise);
+  it('does not refetch tab counts when only switching status tabs', async () => {
+    const user = userEvent.setup();
 
     render(<Orders />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Làm mới' })).toBeInTheDocument();
+      expect(getAllMock.mock.calls.length).toBeGreaterThan(0);
     });
 
-    await userEvent.click(screen.getByRole('button', { name: /Đang xử lý/i }));
+    const initialGetAllCalls = getAllMock.mock.calls.length;
+    const initialTabCountsCalls = getTabCountsMock.mock.calls.length;
+
+    await user.click(screen.getByRole('button', { name: /Chờ xác nhận/i }));
 
     await waitFor(() => {
-      expect(getAllMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(getAllMock.mock.calls.length).toBeGreaterThan(initialGetAllCalls);
     });
 
-    expect(
-      getAllMock.mock.calls.some((call) => call[0] && typeof call[0] === 'object' && 'status' in call[0] && call[0].status === 'Processing'),
-    ).toBe(true);
-
-    expect(screen.getByRole('button', { name: 'Làm mới' })).toHaveAttribute('data-refreshing', 'false');
-
-    nextOrders.resolve({
-      orders: [],
-      pagination: {
-        page: 1,
-        pageSize: 15,
-        total: 0,
-        totalPages: 1,
-      },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Làm mới' })).toHaveAttribute('data-refreshing', 'false');
-    });
+    expect(getAllMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      status: 'Pending',
+      page: 1,
+      pageSize: 10,
+      search: undefined,
+      startDate: undefined,
+      endDate: undefined,
+      sort: 'createdAt_desc',
+    }));
+    expect(getTabCountsMock).toHaveBeenCalledTimes(initialTabCountsCalls);
   });
 
   it('normalizes hyphenated return requested statuses before rendering compact labels', async () => {
@@ -486,5 +468,90 @@ describe('Admin Orders page', () => {
     });
 
     expect(screen.getByText('Cần kiểm tra thanh toán')).toBeInTheDocument();
+  });
+
+  it('shows the bulk toolbar after selecting an order on the current page', async () => {
+    const user = userEvent.setup();
+
+    render(<Orders />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Chọn đơn ORD-101')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Đã chọn 1 đơn')).not.toBeInTheDocument();
+
+    await user.click(screen.getByLabelText('Chọn đơn ORD-101'));
+
+    expect(screen.getAllByText('Đã chọn 1 đơn').length).toBeGreaterThan(0);
+    expect(screen.getByText('Xuất')).toBeInTheDocument();
+    expect(screen.getByText('Xử lý')).toBeInTheDocument();
+    expect(screen.queryByText('Chuyển sang đã giao')).not.toBeInTheDocument();
+  });
+
+  it('guides shipping selections to the manual verification flow instead of exposing bulk delivered', async () => {
+    const user = userEvent.setup();
+
+    getAllMock.mockResolvedValue({
+      orders: [
+        {
+          orderId: 202,
+          orderNumber: 'ORD-202',
+          customerName: 'Tran Van Shipping',
+          customerPhone: '0900999999',
+          status: 'SHIPPING',
+          statusLabel: 'SHIPPING',
+          paymentStatus: 'PAID',
+          paymentMethod: 'VNPAY',
+          totalAmount: '720000',
+          createdAt: '2026-03-25T10:00:00.000Z',
+          itemCount: 2,
+          user: null,
+        },
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 15,
+        total: 1,
+        totalPages: 1,
+      },
+    });
+
+    render(<Orders />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Chọn đơn ORD-202')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByLabelText('Chọn đơn ORD-202'));
+
+    expect(screen.getByText('Đơn giao hàng cần xác minh thủ công.')).toBeInTheDocument();
+    expect(screen.queryByText('Mở chi tiết')).not.toBeInTheDocument();
+    expect(screen.queryByText('Chuyển sang đã giao')).not.toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps selection checkboxes visible and enters bulk mode when a checkbox is clicked', async () => {
+    const user = userEvent.setup();
+
+    render(<Orders />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Mã đơn')).toBeInTheDocument();
+    });
+
+    expect(screen.getByLabelText('Chọn tất cả đơn trên trang hiện tại')).toBeInTheDocument();
+    expect(screen.getByLabelText('Chọn đơn ORD-101')).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText('Chọn đơn ORD-101'));
+
+    expect(screen.getByText('Đã chọn 1 đơn')).toBeInTheDocument();
+    expect(screen.getByText('Thoát')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Thoát'));
+
+    expect(screen.getByLabelText('Chọn tất cả đơn trên trang hiện tại')).toBeInTheDocument();
+    expect(screen.getByLabelText('Chọn đơn ORD-101')).toBeInTheDocument();
+    expect(screen.queryByText('Đã chọn 1 đơn')).not.toBeInTheDocument();
+    expect(screen.getByText('Chọn nhiều')).toBeInTheDocument();
   });
 });

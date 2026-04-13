@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { CHECKOUT_STANDARD_FREESHIP_THRESHOLD } from '@validation';
 import { orderApi } from '@/common/api/order.api';
 import { validateCouponClientSchema, quoteOrderClientSchema } from '@/common/validation/schemas';
 import { CartItem } from '@/types';
@@ -33,7 +34,7 @@ const getShippingPreviewFee = (method: 'STANDARD' | 'EXPRESS', currentZone: numb
     fee = method === 'STANDARD' ? 40000 : 70000;
   }
 
-  if (method === 'STANDARD' && cartSubtotal > 500000) {
+  if (method === 'STANDARD' && cartSubtotal > CHECKOUT_STANDARD_FREESHIP_THRESHOLD) {
     return 0;
   }
 

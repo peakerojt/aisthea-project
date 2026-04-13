@@ -37,6 +37,13 @@ type CanonicalizableAdminReturnRecord = AdminReturnRecord & {
   workflowStatus?: RawReturnWorkflowStatus | null;
 };
 
+export type AdminReturnSortValue =
+  | 'createdAt_desc'
+  | 'createdAt_asc'
+  | 'updatedAt_desc'
+  | 'updatedAt_asc'
+  | 'refundStatus_asc';
+
 const getAdminNote = (record: AdminReturnRecord) => {
   const latestMeaningfulLog = [...(record.statusLogs ?? [])]
     .reverse()
@@ -141,6 +148,8 @@ const mapAdminReturnRecord = (record: CanonicalizableAdminReturnRecord): OrderRe
 
 const buildAdminReturnListQuery = (params?: {
   status?: string;
+  search?: string;
+  sort?: AdminReturnSortValue;
   page?: number;
   pageSize?: number;
 }) => {
@@ -148,6 +157,12 @@ const buildAdminReturnListQuery = (params?: {
 
   if (params?.status && params.status !== 'ALL') {
     query.append('status', params.status);
+  }
+  if (params?.search) {
+    query.append('search', params.search);
+  }
+  if (params?.sort) {
+    query.append('sort', params.sort);
   }
   if (params?.page) {
     query.append('page', params.page.toString());
@@ -163,6 +178,8 @@ const buildAdminReturnListQuery = (params?: {
 export const adminReturnReadService = {
   async list(params?: {
     status?: string;
+    search?: string;
+    sort?: AdminReturnSortValue;
     page?: number;
     pageSize?: number;
   }): Promise<ReturnListResponse> {
@@ -176,6 +193,7 @@ export const adminReturnReadService = {
         total: response.data.total,
         totalPages: response.data.totalPages,
       },
+      summary: response.data.summary,
     };
   },
 

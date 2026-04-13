@@ -43,6 +43,7 @@ export interface OrderQuoteCoupon {
   value: number;
   maxDiscountAmount: number | null;
   minOrderValue: number;
+  source?: string | null;
 }
 
 export interface OrderQuote {
@@ -253,11 +254,36 @@ export interface AdminOrdersResponse {
 
 export type AdminOrderTabCounts = Record<string, number>;
 
+export interface AdminBulkOrderUpdateResultItem {
+  orderId: number;
+  outcome: 'updated' | 'skipped' | 'failed';
+  previousStatus?: string;
+  newStatus?: string;
+  stockRestored?: boolean;
+  errorCode?: string;
+  messageKey?: string;
+  details?: unknown;
+}
+
+export interface AdminBulkOrderUpdateResponse {
+  requestedCount: number;
+  successCount: number;
+  skippedCount: number;
+  failedCount: number;
+  results: AdminBulkOrderUpdateResultItem[];
+}
+
 export interface UpdateStatusPayload {
   status: string;
   note?: string;
   deliveryProofImages?: string[];
   deliveryProofReviewed?: boolean;
+}
+
+export interface BulkUpdateStatusPayload {
+  orderIds: number[];
+  status: string;
+  note?: string;
 }
 
 export interface CancelOrderPayload {
@@ -508,6 +534,7 @@ export const adminOrderService = {
     startDate?: string;
     endDate?: string;
     sort?: string;
+    signal?: AbortSignal;
   }): Promise<AdminOrdersResponse> {
     const q = new URLSearchParams();
     if (params?.status && params.status !== 'ALL') q.append('status', params.status);
@@ -519,7 +546,10 @@ export const adminOrderService = {
     if (params?.sort) q.append('sort', params.sort);
     const query = q.toString();
 
-    const response = await orderApi.getAdminOrders<AdminOrder[]>(query ? `?${query}` : '');
+    const response = await orderApi.getAdminOrders<AdminOrder[]>(query ? `?${query}` : '', {
+      signal: params?.signal,
+      skipDedupe: Boolean(params?.signal),
+    });
     return {
       orders: response.data || [],
       pagination: response.meta || { page: 1, pageSize: 20, total: 0, totalPages: 1 },
@@ -530,6 +560,7 @@ export const adminOrderService = {
     search?: string;
     startDate?: string;
     endDate?: string;
+    signal?: AbortSignal;
   }): Promise<AdminOrderTabCounts> {
     const q = new URLSearchParams();
     if (params?.search) q.append('search', params.search);
@@ -537,8 +568,16 @@ export const adminOrderService = {
     if (params?.endDate) q.append('endDate', params.endDate);
 
     const query = q.toString();
-    const response = await orderApi.getAdminOrderTabCounts(query ? `?${query}` : '');
+    const response = await orderApi.getAdminOrderTabCounts(query ? `?${query}` : '', {
+      signal: params?.signal,
+      skipDedupe: Boolean(params?.signal),
+    });
     return response.data || {};
+  },
+
+  async bulkUpdateStatus(payload: BulkUpdateStatusPayload): Promise<AdminBulkOrderUpdateResponse> {
+    const response = await orderApi.bulkUpdateOrderStatus(payload);
+    return response.data;
   },
 
   /**
@@ -629,5 +668,43 @@ export const adminOrderService = {
     payload: UpdateStatusPayload
   ): Promise<{ success: boolean; message: string; stockRestored: boolean }> {
     return orderApi.updateOrderStatus(orderId, payload);
+  },
+
+  async exportSelectedOrders(orderIds: number[]) {
+    const blob = await orderApi.exportSelectedAdminOrders({ orderIds });
+    const exportDate = new Date().toISOString().slice(0, 10);
+    const fileName = `orders-selected-${exportDate}.csv`;
+
+    if (typeof window !== 'undefined') {
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    }
+
+    return { fileName };
+  },
+
+  async exportSelectedShippingLabels(orderIds: number[]) {
+    const blob = await orderApi.exportSelectedAdminShippingLabels({ orderIds });
+    const exportDate = new Date().toISOString().slice(0, 10);
+    const fileName = `shipping-labels-${exportDate}.pdf`;
+
+    if (typeof window !== 'undefined') {
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    }
+
+    return { fileName };
   },
 };

@@ -24,6 +24,13 @@ export const ReturnReasonEnum = z.enum([
 export const RefundMethodEnum = z.enum(RETURN_REFUND_METHODS);
 
 export const ReturnStatusEnum = z.enum(RETURN_REQUEST_STATUSES);
+export const AdminReturnSortEnum = z.enum([
+  'createdAt_desc',
+  'createdAt_asc',
+  'updatedAt_desc',
+  'updatedAt_asc',
+  'refundStatus_asc',
+]);
 export type ReturnReason = z.infer<typeof ReturnReasonEnum>;
 
 export type CreateReturnRequestItemDto = {
@@ -160,13 +167,19 @@ export const createReturnRequestSchema: z.ZodType<CreateReturnRequestDto> = z
 
 export const listAdminReturnsSchema = z.object({
   status: ReturnStatusEnum.optional(),
+  search: z.string().trim().max(100).optional(),
+  sort: AdminReturnSortEnum.optional().default('createdAt_desc'),
   orderId: positiveCoercedInt.optional(),
   customerId: positiveCoercedInt.optional(),
   fromDate: z.coerce.date().optional(),
   toDate: z.coerce.date().optional(),
   page: positiveCoercedInt.default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(10),
-});
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+}).transform(({ pageSize, limit, ...rest }) => ({
+  ...rest,
+  limit: pageSize ?? limit ?? 10,
+}));
 
 export const idParamSchema = z.object({ id: positiveCoercedInt });
 

@@ -368,6 +368,8 @@ describe('ReturnRequestRepository', () => {
 
     const filters = {
       status: 'RECEIVED' as const,
+      search: 'nguyen',
+      sort: 'updatedAt_desc' as const,
       orderId: 55,
       customerId: 7,
       fromDate: new Date('2026-03-01T00:00:00.000Z'),
@@ -381,6 +383,13 @@ describe('ReturnRequestRepository', () => {
     expect(prismaMock.returnRequest.findMany).toHaveBeenCalledWith({
       where: {
         status: { in: ['RECEIVED', 'RECEIVED_AND_INSPECTING', 'ACCEPTED_FOR_REFUND'] },
+        OR: [
+          { order: { orderNumber: { contains: 'nguyen' } } },
+          { order: { customerName: { contains: 'nguyen' } } },
+          { order: { customerPhone: { contains: 'nguyen' } } },
+          { user: { fullName: { contains: 'nguyen' } } },
+          { user: { email: { contains: 'nguyen' } } },
+        ],
         orderId: 55,
         userId: 7,
         createdAt: {
@@ -390,7 +399,7 @@ describe('ReturnRequestRepository', () => {
       },
       skip: 10,
       take: 5,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
       include: {
         user: { select: { userId: true, fullName: true, email: true, avatarUrl: true } },
         order: {
@@ -409,6 +418,13 @@ describe('ReturnRequestRepository', () => {
     expect(prismaMock.returnRequest.count).toHaveBeenCalledWith({
       where: {
         status: { in: ['RECEIVED', 'RECEIVED_AND_INSPECTING', 'ACCEPTED_FOR_REFUND'] },
+        OR: [
+          { order: { orderNumber: { contains: 'nguyen' } } },
+          { order: { customerName: { contains: 'nguyen' } } },
+          { order: { customerPhone: { contains: 'nguyen' } } },
+          { user: { fullName: { contains: 'nguyen' } } },
+          { user: { email: { contains: 'nguyen' } } },
+        ],
         orderId: 55,
         userId: 7,
         createdAt: {
@@ -423,6 +439,86 @@ describe('ReturnRequestRepository', () => {
       page: 3,
       limit: 5,
       totalPages: 1,
+    });
+  });
+
+  it('builds admin summary counts from the same filter family without paging', async () => {
+    prismaMock.returnRequest.count
+      .mockResolvedValueOnce(8)
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1);
+
+    const result = await repository.countAllAdminStatuses({
+      search: 'nguyen',
+      orderId: 55,
+      customerId: 7,
+      fromDate: new Date('2026-03-01T00:00:00.000Z'),
+      toDate: new Date('2026-03-10T00:00:00.000Z'),
+    });
+
+    expect(prismaMock.returnRequest.count).toHaveBeenNthCalledWith(1, {
+      where: {
+        OR: [
+          { order: { orderNumber: { contains: 'nguyen' } } },
+          { order: { customerName: { contains: 'nguyen' } } },
+          { order: { customerPhone: { contains: 'nguyen' } } },
+          { user: { fullName: { contains: 'nguyen' } } },
+          { user: { email: { contains: 'nguyen' } } },
+        ],
+        orderId: 55,
+        userId: 7,
+        createdAt: {
+          gte: new Date('2026-03-01T00:00:00.000Z'),
+          lte: new Date('2026-03-10T00:00:00.000Z'),
+        },
+      },
+    });
+    expect(prismaMock.returnRequest.count).toHaveBeenNthCalledWith(2, {
+      where: {
+        status: { in: ['REQUESTED', 'SUBMITTED', 'PENDING_PAYMENT_CONFIRMATION', 'PENDING_ADMIN_REVIEW'] },
+        OR: [
+          { order: { orderNumber: { contains: 'nguyen' } } },
+          { order: { customerName: { contains: 'nguyen' } } },
+          { order: { customerPhone: { contains: 'nguyen' } } },
+          { user: { fullName: { contains: 'nguyen' } } },
+          { user: { email: { contains: 'nguyen' } } },
+        ],
+        orderId: 55,
+        userId: 7,
+        createdAt: {
+          gte: new Date('2026-03-01T00:00:00.000Z'),
+          lte: new Date('2026-03-10T00:00:00.000Z'),
+        },
+      },
+    });
+    expect(prismaMock.returnRequest.count).toHaveBeenNthCalledWith(3, {
+      where: {
+        status: { in: ['APPROVED', 'IN_RETURN_TRANSIT'] },
+        OR: [
+          { order: { orderNumber: { contains: 'nguyen' } } },
+          { order: { customerName: { contains: 'nguyen' } } },
+          { order: { customerPhone: { contains: 'nguyen' } } },
+          { user: { fullName: { contains: 'nguyen' } } },
+          { user: { email: { contains: 'nguyen' } } },
+        ],
+        orderId: 55,
+        userId: 7,
+        createdAt: {
+          gte: new Date('2026-03-01T00:00:00.000Z'),
+          lte: new Date('2026-03-10T00:00:00.000Z'),
+        },
+      },
+    });
+    expect(result).toEqual({
+      ALL: 8,
+      REQUESTED: 3,
+      APPROVED: 2,
+      REJECTED: 1,
+      RECEIVED: 1,
+      REFUNDED: 1,
     });
   });
 

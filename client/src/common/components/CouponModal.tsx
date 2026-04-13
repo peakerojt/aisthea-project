@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { CHECKOUT_STANDARD_FREESHIP_THRESHOLD } from '@validation';
 import { api } from '../utils/api';
 
 export interface CouponData {
@@ -12,6 +13,7 @@ export interface CouponData {
     minOrderValue: number;
     endDate: string;
     status: string;
+    source?: string | null;
 }
 
 interface CouponModalProps {
@@ -163,9 +165,16 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                             )}
 
                             {!loading && coupons.map((coupon) => {
-                                const isEligible = cartSubtotal >= coupon.minOrderValue;
-                                const progressPercent = Math.min((cartSubtotal / coupon.minOrderValue) * 100, 100);
-                                const amountNeeded = coupon.minOrderValue - cartSubtotal;
+                                const meetsMinOrder = cartSubtotal >= coupon.minOrderValue;
+                                const isRefundBenefitFreeship =
+                                    coupon.source === 'REFUND_BENEFIT' && coupon.type === 'FIXED_AMOUNT';
+                                const isCheckoutPolicyFreeship = cartSubtotal > CHECKOUT_STANDARD_FREESHIP_THRESHOLD;
+                                const isRedundantFreeship = isRefundBenefitFreeship && isCheckoutPolicyFreeship;
+                                const isEligible = meetsMinOrder && !isRedundantFreeship;
+                                const progressPercent = coupon.minOrderValue > 0
+                                    ? Math.min((cartSubtotal / coupon.minOrderValue) * 100, 100)
+                                    : 100;
+                                const amountNeeded = Math.max(0, coupon.minOrderValue - cartSubtotal);
 
                                 return (
                                     <div
@@ -213,11 +222,16 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                                                             : 'cursor-not-allowed bg-white/10 text-gray-500'
                                                     }`}
                                                 >
-                                                    Dùng ngay
+                                                    {isRedundantFreeship ? 'Đã freeship' : 'Dùng ngay'}
                                                 </button>
                                             </div>
 
-                                            {!isEligible ? (
+                                            {isRedundantFreeship ? (
+                                                <div className="mt-2 flex items-center gap-1 text-[10px] text-amber-300">
+                                                    <span className="material-symbols-outlined text-[12px]">local_shipping</span>
+                                                    Đơn hàng đã được miễn phí vận chuyển tiêu chuẩn, không cần áp mã này
+                                                </div>
+                                            ) : !isEligible ? (
                                                 <div className="mt-3">
                                                     <div className="mb-1.5 h-1.5 w-full overflow-hidden rounded-full bg-bg-dark">
                                                         <div

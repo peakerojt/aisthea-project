@@ -3,6 +3,13 @@
 
 export type CouponType = 'FIXED_AMOUNT' | 'PERCENTAGE';
 export type CouponStatus = 'ACTIVE' | 'EXPIRED' | 'DEPLETED' | 'UPCOMING' | 'INACTIVE';
+export type CouponSortValue =
+    | 'createdAt_desc'
+    | 'createdAt_asc'
+    | 'endDate_asc'
+    | 'endDate_desc'
+    | 'usedCount_desc'
+    | 'usedCount_asc';
 
 export interface Coupon {
     couponId: number;
@@ -44,7 +51,7 @@ export interface CouponListResponse {
 }
 
 export interface ValidateCouponResult {
-    coupon: Pick<Coupon, 'couponId' | 'code' | 'type' | 'value' | 'maxDiscountAmount' | 'minOrderValue'>;
+    coupon: Pick<Coupon, 'couponId' | 'code' | 'type' | 'value' | 'maxDiscountAmount' | 'minOrderValue' | 'source'>;
     discountAmount: number;
     message: string;
 }
@@ -75,6 +82,8 @@ export const fetchCoupons = async (params?: {
     page?: number;
     pageSize?: number;
     search?: string;
+    status?: CouponStatus | 'ALL';
+    sort?: CouponSortValue;
     isActive?: boolean;
     includeHidden?: boolean;
 }): Promise<CouponListResponse> => {
@@ -82,6 +91,8 @@ export const fetchCoupons = async (params?: {
     if (params?.page) query.page = String(params.page);
     if (params?.pageSize) query.pageSize = String(params.pageSize);
     if (params?.search) query.search = params.search;
+    if (params?.status && params.status !== 'ALL') query.status = params.status;
+    if (params?.sort) query.sort = params.sort;
     if (params?.isActive !== undefined) query.isActive = String(params.isActive);
     if (params?.includeHidden !== undefined) query.includeHidden = String(params.includeHidden);
     return couponApi.fetch(query);

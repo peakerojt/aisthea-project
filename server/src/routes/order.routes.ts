@@ -3,6 +3,9 @@ import { authenticateToken, requirePermission } from '../middlewares/auth.middle
 import { upload } from '../middlewares/upload.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import {
+    bulkUpdateOrderStatus,
+    exportSelectedAdminOrders,
+    exportSelectedAdminShippingLabels,
     getMyOrders,
     getMyOrderDetail,
     createOrder,
@@ -16,6 +19,8 @@ import {
     uploadReturnProofImages,
 } from '../controllers/order.controller';
 import {
+    adminOrderExportSchema,
+    bulkUpdateOrderStatusSchema,
     createOrderSchema,
     myOrderIdParamSchema,
     orderIdParamSchema,
@@ -41,6 +46,9 @@ const orderWriteGuard = [authenticateToken, requirePermission('EDIT_ORDER')];
 // NOTE: /admin must come BEFORE /:id to avoid route collisions
 router.get('/admin', ...orderReadGuard, getAllOrders);
 router.get('/admin/tab-counts', ...orderReadGuard, getAdminOrderTabCounts);
+router.post('/admin/export', ...orderReadGuard, validate(adminOrderExportSchema), exportSelectedAdminOrders);
+router.post('/admin/export-shipping-labels', ...orderReadGuard, validate(adminOrderExportSchema), exportSelectedAdminShippingLabels);
+router.patch('/admin/bulk-status', ...orderWriteGuard, validate(bulkUpdateOrderStatusSchema), bulkUpdateOrderStatus);
 router.get('/admin/:id', ...orderReadGuard, validate(orderIdParamSchema, 'params'), getAdminOrderDetail);
 router.post('/:id/delivery-proof-images', ...orderWriteGuard, validate(orderIdParamSchema, 'params'), upload.array('files', 5), uploadDeliveryProofImages);
 router.patch('/:id/status', ...orderWriteGuard, validate(orderIdParamSchema, 'params'), validate(updateOrderStatusSchema), updateOrderStatus);
