@@ -229,7 +229,7 @@ describe('Customers role mapping', () => {
     expect(screen.getByRole('option', { name: 'Nhân viên' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Support' })).not.toBeInTheDocument();
     expect(screen.getByText('21 tài khoản')).toBeInTheDocument();
-    expect(screen.getByText('Hiển thị 1-20 / 21 tài khoản')).toBeInTheDocument();
+    expect(screen.getByText('Hiển thị 1-8 / 21 tài khoản')).toBeInTheDocument();
   });
 
   it('uses fetched backend role ids instead of hardcoded role ids when saving role changes', async () => {
