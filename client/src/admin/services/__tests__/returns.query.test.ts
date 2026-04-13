@@ -88,6 +88,14 @@ describe('adminReturnReadService', () => {
         page: 2,
         limit: 15,
         totalPages: 3,
+        summary: {
+          ALL: 8,
+          REQUESTED: 3,
+          APPROVED: 2,
+          REJECTED: 1,
+          RECEIVED: 1,
+          REFUNDED: 1,
+        },
       },
     });
 
@@ -98,6 +106,14 @@ describe('adminReturnReadService', () => {
     });
 
     expect(returnApiMock.getAdminReturnRequests).toHaveBeenCalledWith('?status=REQUESTED&page=2&limit=15');
+    expect(result.summary).toEqual({
+      ALL: 8,
+      REQUESTED: 3,
+      APPROVED: 2,
+      REJECTED: 1,
+      RECEIVED: 1,
+      REFUNDED: 1,
+    });
     expect(result.returns[0]).toEqual(
       expect.objectContaining({
         returnId: 77,
@@ -113,6 +129,27 @@ describe('adminReturnReadService', () => {
         },
       }),
     );
+  });
+
+  it('serializes admin return search and sort params for the list query', async () => {
+    returnApiMock.getAdminReturnRequests.mockResolvedValueOnce({
+      data: {
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 30,
+        totalPages: 0,
+      },
+    });
+
+    await adminReturnReadService.list({
+      search: 'ORD-18',
+      sort: 'updatedAt_desc',
+      page: 1,
+      pageSize: 30,
+    });
+
+    expect(returnApiMock.getAdminReturnRequests).toHaveBeenCalledWith('?search=ORD-18&sort=updatedAt_desc&page=1&limit=30');
   });
 
   it('maps admin return detail payload into legacy detail shape', async () => {

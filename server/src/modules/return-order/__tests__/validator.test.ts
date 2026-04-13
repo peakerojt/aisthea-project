@@ -153,16 +153,20 @@ describe('return request validator', () => {
   it('coerces admin filters and param ids into typed values', () => {
     const filters = listAdminReturnsSchema.parse({
       status: 'RECEIVED',
+      search: 'ORD-55',
+      sort: 'updatedAt_desc',
       orderId: '55',
       customerId: '7',
       fromDate: '2026-03-01T00:00:00.000Z',
       toDate: '2026-03-10T00:00:00.000Z',
       page: '2',
-      limit: '5',
+      pageSize: '5',
     });
 
     expect(filters).toEqual({
       status: 'RECEIVED',
+      search: 'ORD-55',
+      sort: 'updatedAt_desc',
       orderId: 55,
       customerId: 7,
       fromDate: new Date('2026-03-01T00:00:00.000Z'),
@@ -177,6 +181,7 @@ describe('return request validator', () => {
     const parsed = listAdminReturnsSchema.parse({});
 
     expect(parsed.page).toBe(1);
+    expect(parsed.sort).toBe('createdAt_desc');
     expect(parsed.limit).toBe(10);
   });
 });

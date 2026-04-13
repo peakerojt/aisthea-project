@@ -1,20 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, ClipboardList, ImagePlus, Landmark, Search, Trash2, X } from 'lucide-react';
-import {
-    AdminActionButton,
-    AdminBadge,
-    AdminModalShell,
-    AdminPrimaryButton,
-    AdminSecondaryButton,
-} from '@/admin/components/AdminUI';
+import { ClipboardList, Search } from 'lucide-react';
+import { AdminModalShell } from '@/admin/components/AdminUI';
 import {
     formatAdminReturnDateTime,
     formatAdminReturnMoneyVND,
-    getAdminRefundStatusBadgeTone,
     getAdminRefundStatusLabel,
-    getAdminReturnStatusBadgeTone,
-    getAdminReturnStatusLabel,
 } from '@/admin/utils/returns.utils';
 import { ReasonLabel } from '@/common/components/ReasonLabel';
 import { ReturnItemList } from '@/store/components/return-detail/ReturnItemList';
@@ -30,8 +21,12 @@ import {
 import { canonicalizeWorkflowStatusFallback } from '@/common/utils/returnStatus';
 import { refundUi } from '@/common/styles/refundUi';
 import { translateLegacyReturnCopy } from '@/common/utils/returnCopy';
-import { getCloudinaryQrImage } from '@/common/utils/cloudinary';
 import { fileToBase64 } from '@/common/utils/imageCompression';
+import { ReturnReviewBankInfoSection } from '@/admin/components/returns/review/ReturnReviewBankInfoSection';
+import { ReturnReviewCompleteRefundDialog } from '@/admin/components/returns/review/ReturnReviewCompleteRefundDialog';
+import { ReturnReviewFooter } from '@/admin/components/returns/review/ReturnReviewFooter';
+import { ReturnReviewLightbox } from '@/admin/components/returns/review/ReturnReviewLightbox';
+import { ReturnReviewSummarySection } from '@/admin/components/returns/review/ReturnReviewSummarySection';
 
 type PendingNoteAction = 'reject' | 'refundFailed' | 'refundManualReview';
 
@@ -63,6 +58,7 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
     const [processing, setProcessing] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
     const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+    const [lightboxKind, setLightboxKind] = useState<'proof' | 'bankQr'>('proof');
     const [isLightboxVisible, setIsLightboxVisible] = useState(false);
     const [detailItem, setDetailItem] = useState<OrderReturn | null>(null);
     const [isDetailLoading, setIsDetailLoading] = useState(false);
@@ -166,6 +162,8 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
             index ? { index } : undefined,
         );
     const proofLightboxLabel = resolveText('modal.proofLightboxLabel', 'Xem ảnh minh chứng');
+    const bankQrLightboxLabel = resolveText('modal.bankQrLightboxLabel', 'Xem QR nhận tiền');
+    const bankQrImageAlt = resolveText('modal.bankQrAlt', 'QR tài khoản ngân hàng');
     const refundPayoutProofAlt = resolveText('detail.refundProofAlt', 'Ảnh chứng từ hoàn tiền');
     const refundPayoutProofOpenLabel = resolveText('detail.refundProofOpen', 'Mở ảnh chứng từ');
     const closeProofLightboxLabel = resolveText('modal.closeProofLightbox', 'Đóng ảnh minh chứng');
@@ -306,6 +304,13 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
                     confirmLabel: actionConfirmRefundNoteLabel,
                 }
                 : null;
+    const noteFormPresentation = noteFormConfig
+        ? {
+            confirmLabel: noteFormConfig.confirmLabel,
+            placeholder: noteFormConfig.placeholder,
+            title: noteFormConfig.title,
+        }
+        : null;
     const statusTranslator = (key: string, options?: Record<string, unknown>) => {
         const fallbackByKey: Record<string, string> = {
             'status.SUBMITTED': 'Chờ duyệt',
@@ -475,6 +480,26 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
             setProcessing(false);
         }
     };
+    const primaryFooterAction = primaryAction
+        ? {
+            label: primaryAction.label,
+            key: 'primaryAction',
+            onClick: () => { void primaryAction.onClick(activeItem.returnId); },
+            tone: primaryAction.tone,
+        }
+        : null;
+    const footerRefundManagementActions = refundManagementActions.map((refundAction) => ({
+        key: refundAction.key,
+        label: refundAction.label,
+        onClick: () => {
+            if (refundAction.noteAction) {
+                openNoteAction(refundAction.noteAction);
+                return;
+            }
+            void refundAction.onClick(activeItem.returnId);
+        },
+        tone: refundAction.tone,
+    }));
 
     return (
         <>
@@ -487,231 +512,64 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
                     panelClassName={`${isCompleteRefundModalOpen ? 'hidden' : ''} max-h-[90vh] rounded-2xl`}
                     bodyClassName="max-h-[68vh] overflow-y-auto p-6 space-y-6"
                     closeOnOverlayClick={!isCompleteRefundModalOpen}
-                    footer={!isTerminal && (isNoteFormVisible || hasPrimaryActions || refundManagementActions.length > 0) ? (
-                        !isNoteFormVisible ? (
-                            <div className="space-y-3">
-                                {refundManagementActions.length > 0 && (
-                                    <div className="space-y-2">
-                                        <div className={refundUi.eyeBrow}>
-                                            {transactionsTitle}
-                                        </div>
-                                        <div className="flex flex-wrap gap-3">
-                                        {refundManagementActions.map((refundAction) => (
-                                            <AdminActionButton
-                                                key={refundAction.key}
-                                                onClick={() => {
-                                                    if (refundAction.noteAction) {
-                                                        openNoteAction(refundAction.noteAction);
-                                                        return;
-                                                    }
-                                                    void refundAction.onClick(activeItem.returnId);
-                                                }}
-                                                disabled={processing || isUploadingProofs}
-                                                tone={refundAction.tone}
-                                                size="md"
-                                                className="flex-1 cursor-pointer py-3 text-xs font-semibold"
-                                            >
-                                                {processing || isUploadingProofs ? processingLabel : refundAction.label}
-                                            </AdminActionButton>
-                                        ))}
-                                    </div>
-                                    </div>
-                                )}
-                                <div className="flex flex-wrap gap-3">
-                                    <AdminSecondaryButton
-                                        onClick={onClose}
-                                        className="px-4 py-3 text-xs font-semibold"
-                                    >
-                                        {closeModalLabel}
-                                    </AdminSecondaryButton>
-                                    {canReject && (
-                                        <AdminActionButton
-                                            onClick={() => openNoteAction('reject')}
-                                            disabled={processing || isUploadingProofs}
-                                            tone="danger"
-                                            size="md"
-                                            className="flex-1 cursor-pointer py-3 text-xs font-semibold"
-                                        >
-                                            {actionRejectLabel}
-                                        </AdminActionButton>
-                                    )}
-                                    {requiresBankRefundCompletion && !hasAvailableBankInfo && (
-                                        <AdminSecondaryButton
-                                            onClick={() => void actions.sendBankInfoReminder(activeItem.returnId)}
-                                            disabled={processing || isUploadingProofs}
-                                            className="px-4 py-3 text-xs font-semibold"
-                                        >
-                                            {actionSendBankReminderLabel}
-                                        </AdminSecondaryButton>
-                                    )}
-                                    {requiresBankRefundCompletion && (
-                                        <AdminActionButton
-                                            onClick={handleOpenCompleteRefundModal}
-                                            disabled={processing || isUploadingProofs || !hasAvailableBankInfo}
-                                            tone="success"
-                                            size="md"
-                                            className="flex-1 cursor-pointer py-3 text-xs font-semibold"
-                                        >
-                                            {processing || isUploadingProofs ? processingLabel : actionContinueRefundLabel}
-                                        </AdminActionButton>
-                                    )}
-                                    {primaryAction && (
-                                        <AdminActionButton
-                                            onClick={() => primaryAction.onClick(activeItem.returnId)}
-                                            disabled={processing || isUploadingProofs}
-                                            tone={primaryAction.tone}
-                                            size="md"
-                                            className="flex-1 cursor-pointer py-3 text-xs font-semibold"
-                                        >
-                                            {processing || isUploadingProofs ? processingLabel : primaryAction.label}
-                                        </AdminActionButton>
-                                    )}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {noteFormConfig && (
-                                    <div className="space-y-2">
-                                        <div className={refundUi.eyeBrow}>
-                                            {noteFormConfig.title}
-                                        </div>
-                                        <textarea
-                                            value={actionNote}
-                                            onChange={(event) => setActionNote(event.target.value)}
-                                            placeholder={noteFormConfig.placeholder}
-                                            className="min-h-28 w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
-                                        />
-                                    </div>
-                                )}
-                                <div className="flex gap-3">
-                                    <AdminSecondaryButton
-                                        onClick={() => {
-                                            setPendingNoteAction(null);
-                                            setActionNote('');
-                                        }}
-                                        className="px-4 py-3 text-xs font-semibold"
-                                    >
-                                        {actionCancelRejectLabel}
-                                    </AdminSecondaryButton>
-                                    <AdminSecondaryButton
-                                        onClick={onClose}
-                                        className="px-4 py-3 text-xs font-semibold"
-                                    >
-                                        {closeModalLabel}
-                                    </AdminSecondaryButton>
-                                    <AdminActionButton
-                                        onClick={() => void submitPendingNoteAction(actionNote)}
-                                        disabled={processing || !actionNote.trim()}
-                                        tone="danger"
-                                        size="md"
-                                        className="flex-1 px-4 py-3 text-xs font-semibold"
-                                    >
-                                        {processing ? processingLabel : noteFormConfig?.confirmLabel ?? actionConfirmRejectLabel}
-                                    </AdminActionButton>
-                                </div>
-                            </div>
-                        )
+                    footer={!isTerminal ? (
+                        <ReturnReviewFooter
+                            actionCancelRejectLabel={actionCancelRejectLabel}
+                            actionContinueRefundLabel={actionContinueRefundLabel}
+                            actionNote={actionNote}
+                            actionRejectLabel={actionRejectLabel}
+                            actionSendBankReminderLabel={actionSendBankReminderLabel}
+                            canReject={canReject}
+                            closeModalLabel={closeModalLabel}
+                            hasAvailableBankInfo={hasAvailableBankInfo}
+                            hasPrimaryActions={hasPrimaryActions}
+                            isCompleteRefundModalOpen={isCompleteRefundModalOpen}
+                            isNoteFormVisible={isNoteFormVisible}
+                            isUploadingProofs={isUploadingProofs}
+                            noteFormConfig={noteFormPresentation}
+                            onCancelNote={() => {
+                                setPendingNoteAction(null);
+                                setActionNote('');
+                            }}
+                            onClose={onClose}
+                            onOpenCompleteRefund={handleOpenCompleteRefundModal}
+                            onOpenReject={() => openNoteAction('reject')}
+                            onSendBankReminder={() => {
+                                void actions.sendBankInfoReminder(activeItem.returnId);
+                            }}
+                            onSubmitNote={() => {
+                                void submitPendingNoteAction(actionNote);
+                            }}
+                            onUpdateActionNote={setActionNote}
+                            primaryAction={primaryFooterAction}
+                            processing={processing}
+                            processingLabel={processingLabel}
+                            refundManagementActions={footerRefundManagementActions}
+                            requiresBankRefundCompletion={requiresBankRefundCompletion}
+                            transactionsTitle={transactionsTitle}
+                        />
                     ) : undefined}
                 >
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className={`${refundUi.sectionMuted} p-5`}>
-                        <div className={`${refundUi.eyeBrow} mb-1`}>
-                            {statusLabel}
-                        </div>
-                        <AdminBadge
-                            tone={getAdminReturnStatusBadgeTone(activeItem.workflowStatus ?? activeItem.status)}
-                            className="rounded-lg px-2 py-1 text-[10px] font-semibold"
-                        >
-                            {getAdminReturnStatusLabel(activeItem.workflowStatus ?? activeItem.status, statusTranslator)}
-                        </AdminBadge>
-                    </div>
-                    <div className={`${refundUi.sectionMuted} p-5`}>
-                        <div className={`${refundUi.eyeBrow} mb-1`}>
-                            {requestDateLabel}
-                        </div>
-                        <div className="text-sm text-white">
-                            {formatAdminReturnDateTime(activeItem.createdAt)}
-                        </div>
-                    </div>
-                    <div className={`${refundUi.sectionMuted} p-5`}>
-                        <div className={`${refundUi.eyeBrow} mb-1`}>
-                            {customerLabel}
-                        </div>
-                        <div className="text-sm text-white font-medium">
-                            {activeItem.user?.fullName ?? '—'}
-                        </div>
-                        <div className="text-xs text-white/40 mt-0.5">
-                            {activeItem.user?.email ?? '—'}
-                        </div>
-                    </div>
-                    <div className={`${refundUi.sectionMuted} p-5`}>
-                        <div className={`${refundUi.eyeBrow} mb-1`}>
-                            {orderValueLabel}
-                        </div>
-                        <div className="text-sm text-white font-semibold">
-                            {activeItem.order?.totalAmount
-                                ? formatAdminReturnMoneyVND(activeItem.order.totalAmount)
-                                : '—'}
-                        </div>
-                    </div>
-                    <div className={`${refundUi.success} p-5`}>
-                        <div className={`${refundUi.eyeBrow} mb-1`}>
-                            {expectedRefundLabel}
-                        </div>
-                        <div className="text-sm font-semibold text-emerald-300">
-                            {expectedRefundAmount > 0 ? formatAdminReturnMoneyVND(expectedRefundAmount) : '—'}
-                        </div>
-                        {itemEconomicsSummary.hasSnapshotBreakdown && (
-                            <div className="mt-2 space-y-1 text-[11px] text-white/60">
-                                <div>
-                                    {netPaidTotalLabel}:{' '}
-                                    <span className="font-medium text-white/80">
-                                        {formatAdminReturnMoneyVND(itemEconomicsSummary.totalNetPaidAmount)}
-                                    </span>
-                                </div>
-                                <div>
-                                    {grossTotalLabel}:{' '}
-                                    <span className="font-medium text-white/80">
-                                        {formatAdminReturnMoneyVND(itemEconomicsSummary.totalGrossAmount)}
-                                    </span>
-                                </div>
-                                <div>
-                                    {discountTotalLabel}:{' '}
-                                    <span className="font-medium text-white/80">
-                                        {formatAdminReturnMoneyVND(itemEconomicsSummary.totalDiscountAmount)}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-                        {showsRefundCapAdjustment && (
-                            <>
-                                <div className="mt-1 text-[11px] text-white/50">
-                                    {resolveText(
-                                        'detail.infoExpectedRefundLegacy',
-                                        'Theo tổng cũ: {{amount}}',
-                                        {
-                                            amount: formatAdminReturnMoneyVND(legacyTotalRefundAmount),
-                                        },
-                                    )}
-                                </div>
-                                <div className="mt-1 text-[11px] text-white/50">
-                                    {expectedRefundHintLabel}
-                                </div>
-                            </>
-                        )}
-                    </div>
-                    <div className={`${refundUi.sectionMuted} p-5`}>
-                        <div className={`${refundUi.eyeBrow} mb-1`}>
-                            {refundStatusLabel}
-                        </div>
-                        <AdminBadge
-                            tone={getAdminRefundStatusBadgeTone(activeRefundStatus)}
-                            className="rounded-lg px-2 py-1 text-[10px] font-semibold"
-                        >
-                            {getAdminRefundStatusLabel(activeRefundStatus, statusTranslator)}
-                        </AdminBadge>
-                    </div>
-                </div>
+                <ReturnReviewSummarySection
+                    activeItem={activeItem}
+                    activeRefundStatus={activeRefundStatus}
+                    customerLabel={customerLabel}
+                    discountTotalLabel={discountTotalLabel}
+                    expectedRefundAmount={expectedRefundAmount}
+                    expectedRefundHintLabel={expectedRefundHintLabel}
+                    expectedRefundLabel={expectedRefundLabel}
+                    grossTotalLabel={grossTotalLabel}
+                    itemEconomicsSummary={itemEconomicsSummary}
+                    legacyTotalRefundAmount={legacyTotalRefundAmount}
+                    netPaidTotalLabel={netPaidTotalLabel}
+                    orderValueLabel={orderValueLabel}
+                    requestDateLabel={requestDateLabel}
+                    refundStatusLabel={refundStatusLabel}
+                    resolveText={resolveText}
+                    showsRefundCapAdjustment={showsRefundCapAdjustment}
+                    statusLabel={statusLabel}
+                    statusTranslator={statusTranslator}
+                />
 
                 {isRefundLocked && (
                 <div className={`${refundUi.warning} p-4 text-sm text-amber-100`}>
@@ -719,111 +577,20 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
                         <div className="mt-2 text-xs text-amber-100/80">{refundLockedHintLabel}</div>
                     </div>
                 )}
-
-                {workflowStatus === 'ACCEPTED_FOR_REFUND' && !isRefundLocked && !canManageRefundWorkflow && (
-                    <div className={`${refundUi.info} p-4 text-sm text-sky-100`}>
-                        {financeActionRestrictedLabel}
-                    </div>
-                )}
-
-                {canManageRefundWorkflow && (workflowStatus === 'ACCEPTED_FOR_REFUND' || activeItem.bankInfo || activeItem.refundCompletedAt) && (
-                    <div className="space-y-3">
-                        <div className={refundUi.eyeBrow}>
-                            {resolveText('modal.bankInfoTitle', 'Thông tin nhận hoàn tiền')}
-                        </div>
-                        {hasAvailableBankInfo ? (
-                            <div className={`${refundUi.sectionMuted} grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_13rem]`}>
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                                        <Landmark className="h-4 w-4 text-emerald-300" />
-                                        <span>{bankInfo?.bankName ?? '—'}</span>
-                                        {bankInfo?.bankCode && (
-                                            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-white/50">
-                                                {bankInfo.bankCode}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="grid gap-2 text-sm text-white/75 md:grid-cols-2">
-                                        <div>
-                                            <div className="text-[11px] uppercase tracking-[0.12em] text-white/40">
-                                                {resolveText('modal.bankAccountHolder', 'Chủ tài khoản')}
-                                            </div>
-                                            <div className="mt-1 text-white">{bankInfo?.accountHolder ?? '—'}</div>
-                                        </div>
-                                        <div>
-                                            <div className="text-[11px] uppercase tracking-[0.12em] text-white/40">
-                                                {resolveText('modal.bankAccountNumber', 'Số tài khoản')}
-                                            </div>
-                                            <div className="mt-1 text-white">{bankAccountNumberDisplay}</div>
-                                        </div>
-                                        <div>
-                                            <div className="text-[11px] uppercase tracking-[0.12em] text-white/40">
-                                                {resolveText('modal.bankInfoSource', 'Nguồn thông tin')}
-                                            </div>
-                                            <div className="mt-1 text-white/70">
-                                                {bankInfo?.source ?? resolveText('modal.bankInfoProfileSource', 'Hồ sơ khách hàng')}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <div className="text-[11px] uppercase tracking-[0.12em] text-white/40">
-                                                {resolveText('modal.bankInfoUpdatedAt', 'Cập nhật lần cuối')}
-                                            </div>
-                                            <div className="mt-1 text-white/70">
-                                                {bankInfo?.updatedAt ? formatAdminReturnDateTime(bankInfo.updatedAt) : '—'}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {(activeItem.bankInfoRequestedAt || activeItem.bankInfoSubmittedAt) && (
-                                        <div className="grid gap-2 text-[11px] text-white/55 md:grid-cols-2">
-                                            <div>
-                                                {resolveText('modal.bankInfoRequestedAt', 'Yêu cầu cung cấp: {{date}}', {
-                                                    date: activeItem.bankInfoRequestedAt
-                                                        ? formatAdminReturnDateTime(activeItem.bankInfoRequestedAt)
-                                                        : '—',
-                                                })}
-                                            </div>
-                                            <div>
-                                                {resolveText('modal.bankInfoSubmittedAt', 'Khách cập nhật: {{date}}', {
-                                                    date: activeItem.bankInfoSubmittedAt
-                                                        ? formatAdminReturnDateTime(activeItem.bankInfoSubmittedAt)
-                                                        : '—',
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
-                                    {bankInfo?.qrImageUrl ? (
-                                        <img
-                                            src={getCloudinaryQrImage(bankInfo.qrImageUrl, 900, 900)}
-                                            alt={resolveText('modal.bankQrAlt', 'QR tài khoản ngân hàng')}
-                                            className="h-full min-h-40 w-full object-contain bg-white/[0.03] p-3"
-                                        />
-                                    ) : (
-                                        <div className="flex h-full min-h-40 items-center justify-center px-4 text-center text-xs text-white/45">
-                                            {resolveText('modal.bankQrEmpty', 'Chưa có ảnh QR cho tài khoản này.')}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className={`${refundUi.warning} flex items-start gap-3 p-4 text-sm text-amber-100`}>
-                                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                                <div className="space-y-1">
-                                    <div className="font-medium">
-                                        {resolveText('modal.bankInfoMissing', 'Khách hàng chưa cung cấp thông tin ngân hàng để hoàn tiền.')}
-                                    </div>
-                                    <div className="text-xs text-amber-100/80">
-                                        {resolveText(
-                                            'modal.bankInfoMissingHint',
-                                            'Hãy yêu cầu khách cập nhật mục tài khoản nhận hoàn tiền trong hồ sơ trước khi xác nhận chuyển khoản.',
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
+                <ReturnReviewBankInfoSection
+                    activeItem={activeItem}
+                    bankAccountNumberDisplay={bankAccountNumberDisplay}
+                    canManageRefundWorkflow={canManageRefundWorkflow}
+                    financeActionRestrictedLabel={financeActionRestrictedLabel}
+                    formatText={resolveText}
+                    hasAvailableBankInfo={hasAvailableBankInfo}
+                    isRefundLocked={isRefundLocked}
+                    onOpenQrPreview={(src) => {
+                        setLightboxKind('bankQr');
+                        setLightboxImg(src);
+                    }}
+                    workflowStatus={workflowStatus}
+                />
 
                 <div>
                     <div className={`${refundUi.eyeBrow} mb-2`}>
@@ -852,7 +619,10 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
                             {activeItem.proofImages.map((url, index) => (
                                 <button
                                     key={index}
-                                    onClick={() => setLightboxImg(url)}
+                                    onClick={() => {
+                                        setLightboxKind('proof');
+                                        setLightboxImg(url);
+                                    }}
                                     className="group relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] transition-colors hover:border-white/30 cursor-pointer"
                                 >
                                     <img
@@ -930,7 +700,10 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
                                 <button
                                     key={proof.refundPayoutProofId}
                                     type="button"
-                                    onClick={() => setLightboxImg(proof.fileUrl)}
+                                    onClick={() => {
+                                        setLightboxKind('proof');
+                                        setLightboxImg(proof.fileUrl);
+                                    }}
                                     className="group overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] text-left transition-colors hover:border-white/25"
                                 >
                                     <div className="relative aspect-[4/3] bg-black/20">
@@ -981,249 +754,51 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
                 )}
                 </AdminModalShell>
 
-            {isCompleteRefundModalOpen && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-3 md:p-4">
-                    <div
-                        role="dialog"
-                        aria-modal="true"
-                        aria-label={resolveText('modal.completeRefundTitle', 'Xác nhận chuyển khoản hoàn tiền')}
-                        className="flex max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-gray-200/10 bg-[#0B0B0C] shadow-[0_20px_60px_rgba(0,0,0,0.38)] md:max-h-[calc(100vh-2rem)]"
-                    >
-                        <div className="shrink-0 flex items-center justify-between gap-4 border-b border-gray-200/10 px-6 py-5">
-                            <div className="flex min-w-0 items-start gap-4">
-                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-primary/25 bg-primary/10">
-                                    <Landmark className="h-6 w-6 text-primary" />
-                                </div>
-                                <div className="min-w-0">
-                                    <h2 className="truncate text-[1.35rem] font-black leading-tight text-white">
-                                        {resolveText('modal.completeRefundTitle', 'Xác nhận chuyển khoản hoàn tiền')}
-                                    </h2>
-                                    <p className="mt-1 truncate text-sm text-white/35">
-                                        {orderInfoLabel}
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                aria-label={closeModalLabel}
-                                className="ui-stable-click inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/70"
-                                onClick={() => setIsCompleteRefundModalOpen(false)}
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
+            <ReturnReviewCompleteRefundDialog
+                actionCancelRejectLabel={actionCancelRejectLabel}
+                actionConfirmCompleteRefundLabel={actionConfirmCompleteRefundLabel}
+                bankAccountNumberDisplay={bankAccountNumberDisplay}
+                bankName={bankInfo?.bankName}
+                closeModalLabel={closeModalLabel}
+                expectedRefundAmount={expectedRefundAmount}
+                financeNoteLabel={financeNoteLabel}
+                isOpen={isCompleteRefundModalOpen}
+                isUploadingProofs={isUploadingProofs}
+                onClose={() => setIsCompleteRefundModalOpen(false)}
+                onConfirm={() => {
+                    void handleCompleteBankRefund();
+                }}
+                onRefundAmountChange={setRefundAmount}
+                onRefundFinanceNoteChange={setRefundFinanceNote}
+                onRefundTransactionRefChange={setRefundTransactionRef}
+                onRemoveProofUpload={handleRemoveProofUpload}
+                onUploadProofFiles={(files) => {
+                    void handleUploadProofFiles(files);
+                }}
+                orderInfoLabel={orderInfoLabel}
+                processing={processing}
+                processingLabel={processingLabel}
+                proofImageAlt={proofImageAlt}
+                proofUploads={proofUploads}
+                refundAmount={refundAmount}
+                refundFinanceNote={refundFinanceNote}
+                refundTransactionRef={refundTransactionRef}
+                resolveText={resolveText}
+                shouldDisableSubmit={shouldDisableBankRefundSubmit}
+                toast={toast}
+            />
 
-                        <div className="max-h-[68vh] space-y-4 overflow-y-auto p-6">
-                    <div className={`${refundUi.sectionMuted} grid gap-4 p-4 md:grid-cols-3`}>
-                        <div>
-                            <div className="text-[11px] uppercase tracking-[0.12em] text-white/40">
-                                {resolveText('modal.completeRefundExpectedAmount', 'Hoàn tiền dự kiến')}
-                            </div>
-                            <div className="mt-2 text-sm font-semibold text-emerald-300">
-                                {expectedRefundAmount > 0 ? formatAdminReturnMoneyVND(expectedRefundAmount) : '—'}
-                            </div>
-                        </div>
-                        <div>
-                            <div className="text-[11px] uppercase tracking-[0.12em] text-white/40">
-                                {resolveText('modal.completeRefundBank', 'Ngân hàng nhận')}
-                            </div>
-                            <div className="mt-2 text-sm font-semibold text-white">
-                                {bankInfo?.bankName ?? '—'}
-                            </div>
-                        </div>
-                        <div>
-                            <div className="text-[11px] uppercase tracking-[0.12em] text-white/40">
-                                {resolveText('modal.completeRefundAccountNumber', 'Số tài khoản')}
-                            </div>
-                            <div className="mt-2 text-sm font-semibold text-white">
-                                {bankAccountNumberDisplay}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className={`${refundUi.sectionMuted} space-y-4 p-4`}>
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/45">
-                                    {resolveText('modal.completeRefundAmount', 'Số tiền hoàn')}
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    step="1000"
-                                    aria-label={resolveText('modal.completeRefundAmount', 'Số tiền hoàn')}
-                                    value={refundAmount}
-                                    onChange={(event) => setRefundAmount(event.target.value)}
-                                    className="w-full rounded-lg border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
-                                    placeholder={String(Math.round(expectedRefundAmount))}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/45">
-                                    {resolveText('modal.completeRefundTransactionRef', 'Mã giao dịch')}
-                                </label>
-                                <input
-                                    type="text"
-                                    aria-label={resolveText('modal.completeRefundTransactionRef', 'Mã giao dịch')}
-                                    value={refundTransactionRef}
-                                    onChange={(event) => setRefundTransactionRef(event.target.value)}
-                                    className="w-full rounded-lg border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
-                                    placeholder={resolveText('modal.completeRefundTransactionRefPlaceholder', 'Ví dụ: VCB240403-001')}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/45">
-                                {financeNoteLabel}
-                            </label>
-                            <textarea
-                                aria-label={financeNoteLabel}
-                                value={refundFinanceNote}
-                                onChange={(event) => setRefundFinanceNote(event.target.value)}
-                                placeholder={resolveText(
-                                    'modal.completeRefundFinanceNotePlaceholder',
-                                    'Ghi chú nội bộ về lần chuyển khoản này...',
-                                )}
-                                className="min-h-28 w-full rounded-lg border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
-                            />
-                        </div>
-
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between gap-3">
-                                <div>
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/45">
-                                        {resolveText('modal.completeRefundProofTitle', 'Ảnh minh chứng chuyển khoản')}
-                                    </div>
-                                    <div className="mt-1 text-xs text-white/50">
-                                        {resolveText(
-                                            'modal.completeRefundProofHint',
-                                            'Tải lên ít nhất một ảnh để lưu vào hồ sơ hoàn tiền của yêu cầu này.',
-                                        )}
-                                    </div>
-                                </div>
-                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/80 transition hover:border-white/20 hover:text-white">
-                                    <ImagePlus className="h-4 w-4" />
-                                    {isUploadingProofs
-                                        ? processingLabel
-                                        : resolveText('modal.completeRefundUploadProof', 'Tải ảnh lên')}
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        multiple
-                                        className="hidden"
-                                        onChange={(event) => {
-                                            void handleUploadProofFiles(event.target.files);
-                                            event.target.value = '';
-                                        }}
-                                    />
-                                </label>
-                            </div>
-
-                            {proofUploads.length > 0 ? (
-                                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                    {proofUploads.map((proof, index) => (
-                                        <div
-                                            key={`${proof.fileUrl}-${index}`}
-                                            className="overflow-hidden rounded-xl border border-white/10 bg-black/20"
-                                        >
-                                            <div className="relative aspect-[4/3] bg-black/20">
-                                                <img
-                                                    src={proof.fileUrl}
-                                                    alt={proof.fileName ?? proofImageAlt(index + 1)}
-                                                    className="h-full w-full object-cover"
-                                                />
-                                            </div>
-                                            <div className="flex items-center justify-between gap-3 px-3 py-2">
-                                                <div className="min-w-0 text-xs text-white/65">
-                                                    <div className="truncate">
-                                                        {proof.fileName ?? resolveText('modal.completeRefundProofLabel', 'Ảnh minh chứng {{index}}', {
-                                                            index: index + 1,
-                                                        })}
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleRemoveProofUpload(proof.fileUrl)}
-                                                    className="rounded-full border border-red-400/20 p-2 text-red-200 transition hover:border-red-400/40 hover:bg-red-400/10"
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="rounded-xl border border-dashed border-white/10 px-4 py-5 text-sm text-white/45">
-                                    {resolveText('modal.completeRefundProofEmpty', 'Chưa có ảnh minh chứng nào được tải lên.')}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                        </div>
-
-                        <div className="shrink-0 border-t border-gray-200/10 px-6 py-5">
-                            <div className="space-y-3">
-                                {toast && (
-                                    <div className="rounded border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">
-                                        {toast}
-                                    </div>
-                                )}
-                                <div className="flex flex-wrap gap-3">
-                                    <AdminSecondaryButton
-                                        onClick={() => setIsCompleteRefundModalOpen(false)}
-                                        className="px-4 py-3 text-xs font-semibold"
-                                    >
-                                        {actionCancelRejectLabel}
-                                    </AdminSecondaryButton>
-                                    <AdminActionButton
-                                        onClick={() => void handleCompleteBankRefund()}
-                                        disabled={shouldDisableBankRefundSubmit}
-                                        tone="success"
-                                        size="md"
-                                        className="flex-1 cursor-pointer py-3 text-xs font-semibold"
-                                    >
-                                        {processing || isUploadingProofs ? processingLabel : actionConfirmCompleteRefundLabel}
-                                    </AdminActionButton>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {lightboxImg && (
-                <div
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label={proofLightboxLabel}
-                    className={`fixed inset-0 z-[300] flex cursor-pointer items-center justify-center bg-slate-900/60 p-4 transition-all duration-200 ease-out ${
-                        isLightboxVisible ? 'opacity-100' : 'opacity-0'
-                    }`}
-                    onClick={() => setLightboxImg(null)}
-                >
-                    <div
-                        className={`rounded-2xl border border-gray-200/10 bg-[#0B0B0C] p-4 shadow-2xl shadow-black/40 transform-gpu transition-all duration-200 ease-out will-change-transform ${
-                            isLightboxVisible
-                                ? 'translate-y-0 scale-100 opacity-100'
-                                : 'translate-y-2 scale-95 opacity-0'
-                        }`}
-                    >
-                        <img
-                            src={lightboxImg}
-                            alt={proofImageAlt()}
-                            className="max-h-[84vh] max-w-[88vw] rounded-xl object-contain"
-                        />
-                    </div>
-                    <button
-                        aria-label={closeProofLightboxLabel}
-                        className="absolute right-6 top-6 rounded-full border border-white/10 bg-black/70 p-2 text-white/60 transition-colors duration-200 hover:text-white"
-                        onClick={() => setLightboxImg(null)}
-                    >
-                        <X className="h-8 w-8" />
-                    </button>
-                </div>
-            )}
+            <ReturnReviewLightbox
+                closeLabel={closeProofLightboxLabel}
+                imageAlt={lightboxKind === 'bankQr' ? bankQrImageAlt : proofImageAlt()}
+                isVisible={isLightboxVisible}
+                lightboxLabel={lightboxKind === 'bankQr' ? bankQrLightboxLabel : proofLightboxLabel}
+                onClose={() => {
+                    setLightboxImg(null);
+                    setLightboxKind('proof');
+                }}
+                src={lightboxImg}
+            />
         </>
     );
 };

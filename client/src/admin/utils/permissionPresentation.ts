@@ -26,7 +26,7 @@ export const MODULE_ACCESS_PERMISSION_ORDER = [
   'RETURNS',
 ] as const;
 
-const getActionFromCode = (code: string) => code.split('_')[0]?.toUpperCase() ?? '';
+export const getActionFromCode = (code: string) => code.split('_')[0]?.toUpperCase() ?? '';
 
 export const isRefundSensitivePermission = (permission: PermissionItem) =>
   REFUND_SENSITIVE_CODES.has(permission.code) || permission.module === 'RETURN';
@@ -41,7 +41,7 @@ export const getRefundSensitivePermissions = (permissions: PermissionItem[]) =>
   permissions.filter(isRefundSensitivePermission);
 
 export const getSpecializedOperationPermissions = (permissions: PermissionItem[]) =>
-  permissions.filter((permission) => !isMatrixPermission(permission) && !isRefundSensitivePermission(permission));
+  permissions.filter((p) => !isMatrixPermission(p) && !isRefundSensitivePermission(p));
 
 export const getOperationPermissionPresentation = (
   permission: PermissionItem,
@@ -69,7 +69,7 @@ export const getOperationPermissionPresentation = (
         titleKey: 'permissionTitles.CUSTOMER_BANK_ACCOUNT_MANAGE',
         titleFallback: 'Quản lý tài khoản nhận hoàn tiền',
         descriptionKey: 'permissionDescriptions.CUSTOMER_BANK_ACCOUNT_MANAGE',
-        descriptionFallback: 'Cho phép xem và cập nhật thông tin tài khoản ngân hàng khách hàng dùng để nhận hoàn tiền.',
+        descriptionFallback: 'Cho phép xem và cập nhật tài khoản ngân hàng khách hàng dùng để nhận hoàn tiền.',
       };
     case 'REFUND_BENEFIT_VIEW':
       return {
@@ -81,7 +81,7 @@ export const getOperationPermissionPresentation = (
       };
     default:
       return {
-        kind: 'specialized',
+        kind: isRefundSensitivePermission(permission) ? 'refund-sensitive' : 'specialized',
         titleKey: `permissionTitles.${permission.code}`,
         titleFallback: permission.code,
         descriptionKey: `permissionDescriptions.${permission.code}`,

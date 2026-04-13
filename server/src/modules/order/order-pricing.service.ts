@@ -1,6 +1,7 @@
 import { Prisma } from '../../generated/client';
 import { AppError } from '../../middlewares/error.middleware';
 import { CouponError, validateCoupon, ValidateCouponResult } from '../../services/coupon.service';
+import { CHECKOUT_STANDARD_FREESHIP_THRESHOLD } from '../../shared/validation';
 import { prisma } from '../../utils/prisma';
 
 export type ShippingMethod = 'STANDARD' | 'EXPRESS';
@@ -69,7 +70,7 @@ export const calculateShippingFee = (
     return 0;
   }
 
-  if (shippingMethod === 'STANDARD' && itemsSubtotal > 500000) {
+  if (shippingMethod === 'STANDARD' && itemsSubtotal > CHECKOUT_STANDARD_FREESHIP_THRESHOLD) {
     return 0;
   }
 
@@ -178,7 +179,24 @@ export async function quoteOrderPricing(
         400,
       );
     }
-    discountAmount = validation.discountAmount;
+
+    const isRefundBenefitFreeshipVoucher =
+      validation.coupon.source === 'REFUND_BENEFIT' && validation.coupon.type === 'FIXED_AMOUNT';
+
+    if (isRefundBenefitFreeshipVoucher) {
+      if (shippingFee === 0) {
+        throw new CouponError(
+          'FREESHIP_ALREADY_APPLIED',
+          'Standard shipping is already free for this cart.',
+          400,
+        );
+      }
+
+      discountAmount = Math.min(validation.discountAmount, shippingFee);
+    } else {
+      discountAmount = validation.discountAmount;
+    }
+
     coupon = validation.coupon;
   }
 

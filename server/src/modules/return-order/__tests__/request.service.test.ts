@@ -20,6 +20,7 @@ const repoMock = {
   findById: jest.fn(),
   findByOrderId: jest.fn(),
   findAllAdmin: jest.fn(),
+  countAllAdminStatuses: jest.fn(),
 };
 
 const notifyCustomerMock = jest.fn();
@@ -133,6 +134,7 @@ describe('ReturnRequestService', () => {
     repoMock.findById.mockReset();
     repoMock.findByOrderId.mockReset();
     repoMock.findAllAdmin.mockReset();
+    repoMock.countAllAdminStatuses.mockReset();
     notifyCustomerMock.mockReset();
     enqueueRefundAcceptedBankInfoRequiredEmailMock.mockReset().mockResolvedValue(undefined);
     enqueueRefundAcceptedAwaitingPayoutEmailMock.mockReset().mockResolvedValue(undefined);
@@ -2084,7 +2086,7 @@ describe('ReturnRequestService', () => {
         orderNumber: 'OD-881',
         refundAmount: 150000,
         refundDate: expect.any(String),
-        voucherSummary: 'Available voucher free shipping for your next order',
+        voucherSummary: 'Miễn phí vận chuyển cho đơn từ 300.000đ',
         profileLink: expect.stringContaining('/profile'),
       }),
     );
@@ -2094,7 +2096,7 @@ describe('ReturnRequestService', () => {
       benefit: {
         issued: true,
         type: 'FREESHIP',
-        summary: 'Available voucher free shipping for your next order',
+        summary: 'Miễn phí vận chuyển cho đơn từ 300.000đ',
       },
     });
     expect(loggerInfoMock).toHaveBeenCalledWith(
@@ -2833,6 +2835,30 @@ describe('ReturnRequestService', () => {
     }));
 
     expect(repoMock.findAllAdmin).not.toHaveBeenCalled();
+  });
+
+  it('loads admin return summary counts when actor has return workflow capability', async () => {
+    repoMock.countAllAdminStatuses.mockResolvedValueOnce({
+      ALL: 8,
+      REQUESTED: 3,
+      APPROVED: 2,
+      REJECTED: 1,
+      RECEIVED: 1,
+      REFUNDED: 1,
+    });
+
+    await expect(
+      service.getAdminReturnSummary({ orderId: 77 }, adminWorkflowActor(88)),
+    ).resolves.toEqual({
+      ALL: 8,
+      REQUESTED: 3,
+      APPROVED: 2,
+      REJECTED: 1,
+      RECEIVED: 1,
+      REFUNDED: 1,
+    });
+
+    expect(repoMock.countAllAdminStatuses).toHaveBeenCalledWith({ orderId: 77 });
   });
 
   it('decorates return detail lookups with workflow and refund state', async () => {

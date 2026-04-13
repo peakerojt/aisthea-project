@@ -80,6 +80,17 @@ const makeReturn = (overrides?: Record<string, unknown>) => ({
   ...overrides,
 });
 
+const createDeferred = <T,>() => {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+
+  return { promise, resolve, reject };
+};
+
 let useAdminReturns: typeof import('@/admin/hooks/useReturns').useAdminReturns;
 
 vi.mock('@/admin/services', () => ({
@@ -154,7 +165,13 @@ describe('useAdminReturns', () => {
       expect(result.current.returns).toHaveLength(3);
     });
 
-    expect(listMock).toHaveBeenCalledWith({ status: 'ALL', page: 1, pageSize: 15 });
+    expect(listMock).toHaveBeenCalledWith({
+      status: 'ALL',
+      search: undefined,
+      sort: 'createdAt_desc',
+      page: 1,
+      pageSize: 15,
+    });
     expect(result.current.pendingCount).toBe(1);
     expect(result.current.statusTabs).toEqual([
       { key: 'ALL', label: 'Tất cả', count: 3 },
@@ -169,53 +186,57 @@ describe('useAdminReturns', () => {
     expect(result.current.canManageRefundWorkflow).toBe(true);
   });
 
-  it('hydrates the initial status filter and page from the caller options', async () => {
-    listMock
-      .mockResolvedValueOnce({
-        returns: [makeReturn({ returnId: 7, status: 'APPROVED' })],
-        pagination: {
-          page: 3,
-          pageSize: 15,
-          total: 1,
-          totalPages: 5,
-        },
-      })
-      .mockResolvedValueOnce({
-        returns: [
-          makeReturn({ returnId: 7, status: 'APPROVED' }),
-          makeReturn({ returnId: 8, status: 'REJECTED' }),
-        ],
-        pagination: {
-          page: 1,
-          pageSize: 100,
-          total: 2,
-          totalPages: 1,
-        },
-      });
+  it('hydrates the initial query-state from the caller options', async () => {
+    listMock.mockResolvedValueOnce({
+      returns: [makeReturn({ returnId: 7, status: 'APPROVED' })],
+      pagination: {
+        page: 3,
+        pageSize: 30,
+        total: 1,
+        totalPages: 5,
+      },
+      summary: {
+        ALL: 4,
+        REQUESTED: 1,
+        APPROVED: 1,
+        REJECTED: 1,
+        RECEIVED: 1,
+        REFUNDED: 0,
+      },
+    });
 
     const { result } = renderHook(() => useAdminReturns({
       initialStatusFilter: 'APPROVED',
+      initialSearch: 'ORD-700',
+      initialSort: 'updatedAt_desc',
       initialPage: 3,
+      initialPageSize: 30,
     }));
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
 
-    expect(listMock).toHaveBeenNthCalledWith(1, { status: 'APPROVED', page: 3, pageSize: 15 });
-    expect(listMock).toHaveBeenNthCalledWith(2, { status: 'ALL', page: 1, pageSize: 100 });
-    expect(result.current.statusFilter).toBe('APPROVED');
-    expect(result.current.page).toBe(3);
-    await waitFor(() => {
-      expect(result.current.statusTabs).toEqual([
-        { key: 'ALL', label: 'Tất cả', count: 2 },
-        { key: 'REQUESTED', label: 'Chờ duyệt', count: 0 },
-        { key: 'APPROVED', label: 'Đã duyệt', count: 1 },
-        { key: 'REJECTED', label: 'Đã từ chối', count: 1 },
-        { key: 'RECEIVED', label: 'Đã nhận hàng', count: 0 },
-        { key: 'REFUNDED', label: 'Đã hoàn tiền', count: 0 },
-      ]);
+    expect(listMock).toHaveBeenCalledWith({
+      status: 'APPROVED',
+      search: 'ORD-700',
+      sort: 'updatedAt_desc',
+      page: 3,
+      pageSize: 30,
     });
+    expect(result.current.statusFilter).toBe('APPROVED');
+    expect(result.current.search).toBe('ORD-700');
+    expect(result.current.sort).toBe('updatedAt_desc');
+    expect(result.current.page).toBe(3);
+    expect(result.current.pageSize).toBe(30);
+    expect(result.current.statusTabs).toEqual([
+      { key: 'ALL', label: 'Tất cả', count: 4 },
+      { key: 'REQUESTED', label: 'Chờ duyệt', count: 1 },
+      { key: 'APPROVED', label: 'Đã duyệt', count: 1 },
+      { key: 'REJECTED', label: 'Đã từ chối', count: 1 },
+      { key: 'RECEIVED', label: 'Đã nhận hàng', count: 1 },
+      { key: 'REFUNDED', label: 'Đã hoàn tiền', count: 0 },
+    ]);
   });
 
   it('keeps both return and refund workflow actions disabled for staff sessions without explicit returns permissions', async () => {
@@ -360,13 +381,6 @@ describe('useAdminReturns', () => {
       .mockResolvedValueOnce({
         returns: [makeReturn({ returnId: 2, status: 'APPROVED' })],
         pagination: { page: 1, pageSize: 15, total: 1, totalPages: 1 },
-      })
-      .mockResolvedValueOnce({
-        returns: [
-          makeReturn({ returnId: 1, status: 'REQUESTED' }),
-          makeReturn({ returnId: 2, status: 'APPROVED' }),
-        ],
-        pagination: { page: 1, pageSize: 100, total: 2, totalPages: 1 },
       });
 
     const { result } = renderHook(() => useAdminReturns());
@@ -380,7 +394,13 @@ describe('useAdminReturns', () => {
     });
 
     await waitFor(() => {
-      expect(listMock).toHaveBeenLastCalledWith({ status: 'ALL', page: 3, pageSize: 15 });
+      expect(listMock).toHaveBeenLastCalledWith({
+        status: 'ALL',
+        search: undefined,
+        sort: 'createdAt_desc',
+        page: 3,
+        pageSize: 15,
+      });
     });
 
     act(() => {
@@ -388,27 +408,78 @@ describe('useAdminReturns', () => {
     });
 
     await waitFor(() => {
-      expect(listMock).toHaveBeenNthCalledWith(3, { status: 'APPROVED', page: 1, pageSize: 15 });
-      expect(listMock).toHaveBeenNthCalledWith(4, { status: 'ALL', page: 1, pageSize: 100 });
+      expect(listMock).toHaveBeenNthCalledWith(3, {
+        status: 'APPROVED',
+        search: undefined,
+        sort: 'createdAt_desc',
+        page: 1,
+        pageSize: 15,
+      });
     });
 
     expect(result.current.page).toBe(1);
     expect(result.current.statusFilter).toBe('APPROVED');
   });
 
-  it('keeps off-tab counts accurate when the initial filter is not ALL', async () => {
+  it('reloads tab changes without surfacing the background refresh badge state', async () => {
+    const pendingNavigation = createDeferred<{
+      returns: ReturnType<typeof makeReturn>[];
+      pagination: { page: number; pageSize: number; total: number; totalPages: number };
+    }>();
+
     listMock
       .mockResolvedValueOnce({
-        returns: [makeReturn({ returnId: 40, status: 'APPROVED' })],
-        pagination: { page: 1, pageSize: 15, total: 1, totalPages: 1 },
+        returns: [makeReturn({ returnId: 1, status: 'REQUESTED' })],
+        pagination: { page: 1, pageSize: 15, total: 1, totalPages: 3 },
       })
-      .mockResolvedValueOnce({
-        returns: [
-          makeReturn({ returnId: 40, status: 'APPROVED' }),
-          makeReturn({ returnId: 41, status: 'REJECTED' }),
-        ],
-        pagination: { page: 1, pageSize: 100, total: 2, totalPages: 1 },
+      .mockReturnValueOnce(pendingNavigation.promise);
+
+    const { result } = renderHook(() => useAdminReturns());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+      expect(result.current.returns).toHaveLength(1);
+    });
+
+    act(() => {
+      result.current.changeStatusFilter('APPROVED');
+    });
+
+    await waitFor(() => {
+      expect(listMock).toHaveBeenNthCalledWith(2, {
+        status: 'APPROVED',
+        search: undefined,
+        sort: 'createdAt_desc',
+        page: 1,
+        pageSize: 15,
       });
+    });
+
+    expect(result.current.isRefreshing).toBe(false);
+
+    pendingNavigation.resolve({
+      returns: [makeReturn({ returnId: 2, status: 'APPROVED' })],
+      pagination: { page: 1, pageSize: 15, total: 1, totalPages: 1 },
+    });
+
+    await waitFor(() => {
+      expect(result.current.returns[0]?.returnId).toBe(2);
+    });
+  });
+
+  it('keeps off-tab counts accurate when the initial filter is not ALL', async () => {
+    listMock.mockResolvedValueOnce({
+      returns: [makeReturn({ returnId: 40, status: 'APPROVED' })],
+      pagination: { page: 1, pageSize: 15, total: 1, totalPages: 1 },
+      summary: {
+        ALL: 2,
+        REQUESTED: 0,
+        APPROVED: 1,
+        REJECTED: 1,
+        RECEIVED: 0,
+        REFUNDED: 0,
+      },
+    });
 
     const { result } = renderHook(() => useAdminReturns({
       initialStatusFilter: 'APPROVED',
@@ -416,9 +487,6 @@ describe('useAdminReturns', () => {
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
-    });
-
-    await waitFor(() => {
       expect(result.current.statusTabs).toEqual([
         { key: 'ALL', label: 'Tất cả', count: 2 },
         { key: 'REQUESTED', label: 'Chờ duyệt', count: 0 },
@@ -679,6 +747,8 @@ describe('useAdminReturns', () => {
     });
     expect(listMock).toHaveBeenNthCalledWith(1, {
       status: 'ALL',
+      search: undefined,
+      sort: 'createdAt_desc',
       page: 1,
       pageSize: 15,
     });

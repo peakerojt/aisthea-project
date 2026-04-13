@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useToast } from '@/common/contexts/ToastContext';
 import {
     Search, Users, AlertCircle, Loader2, Shield,
-    ShieldCheck, ChevronDown, ChevronLeft, ChevronRight, FilterX,
+    ShieldCheck, ChevronLeft, ChevronRight, FilterX,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -431,7 +431,6 @@ export const Customers: React.FC = () => {
                             </option>
                         ))}
                     </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
                 </div>
 
                 <div className="relative">
@@ -445,7 +444,6 @@ export const Customers: React.FC = () => {
                         <option value="Banned">{t('filters.statusBanned')}</option>
                         <option value="Pending">{t('filters.statusPending')}</option>
                     </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
                 </div>
 
                 <div className="relative">
@@ -463,7 +461,6 @@ export const Customers: React.FC = () => {
                             </option>
                         ))}
                     </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
                 </div>
             </AdminToolbar>
 
@@ -630,25 +627,18 @@ export const Customers: React.FC = () => {
                         />
                     ) : (
                         <>
-                        <div className="border-b border-white/[0.06] px-5 py-3 text-xs text-white/45 lg:px-6">
-                            {t('pagination.rangeSummary', {
-                                start: rangeStart,
-                                end: rangeEnd,
-                                total,
-                                defaultValue: 'Hiển thị {{start}}-{{end}} / {{total}} tài khoản',
-                            })}
-                        </div>
-                        <div className="overflow-x-auto">
+
+                        <div className="orders-table-scroll-region min-h-0 flex-1 overflow-y-auto overflow-x-auto min-h-[292px] lg:min-h-[352px]">
                             <table className="w-full text-left border-collapse">
                                 <thead className={adminUiTokens.tableHeaderSurface}>
                                     <tr>
-                                        <th className={`px-6 py-4 ${adminUiTokens.tableHeader}`}>{t('table.customer')}</th>
-                                        <th className={`px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.contact')}</th>
-                                        <th className={`px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.role')}</th>
-                                        <th className={`px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.status')}</th>
-                                        <th className={`px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.orders')}</th>
-                                        <th className={`px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.joined')}</th>
-                                        <th className={`px-4 py-4 text-right ${adminUiTokens.tableHeader}`}>{t('table.actions')}</th>
+                                        <th className={`sticky top-0 z-10 bg-[#111319] px-6 py-4 ${adminUiTokens.tableHeader}`}>{t('table.customer')}</th>
+                                        <th className={`sticky top-0 z-10 bg-[#111319] px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.contact')}</th>
+                                        <th className={`sticky top-0 z-10 bg-[#111319] px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.role')}</th>
+                                        <th className={`sticky top-0 z-10 bg-[#111319] px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.status')}</th>
+                                        <th className={`sticky top-0 z-10 bg-[#111319] px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.orders')}</th>
+                                        <th className={`sticky top-0 z-10 bg-[#111319] px-4 py-4 ${adminUiTokens.tableHeader}`}>{t('table.joined')}</th>
+                                        <th className={`sticky top-0 z-10 bg-[#111319] px-4 py-4 text-right ${adminUiTokens.tableHeader}`}>{t('table.actions')}</th>
                                     </tr>
                                 </thead>
                                 <tbody className={adminUiTokens.tableBody}>
@@ -662,13 +652,13 @@ export const Customers: React.FC = () => {
                                                 <div className="flex items-center gap-3">
                                                     {/* Avatar */}
                                                     <div
-                                                        className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center shrink-0 ${user.avatarUrl ? '' : getAvatarColor(user.userId)
-                                                            }`}
+                                                        className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center shrink-0 ${user.avatarUrl ? '' : getAvatarColor(user.userId)}`}
                                                     >
                                                         {user.avatarUrl ? (
                                                             <img
                                                                 src={getImageUrl(user.avatarUrl)}
                                                                 alt={user.fullName}
+                                                                loading="lazy"
                                                                 className="w-full h-full object-cover"
                                                             />
                                                         ) : (
@@ -736,17 +726,18 @@ export const Customers: React.FC = () => {
                         </div>
                         </>
                     )}
-                    {users.length > 0 && totalPages > 1 && (
+                    {users.length > 0 && (
                         <div className="flex flex-col gap-3 border-t border-white/[0.06] px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
                             <p className="text-xs text-white/42">
-                                {t('pagination.summary', {
-                                    page,
-                                    totalPages,
+                                {t('pagination.rangeSummary', {
+                                    start: rangeStart,
+                                    end: rangeEnd,
                                     total,
-                                    defaultValue: 'Trang {{page}} / {{totalPages}} · {{total}} tài khoản',
+                                    defaultValue: 'Hiển thị {{start}}-{{end}} / {{total}} tài khoản',
                                 })}
                             </p>
 
+                            {totalPages > 1 && (
                             <div className="flex items-center gap-2">
                                 <button
                                     type="button"
@@ -781,6 +772,7 @@ export const Customers: React.FC = () => {
                                     <ChevronRight size={15} />
                                 </button>
                             </div>
+                            )}
                         </div>
                     )}
                 </AdminSectionCard>

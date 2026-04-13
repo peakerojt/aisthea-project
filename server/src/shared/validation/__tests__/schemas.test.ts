@@ -3,6 +3,7 @@ import {
   createCouponSchema,
   createOrderSchema,
   registerSchema,
+  updateCouponSchema,
   updateProductStatusSchema,
 } from '../index';
 
@@ -41,14 +42,19 @@ describe('shared validation schemas', () => {
   });
 
   it('normalizes admin coupon payloads and coerces dates', () => {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() + 1);
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 30);
+
     const parsed = createCouponSchema.parse({
       code: ' save120 ',
       type: 'PERCENTAGE',
       value: 15,
       maxDiscountAmount: 50000,
-      minOrderValue: 200000,
-      startDate: '2026-03-01T00:00:00.000Z',
-      endDate: '2026-03-31T00:00:00.000Z',
+      minOrderValue: 500000,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
       usageLimit: 100,
       usagePerUser: 1,
       isActive: true,
@@ -57,6 +63,56 @@ describe('shared validation schemas', () => {
     expect(parsed.code).toBe('SAVE120');
     expect(parsed.startDate).toBeInstanceOf(Date);
     expect(parsed.endDate).toBeInstanceOf(Date);
+  });
+
+  it('rejects coupon dates that are in the past', () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    expect(() =>
+      createCouponSchema.parse({
+        code: 'SAVE120',
+        type: 'PERCENTAGE',
+        value: 15,
+        maxDiscountAmount: 50000,
+        minOrderValue: 500000,
+        startDate: yesterday.toISOString(),
+        endDate: tomorrow.toISOString(),
+        usageLimit: 100,
+        usagePerUser: 1,
+        isActive: true,
+      }),
+    ).toThrow('Ngày bắt đầu không được ở quá khứ');
+
+    expect(() =>
+      updateCouponSchema.parse({
+        endDate: yesterday.toISOString(),
+      }),
+    ).toThrow('Ngày kết thúc không được ở quá khứ');
+  });
+
+  it('rejects coupon min order values outside preset rules', () => {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() + 1);
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 30);
+
+    expect(() =>
+      createCouponSchema.parse({
+        code: 'SAVE120',
+        type: 'PERCENTAGE',
+        value: 15,
+        maxDiscountAmount: 50000,
+        minOrderValue: 200000,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        usageLimit: 100,
+        usagePerUser: 1,
+        isActive: true,
+      }),
+    ).toThrow('Điều kiện đơn tối thiểu chỉ chấp nhận các mức');
   });
 
   it('validates shared params and product status payloads', () => {

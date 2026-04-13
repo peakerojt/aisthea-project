@@ -36,4 +36,12 @@ export type AdminReturnListPayload = {
   page: number;
   limit: number;
   totalPages: number;
+  summary?: {
+    ALL: number;
+    REQUESTED: number;
+    APPROVED: number;
+    REJECTED: number;
+    RECEIVED: number;
+    REFUNDED: number;
+  };
 };

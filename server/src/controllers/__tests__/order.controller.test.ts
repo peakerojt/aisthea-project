@@ -1,6 +1,7 @@
 const prismaMock = {
   order: {
     findUnique: jest.fn(),
+    findMany: jest.fn(),
   },
   cart: {
     findFirst: jest.fn(),
@@ -12,6 +13,7 @@ const prismaMock = {
 };
 
 const createOrderServiceMock = jest.fn();
+const bulkUpdateOrderStatusAdminMock = jest.fn();
 const emitNewOrderMock = jest.fn();
 const getRefundsForOrderMock = jest.fn();
 const uploadBase64Mock = jest.fn();
@@ -29,6 +31,7 @@ jest.mock('../../modules/order/order.repository', () => ({
 
 jest.mock('../../modules/order/order.service', () => ({
   createOrder: (...args: unknown[]) => createOrderServiceMock(...args),
+  bulkUpdateOrderStatusAdmin: (...args: unknown[]) => bulkUpdateOrderStatusAdminMock(...args),
 }));
 
 jest.mock('../../socket', () => ({
@@ -47,8 +50,10 @@ jest.mock('../../services/cloudinary.service', () => ({
 }));
 
 import {
+  bulkUpdateOrderStatus,
   confirmReceipt,
   createOrder,
+  exportSelectedAdminOrders,
   getAdminOrderDetail,
   getAdminOrderTabCounts,
   uploadReturnProofImages,
@@ -58,6 +63,8 @@ const createResponse = () => {
   const res: any = {};
   res.status = jest.fn().mockReturnValue(res);
   res.json = jest.fn().mockReturnValue(res);
+  res.send = jest.fn().mockReturnValue(res);
+  res.setHeader = jest.fn().mockReturnValue(res);
   return res;
 };
 
@@ -66,6 +73,7 @@ describe('order.controller confirmReceipt', () => {
     jest.clearAllMocks();
     findManyOrdersMock.mockReset();
     countOrdersByStatusMock.mockReset();
+    bulkUpdateOrderStatusAdminMock.mockReset();
     prismaMock.cart.findFirst.mockResolvedValue(null);
     prismaMock.cartItem.deleteMany.mockResolvedValue({ count: 0 });
     getRefundsForOrderMock.mockResolvedValue({
@@ -121,6 +129,108 @@ describe('order.controller confirmReceipt', () => {
         Cancelled: 0,
       },
     });
+  });
+
+  it('returns partial-success details for admin bulk status updates', async () => {
+    bulkUpdateOrderStatusAdminMock.mockResolvedValue({
+      requestedCount: 3,
+      successCount: 1,
+      skippedCount: 2,
+      failedCount: 0,
+      results: [
+        { orderId: 41, outcome: 'updated', previousStatus: 'Pending', newStatus: 'Processing' },
+        { orderId: 42, outcome: 'skipped', errorCode: 'INVALID_STATUS_TRANSITION' },
+        { orderId: 43, outcome: 'skipped', errorCode: 'DELIVERY_PROOF_REQUIRED' },
+      ],
+    });
+
+    const req: any = {
+      user: { userId: 9, roles: ['Admin'] },
+      body: {
+        orderIds: [41, 42, 43],
+        status: 'Processing',
+        note: 'Bulk queued',
+      },
+      originalUrl: '/api/orders/admin/bulk-status',
+    };
+    const res = createResponse();
+
+    await bulkUpdateOrderStatus(req, res);
+
+    expect(bulkUpdateOrderStatusAdminMock).toHaveBeenCalledWith(
+      req.user,
+      expect.objectContaining({
+        orderIds: [41, 42, 43],
+        status: 'Processing',
+        note: 'Bulk queued',
+        transitionSource: 'admin_order',
+      }),
+    );
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      code: 'ORDER_STATUS_UPDATED',
+      data: expect.objectContaining({
+        requestedCount: 3,
+        successCount: 1,
+        skippedCount: 2,
+      }),
+    });
+  });
+
+  it('exports selected orders as csv in the requested order', async () => {
+    prismaMock.order.findMany.mockResolvedValue([
+      {
+        orderId: 52,
+        orderNumber: 'ORD-0052',
+        customerName: 'Khach B',
+        customerPhone: '0900222222',
+        status: 'Shipping',
+        paymentMethod: 'COD',
+        totalAmount: { toString: () => '220000' },
+        createdAt: new Date('2026-04-01T10:00:00.000Z'),
+        user: null,
+        payments: [{ status: 'PENDING' }],
+        _count: { items: 2 },
+      },
+      {
+        orderId: 51,
+        orderNumber: 'ORD-0051',
+        customerName: 'Khach A',
+        customerPhone: '0900111111',
+        status: 'Pending',
+        paymentMethod: 'VNPAY',
+        totalAmount: { toString: () => '120000' },
+        createdAt: new Date('2026-04-01T09:00:00.000Z'),
+        user: null,
+        payments: [{ status: 'PENDING' }],
+        _count: { items: 1 },
+      },
+    ]);
+
+    const req: any = {
+      body: {
+        orderIds: [51, 52],
+      },
+      originalUrl: '/api/orders/admin/export',
+    };
+    const res = createResponse();
+
+    await exportSelectedAdminOrders(req, res);
+
+    expect(prismaMock.order.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { orderId: { in: [51, 52] } },
+    }));
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/csv; charset=utf-8');
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Content-Disposition',
+      expect.stringContaining('orders-selected-'),
+    );
+    expect(res.send).toHaveBeenCalledWith(expect.stringContaining('orderId,orderNumber,customerName'));
+    expect(res.send.mock.calls[0][0]).toContain('51,ORD-0051');
+    expect(res.send.mock.calls[0][0]).toContain('52,ORD-0052');
+    expect(res.send.mock.calls[0][0].indexOf('51,ORD-0051')).toBeLessThan(
+      res.send.mock.calls[0][0].indexOf('52,ORD-0052'),
+    );
   });
 
   it('returns PENDING_VNPAY from checkout when the service already resolved the canonical VNPay pending state', async () => {

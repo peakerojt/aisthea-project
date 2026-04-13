@@ -40,6 +40,12 @@ vi.mock('react-i18next', () => ({
           return `Minh chứng ${String(options?.index ?? '')}`;
         case 'modal.proofLightboxLabel':
           return 'Xem ảnh minh chứng';
+        case 'modal.bankQrLightboxLabel':
+          return 'Xem QR nhận tiền';
+        case 'modal.bankQrAlt':
+          return 'QR tài khoản ngân hàng';
+        case 'modal.bankQrPreviewAction':
+          return 'Xem QR nhận tiền';
         case 'modal.closeProofLightbox':
           return 'Đóng ảnh minh chứng';
         case 'modal.rejectRequired':
@@ -793,6 +799,51 @@ describe('AdminReturnReviewModal', () => {
 
     await waitFor(() => {
       expect(screen.queryByLabelText('Xem ảnh minh chứng')).not.toBeInTheDocument();
+    });
+  });
+
+  it('opens and closes the bank qr lightbox from the bank info section', async () => {
+    detailMock.mockResolvedValueOnce(
+      createReturnItem({
+        status: 'ACCEPTED_FOR_REFUND' as any,
+        workflowStatus: 'ACCEPTED_FOR_REFUND',
+        refundStatus: 'PENDING' as any,
+        bankInfo: {
+          available: true,
+          bankAccountId: 55,
+          bankName: 'Techcombank',
+          bankCode: 'TCB',
+          accountNumber: '19072976331011',
+          accountHolder: 'Ta Tuan Ky',
+          accountNumberMasked: '***1011',
+          source: 'PROFILE',
+          updatedAt: '2026-04-14T10:00:00.000Z',
+          qrImageUrl: 'https://example.com/bank-qr.png',
+        },
+      }),
+    );
+
+    render(
+      <AdminReturnReviewModal
+        actions={createMockReviewActions()}
+        item={createReturnItem({
+          status: 'ACCEPTED_FOR_REFUND' as any,
+          workflowStatus: 'ACCEPTED_FOR_REFUND',
+          refundStatus: 'PENDING' as any,
+        })}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const qrPreviewButton = await screen.findByRole('button', { name: 'Xem QR nhận tiền' });
+    await userEvent.click(qrPreviewButton);
+
+    expect(await screen.findByRole('dialog', { name: 'Xem QR nhận tiền' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Đóng ảnh minh chứng' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Xem QR nhận tiền' })).not.toBeInTheDocument();
     });
   });
 });

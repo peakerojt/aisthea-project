@@ -1,4 +1,9 @@
 import { Prisma } from '../../../generated/client';
+import {
+  DEFAULT_REFUND_BENEFIT_FREESHIP_COUPON_VALUE,
+  REFUND_BENEFIT_RULE_VERSION,
+  resolveRefundBenefitConfigByRefundAmount,
+} from '../../../shared/validation';
 import { prisma } from '../../../utils/prisma';
 import { ReturnRequestRepository, TxClient } from '../repositories/request.repository';
 import {
@@ -29,8 +34,9 @@ import {
 
 const RETURN_WINDOW_DAYS = Number(process.env.RETURN_WINDOW_DAYS || 7);
 const REFUND_BENEFIT_VALID_DAYS = Number(process.env.REFUND_BENEFIT_VALID_DAYS || 14);
-const REFUND_BENEFIT_MIN_ORDER_VALUE = Number(process.env.REFUND_BENEFIT_MIN_ORDER_VALUE || 0);
-const DEFAULT_FREESHIP_COUPON_VALUE = Number(process.env.REFUND_FREESHIP_COUPON_VALUE || 30000);
+const REFUND_BENEFIT_FREESHIP_COUPON_VALUE = Number(
+  process.env.REFUND_FREESHIP_COUPON_VALUE || DEFAULT_REFUND_BENEFIT_FREESHIP_COUPON_VALUE,
+);
 const DELIVERED_ORDER_STATUSES = ['delivered', 'đã giao', 'da giao', 'dagiao'] as const;
 const PROFILE_BANK_LINK = `${env.clientUrl}/profile`;
 const PROFILE_VOUCHER_LINK = `${env.clientUrl}/profile`;
@@ -296,71 +302,38 @@ export class ReturnRequestService {
     benefitType: string;
     percentValue?: Prisma.Decimal | null;
     maxDiscountAmount?: Prisma.Decimal | null;
+    minOrderValue?: Prisma.Decimal | null;
   }) {
     if (input.benefitType === 'FREESHIP') {
-      return 'Available voucher free shipping for your next order';
+      const minOrderValue = Number(input.minOrderValue ?? 300000).toLocaleString('vi-VN');
+      return `Miễn phí vận chuyển cho đơn từ ${minOrderValue}đ`;
     }
 
     const percentValue = input.percentValue ? Number(input.percentValue) : 0;
     const maxDiscountAmount = input.maxDiscountAmount ? Number(input.maxDiscountAmount) : 0;
-    return `Available voucher ${percentValue}%, max ${maxDiscountAmount.toLocaleString('vi-VN')} VND`;
+    const minOrderValue = Number(input.minOrderValue ?? 0).toLocaleString('vi-VN');
+    return `Giảm ${percentValue}%, tối đa ${maxDiscountAmount.toLocaleString('vi-VN')}đ cho đơn từ ${minOrderValue}đ`;
   }
 
   private resolveRefundBenefitRule(refundAmount: Prisma.Decimal, shippingFee = 0): RefundBenefitRule {
-    const minOrderValue = new Prisma.Decimal(REFUND_BENEFIT_MIN_ORDER_VALUE);
-
-    if (refundAmount.lt(300000)) {
-      const couponValue = new Prisma.Decimal(
-        shippingFee > 0 ? shippingFee : DEFAULT_FREESHIP_COUPON_VALUE,
-      );
-
-      return {
-        benefitType: 'FREESHIP',
-        percentValue: null,
-        maxDiscountAmount: null,
-        minOrderValue,
-        summary: 'Available voucher free shipping for your next order',
-        couponType: 'FIXED_AMOUNT',
-        couponValue,
-        couponMaxDiscountAmount: null,
-      };
-    }
-
-    if (refundAmount.lt(800000)) {
-      return {
-        benefitType: 'PERCENTAGE',
-        percentValue: new Prisma.Decimal(10),
-        maxDiscountAmount: new Prisma.Decimal(50000),
-        minOrderValue,
-        summary: 'Available voucher 10%, max 50,000 VND',
-        couponType: 'PERCENTAGE',
-        couponValue: new Prisma.Decimal(10),
-        couponMaxDiscountAmount: new Prisma.Decimal(50000),
-      };
-    }
-
-    if (refundAmount.lt(1500000)) {
-      return {
-        benefitType: 'PERCENTAGE',
-        percentValue: new Prisma.Decimal(12),
-        maxDiscountAmount: new Prisma.Decimal(80000),
-        minOrderValue,
-        summary: 'Available voucher 12%, max 80,000 VND',
-        couponType: 'PERCENTAGE',
-        couponValue: new Prisma.Decimal(12),
-        couponMaxDiscountAmount: new Prisma.Decimal(80000),
-      };
-    }
+    const config = resolveRefundBenefitConfigByRefundAmount(refundAmount.toNumber());
+    const couponValue =
+      config.benefitType === 'FREESHIP'
+        ? new Prisma.Decimal(shippingFee > 0 ? shippingFee : REFUND_BENEFIT_FREESHIP_COUPON_VALUE)
+        : new Prisma.Decimal(config.couponValue);
 
     return {
-      benefitType: 'PERCENTAGE',
-      percentValue: new Prisma.Decimal(15),
-      maxDiscountAmount: new Prisma.Decimal(120000),
-      minOrderValue,
-      summary: 'Available voucher 15%, max 120,000 VND',
-      couponType: 'PERCENTAGE',
-      couponValue: new Prisma.Decimal(15),
-      couponMaxDiscountAmount: new Prisma.Decimal(120000),
+      benefitType: config.benefitType,
+      percentValue:
+        config.benefitType === 'PERCENTAGE' ? new Prisma.Decimal(config.couponValue) : null,
+      maxDiscountAmount:
+        config.maxDiscountAmount != null ? new Prisma.Decimal(config.maxDiscountAmount) : null,
+      minOrderValue: new Prisma.Decimal(config.minOrderValue),
+      summary: config.summary,
+      couponType: config.couponType,
+      couponValue,
+      couponMaxDiscountAmount:
+        config.maxDiscountAmount != null ? new Prisma.Decimal(config.maxDiscountAmount) : null,
     };
   }
 
@@ -639,7 +612,7 @@ export class ReturnRequestService {
         validUntil,
         issuedAt: now,
         usedAt: null,
-        ruleVersion: 'refund-benefit-v1',
+        ruleVersion: REFUND_BENEFIT_RULE_VERSION,
         source: 'REFUND',
         metadataJson: JSON.stringify({
           refundAmount: input.refundAmount.toNumber(),
@@ -2655,5 +2628,14 @@ export class ReturnRequestService {
     return this.repo
       .findAllAdmin(filters)
       .then((result: { data: any[] }) => this.decoratePagedResult(result));
+  }
+
+  getAdminReturnSummary(
+    filters: Omit<Parameters<ReturnRequestRepository['findAllAdmin']>[0], 'page' | 'limit' | 'status' | 'sort'>,
+    actor: ReturnWorkflowActor,
+  ) {
+    this.assertModernStorageAvailable(['returnRequest']);
+    this.assertReturnWorkflowCapability(actor);
+    return this.repo.countAllAdminStatuses(filters);
   }
 }

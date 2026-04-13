@@ -12,12 +12,31 @@ type CustomerFilters = {
 };
 type AdminFilters = {
   status?: ReturnRequestStatus;
+  search?: string;
+  sort?: AdminReturnSortValue;
   orderId?: number;
   customerId?: number;
   fromDate?: Date;
   toDate?: Date;
   page: number;
   limit: number;
+};
+
+type AdminSummaryFilters = Omit<AdminFilters, 'page' | 'limit' | 'status' | 'sort'>;
+type AdminReturnSortValue =
+  | 'createdAt_desc'
+  | 'createdAt_asc'
+  | 'updatedAt_desc'
+  | 'updatedAt_asc'
+  | 'refundStatus_asc';
+
+export type AdminReturnSummary = {
+  ALL: number;
+  REQUESTED: number;
+  APPROVED: number;
+  REJECTED: number;
+  RECEIVED: number;
+  REFUNDED: number;
 };
 
 const ADMIN_STATUS_FILTER_GROUPS: Partial<Record<ReturnRequestStatus, ReturnRequestStatus[]>> = {
@@ -123,6 +142,45 @@ export class ReturnRequestRepository {
       const groupedStatuses = ADMIN_STATUS_FILTER_GROUPS[filters.status];
       where.status = groupedStatuses ? { in: groupedStatuses } : filters.status;
     }
+    if (filters.search) {
+      where.OR = [
+        {
+          order: {
+            orderNumber: {
+              contains: filters.search,
+            },
+          },
+        },
+        {
+          order: {
+            customerName: {
+              contains: filters.search,
+            },
+          },
+        },
+        {
+          order: {
+            customerPhone: {
+              contains: filters.search,
+            },
+          },
+        },
+        {
+          user: {
+            fullName: {
+              contains: filters.search,
+            },
+          },
+        },
+        {
+          user: {
+            email: {
+              contains: filters.search,
+            },
+          },
+        },
+      ];
+    }
     if (filters.orderId) where.orderId = filters.orderId;
     if (filters.customerId) where.userId = filters.customerId;
     if (filters.fromDate || filters.toDate) {
@@ -133,6 +191,22 @@ export class ReturnRequestRepository {
     }
 
     return where;
+  }
+
+  private buildAdminOrderBy(sort?: AdminReturnSortValue): Prisma.ReturnRequestOrderByWithRelationInput[] {
+    switch (sort) {
+      case 'createdAt_asc':
+        return [{ createdAt: 'asc' }];
+      case 'updatedAt_desc':
+        return [{ updatedAt: 'desc' }, { createdAt: 'desc' }];
+      case 'updatedAt_asc':
+        return [{ updatedAt: 'asc' }, { createdAt: 'asc' }];
+      case 'refundStatus_asc':
+        return [{ refundStatus: 'asc' }, { updatedAt: 'desc' }, { createdAt: 'desc' }];
+      case 'createdAt_desc':
+      default:
+        return [{ createdAt: 'desc' }];
+    }
   }
 
   findOrderForReturn(orderId: number) {
@@ -245,7 +319,12 @@ export class ReturnRequestRepository {
   }
 
   async findAllAdmin(filters: AdminFilters) {
-    const { page, limit, ...rest } = filters;
+    const {
+      page,
+      limit,
+      sort = 'createdAt_desc',
+      ...rest
+    } = filters;
     const { skip, take } = buildPagination(page, limit);
     const where = this.buildAdminWhere(rest);
 
@@ -254,7 +333,7 @@ export class ReturnRequestRepository {
         where,
         skip,
         take,
-        orderBy: { createdAt: 'desc' },
+        orderBy: this.buildAdminOrderBy(sort),
         include: {
           user: { select: { userId: true, fullName: true, email: true, avatarUrl: true } },
           order: {
@@ -274,5 +353,25 @@ export class ReturnRequestRepository {
     ]);
 
     return buildPagedResult(data, total, page, limit);
+  }
+
+  async countAllAdminStatuses(filters: AdminSummaryFilters): Promise<AdminReturnSummary> {
+    const [all, requested, approved, rejected, received, refunded] = await Promise.all([
+      this.db.returnRequest.count({ where: this.buildAdminWhere(filters) }),
+      this.db.returnRequest.count({ where: this.buildAdminWhere({ ...filters, status: 'REQUESTED' }) }),
+      this.db.returnRequest.count({ where: this.buildAdminWhere({ ...filters, status: 'APPROVED' }) }),
+      this.db.returnRequest.count({ where: this.buildAdminWhere({ ...filters, status: 'REJECTED' }) }),
+      this.db.returnRequest.count({ where: this.buildAdminWhere({ ...filters, status: 'RECEIVED' }) }),
+      this.db.returnRequest.count({ where: this.buildAdminWhere({ ...filters, status: 'REFUNDED' }) }),
+    ]);
+
+    return {
+      ALL: all,
+      REQUESTED: requested,
+      APPROVED: approved,
+      REJECTED: rejected,
+      RECEIVED: received,
+      REFUNDED: refunded,
+    };
   }
 }

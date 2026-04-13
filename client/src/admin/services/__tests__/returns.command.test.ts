@@ -68,6 +68,14 @@ describe('adminReturnRuntimeService', () => {
         page: 2,
         limit: 15,
         totalPages: 3,
+        summary: {
+          ALL: 8,
+          REQUESTED: 3,
+          APPROVED: 2,
+          REJECTED: 1,
+          RECEIVED: 1,
+          REFUNDED: 1,
+        },
       },
     });
 
@@ -83,6 +91,14 @@ describe('adminReturnRuntimeService', () => {
       pageSize: 15,
       total: 1,
       totalPages: 3,
+    });
+    expect(result.summary).toEqual({
+      ALL: 8,
+      REQUESTED: 3,
+      APPROVED: 2,
+      REJECTED: 1,
+      RECEIVED: 1,
+      REFUNDED: 1,
     });
     expect(result.returns[0]).toEqual(
       expect.objectContaining({

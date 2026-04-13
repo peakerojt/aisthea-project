@@ -104,6 +104,23 @@ body {
     text-rendering: optimizeLegibility;
 }
 
+@layer base {
+    select:not([multiple]):not([size]) {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M3.5 5.75L8 10.25L12.5 5.75' stroke='rgba(255,255,255,0.88)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-position: right 12px center;
+        background-repeat: no-repeat;
+        background-size: 16px 16px;
+        padding-right: 2.75rem;
+    }
+
+    select:not([multiple]):not([size])::-ms-expand {
+        display: none;
+    }
+}
+
 @layer utilities {
     .admin-shell-scrollbars,
     .admin-shell-scrollbars * {
@@ -111,20 +128,33 @@ body {
         scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
     }
 
+    .admin-shell-scrollbars {
+        scrollbar-gutter: stable both-edges;
+    }
+
+    .orders-table-scroll-region {
+        scrollbar-gutter: stable both-edges;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+    }
+
     @media (pointer: fine) {
         .admin-shell-scrollbars::-webkit-scrollbar,
-        .admin-shell-scrollbars *::-webkit-scrollbar {
+        .admin-shell-scrollbars *::-webkit-scrollbar,
+        .orders-table-scroll-region::-webkit-scrollbar {
             width: 8px;
             height: 8px;
         }
 
         .admin-shell-scrollbars::-webkit-scrollbar-track,
-        .admin-shell-scrollbars *::-webkit-scrollbar-track {
+        .admin-shell-scrollbars *::-webkit-scrollbar-track,
+        .orders-table-scroll-region::-webkit-scrollbar-track {
             background: transparent;
         }
 
         .admin-shell-scrollbars::-webkit-scrollbar-thumb,
-        .admin-shell-scrollbars *::-webkit-scrollbar-thumb {
+        .admin-shell-scrollbars *::-webkit-scrollbar-thumb,
+        .orders-table-scroll-region::-webkit-scrollbar-thumb {
             background: rgba(255, 255, 255, 0.18);
             border-radius: 999px;
             border: 2px solid transparent;
@@ -132,7 +162,8 @@ body {
         }
 
         .admin-shell-scrollbars::-webkit-scrollbar-thumb:hover,
-        .admin-shell-scrollbars *::-webkit-scrollbar-thumb:hover {
+        .admin-shell-scrollbars *::-webkit-scrollbar-thumb:hover,
+        .orders-table-scroll-region::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.28);
             background-clip: content-box;
         }

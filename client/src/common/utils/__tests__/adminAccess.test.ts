@@ -70,6 +70,7 @@ describe('adminAccess', () => {
     expect(getAdminLandingPath(['Admin'])).toBe('/admin');
     expect(getAdminLandingPath(['Support'], ['VIEW_RETURNS'])).toBe('/admin/returns');
     expect(getAdminLandingPath(['Support'], ['VIEW_ORDER'])).toBe('/admin/orders');
+    expect(getAdminLandingPath(['Support'], ['REFUND_BENEFIT_VIEW'])).toBe('/');
     expect(getAdminLandingPath(['Customer'])).toBe('/');
   });
 
@@ -93,6 +94,10 @@ describe('adminAccess', () => {
     expect(canAccessAdminPath('/admin/restock', ['Support'], ['VIEW_INVENTORY'])).toBe(true);
     expect(canAccessAdminPath('/admin/restock', ['Support'], ['EDIT_INVENTORY'])).toBe(true);
     expect(canAccessAdminPath('/admin/coupons', ['Support'], ['MANAGE_COUPON'])).toBe(true);
+    expect(canAccessAdminPath('/admin/coupons', ['Support'], ['REFUND_BENEFIT_VIEW'])).toBe(false);
+    expect(hasAdminShellAccess(['Support'], ['CUSTOMER_BANK_ACCOUNT_MANAGE'])).toBe(false);
+    expect(hasAdminShellAccess(['Support'], ['RETURN_REFUND_FINANCE_VIEW'])).toBe(false);
+    expect(hasAdminShellAccess(['Support'], ['RETURN_REFUND_FINANCE_COMPLETE'])).toBe(false);
     expect(canAccessAdminPath('/admin/analytics', ['Support'], ['VIEW_REVENUE'])).toBe(true);
     expect(canAccessAdminPath('/admin/products', ['Support'], ['VIEW_PRODUCT'])).toBe(true);
     expect(canAccessAdminPath('/admin/products/create', ['Support'], ['CREATE_PRODUCT'])).toBe(true);
