@@ -1,6 +1,6 @@
 import PDFDocument from 'pdfkit';
-import path from 'path';
 import bwipjs from 'bwip-js';
+import { getPdfFontPaths } from './pdf-font-path.service';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -24,9 +24,8 @@ export interface ShippingLabelData {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const FONTS_DIR = path.resolve(__dirname, '../assets/fonts');
-const FONT_REGULAR = path.join(FONTS_DIR, 'Roboto-Regular.ttf');
-const FONT_BOLD = path.join(FONTS_DIR, 'Roboto-Bold.ttf');
+const FONT_REGULAR = 'Roboto';
+const FONT_BOLD = 'Roboto-Bold';
 
 /** Mock store info — replace with dynamic config later */
 const STORE = {
@@ -204,8 +203,9 @@ export async function generateBulkShippingLabels(orders: ShippingLabelData[]): P
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    doc.registerFont('Roboto', FONT_REGULAR);
-    doc.registerFont('Roboto-Bold', FONT_BOLD);
+    const fonts = getPdfFontPaths();
+    doc.registerFont(FONT_REGULAR, fonts.regular);
+    doc.registerFont(FONT_BOLD, fonts.bold);
 
     try {
       for (let i = 0; i < orders.length; i++) {
