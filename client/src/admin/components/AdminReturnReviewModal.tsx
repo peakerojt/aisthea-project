@@ -58,6 +58,7 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
     const [processing, setProcessing] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
     const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+    const [lightboxKind, setLightboxKind] = useState<'proof' | 'bankQr'>('proof');
     const [isLightboxVisible, setIsLightboxVisible] = useState(false);
     const [detailItem, setDetailItem] = useState<OrderReturn | null>(null);
     const [isDetailLoading, setIsDetailLoading] = useState(false);
@@ -161,6 +162,8 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
             index ? { index } : undefined,
         );
     const proofLightboxLabel = resolveText('modal.proofLightboxLabel', 'Xem ảnh minh chứng');
+    const bankQrLightboxLabel = resolveText('modal.bankQrLightboxLabel', 'Xem QR nhận tiền');
+    const bankQrImageAlt = resolveText('modal.bankQrAlt', 'QR tài khoản ngân hàng');
     const refundPayoutProofAlt = resolveText('detail.refundProofAlt', 'Ảnh chứng từ hoàn tiền');
     const refundPayoutProofOpenLabel = resolveText('detail.refundProofOpen', 'Mở ảnh chứng từ');
     const closeProofLightboxLabel = resolveText('modal.closeProofLightbox', 'Đóng ảnh minh chứng');
@@ -582,6 +585,10 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
                     formatText={resolveText}
                     hasAvailableBankInfo={hasAvailableBankInfo}
                     isRefundLocked={isRefundLocked}
+                    onOpenQrPreview={(src) => {
+                        setLightboxKind('bankQr');
+                        setLightboxImg(src);
+                    }}
                     workflowStatus={workflowStatus}
                 />
 
@@ -612,7 +619,10 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
                             {activeItem.proofImages.map((url, index) => (
                                 <button
                                     key={index}
-                                    onClick={() => setLightboxImg(url)}
+                                    onClick={() => {
+                                        setLightboxKind('proof');
+                                        setLightboxImg(url);
+                                    }}
                                     className="group relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] transition-colors hover:border-white/30 cursor-pointer"
                                 >
                                     <img
@@ -690,7 +700,10 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
                                 <button
                                     key={proof.refundPayoutProofId}
                                     type="button"
-                                    onClick={() => setLightboxImg(proof.fileUrl)}
+                                    onClick={() => {
+                                        setLightboxKind('proof');
+                                        setLightboxImg(proof.fileUrl);
+                                    }}
                                     className="group overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] text-left transition-colors hover:border-white/25"
                                 >
                                     <div className="relative aspect-[4/3] bg-black/20">
@@ -777,10 +790,13 @@ export const AdminReturnReviewModal: React.FC<AdminReturnReviewModalProps> = ({
 
             <ReturnReviewLightbox
                 closeLabel={closeProofLightboxLabel}
-                imageAlt={proofImageAlt()}
+                imageAlt={lightboxKind === 'bankQr' ? bankQrImageAlt : proofImageAlt()}
                 isVisible={isLightboxVisible}
-                lightboxLabel={proofLightboxLabel}
-                onClose={() => setLightboxImg(null)}
+                lightboxLabel={lightboxKind === 'bankQr' ? bankQrLightboxLabel : proofLightboxLabel}
+                onClose={() => {
+                    setLightboxImg(null);
+                    setLightboxKind('proof');
+                }}
                 src={lightboxImg}
             />
         </>

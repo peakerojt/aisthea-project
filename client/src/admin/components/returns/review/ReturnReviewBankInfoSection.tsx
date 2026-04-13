@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Landmark } from 'lucide-react';
+import { AlertTriangle, Landmark, Search } from 'lucide-react';
 import type { OrderReturn } from '@/common/services/return.types';
 import { refundUi } from '@/common/styles/refundUi';
 import { formatAdminReturnDateTime } from '@/admin/utils/returns.utils';
@@ -13,6 +13,7 @@ interface ReturnReviewBankInfoSectionProps {
   formatText: (key: string, fallback: string, options?: Record<string, unknown>) => string;
   hasAvailableBankInfo: boolean;
   isRefundLocked: boolean;
+  onOpenQrPreview: (src: string) => void;
   workflowStatus: string;
 }
 
@@ -24,6 +25,7 @@ export const ReturnReviewBankInfoSection: React.FC<ReturnReviewBankInfoSectionPr
   formatText,
   hasAvailableBankInfo,
   isRefundLocked,
+  onOpenQrPreview,
   workflowStatus,
 }) => {
   if (isRefundLocked) {
@@ -31,6 +33,7 @@ export const ReturnReviewBankInfoSection: React.FC<ReturnReviewBankInfoSectionPr
   }
 
   const bankInfo = activeItem.bankInfo ?? null;
+  const qrImageSrc = bankInfo?.qrImageUrl ? getCloudinaryQrImage(bankInfo.qrImageUrl, 900, 900) : null;
   const shouldShowRestrictedNotice = workflowStatus === 'ACCEPTED_FOR_REFUND' && !canManageRefundWorkflow;
   const shouldShowBankInfo = canManageRefundWorkflow && (
     workflowStatus === 'ACCEPTED_FOR_REFUND' || activeItem.bankInfo || activeItem.refundCompletedAt
@@ -111,19 +114,36 @@ export const ReturnReviewBankInfoSection: React.FC<ReturnReviewBankInfoSectionPr
                 )}
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/32">
-                  {formatText('modal.bankQrLabel', 'QR nhận tiền')}
-                </div>
-                {bankInfo?.qrImageUrl ? (
-                  <img
-                    src={getCloudinaryQrImage(bankInfo.qrImageUrl, 900, 900)}
-                    alt={formatText('modal.bankQrAlt', 'QR tài khoản ngân hàng')}
-                    className="h-auto min-h-32 w-full rounded-xl object-contain bg-white/[0.03] p-2"
-                  />
+                {qrImageSrc ? (
+                  <button
+                    type="button"
+                    aria-label={formatText('modal.bankQrPreviewAction', 'Xem QR nhận tiền')}
+                    onClick={() => onOpenQrPreview(qrImageSrc)}
+                    className="group block w-full rounded-xl text-left transition-colors duration-150 hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-emerald-300/35 cursor-zoom-in"
+                  >
+                    <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/32">
+                      {formatText('modal.bankQrLabel', 'QR nhận tiền')}
+                    </div>
+                    <div className="relative overflow-hidden rounded-xl bg-white/[0.03]">
+                      <img
+                        src={qrImageSrc}
+                        alt={formatText('modal.bankQrAlt', 'QR tài khoản ngân hàng')}
+                        className="h-auto min-h-32 w-full rounded-xl object-contain bg-white/[0.03] p-2"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 transition-colors group-hover:bg-black/20">
+                        <Search className="h-6 w-6 text-white opacity-0 transition-opacity group-hover:opacity-100" />
+                      </div>
+                    </div>
+                  </button>
                 ) : (
+                  <>
+                    <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/32">
+                      {formatText('modal.bankQrLabel', 'QR nhận tiền')}
+                    </div>
                   <div className="flex min-h-32 items-center justify-center px-4 text-center text-xs text-white/45">
                     {formatText('modal.bankQrEmpty', 'Chưa có ảnh QR cho tài khoản này.')}
                   </div>
+                  </>
                 )}
               </div>
             </div>
