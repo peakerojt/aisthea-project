@@ -1,0 +1,39 @@
+{
+  "finalUrl": "http://localhost:3000/login",
+  "status": 200,
+  "title": "Aisthea",
+  "hasContent": true,
+  "consoleMessages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting..."
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "info",
+      "text": "🌐 i18next is maintained with support from Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected."
+    },
+    {
+      "type": "log",
+      "text": "%c[Vercel Speed Insights]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    }
+  ],
+  "pageErrors": [],
+  "failedRequests": [],
+  "bodySample": "AISTHEA\n\nAISTHEA AUTH\n\nTẠO MỞ ĐẦU RÕ RÀNG VÀ NHẤT QUÁN TRONG MỌI TÌNH HUỐNG.\n\nMọi trạng thái xác thực được giữ trong cùng một nhịp bố cục để người dùng không bị xao nhãng khi có lỗi hoặc đang tải.\n\nTÀI KHOẢN\n\nCHÀO MỪNG BẠN QUAY LẠI\nVui lòng nhập thông tin đăng nhập để truy cập tài khoản của bạn.\nĐỊA CHỈ EMAIL\n \nMẬT KHẨU\n \nQUÊN MẬT KHẨU?\n \nĐĂNG NHẬP\nĐANG ĐĂNG NHẬP...\nHOẶC\nTIẾP TỤC VỚI GOOGLE\n\nMới đến với Aisthea? Tạo tài khoản\n\nQuyền riêng tư & Điều khoản"
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { startTransition, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Search, Package, ChevronLeft, ChevronRight, Eye,
   AlertCircle, FilterX, Calendar, Copy, RefreshCw, Download, CheckCircle2, Truck, Box, Ban, X,
@@ -101,9 +101,37 @@ const getCompactPaymentMethodLabel = (
   return label === meta.labelKey ? meta.defaultLabel : label;
 };
 
+const getCompactStatusLabel = (
+  canonical: string | null,
+  fallback: string,
+  t: OrdersTranslator,
+) => {
+  switch (canonical) {
+    case 'Pending':
+      return t('statusCompact.PENDING', { defaultValue: 'Chờ xác nhận' });
+    case 'Processing':
+      return t('statusCompact.PROCESSING', { defaultValue: 'Đang xử lý' });
+    case 'Shipping':
+      return t('statusCompact.SHIPPING', { defaultValue: 'Đang giao' });
+    case 'Delivered':
+      return t('statusCompact.DELIVERED', { defaultValue: 'Đã giao' });
+    case 'Cancelled':
+      return t('statusCompact.CANCELLED', { defaultValue: 'Đã hủy' });
+    default:
+      return fallback;
+  }
+};
+
 const shortenOrderNumber = (value: string) => {
-  if (value.length <= 18) return value;
-  return `${value.slice(0, 10)}...${value.slice(-4)}`;
+  if (value.length <= 13) return value;
+
+  if (value.startsWith('ORD-')) {
+    const body = value.slice(4);
+    if (body.length <= 5) return value;
+    return `ORD-${body.slice(0, 2)}...${body.slice(-3)}`;
+  }
+
+  return `${value.slice(0, 6)}...${value.slice(-3)}`;
 };
 
 const formatDateParts = (iso?: string) => {
@@ -161,18 +189,28 @@ const resolveBulkActionErrorText = (
   }
 };
 
-const StatusBadge: React.FC<{ status: string; t: OrdersTranslator }> = ({ status, t }) => {
+const StatusBadge: React.FC<{ status: string; t: OrdersTranslator; compact?: boolean }> = ({
+  status,
+  t,
+  compact = false,
+}) => {
   const { canonical, meta } = getOrderStatusDisplayMeta(status);
   const translationKey = canonical ? `status.${canonical.toUpperCase()}` : 'status.other';
   const translated = t(translationKey, {
     defaultValue: canonical ? meta.label : status || 'Khác',
   });
-  const label = translated === translationKey ? (canonical ? meta.label : status || 'Khác') : translated;
+  const fullLabel = translated === translationKey ? (canonical ? meta.label : status || 'Khác') : translated;
+  const label = compact ? getCompactStatusLabel(canonical, fullLabel, t) : fullLabel;
 
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${meta.badgeClass} ${meta.textClass}`}>
+    <span
+      title={fullLabel}
+      className={`inline-flex max-w-full items-center gap-1 overflow-hidden rounded-full border px-2 py-0.5 text-[11px] font-semibold ${meta.badgeClass} ${meta.textClass} ${
+        compact ? 'px-1.5 text-[11px]' : ''
+      }`}
+    >
       <span className={`h-1.5 w-1.5 rounded-full ${meta.dotClass}`} />
-      {label}
+      <span className="truncate whitespace-nowrap">{label}</span>
     </span>
   );
 };
@@ -182,7 +220,10 @@ const PaymentBadge: React.FC<{ paymentStatus: string; paymentMethod?: string; t:
   paymentMethod,
   t,
 }) => (
-  <span className={`inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${getPaymentBadgeTone(paymentStatus, paymentMethod)}`}>
+  <span
+    title={getCompactPaymentLabel(paymentStatus, paymentMethod, t)}
+    className={`inline-flex max-w-full items-center overflow-hidden rounded-full border px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap ${getPaymentBadgeTone(paymentStatus, paymentMethod)}`}
+  >
     {getCompactPaymentLabel(paymentStatus, paymentMethod, t)}
   </span>
 );
@@ -211,8 +252,8 @@ const OrderTableRow = React.memo(({
   onToggleSelect,
 }: OrderTableRowProps) => {
   const created = formatDateParts(order.createdAt);
-  const selectedRowClasses = 'bg-sky-500/[0.07] shadow-[inset_0_0_0_1px_rgba(56,189,248,0.14)]';
-  const selectedStickyCellClasses = 'bg-[rgba(11,22,38,0.96)] shadow-[inset_1px_0_0_rgba(56,189,248,0.08)]';
+  const selectedRowClasses = 'bg-[rgba(19,39,67,0.72)] shadow-[inset_0_0_0_1px_rgba(56,189,248,0.16)]';
+  const selectedStickyCellClasses = 'bg-[rgba(17,34,58,0.98)] shadow-[-1px_0_0_rgba(56,189,248,0.16),inset_0_0_0_1px_rgba(56,189,248,0.08)]';
 
   const handleOpen = () => onOpen(order.orderId);
 
@@ -230,27 +271,29 @@ const OrderTableRow = React.memo(({
       }}
       tabIndex={0}
     >
-      {selectionEnabled && (
-        <td className="px-3.5 py-2 align-middle lg:px-4">
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onClick={(event) => event.stopPropagation()}
-            onChange={(event) => {
-              event.stopPropagation();
-              onToggleSelect(order.orderId);
-            }}
-            aria-label={t('bulk.table.selectOrder', {
-              defaultValue: 'Chọn đơn {{orderNumber}}',
-              orderNumber: order.orderNumber,
-            })}
-            className="h-4 w-4 rounded border-white/20 bg-transparent text-primary focus:ring-0"
-          />
-        </td>
-      )}
-      <td className="px-3.5 py-2 align-middle lg:px-4">
+      <td className="w-12 px-2.5 py-2 text-center align-middle lg:px-3">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => {
+            event.stopPropagation();
+            onToggleSelect(order.orderId);
+          }}
+          aria-label={t('bulk.table.selectOrder', {
+            defaultValue: 'Chọn đơn {{orderNumber}}',
+            orderNumber: order.orderNumber,
+          })}
+          className={`h-4 w-4 rounded border text-primary transition-opacity focus:ring-0 ${
+            selectionEnabled
+              ? 'border-white/20 bg-transparent opacity-100'
+              : 'border-white/[0.12] bg-white/[0.015] opacity-40 hover:opacity-70'
+          }`}
+        />
+      </td>
+      <td className="w-[15%] px-3 py-2 align-middle lg:px-3.5">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span className="font-mono text-sm font-semibold text-white/92">
               {shortenOrderNumber(order.orderNumber)}
             </span>
@@ -260,13 +303,13 @@ const OrderTableRow = React.memo(({
                 event.stopPropagation();
                 onCopy(order.orderNumber);
               }}
-              className="rounded-md border border-white/10 p-1 text-white/35 transition-colors duration-150 hover:border-white/20 hover:text-white/80"
+              className="rounded-md border border-white/10 p-0.5 text-white/35 transition-colors duration-150 hover:border-white/20 hover:text-white/80"
               title={copyOrderNumberTitle}
             >
-              <Copy size={12} />
+              <Copy size={11} />
             </button>
           </div>
-          <p className="text-[11px] text-white/48">
+          <p className="text-[11.5px] text-white/50">
             {t('table.itemCount', {
               count: order.itemCount,
               defaultValue: '{{count}} sản phẩm',
@@ -275,48 +318,50 @@ const OrderTableRow = React.memo(({
         </div>
       </td>
 
-      <td className="px-3.5 py-2 align-middle lg:px-4">
-        <div className="flex items-center gap-2.5">
+      <td className="w-[23.5%] px-3 py-2 align-middle lg:px-3.5">
+        <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[10px] font-bold uppercase text-white/70">
             {order.customerName?.charAt(0) ?? '?'}
           </div>
           <div className="min-w-0">
             <p className="truncate text-[14px] font-medium text-white/90">{order.customerName}</p>
-            <p className="mt-0.5 text-[11px] text-white/52">{order.customerPhone}</p>
+            <p className="mt-0.5 truncate text-[11.5px] text-white/56">{order.customerPhone}</p>
           </div>
         </div>
       </td>
 
-      <td className="px-3.5 py-2 align-middle lg:px-4">
+      <td className="w-[11.5%] px-3 py-2 align-middle lg:px-3.5">
         <div className="space-y-1">
-          <p className="text-[14px] font-medium text-white/88">{created.time}</p>
-          <p className="text-[11px] text-white/52">{created.date}</p>
+          <p className="text-[14px] font-medium text-white/90">{created.time}</p>
+          <p className="text-[11.5px] text-white/56">{created.date}</p>
         </div>
       </td>
 
-      <td className="px-3.5 py-2 align-middle lg:px-4">
+      <td className="w-[12.5%] px-3 py-2 align-middle lg:px-3.5">
         <span className="text-[14px] font-bold text-white">{formatVND(order.totalAmount)}</span>
       </td>
 
-      <td className="px-3.5 py-2 align-middle lg:px-4">
-        <div className="space-y-0.5">
+      <td className="w-[13.5%] px-3 py-2 align-middle lg:px-3.5">
+        <div className="min-w-0 space-y-0.5">
           <PaymentBadge paymentStatus={order.paymentStatus} paymentMethod={order.paymentMethod} t={t} />
-          <p className="text-[11px] uppercase tracking-[0.1em] text-white/42">
+          <p className="truncate text-[11.5px] uppercase tracking-[0.04em] text-white/48">
             {getCompactPaymentMethodLabel(order.paymentMethod, t)}
           </p>
         </div>
       </td>
 
-      <td className="px-3.5 py-2 align-middle lg:px-4">
-        <StatusBadge status={order.status} t={t} />
+      <td className="w-[13.5%] px-3 py-2 pr-3 align-middle lg:px-3.5 lg:pr-4">
+        <div className="min-w-0">
+          <StatusBadge status={order.status} t={t} compact />
+        </div>
       </td>
 
       <td
-        className={`sticky right-0 px-3.5 py-2 align-middle text-right transition-colors duration-150 lg:px-4 ${
+        className={`w-[116px] px-2.5 py-2 align-middle text-right transition-colors duration-150 lg:w-[120px] lg:px-3 ${
           isSelected
             ? `${selectedStickyCellClasses} group-hover:bg-[rgba(16,28,46,0.98)]`
-            : 'bg-[#0f1014] group-hover:bg-[#14161b]'
-        }`}
+            : 'bg-[#0f1014] shadow-[-1px_0_0_rgba(255,255,255,0.04)] group-hover:bg-[#14161b]'
+        } 2xl:sticky 2xl:right-0 2xl:z-10`}
       >
         <button
           type="button"
@@ -324,7 +369,7 @@ const OrderTableRow = React.memo(({
             event.stopPropagation();
             handleOpen();
           }}
-          className="inline-flex min-w-[94px] items-center justify-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-white/68 transition-colors duration-150 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+          className="inline-flex min-w-[92px] items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-white/72 transition-colors duration-150 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
         >
           <Eye size={11} />
           {detailLabel}
@@ -539,6 +584,7 @@ export const Orders: React.FC = () => {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<StatusTabKey>(initialActiveTab);
   const [search, setSearch] = useState(initialSearch);
@@ -567,14 +613,31 @@ export const Orders: React.FC = () => {
 
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoadedRef = useRef(false);
+  const hasLoadedTabCountsRef = useRef(false);
   const requestIdRef = useRef(0);
   const tabCountsRequestIdRef = useRef(0);
+  const ordersAbortControllerRef = useRef<AbortController | null>(null);
+  const tabCountsAbortControllerRef = useRef<AbortController | null>(null);
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (reason: 'initial' | 'filters' | 'manual' | 'bulk' = 'filters') => {
     const requestId = ++requestIdRef.current;
     const isFirstLoad = !hasLoadedRef.current;
+    const shouldUseAbortSignal = reason !== 'initial';
+
+    if (shouldUseAbortSignal) {
+      ordersAbortControllerRef.current?.abort();
+    } else {
+      ordersAbortControllerRef.current = null;
+    }
+
+    const controller = shouldUseAbortSignal ? new AbortController() : null;
+    if (controller) {
+      ordersAbortControllerRef.current = controller;
+    }
+
     if (isFirstLoad) setLoading(true);
     else setIsRefreshing(true);
+    if (reason === 'manual') setIsManualRefreshing(true);
     setError(null);
 
     try {
@@ -586,6 +649,7 @@ export const Orders: React.FC = () => {
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         sort,
+        signal: controller?.signal,
       });
 
       if (requestIdRef.current !== requestId) return;
@@ -594,24 +658,44 @@ export const Orders: React.FC = () => {
       setTotal(res.pagination.total);
       hasLoadedRef.current = true;
     } catch (e: unknown) {
+      if (controller?.signal.aborted || (e as Error).name === 'AbortError') return;
       if (requestIdRef.current !== requestId) return;
       const requestError = e as { message?: string };
       setError(requestError.message || resolveText('page.loadError', { defaultValue: 'Không thể tải danh sách đơn hàng.' }));
     } finally {
+      if (controller && ordersAbortControllerRef.current === controller) {
+        ordersAbortControllerRef.current = null;
+      }
+      if (reason === 'manual' && (requestIdRef.current === requestId || controller?.signal.aborted)) {
+        setIsManualRefreshing(false);
+      }
       if (requestIdRef.current !== requestId) return;
       if (isFirstLoad) setLoading(false);
       else setIsRefreshing(false);
     }
-  }, [activeTab, endDate, page, pageSize, search, sort, startDate]);
+  }, [activeTab, endDate, page, pageSize, resolveText, search, sort, startDate]);
 
-  const loadTabCounts = useCallback(async () => {
+  const loadTabCounts = useCallback(async (reason: 'initial' | 'filters' | 'manual' | 'bulk' = 'filters') => {
     const requestId = ++tabCountsRequestIdRef.current;
+    const shouldUseAbortSignal = reason !== 'initial';
+
+    if (shouldUseAbortSignal) {
+      tabCountsAbortControllerRef.current?.abort();
+    } else {
+      tabCountsAbortControllerRef.current = null;
+    }
+
+    const controller = shouldUseAbortSignal ? new AbortController() : null;
+    if (controller) {
+      tabCountsAbortControllerRef.current = controller;
+    }
 
     try {
       const counts = await adminOrderService.getTabCounts({
         search: search || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
+        signal: controller?.signal,
       });
 
       if (tabCountsRequestIdRef.current !== requestId) return;
@@ -624,23 +708,31 @@ export const Orders: React.FC = () => {
         Delivered: counts.Delivered ?? 0,
         Cancelled: counts.Cancelled ?? 0,
       });
-    } catch {
+      hasLoadedTabCountsRef.current = true;
+    } catch (error: unknown) {
+      if (controller?.signal.aborted || (error as Error).name === 'AbortError') return;
       // Keep the previous counts if the auxiliary request fails.
+    } finally {
+      if (controller && tabCountsAbortControllerRef.current === controller) {
+        tabCountsAbortControllerRef.current = null;
+      }
     }
   }, [endDate, search, startDate]);
 
   useEffect(() => {
-    void loadOrders();
+    void loadOrders(hasLoadedRef.current ? 'filters' : 'initial');
   }, [loadOrders]);
 
   useEffect(() => {
-    void loadTabCounts();
+    void loadTabCounts(hasLoadedTabCountsRef.current ? 'filters' : 'initial');
   }, [loadTabCounts]);
 
   useEffect(() => () => {
     if (searchDebounce.current) {
       clearTimeout(searchDebounce.current);
     }
+    ordersAbortControllerRef.current?.abort();
+    tabCountsAbortControllerRef.current?.abort();
   }, []);
 
   useEffect(() => {
@@ -693,13 +785,15 @@ export const Orders: React.FC = () => {
     }
 
     if (nextSearchParams.toString() !== searchParams.toString()) {
-      setSearchParams(nextSearchParams);
+      setSearchParams(nextSearchParams, { replace: true });
     }
   }, [activeTab, endDate, page, pageSize, search, searchParams, setSearchParams, sort, startDate]);
 
   const handleTabChange = (tab: StatusTabKey) => {
-    setActiveTab(tab);
-    setPage(1);
+    startTransition(() => {
+      setActiveTab(tab);
+      setPage(1);
+    });
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -711,23 +805,27 @@ export const Orders: React.FC = () => {
     }
 
     searchDebounce.current = setTimeout(() => {
-      setSearch(nextValue);
-      setPage(1);
+      startTransition(() => {
+        setSearch(nextValue);
+        setPage(1);
+      });
     }, 400);
   };
 
   const handleClearFilters = () => {
-    setSearch('');
-    setSearchInput('');
-    setStartDate('');
-    setEndDate('');
-    setActiveTab('ALL');
-    setSort(DEFAULT_SORT);
-    setPage(1);
+    startTransition(() => {
+      setSearch('');
+      setSearchInput('');
+      setStartDate('');
+      setEndDate('');
+      setActiveTab('ALL');
+      setSort(DEFAULT_SORT);
+      setPage(1);
+    });
   };
 
   const handleRefresh = () => {
-    void Promise.all([loadOrders(), loadTabCounts()]);
+    void Promise.all([loadOrders('manual'), loadTabCounts('manual')]);
   };
 
   const handleEnterSelectionMode = useCallback(() => {
@@ -754,9 +852,11 @@ export const Orders: React.FC = () => {
     }
   }, []);
 
+  const selectedOrderIdSet = useMemo(() => new Set(selectedOrderIds), [selectedOrderIds]);
+
   const selectedOrders = useMemo(
-    () => orders.filter((order) => selectedOrderIds.includes(order.orderId)),
-    [orders, selectedOrderIds],
+    () => orders.filter((order) => selectedOrderIdSet.has(order.orderId)),
+    [orders, selectedOrderIdSet],
   );
 
   const selectedShippingOrders = useMemo(
@@ -764,14 +864,24 @@ export const Orders: React.FC = () => {
     [selectedOrders],
   );
 
-  const canApplyBulkStatus = useCallback((targetStatus: OrderStatusValue) => (
-    selectedOrders.some((order) => {
+  const bulkActionAvailability = useMemo(() => ({
+    processing: selectedOrders.some((order) => {
       const normalized = normalizeStatus(order.status);
-      return normalized ? getValidNextStatuses(normalized).includes(targetStatus) : false;
-    })
-  ), [selectedOrders]);
+      return normalized ? getValidNextStatuses(normalized).includes(ORDER_STATUS.PROCESSING) : false;
+    }),
+    shipping: selectedOrders.some((order) => {
+      const normalized = normalizeStatus(order.status);
+      return normalized ? getValidNextStatuses(normalized).includes(ORDER_STATUS.SHIPPING) : false;
+    }),
+    cancelled: selectedOrders.some((order) => {
+      const normalized = normalizeStatus(order.status);
+      return normalized ? getValidNextStatuses(normalized).includes(ORDER_STATUS.CANCELLED) : false;
+    }),
+  }), [selectedOrders]);
 
   const toggleOrderSelection = useCallback((orderId: number) => {
+    setBulkFeedback(null);
+    setIsSelectionMode(true);
     setSelectedOrderIds((current) => (
       current.includes(orderId)
         ? current.filter((currentOrderId) => currentOrderId !== orderId)
@@ -780,16 +890,27 @@ export const Orders: React.FC = () => {
   }, []);
 
   const handleSelectAllCurrentPage = useCallback((checked: boolean) => {
+    setBulkFeedback(null);
+    setIsSelectionMode(checked || selectedOrderIds.length > 0);
     setSelectedOrderIds(checked ? orders.map((order) => order.orderId) : []);
-  }, [orders]);
+  }, [orders, selectedOrderIds.length]);
 
   const selectedCount = selectedOrderIds.length;
-  const isAllCurrentPageSelected = orders.length > 0 && selectedCount === orders.length;
+  const isAllCurrentPageSelected = orders.length > 0 && orders.every((order) => selectedOrderIdSet.has(order.orderId));
   const hasSelectedShippingOrders = selectedShippingOrders.length > 0;
   const firstSelectedShippingOrder = selectedShippingOrders[0] ?? null;
   const showBulkSelectionPanel = isSelectionMode;
-  const stableTableViewportHeightClass = 'h-[440px] lg:h-[560px] xl:h-[620px]';
-  const stableFooterHeightClass = 'min-h-[60px]';
+  const stableTableViewportHeightClass = 'min-h-[280px] lg:min-h-[340px] xl:min-h-[400px]';
+  const stableFooterHeightClass = 'min-h-[56px]';
+  const stableToolbarHeightClass = showBulkSelectionPanel ? 'min-h-[64px]' : 'min-h-[52px]';
+
+  const handleOpenOrder = useCallback((orderId: number) => {
+    navigate(`/admin/orders/${orderId}`);
+  }, [navigate]);
+
+  const handleCopyOrder = useCallback((orderNumber: string) => {
+    void handleCopyOrderNumber(orderNumber);
+  }, [handleCopyOrderNumber]);
 
   const handleBulkActionRequest = useCallback((key: BulkActionKey) => {
     setBulkFeedback(null);
@@ -889,7 +1010,7 @@ export const Orders: React.FC = () => {
           : resolveText('bulk.summary.toastPartial', { defaultValue: 'Một số đơn không hợp lệ đã được bỏ qua an toàn.' }),
       });
 
-      await Promise.all([loadOrders(), loadTabCounts()]);
+      await Promise.all([loadOrders('bulk'), loadTabCounts('bulk')]);
       setSelectedOrderIds([]);
       setIsSelectionMode(false);
     } catch (error: unknown) {
@@ -916,7 +1037,7 @@ export const Orders: React.FC = () => {
   const visiblePages = getVisiblePages(page, totalPages);
 
   return (
-    <AdminPageShell>
+    <AdminPageShell className="h-full min-h-full">
       <AdminSectionCard bodyClassName="space-y-3 p-3.5 lg:space-y-3 lg:p-4">
         <div className="flex flex-col gap-3">
           <div className="flex items-start justify-between gap-3">
@@ -939,7 +1060,7 @@ export const Orders: React.FC = () => {
             </div>
 
             <AdminSecondaryButton type="button" onClick={handleRefresh} className="shrink-0 px-3.5 py-1.5 text-sm">
-              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={13} className={loading || isManualRefreshing ? 'animate-spin' : ''} />
               {resolveText('actions.refresh', { defaultValue: 'Làm mới' })}
             </AdminSecondaryButton>
           </div>
@@ -1081,8 +1202,8 @@ export const Orders: React.FC = () => {
           />
         )}
 
-        {showBulkSelectionPanel && (
-          <div className="border-b border-white/[0.06] bg-white/[0.015] px-4 py-2 lg:px-5">
+        <div className={`border-b border-white/[0.06] bg-white/[0.015] px-4 py-2 lg:px-5 ${stableToolbarHeightClass}`}>
+          {showBulkSelectionPanel ? (
             <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
               <div className="min-w-0 space-y-1.5">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -1130,7 +1251,7 @@ export const Orders: React.FC = () => {
                   size="sm"
                   className="text-sm"
                   onClick={() => handleBulkActionRequest('mark-processing')}
-                  disabled={isBulkSubmitting || isBulkExporting || !canApplyBulkStatus(ORDER_STATUS.PROCESSING)}
+                  disabled={isBulkSubmitting || isBulkExporting || !bulkActionAvailability.processing}
                 >
                   <Box size={14} />
                   {resolveText('bulk.actions.markProcessingShort', { defaultValue: 'Xử lý' })}
@@ -1141,7 +1262,7 @@ export const Orders: React.FC = () => {
                   size="sm"
                   className="text-sm"
                   onClick={() => handleBulkActionRequest('mark-shipping')}
-                  disabled={isBulkSubmitting || isBulkExporting || !canApplyBulkStatus(ORDER_STATUS.SHIPPING)}
+                  disabled={isBulkSubmitting || isBulkExporting || !bulkActionAvailability.shipping}
                 >
                   <Truck size={14} />
                   {resolveText('bulk.actions.markShippingShort', { defaultValue: 'Giao hàng' })}
@@ -1152,7 +1273,7 @@ export const Orders: React.FC = () => {
                   size="sm"
                   className="text-sm"
                   onClick={() => handleBulkActionRequest('cancel')}
-                  disabled={isBulkSubmitting || isBulkExporting || !canApplyBulkStatus(ORDER_STATUS.CANCELLED)}
+                  disabled={isBulkSubmitting || isBulkExporting || !bulkActionAvailability.cancelled}
                 >
                   <Ban size={14} />
                   {resolveText('bulk.actions.cancelShort', { defaultValue: 'Hủy' })}
@@ -1177,171 +1298,198 @@ export const Orders: React.FC = () => {
                 </AdminSecondaryButton>
               </div>
             </div>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="flex flex-1 items-center justify-center">
-              <div className="flex flex-col items-center gap-4">
-                <div className="h-10 w-10 rounded-full border-4 border-white/10 border-t-primary animate-spin" />
-              <p className="text-sm text-white/45">{resolveText('page.loading', { defaultValue: 'Đang tải danh sách đơn hàng...' })}</p>
-            </div>
-          </div>
-        ) : error ? (
-          <div className="flex flex-1 items-center justify-center">
-            <div className="max-w-sm text-center">
-              <AlertCircle size={40} className="mx-auto text-red-400" />
-              <h3 className="mt-4 text-base font-bold text-white">{resolveText('page.dataError', { defaultValue: 'Không thể hiển thị dữ liệu' })}</h3>
-              <p className="mt-2 text-sm text-white/55">{error}</p>
-              <button
+          ) : (
+            <div className="flex min-h-[32px] items-center justify-end">
+              <AdminSecondaryButton
                 type="button"
-                onClick={handleRefresh}
-                className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-primary hover:underline"
+                onClick={handleEnterSelectionMode}
+                disabled={orders.length === 0}
+                className="px-2.5 py-1.5 text-sm"
               >
-                {resolveText('page.retry', { defaultValue: 'Thử lại' })}
-              </button>
+                <CheckCircle2 size={13} />
+                {resolveText('bulk.enterSelectionMode', { defaultValue: 'Chọn nhiều' })}
+              </AdminSecondaryButton>
             </div>
-          </div>
-        ) : orders.length === 0 ? (
-          <AdminEmptyState
-            icon={Package}
-            title={resolveText('page.noOrders', { defaultValue: 'Chưa có đơn hàng nào' })}
-            description={resolveText('page.changeFilter', { defaultValue: 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.' })}
-          />
-        ) : (
-          <>
-            <div className="flex flex-col gap-2 border-b border-white/[0.06] px-4 py-2 text-[12px] text-white/45 sm:flex-row sm:items-center sm:justify-between lg:px-5">
-              <span>
-                {resolveText('pagination.rangeSummary', {
-                  start: rangeStart,
-                  end: rangeEnd,
-                  total,
-                  defaultValue: 'Hiển thị {{start}}-{{end}} / {{total}} đơn',
-                })}
-              </span>
-              {!isSelectionMode && (
-                <AdminSecondaryButton
+          )}
+        </div>
+
+        <div className="flex min-h-[44px] flex-col gap-2 border-b border-white/[0.06] px-4 py-2 text-[12px] text-white/45 sm:flex-row sm:items-center sm:justify-between lg:px-5">
+          {orders.length > 0 && !loading && !error ? (
+            <span>
+              {resolveText('pagination.rangeSummary', {
+                start: rangeStart,
+                end: rangeEnd,
+                total,
+                defaultValue: 'Hiển thị {{start}}-{{end}} / {{total}} đơn',
+              })}
+            </span>
+          ) : (
+            <span className="select-none opacity-0">
+              {resolveText('pagination.rangeSummary', {
+                start: 0,
+                end: 0,
+                total: 0,
+                defaultValue: 'Hiển thị {{start}}-{{end}} / {{total}} đơn',
+              })}
+            </span>
+          )}
+        </div>
+
+        <div className={`orders-table-scroll-region min-h-0 flex-1 overflow-y-scroll overflow-x-hidden ${stableTableViewportHeightClass}`}>
+          {loading ? (
+            <div className="flex h-full min-h-full items-center justify-center">
+              <div className="flex flex-col items-center gap-4">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-primary" />
+                <p className="text-sm text-white/45">{resolveText('page.loading', { defaultValue: 'Đang tải danh sách đơn hàng...' })}</p>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="flex h-full min-h-full items-center justify-center">
+              <div className="max-w-sm text-center">
+                <AlertCircle size={40} className="mx-auto text-red-400" />
+                <h3 className="mt-4 text-base font-bold text-white">{resolveText('page.dataError', { defaultValue: 'Không thể hiển thị dữ liệu' })}</h3>
+                <p className="mt-2 text-sm text-white/55">{error}</p>
+                <button
                   type="button"
-                  onClick={handleEnterSelectionMode}
-                  disabled={orders.length === 0}
-                  className="self-start px-2.5 py-1.5 text-sm"
+                  onClick={handleRefresh}
+                  className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-primary hover:underline"
                 >
-                  <CheckCircle2 size={13} />
-                  {resolveText('bulk.enterSelectionMode', { defaultValue: 'Chọn nhiều' })}
-                </AdminSecondaryButton>
-              )}
+                  {resolveText('page.retry', { defaultValue: 'Thử lại' })}
+                </button>
+              </div>
             </div>
-
-            <div className={`min-h-0 flex-1 overflow-auto ${stableTableViewportHeightClass}`}>
-              <table className="min-w-[880px] w-full border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-white/[0.06]">
-                    {[
-                      ...(isSelectionMode ? [{
-                        key: 'select',
-                        label: (
-                          <input
-                            type="checkbox"
-                            checked={isAllCurrentPageSelected}
-                            onChange={(event) => handleSelectAllCurrentPage(event.target.checked)}
-                            aria-label={resolveText('bulk.table.selectAllCurrentPage', { defaultValue: 'Chọn tất cả đơn trên trang hiện tại' })}
-                            className="h-4 w-4 rounded border-white/20 bg-transparent text-primary focus:ring-0"
-                          />
-                        ),
-                      }] : []),
-                      { key: 'orderId', label: resolveText('table.orderId', { defaultValue: 'Mã đơn' }) },
-                      { key: 'customer', label: resolveText('table.customer', { defaultValue: 'Khách hàng' }) },
-                      { key: 'time', label: resolveText('table.time', { defaultValue: 'Thời gian' }) },
-                      { key: 'total', label: resolveText('table.total', { defaultValue: 'Tổng tiền' }) },
-                      { key: 'payment', label: resolveText('table.payment', { defaultValue: 'Thanh toán' }) },
-                      { key: 'shipping', label: resolveText('table.shipping', { defaultValue: 'Trạng thái' }) },
-                      { key: 'actions', label: resolveText('table.actions', { defaultValue: 'Thao tác' }) },
-                    ].map((column, index) => (
-                      <th
-                        key={column.key}
-                        className={`sticky top-0 z-10 bg-[#111319] px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white/38 lg:px-4 ${
-                          index === (isSelectionMode ? 7 : 6) ? 'sticky right-0 z-20 text-right' : ''
-                        }`}
-                      >
-                        {column.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((order) => (
-                    <OrderTableRow
-                      key={order.orderId}
-                      order={order}
-                      selectionEnabled={isSelectionMode}
-                      isSelected={selectedOrderIds.includes(order.orderId)}
-                      t={resolveText}
-                      copyOrderNumberTitle={resolveText('actions.copyOrderNumber', { defaultValue: 'Sao chép mã đơn' })}
-                      detailLabel={resolveText('actions.viewDetailShort', { defaultValue: 'Chi tiết' })}
-                      onOpen={(orderId) => navigate(`/admin/orders/${orderId}`)}
-                      onCopy={(orderNumber) => {
-                        void handleCopyOrderNumber(orderNumber);
-                      }}
-                      onToggleSelect={toggleOrderSelection}
-                    />
-                  ))}
-                </tbody>
-              </table>
+          ) : orders.length === 0 ? (
+            <div className="flex h-full min-h-full">
+              <AdminEmptyState
+                icon={Package}
+                title={resolveText('page.noOrders', { defaultValue: 'Chưa có đơn hàng nào' })}
+                description={resolveText('page.changeFilter', { defaultValue: 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.' })}
+              />
             </div>
-          </>
-        )}
-
-        {!loading && !error && orders.length > 0 && (
-          <div className={`border-t border-white/[0.06] px-4 py-3 lg:px-5 ${stableFooterHeightClass}`}>
-            {totalPages > 1 ? (
-              <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-                <p className="text-xs text-white/42">
-                  {resolveText('pagination.summary', {
-                    page,
-                    totalPages,
-                    total,
-                    defaultValue: 'Trang {{page}} / {{totalPages}} · {{total}} đơn',
-                  })}
-                </p>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
-                    disabled={page <= 1}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 text-white/55 transition-colors duration-150 hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    <ChevronLeft size={15} />
-                  </button>
-
-                  {visiblePages.map((visiblePage) => (
-                    <button
-                      key={visiblePage}
-                      type="button"
-                      onClick={() => setPage(visiblePage)}
-                      className={`h-8 min-w-8 rounded-xl px-2.5 text-xs font-bold transition-colors duration-150 ${
-                        visiblePage === page
-                          ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                          : 'border border-white/10 text-white/55 hover:border-white/20 hover:text-white'
+          ) : (
+            <table className="w-full table-fixed border-collapse text-left">
+              <colgroup>
+                <col style={{ width: '48px' }} />
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '23.5%' }} />
+                <col style={{ width: '11.5%' }} />
+                <col style={{ width: '12.5%' }} />
+                <col style={{ width: '13.5%' }} />
+                <col style={{ width: '13.5%' }} />
+                <col style={{ width: '116px' }} />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-white/[0.06]">
+                  {[
+                    {
+                      key: 'select',
+                      label: (
+                        <input
+                          type="checkbox"
+                          checked={isAllCurrentPageSelected}
+                          onChange={(event) => handleSelectAllCurrentPage(event.target.checked)}
+                          aria-label={resolveText('bulk.table.selectAllCurrentPage', { defaultValue: 'Chọn tất cả đơn trên trang hiện tại' })}
+                          className={`h-4 w-4 rounded border text-primary transition-opacity focus:ring-0 ${
+                            isSelectionMode
+                              ? 'border-white/20 bg-transparent opacity-100'
+                              : 'border-white/[0.12] bg-white/[0.015] opacity-40 hover:opacity-70'
+                          }`}
+                        />
+                      ),
+                      className: 'w-12 text-center',
+                    },
+                    { key: 'orderId', label: resolveText('table.orderId', { defaultValue: 'Mã đơn' }), className: 'w-[15%]' },
+                    { key: 'customer', label: resolveText('table.customer', { defaultValue: 'Khách hàng' }), className: 'w-[23.5%]' },
+                    { key: 'time', label: resolveText('table.time', { defaultValue: 'Thời gian' }), className: 'w-[11.5%]' },
+                    { key: 'total', label: resolveText('table.total', { defaultValue: 'Tổng tiền' }), className: 'w-[12.5%]' },
+                    { key: 'payment', label: resolveText('table.payment', { defaultValue: 'Thanh toán' }), className: 'w-[13.5%]' },
+                    { key: 'shipping', label: resolveText('table.shipping', { defaultValue: 'Giao hàng' }), className: 'w-[13.5%] pr-3 lg:pr-4' },
+                    { key: 'actions', label: resolveText('table.actions', { defaultValue: 'Thao tác' }), className: 'w-[116px] pr-2 text-right lg:w-[120px] lg:pr-3' },
+                  ].map((column, index) => (
+                    <th
+                      key={column.key}
+                      className={`sticky top-0 z-10 bg-[#111319] px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white/38 lg:px-4 ${
+                        column.className ?? ''
+                      } ${
+                        index === 7 ? '2xl:sticky 2xl:right-0 2xl:z-20 2xl:bg-[#111319] 2xl:shadow-[-1px_0_0_rgba(255,255,255,0.05)]' : ''
                       }`}
                     >
-                      {visiblePage}
-                    </button>
+                      {column.label}
+                    </th>
                   ))}
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <OrderTableRow
+                    key={order.orderId}
+                    order={order}
+                    selectionEnabled={isSelectionMode}
+                    isSelected={selectedOrderIdSet.has(order.orderId)}
+                    t={resolveText}
+                    copyOrderNumberTitle={resolveText('actions.copyOrderNumber', { defaultValue: 'Sao chép mã đơn' })}
+                    detailLabel={resolveText('actions.viewDetailShort', { defaultValue: 'Chi tiết' })}
+                    onOpen={handleOpenOrder}
+                    onCopy={handleCopyOrder}
+                    onToggleSelect={toggleOrderSelection}
+                  />
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
 
+        <div className={`border-t border-white/[0.06] px-4 py-3 lg:px-5 ${stableFooterHeightClass}`}>
+          {!loading && !error && orders.length > 0 && totalPages > 1 ? (
+            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+              <p className="text-xs text-white/42">
+                {resolveText('pagination.summary', {
+                  page,
+                  totalPages,
+                  total,
+                  defaultValue: 'Trang {{page}} / {{totalPages}} · {{total}} đơn',
+                })}
+              </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+                  disabled={page <= 1}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 text-white/55 transition-colors duration-150 hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  <ChevronLeft size={15} />
+                </button>
+
+                {visiblePages.map((visiblePage) => (
                   <button
+                    key={visiblePage}
                     type="button"
-                    onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}
-                    disabled={page >= totalPages}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 text-white/55 transition-colors duration-150 hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                    onClick={() => setPage(visiblePage)}
+                    className={`h-8 min-w-8 rounded-xl px-2.5 text-xs font-bold transition-colors duration-150 ${
+                      visiblePage === page
+                        ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                        : 'border border-white/10 text-white/55 hover:border-white/20 hover:text-white'
+                    }`}
                   >
-                    <ChevronRight size={15} />
+                    {visiblePage}
                   </button>
-                </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}
+                  disabled={page >= totalPages}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 text-white/55 transition-colors duration-150 hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  <ChevronRight size={15} />
+                </button>
               </div>
-            ) : null}
-          </div>
-        )}
+            </div>
+          ) : (
+            <div aria-hidden="true" className="h-[36px]" />
+          )}
+        </div>
       </AdminSectionCard>
 
       <BulkActionModal

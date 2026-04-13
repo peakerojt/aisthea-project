@@ -81,10 +81,11 @@ export const orderApi = {
     confirmReceipt: (id: string | number) => api.patch<{ success: boolean; newStatus: string }>(`/api/orders/${id}/confirm-receipt`),
 
     // ---- Admin Endpoints ----
-    getAdminOrders: <T>(query: string) => api.get<{ data: T; meta?: AdminOrdersResponse['pagination'] }>(`/api/orders/admin${query}`),
+    getAdminOrders: <T>(query: string, options?: { signal?: AbortSignal; skipDedupe?: boolean }) =>
+        api.get<{ data: T; meta?: AdminOrdersResponse['pagination'] }>(`/api/orders/admin${query}`, options),
 
-    getAdminOrderTabCounts: (query: string) =>
-        api.get<{ data: Record<string, number> }>(`/api/orders/admin/tab-counts${query}`),
+    getAdminOrderTabCounts: (query: string, options?: { signal?: AbortSignal; skipDedupe?: boolean }) =>
+        api.get<{ data: Record<string, number> }>(`/api/orders/admin/tab-counts${query}`, options),
 
     getAdminOrderDetail: <T>(id: string | number) => api.get<T>(`/api/orders/admin/${id}`),
 

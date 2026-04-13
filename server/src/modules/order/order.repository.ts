@@ -127,6 +127,45 @@ const orderInclude = {
   statusHistory: true,
 };
 
+const orderListSelect = {
+  orderId: true,
+  orderNumber: true,
+  customerName: true,
+  customerPhone: true,
+  status: true,
+  paymentMethod: true,
+  totalAmount: true,
+  createdAt: true,
+  user: {
+    select: {
+      userId: true,
+      email: true,
+      fullName: true,
+      avatarUrl: true,
+    },
+  },
+  payments: {
+    select: {
+      status: true,
+    },
+  },
+  shipment: {
+    select: {
+      shippingMode: true,
+      provider: true,
+      providerOrderCode: true,
+      providerStatus: true,
+      carrier: true,
+      trackingNumber: true,
+      eta: true,
+      lastKnownLocation: true,
+    },
+  },
+  _count: {
+    select: { items: true },
+  },
+} as const;
+
 export async function findOrderByIdWithRelations(orderId: number): Promise<OrderWithRelations | null> {
   const result = await prisma.order.findUnique({
     where: { orderId },
@@ -184,11 +223,13 @@ const buildOrderWhere = (filters: Pick<OrderFilter, 'userId' | 'status' | 'searc
     where.status = status;
   }
 
-  if (search) {
+  const normalizedSearch = search?.trim();
+
+  if (normalizedSearch) {
     where.OR = [
-      { customerName: { contains: search } },
-      { customerPhone: { contains: search } },
-      { orderNumber: { contains: search } },
+      { customerName: { contains: normalizedSearch } },
+      { customerPhone: { contains: normalizedSearch } },
+      { orderNumber: { contains: normalizedSearch } },
     ];
   }
 
@@ -208,16 +249,15 @@ const buildOrderWhere = (filters: Pick<OrderFilter, 'userId' | 'status' | 'searc
 export async function countOrdersByStatus(filters: Pick<OrderFilter, 'userId' | 'search' | 'startDate' | 'endDate'>) {
   const where = buildOrderWhere(filters);
 
-  const [total, groupedCounts] = await Promise.all([
-    prisma.order.count({ where }),
-    prisma.order.groupBy({
-      by: ['status'],
-      where,
-      _count: {
-        _all: true,
-      },
-    }),
-  ]);
+  const groupedCounts = await prisma.order.groupBy({
+    by: ['status'],
+    where,
+    _count: {
+      _all: true,
+    },
+  });
+
+  const total = groupedCounts.reduce((sum, item) => sum + Number(item._count._all ?? 0), 0);
 
   return {
     total,
@@ -251,24 +291,7 @@ export async function findManyOrders(filters: OrderFilter) {
       orderBy,
       skip,
       take: size,
-      include: {
-        user: {
-          select: {
-            userId: true,
-            email: true,
-            fullName: true,
-            avatarUrl: true,
-          },
-        },
-        payments: {
-          select: {
-            status: true,
-          },
-        },
-        _count: {
-          select: { items: true },
-        },
-      },
+      select: orderListSelect,
     }),
     prisma.order.count({ where }),
   ]);

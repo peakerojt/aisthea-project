@@ -533,6 +533,7 @@ export const adminOrderService = {
     startDate?: string;
     endDate?: string;
     sort?: string;
+    signal?: AbortSignal;
   }): Promise<AdminOrdersResponse> {
     const q = new URLSearchParams();
     if (params?.status && params.status !== 'ALL') q.append('status', params.status);
@@ -544,7 +545,10 @@ export const adminOrderService = {
     if (params?.sort) q.append('sort', params.sort);
     const query = q.toString();
 
-    const response = await orderApi.getAdminOrders<AdminOrder[]>(query ? `?${query}` : '');
+    const response = await orderApi.getAdminOrders<AdminOrder[]>(query ? `?${query}` : '', {
+      signal: params?.signal,
+      skipDedupe: Boolean(params?.signal),
+    });
     return {
       orders: response.data || [],
       pagination: response.meta || { page: 1, pageSize: 20, total: 0, totalPages: 1 },
@@ -555,6 +559,7 @@ export const adminOrderService = {
     search?: string;
     startDate?: string;
     endDate?: string;
+    signal?: AbortSignal;
   }): Promise<AdminOrderTabCounts> {
     const q = new URLSearchParams();
     if (params?.search) q.append('search', params.search);
@@ -562,7 +567,10 @@ export const adminOrderService = {
     if (params?.endDate) q.append('endDate', params.endDate);
 
     const query = q.toString();
-    const response = await orderApi.getAdminOrderTabCounts(query ? `?${query}` : '');
+    const response = await orderApi.getAdminOrderTabCounts(query ? `?${query}` : '', {
+      signal: params?.signal,
+      skipDedupe: Boolean(params?.signal),
+    });
     return response.data || {};
   },
 
