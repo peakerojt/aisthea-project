@@ -363,7 +363,7 @@
     "WRONG_ITEM": "Giao sai hàng",
     "SIZE_ISSUE": "Sai kích cỡ / Không vừa",
     "CHANGED_MIND": "Đổi ý / Không còn nhu cầu",
-    "PRE_DELIVERY_CANCELLATION": "Hủy trước giao hàng / Chờ admin hoàn tiền",
+    "PRE_DELIVERY_CANCELLATION": "Hủy trước giao / Chờ hoàn tiền",
     "OTHER": "Lý do khác"
   }
 }

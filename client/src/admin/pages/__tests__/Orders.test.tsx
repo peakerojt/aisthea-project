@@ -160,7 +160,7 @@ describe('Admin Orders page', () => {
       ],
       pagination: {
         page: 1,
-        pageSize: 15,
+        pageSize: 10,
         total: 1,
         totalPages: 1,
       },
@@ -201,7 +201,7 @@ describe('Admin Orders page', () => {
     expect(screen.getByText('Đã thanh toán')).toBeInTheDocument();
     expect(screen.getByText('VNPay')).toBeInTheDocument();
     expect(screen.getByText('Chi tiết')).toBeInTheDocument();
-    expect(screen.getByText('Hiển thị 1-1 / 1 đơn')).toBeInTheDocument();
+    expect(screen.getByText('Trang 1/1 · Hiển thị 1-1 trên · 1 đơn hàng')).toBeInTheDocument();
   });
 
   it('loads the main list plus one aggregated tab-count request without re-triggering an infinite refresh loop', async () => {
@@ -275,7 +275,7 @@ describe('Admin Orders page', () => {
     expect(getAllMock).toHaveBeenLastCalledWith(expect.objectContaining({
       status: 'Pending',
       page: 1,
-      pageSize: 15,
+      pageSize: 10,
       search: undefined,
       startDate: undefined,
       endDate: undefined,

@@ -5,6 +5,7 @@ import { validate } from '../middlewares/validate.middleware';
 import {
     bulkUpdateOrderStatus,
     exportSelectedAdminOrders,
+    exportSelectedAdminShippingLabels,
     getMyOrders,
     getMyOrderDetail,
     createOrder,
@@ -46,6 +47,7 @@ const orderWriteGuard = [authenticateToken, requirePermission('EDIT_ORDER')];
 router.get('/admin', ...orderReadGuard, getAllOrders);
 router.get('/admin/tab-counts', ...orderReadGuard, getAdminOrderTabCounts);
 router.post('/admin/export', ...orderReadGuard, validate(adminOrderExportSchema), exportSelectedAdminOrders);
+router.post('/admin/export-shipping-labels', ...orderReadGuard, validate(adminOrderExportSchema), exportSelectedAdminShippingLabels);
 router.patch('/admin/bulk-status', ...orderWriteGuard, validate(bulkUpdateOrderStatusSchema), bulkUpdateOrderStatus);
 router.get('/admin/:id', ...orderReadGuard, validate(orderIdParamSchema, 'params'), getAdminOrderDetail);
 router.post('/:id/delivery-proof-images', ...orderWriteGuard, validate(orderIdParamSchema, 'params'), upload.array('files', 5), uploadDeliveryProofImages);

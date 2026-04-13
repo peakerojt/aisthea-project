@@ -95,6 +95,9 @@ export const orderApi = {
     exportSelectedAdminOrders: (payload: { orderIds: number[] }) =>
         fetchOrderBlob('/api/orders/admin/export', 'Không thể xuất danh sách đơn hàng đã chọn', payload),
 
+    exportSelectedAdminShippingLabels: (payload: { orderIds: number[] }) =>
+        fetchOrderBlob('/api/orders/admin/export-shipping-labels', 'Không thể xuất phiếu gửi hàng', payload),
+
     uploadDeliveryProofImages: (id: string | number, payload: FormData) =>
         api.post<{ success: boolean; data: { images: Array<{ url: string; width: number; height: number }> } }>(`/api/orders/${id}/delivery-proof-images`, payload),
 

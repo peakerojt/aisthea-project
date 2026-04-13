@@ -1,4 +1,5 @@
 export * from './fields';
+export * from './coupon-rules';
 export * from './schemas/auth';
 export * from './schemas/cart';
 export * from './schemas/coupon';

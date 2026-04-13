@@ -27,6 +27,7 @@ import { fileToBase64 } from '../middlewares/upload.middleware';
 import { cloudinaryService } from '../services/cloudinary.service';
 import { getRefundsForOrder } from '../services/refund.service';
 import { notificationService } from '../modules/notifications/notification.service';
+import { generateBulkShippingLabels, type ShippingLabelData } from '../services/shipping-label.service';
 import type { CreateOrderInput, QuoteOrderInput } from '../modules/order/order.validator';
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
@@ -486,6 +487,92 @@ export const exportSelectedAdminOrders = async (req: AuthRequest, res: Response)
     res.status(200).send(csv);
   } catch (error: any) {
     logger.error('[exportSelectedAdminOrders] Failed', {
+      message: error?.message,
+      payload: req.body,
+      url: req.originalUrl,
+    });
+    res.status(500).json({ success: false, errorCode: 'INTERNAL_SERVER_ERROR' });
+  }
+};
+
+// ─── ADMIN: Export Shipping Labels (PDF) | POST /api/orders/admin/export-shipping-labels ───
+
+export const exportSelectedAdminShippingLabels = async (req: AuthRequest, res: Response) => {
+  try {
+    const orderIds = [...new Set(((req.body as { orderIds?: number[] })?.orderIds ?? []).map(Number))];
+
+    const orders = await prisma.order.findMany({
+      where: { orderId: { in: orderIds } },
+      include: {
+        items: {
+          include: {
+            variant: {
+              include: {
+                product: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (orders.length === 0) {
+      return res.status(404).json({ success: false, errorCode: 'ORDER_NOT_FOUND' });
+    }
+
+    // Filter to Processing orders only
+    const processingOrders = orders.filter((o) => toCanonicalOrderStatus(o.status) === 'Processing');
+    const skippedCount = orders.length - processingOrders.length;
+
+    if (processingOrders.length === 0) {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'NO_PROCESSING_ORDERS',
+        message: 'Không có đơn nào ở trạng thái "Đang xử lý" để xuất phiếu.',
+      });
+    }
+
+    const orderById = new Map(processingOrders.map((o) => [o.orderId, o]));
+    const labelData: ShippingLabelData[] = orderIds
+      .map((id) => orderById.get(id))
+      .filter((order): order is (typeof processingOrders)[number] => Boolean(order))
+      .map((order) => {
+        const items = order.items.map((item) => ({
+          productName: item.productName,
+          variantName: item.variantName,
+          quantity: item.quantity,
+        }));
+
+        const addressParts = [
+          order.shippingAddressDetail,
+          order.shippingWard,
+          order.shippingDistrict,
+          order.shippingCity,
+        ].filter(Boolean);
+
+        return {
+          orderNumber: order.orderNumber,
+          createdAt: order.createdAt?.toISOString() ?? new Date().toISOString(),
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
+          shippingAddress: addressParts.join(', '),
+          items,
+          paymentMethod: order.paymentMethod ?? 'COD',
+          codAmount: Number(order.totalAmount ?? 0),
+        };
+      });
+
+    const pdfBuffer = await generateBulkShippingLabels(labelData);
+    const exportDate = new Date().toISOString().slice(0, 10);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="shipping-labels-${exportDate}.pdf"`);
+    if (skippedCount > 0) {
+      res.setHeader('X-Skipped-Orders', String(skippedCount));
+    }
+    res.status(200).send(pdfBuffer);
+  } catch (error: any) {
+    logger.error('[exportSelectedAdminShippingLabels] Failed', {
       message: error?.message,
       payload: req.body,
       url: req.originalUrl,

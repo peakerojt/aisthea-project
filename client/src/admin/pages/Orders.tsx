@@ -34,7 +34,7 @@ type OrderSortValue =
   | 'paymentStatus_desc';
 type OrdersTranslator = (key: string, options?: Record<string, unknown>) => string;
 const DEFAULT_SORT: OrderSortValue = 'createdAt_desc';
-const DEFAULT_PAGE_SIZE = 15;
+const DEFAULT_PAGE_SIZE = 10;
 const ORDER_STATUS_QUERY_VALUES = new Set<StatusTabKey>(['ALL', 'Pending', 'Processing', 'Shipping', 'Delivered', 'Cancelled']);
 const ORDER_SORT_QUERY_VALUES = new Set<OrderSortValue>([
   'createdAt_desc',
@@ -45,7 +45,7 @@ const ORDER_SORT_QUERY_VALUES = new Set<OrderSortValue>([
   'paymentStatus_desc',
 ]);
 
-type BulkActionKey = 'mark-processing' | 'mark-shipping' | 'cancel' | 'export';
+type BulkActionKey = 'mark-processing' | 'mark-shipping' | 'cancel' | 'export' | 'export-labels';
 
 type BulkActionState = {
   key: BulkActionKey;
@@ -162,7 +162,7 @@ const getVisiblePages = (page: number, totalPages: number) => {
   );
 };
 
-const BULK_ACTION_STATUS_BY_KEY: Record<Exclude<BulkActionKey, 'export'>, OrderStatusValue> = {
+const BULK_ACTION_STATUS_BY_KEY: Record<Exclude<BulkActionKey, 'export' | 'export-labels'>, OrderStatusValue> = {
   'mark-processing': ORDER_STATUS.PROCESSING,
   'mark-shipping': ORDER_STATUS.SHIPPING,
   cancel: ORDER_STATUS.CANCELLED,
@@ -455,7 +455,9 @@ const BulkActionModal: React.FC<{
         ? Truck
         : action.key === 'cancel'
           ? Ban
-          : Download;
+          : action.key === 'export-labels'
+            ? Package
+            : Download;
 
   const title =
     action.key === 'mark-processing'
@@ -464,7 +466,9 @@ const BulkActionModal: React.FC<{
         ? t('bulk.actions.markShipping', { defaultValue: 'Chuyển sang giao hàng' })
         : action.key === 'cancel'
           ? t('bulk.actions.cancel', { defaultValue: 'Hủy đơn đã chọn' })
-          : t('bulk.actions.exportSelected', { defaultValue: 'Xuất đơn đã chọn' });
+          : action.key === 'export-labels'
+            ? t('bulk.actions.exportLabels', { defaultValue: 'Xuất phiếu gửi hàng' })
+            : t('bulk.actions.exportSelected', { defaultValue: 'Xuất đơn đã chọn' });
 
   const subtitle =
     action.key === 'cancel'
@@ -477,15 +481,22 @@ const BulkActionModal: React.FC<{
           count: selectedCount,
           defaultValue: 'Xuất {{count}} đơn đang được chọn trên trang hiện tại ra tệp CSV.',
         })
-        : t('bulk.dialog.defaultSubtitle', {
-          count: selectedCount,
-          defaultValue: 'Áp dụng thao tác cho {{count}} đơn đang được chọn. Các đơn không hợp lệ sẽ được bỏ qua.',
-        });
+        : action.key === 'export-labels'
+          ? t('bulk.dialog.exportLabelsSubtitle', {
+            count: selectedCount,
+            defaultValue: 'Xuất phiếu gửi hàng PDF cho {{count}} đơn đang được chọn. Chỉ đơn "Đang xử lý" được xuất.',
+          })
+          : t('bulk.dialog.defaultSubtitle', {
+            count: selectedCount,
+            defaultValue: 'Áp dụng thao tác cho {{count}} đơn đang được chọn. Các đơn không hợp lệ sẽ được bỏ qua.',
+          });
 
   const confirmLabel =
     action.key === 'export'
       ? t('bulk.dialog.confirmExport', { defaultValue: 'Xuất CSV' })
-      : t('bulk.dialog.confirm', { defaultValue: 'Xác nhận' });
+      : action.key === 'export-labels'
+        ? t('bulk.dialog.confirmExportLabels', { defaultValue: 'Xuất phiếu' })
+        : t('bulk.dialog.confirm', { defaultValue: 'Xác nhận' });
 
   return (
     <AdminModalShell
@@ -507,7 +518,7 @@ const BulkActionModal: React.FC<{
           >
             {loading ? (
               <RefreshCw size={14} className="animate-spin" />
-            ) : action.key === 'export' ? (
+            ) : action.key === 'export' || action.key === 'export-labels' ? (
               <Download size={14} />
             ) : (
               <CheckCircle2 size={14} />
@@ -552,6 +563,9 @@ export const Orders: React.FC = () => {
     const value = t(key, options);
     return value === key ? interpolateFallback(fallback, options) : value;
   }, [interpolateFallback, t]);
+  // Keep a ref so loadOrders doesn't re-create (and re-fetch) on every i18n render cycle
+  const resolveTextRef = useRef(resolveText);
+  resolveTextRef.current = resolveText;
   const statusTabs = useMemo(
     () => ([
       { key: 'ALL', label: resolveText('filters.all', { defaultValue: 'Tất cả' }) },
@@ -637,7 +651,6 @@ export const Orders: React.FC = () => {
 
     if (isFirstLoad) setLoading(true);
     else setIsRefreshing(true);
-    if (reason === 'manual') setIsManualRefreshing(true);
     setError(null);
 
     try {
@@ -661,19 +674,16 @@ export const Orders: React.FC = () => {
       if (controller?.signal.aborted || (e as Error).name === 'AbortError') return;
       if (requestIdRef.current !== requestId) return;
       const requestError = e as { message?: string };
-      setError(requestError.message || resolveText('page.loadError', { defaultValue: 'Không thể tải danh sách đơn hàng.' }));
+      setError(requestError.message || resolveTextRef.current('page.loadError', { defaultValue: 'Không thể tải danh sách đơn hàng.' }));
     } finally {
       if (controller && ordersAbortControllerRef.current === controller) {
         ordersAbortControllerRef.current = null;
-      }
-      if (reason === 'manual' && (requestIdRef.current === requestId || controller?.signal.aborted)) {
-        setIsManualRefreshing(false);
       }
       if (requestIdRef.current !== requestId) return;
       if (isFirstLoad) setLoading(false);
       else setIsRefreshing(false);
     }
-  }, [activeTab, endDate, page, pageSize, resolveText, search, sort, startDate]);
+  }, [activeTab, endDate, page, pageSize, search, sort, startDate]);
 
   const loadTabCounts = useCallback(async (reason: 'initial' | 'filters' | 'manual' | 'bulk' = 'filters') => {
     const requestId = ++tabCountsRequestIdRef.current;
@@ -825,7 +835,11 @@ export const Orders: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    void Promise.all([loadOrders('manual'), loadTabCounts('manual')]);
+    setIsManualRefreshing(true);
+    const minSpinDelay = new Promise<void>((r) => setTimeout(r, 600));
+    void Promise.all([loadOrders('manual'), loadTabCounts('manual'), minSpinDelay]).finally(() => {
+      setIsManualRefreshing(false);
+    });
   };
 
   const handleEnterSelectionMode = useCallback(() => {
@@ -915,7 +929,7 @@ export const Orders: React.FC = () => {
   const handleBulkActionRequest = useCallback((key: BulkActionKey) => {
     setBulkFeedback(null);
 
-    if (key === 'export') {
+    if (key === 'export' || key === 'export-labels') {
       setBulkAction({ key });
       return;
     }
@@ -935,14 +949,20 @@ export const Orders: React.FC = () => {
   const handleBulkActionConfirm = useCallback(async (note?: string) => {
     if (!bulkAction || selectedOrderIds.length === 0) return;
 
-    if (bulkAction.key === 'export') {
+    if (bulkAction.key === 'export' || bulkAction.key === 'export-labels') {
       setIsBulkExporting(true);
 
       try {
-        const { fileName } = await adminOrderService.exportSelectedOrders(selectedOrderIds);
+        const isLabel = bulkAction.key === 'export-labels';
+        const { fileName } = isLabel
+          ? await adminOrderService.exportSelectedShippingLabels(selectedOrderIds)
+          : await adminOrderService.exportSelectedOrders(selectedOrderIds);
         showToast({
           type: 'success',
-          title: resolveText('bulk.export.successTitle', { defaultValue: 'Đã xuất danh sách đơn hàng' }),
+          title: resolveText(
+            isLabel ? 'bulk.exportLabels.successTitle' : 'bulk.export.successTitle',
+            { defaultValue: isLabel ? 'Đã xuất phiếu gửi hàng' : 'Đã xuất danh sách đơn hàng' },
+          ),
           subtitle: fileName,
         });
         setSelectedOrderIds([]);
@@ -1082,14 +1102,16 @@ export const Orders: React.FC = () => {
                   </button>
                 )}
               </div>
-              <Search size={14} className="pointer-events-none absolute left-3 top-[36px] -translate-y-1/2 text-white/30" />
-              <input
-                type="text"
-                value={searchInput}
-                onChange={handleSearchChange}
-                placeholder={resolveText('filters.searchPlaceholderAdmin', { defaultValue: 'Tìm tên, SĐT, mã đơn...' })}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 pl-9 pr-3.5 text-[15px] text-white placeholder:text-white/32 transition-colors duration-150 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
-              />
+              <div className="relative">
+                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={handleSearchChange}
+                  placeholder={resolveText('filters.searchPlaceholderAdmin', { defaultValue: 'Tìm tên, SĐT, mã đơn...' })}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 pl-9 pr-3.5 text-[15px] text-white placeholder:text-white/32 transition-colors duration-150 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                />
+              </div>
             </label>
 
             <div>
@@ -1271,6 +1293,15 @@ export const Orders: React.FC = () => {
                 </AdminSecondaryButton>
                 <AdminSecondaryButton
                   type="button"
+                  onClick={() => handleBulkActionRequest('export-labels')}
+                  disabled={isBulkSubmitting || isBulkExporting}
+                  className="px-3 py-1.5 text-sm"
+                >
+                  {isBulkExporting ? <RefreshCw size={13} className="animate-spin" /> : <Package size={13} />}
+                  {resolveText('bulk.actions.exportLabelsShort', { defaultValue: 'Phiếu gửi hàng' })}
+                </AdminSecondaryButton>
+                <AdminSecondaryButton
+                  type="button"
                   onClick={handleExitSelectionMode}
                   className="px-2.5 py-1.5 text-sm"
                   title={resolveText('bulk.exitSelectionMode', { defaultValue: 'Thoát chọn nhiều' })}
@@ -1295,29 +1326,8 @@ export const Orders: React.FC = () => {
           )}
         </div>
 
-        <div className="flex min-h-[44px] items-center border-b border-white/[0.06] px-4 py-2 text-[12px] text-white/45 lg:px-5">
-          {orders.length > 0 && !loading && !error ? (
-            <span>
-              {resolveText('pagination.rangeSummary', {
-                start: rangeStart,
-                end: rangeEnd,
-                total,
-                defaultValue: 'Hiển thị {{start}}-{{end}} / {{total}} đơn',
-              })}
-            </span>
-          ) : (
-            <span className="select-none opacity-0">
-              {resolveText('pagination.rangeSummary', {
-                start: 0,
-                end: 0,
-                total: 0,
-                defaultValue: 'Hiển thị {{start}}-{{end}} / {{total}} đơn',
-              })}
-            </span>
-          )}
-        </div>
 
-        <div className={`orders-table-scroll-region min-h-0 flex-1 overflow-y-scroll overflow-x-hidden ${stableTableViewportHeightClass}`}>
+        <div className={`orders-table-scroll-region min-h-0 flex-1 overflow-y-scroll overflow-x-hidden transition-opacity duration-150 ${stableTableViewportHeightClass} ${isRefreshing && !loading ? 'opacity-60' : 'opacity-100'}`}>
           {loading ? (
             <div className="flex h-full min-h-full items-center justify-center">
               <div className="flex flex-col items-center gap-4">
@@ -1341,7 +1351,7 @@ export const Orders: React.FC = () => {
               </div>
             </div>
           ) : orders.length === 0 ? (
-            <div className="flex h-full min-h-full">
+            <div className="flex h-full min-h-full w-full items-center justify-center">
               <AdminEmptyState
                 icon={Package}
                 title={resolveText('page.noOrders', { defaultValue: 'Chưa có đơn hàng nào' })}
@@ -1422,17 +1432,20 @@ export const Orders: React.FC = () => {
         </div>
 
         <div className={`border-t border-white/[0.06] px-4 pt-3 pb-4 lg:px-5 ${stableFooterHeightClass}`}>
-          {!loading && !error && orders.length > 0 && totalPages > 1 ? (
-            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+          {!loading && !error && orders.length > 0 ? (
+            <div className="flex min-h-[36px] flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
               <p className="text-xs text-white/42">
                 {resolveText('pagination.summary', {
                   page,
                   totalPages,
+                  start: rangeStart,
+                  end: rangeEnd,
                   total,
-                  defaultValue: 'Trang {{page}} / {{totalPages}} · {{total}} đơn',
+                  defaultValue: 'Trang {{page}}/{{totalPages}} · Hiển thị {{start}}-{{end}} trên · {{total}} đơn hàng',
                 })}
               </p>
 
+              {totalPages > 1 && (
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -1467,6 +1480,7 @@ export const Orders: React.FC = () => {
                   <ChevronRight size={15} />
                 </button>
               </div>
+              )}
             </div>
           ) : (
             <div aria-hidden="true" className="h-[36px]" />

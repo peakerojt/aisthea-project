@@ -98,8 +98,7 @@
         "OTHER": "Khác"
     },
     "pagination": {
-        "summary": "Trang {{page}}/{{totalPages}} · {{total}} đơn hàng",
-        "rangeSummary": "Hiển thị {{start}}-{{end}} trên {{total}} đơn hàng",
+        "summary": "Trang {{page}}/{{totalPages}} · Hiển thị {{start}}-{{end}} trên · {{total}} đơn hàng",
         "perPage": "/ trang"
     },
     "actions": {

@@ -1,5 +1,8 @@
 ﻿import { adminReturnApi } from '@/admin/api/returns.api';
-import { adminReturnReadService } from '@/admin/services/returns.query';
+import {
+  adminReturnReadService,
+  type AdminReturnSortValue,
+} from '@/admin/services/returns.query';
 import type {
   CompleteBankRefundPayload,
   OrderReturn,
@@ -96,6 +99,8 @@ const updateAdminRefundWorkflowStatus = (
 export const adminReturnRuntimeService = {
   async list(params?: {
     status?: string;
+    search?: string;
+    sort?: AdminReturnSortValue;
     page?: number;
     pageSize?: number;
   }): Promise<ReturnListResponse> {

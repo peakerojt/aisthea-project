@@ -151,6 +151,83 @@ describe('order-pricing.service', () => {
     });
   });
 
+  it('blocks refund-benefit freeship vouchers when standard shipping is already free', async () => {
+    prismaMock.productVariant.findMany.mockResolvedValue([
+      {
+        variantId: 11,
+        sku: 'SKU-11',
+        price: 600000,
+        stockQuantity: 5,
+        product: { name: 'Bomber', basePrice: 600000 },
+        variantAttributes: [{ value: { value: 'White' } }],
+      },
+    ]);
+
+    validateCouponMock.mockResolvedValue({
+      coupon: {
+        couponId: 88,
+        code: 'RFBFREE',
+        type: 'FIXED_AMOUNT',
+        value: 30000,
+        maxDiscountAmount: null,
+        minOrderValue: 300000,
+        source: 'REFUND_BENEFIT',
+      },
+      discountAmount: 30000,
+    });
+
+    await expect(
+      quoteOrderPricing({
+        userId: 7,
+        items: [{ variantId: 11, quantity: 1 }],
+        couponCode: 'rfbfree',
+        shippingCityCode: '48',
+        shippingMethod: 'STANDARD',
+      }),
+    ).rejects.toMatchObject({
+      code: 'FREESHIP_ALREADY_APPLIED',
+      status: 400,
+    });
+  });
+
+  it('caps refund-benefit freeship discounts to the actual shipping fee', async () => {
+    prismaMock.productVariant.findMany.mockResolvedValue([
+      {
+        variantId: 11,
+        sku: 'SKU-11',
+        price: 250000,
+        stockQuantity: 5,
+        product: { name: 'Bomber', basePrice: 250000 },
+        variantAttributes: [{ value: { value: 'White' } }],
+      },
+    ]);
+
+    validateCouponMock.mockResolvedValue({
+      coupon: {
+        couponId: 89,
+        code: 'RFBFREE',
+        type: 'FIXED_AMOUNT',
+        value: 30000,
+        maxDiscountAmount: null,
+        minOrderValue: 300000,
+        source: 'REFUND_BENEFIT',
+      },
+      discountAmount: 30000,
+    });
+
+    const result = await quoteOrderPricing({
+      userId: 7,
+      items: [{ variantId: 11, quantity: 1 }],
+      couponCode: 'rfbfree',
+      shippingCityCode: '48',
+      shippingMethod: 'STANDARD',
+    });
+
+    expect(result.shippingFee).toBe(15000);
+    expect(result.discountAmount).toBe(15000);
+    expect(result.totalAmount).toBe(250000);
+  });
+
   it('rejects malformed shipping city codes instead of trusting client input', async () => {
     prismaMock.productVariant.findMany.mockResolvedValue([
       {

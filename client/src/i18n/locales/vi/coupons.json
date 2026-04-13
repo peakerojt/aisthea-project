@@ -71,7 +71,7 @@
             "valuePercent": "VD: 20",
             "valueFixed": "VD: 50.000",
             "maxDiscount": "VD: 50.000 (để trống = không giới hạn)",
-            "minOrderValue": "0 = không điều kiện"
+            "minOrderValue": "Chọn mức áp dụng"
         },
         "saving": "Đang lưu…",
         "create": "Tạo mã",

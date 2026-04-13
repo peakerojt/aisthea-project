@@ -88,5 +88,6 @@
   "UNKNOWN_ERROR": "Lỗi không xác định.",
   "NETWORK_ERROR": "Lỗi kết nối đến máy chủ.",
   "FETCH_COUPONS_FAILED": "Không thể tải danh sách mã giảm giá.",
-  "FETCH_DATA_FAILED": "Không thể kết nối đến máy chủ."
+  "FETCH_DATA_FAILED": "Không thể kết nối đến máy chủ.",
+  "FREESHIP_ALREADY_APPLIED": "Đơn hàng này đã được miễn phí vận chuyển tiêu chuẩn, không cần áp thêm mã freeship."
 }

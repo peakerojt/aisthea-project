@@ -43,6 +43,7 @@ export interface OrderQuoteCoupon {
   value: number;
   maxDiscountAmount: number | null;
   minOrderValue: number;
+  source?: string | null;
 }
 
 export interface OrderQuote {
@@ -673,6 +674,25 @@ export const adminOrderService = {
     const blob = await orderApi.exportSelectedAdminOrders({ orderIds });
     const exportDate = new Date().toISOString().slice(0, 10);
     const fileName = `orders-selected-${exportDate}.csv`;
+
+    if (typeof window !== 'undefined') {
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    }
+
+    return { fileName };
+  },
+
+  async exportSelectedShippingLabels(orderIds: number[]) {
+    const blob = await orderApi.exportSelectedAdminShippingLabels({ orderIds });
+    const exportDate = new Date().toISOString().slice(0, 10);
+    const fileName = `shipping-labels-${exportDate}.pdf`;
 
     if (typeof window !== 'undefined') {
       const url = window.URL.createObjectURL(blob);
