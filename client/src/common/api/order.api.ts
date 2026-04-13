@@ -37,9 +37,30 @@ const createOrderApiError = async (response: Response, fallback: string) => {
     throw error;
 };
 
+const ensureCsrfToken = async () => {
+    const existing = getCookie(CSRF_COOKIE_NAME);
+    if (existing) return existing;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/csrf-token`, {
+            method: 'GET',
+            credentials: 'include',
+        });
+
+        if (response.ok) {
+            const payload = (await response.json().catch(() => null)) as { data?: { csrfToken?: string } } | null;
+            return getCookie(CSRF_COOKIE_NAME) || payload?.data?.csrfToken;
+        }
+    } catch {
+        // Let the export request fail naturally if the token still cannot be obtained.
+    }
+
+    return getCookie(CSRF_COOKIE_NAME);
+};
+
 const fetchOrderBlob = async (endpoint: string, fallback: string, payload: unknown) => {
     const language = getActiveLanguage();
-    const csrfToken = getCookie(CSRF_COOKIE_NAME);
+    const csrfToken = await ensureCsrfToken();
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         credentials: 'include',
