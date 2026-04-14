@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
 import { ProductImageLightbox } from '@/common/components/ProductImageLightbox';
+import { getCloudinaryFullSize, getCloudinaryThumbnail } from '@/common/utils/cloudinary';
 
 export interface ProductImage {
     imageId?: number;
@@ -63,7 +64,9 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 
     const safeGalleryIndex = galleryIndex >= validImages.length ? 0 : galleryIndex;
     const currentImage = validImages.length > 0 ? validImages[safeGalleryIndex] : null;
-    const currentImageSrc = currentImage?.imageUrl ?? '';
+    const currentImageSrc = currentImage?.imageUrl
+        ? getCloudinaryFullSize(currentImage.imageUrl)
+        : '';
 
     useEffect(() => {
         if (galleryIndex >= validImages.length && validImages.length > 0) {
@@ -191,7 +194,7 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                                     }`}
                             >
                                 <img
-                                    src={image.thumbnailUrl || image.imageUrl}
+                                    src={getCloudinaryThumbnail(image.thumbnailUrl || image.imageUrl)}
                                     alt={`${productName} thumbnail ${index + 1}`}
                                     className="w-full h-full object-cover"
                                     loading="lazy"

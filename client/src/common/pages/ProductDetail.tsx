@@ -271,21 +271,6 @@ export const ProductDetail: React.FC = () => {
     );
   }, [productDetails]);
 
-  // Preload all product images so color-switch is instant
-  useEffect(() => {
-    if (!productDetails?.images?.length) return;
-    productDetails.images.forEach(img => {
-      if (img.imageUrl) {
-        const preload = new Image();
-        preload.src = img.imageUrl;
-      }
-      if (img.thumbnailUrl) {
-        const thumb = new Image();
-        thumb.src = img.thumbnailUrl;
-      }
-    });
-  }, [productDetails?.images]);
-
   const scrollCarousel = (direction: 'left' | 'right') => {
     if (carouselRef.current) {
       const scrollAmount = carouselRef.current.clientWidth * 0.8;
