@@ -162,7 +162,19 @@ vi.mock('@/admin/components/AdminUI', () => ({
   AdminRefreshState: ({ isRefreshing }: { isRefreshing?: boolean }) => (
     <div data-testid="admin-refresh-state" data-refreshing={isRefreshing ? 'true' : 'false'} />
   ),
-  AdminSectionCard: ({ children }: { children: React.ReactNode }) => <section>{children}</section>,
+  AdminSectionCard: ({
+    children,
+    className,
+    bodyClassName,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+    bodyClassName?: string;
+  }) => (
+    <section className={className} data-body-class={bodyClassName}>
+      {children}
+    </section>
+  ),
   AdminToolbar: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   adminUiTokens: {
     searchFieldControl: 'search',
@@ -180,6 +192,7 @@ describe('Customers role mapping', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     searchParamsState.value = '';
+    setSearchParamsMock.mockReset();
     fetchAdminUsersMock.mockResolvedValue({
       users: [
         {
@@ -284,5 +297,32 @@ describe('Customers role mapping', () => {
         limit: 10,
       });
     });
+  });
+
+  it('keeps the pagination footer mounted and resets to page 1 when page size changes', async () => {
+    searchParamsState.value = 'page=2&pageSize=10';
+
+    render(<Customers />);
+
+    await waitFor(() => {
+      expect(fetchAdminUsersMock).toHaveBeenCalledWith({
+        page: 2,
+        limit: 10,
+        role: undefined,
+        search: undefined,
+        status: undefined,
+      });
+    });
+
+    const pageSizeSelect = screen.getByTestId('customers-page-size-select');
+    await userEvent.selectOptions(pageSizeSelect, '20');
+
+    await waitFor(() => {
+      expect(setSearchParamsMock).toHaveBeenCalled();
+    });
+
+    const latestParams = setSearchParamsMock.mock.calls.at(-1)?.[0] as URLSearchParams | undefined;
+    expect(latestParams?.toString()).toBe('pageSize=20');
+    expect(screen.getByTestId('customers-pagination-footer')).toHaveClass('mt-auto', 'shrink-0');
   });
 });

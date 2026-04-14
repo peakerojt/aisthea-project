@@ -96,18 +96,16 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
     if (!isOpen || typeof document === 'undefined') return null;
 
     return createPortal(
-        <div
-            role="presentation"
-            className={`fixed inset-0 z-50 overflow-hidden bg-slate-950/74 p-3 transition-all duration-200 ease-out md:p-4 ${
-                isVisible ? 'opacity-100' : 'opacity-0'
-            }`}
-            onClick={(event) => {
-                if (event.target === event.currentTarget) {
-                    onClose();
-                }
-            }}
-        >
-            <div className="flex h-full items-center justify-center">
+        <>
+            <div
+                aria-hidden="true"
+                className={`fixed inset-0 z-40 bg-slate-900/60 transition-opacity duration-150 ease-out ${
+                    isVisible ? 'opacity-100' : 'opacity-0'
+                }`}
+                onClick={onClose}
+            />
+            <div className="fixed inset-0 z-50 overflow-hidden p-3 md:p-4">
+                <div className="flex h-full items-center justify-center">
                     <div
                         role="dialog"
                         aria-modal="true"
@@ -261,8 +259,9 @@ export const CouponModal: React.FC<CouponModalProps> = ({ isOpen, onClose, cartS
                             })}
                         </div>
                     </div>
+                </div>
             </div>
-        </div>,
+        </>,
         document.body
     );
 };

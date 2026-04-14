@@ -446,8 +446,9 @@ export const Customers: React.FC = () => {
                     </select>
                 </div>
 
-                <div className="relative">
+                <div className="relative w-[9rem] shrink-0">
                     <select
+                        data-testid="customers-page-size-select"
                         value={pageSize}
                         onChange={(e) => {
                             setPageSize(Number(e.target.value));
@@ -582,9 +583,9 @@ export const Customers: React.FC = () => {
 
             {/* ── Loading ───────────────────────────────────────────────────── */}
             {loading && (
-                <AdminSectionCard className="flex-1 overflow-hidden">
+                <AdminSectionCard className="flex min-h-[640px] flex-1 flex-col overflow-hidden">
                     {pageControls}
-                    <div className="flex h-full min-h-[420px] items-center justify-center">
+                    <div className="flex min-h-[420px] flex-1 items-center justify-center">
                     <div className="flex flex-col items-center gap-4">
                         <div className="w-10 h-10 border-4 border-white/10 border-t-primary rounded-full animate-spin" />
                         <p className="text-sm text-white/40">{t('feedback.loadingList')}</p>
@@ -595,9 +596,9 @@ export const Customers: React.FC = () => {
 
             {/* ── Error ─────────────────────────────────────────────────────── */}
             {error && !loading && (
-                <AdminSectionCard className="flex-1 overflow-hidden">
+                <AdminSectionCard className="flex min-h-[640px] flex-1 flex-col overflow-hidden">
                     {pageControls}
-                    <div className="flex h-full min-h-[420px] items-center justify-center">
+                    <div className="flex min-h-[420px] flex-1 items-center justify-center">
                     <div className="flex flex-col items-center gap-4 max-w-sm text-center">
                         <AlertCircle size={40} className="text-red-400" />
                         <div>
@@ -617,18 +618,20 @@ export const Customers: React.FC = () => {
 
             {/* ── Table ─────────────────────────────────────────────────────── */}
             {!loading && !error && (
-                <AdminSectionCard className="flex-1 overflow-hidden">
+                <AdminSectionCard className="flex min-h-[640px] flex-1 flex-col overflow-hidden">
                     {pageControls}
                     {users.length === 0 ? (
-                        <AdminEmptyState
-                            icon={Users}
-                            title={t('feedback.notFound')}
-                            description={t('feedback.changeFilter')}
-                        />
+                        <div className="flex min-h-[420px] flex-1 items-center justify-center">
+                            <AdminEmptyState
+                                icon={Users}
+                                title={t('feedback.notFound')}
+                                description={t('feedback.changeFilter')}
+                            />
+                        </div>
                     ) : (
                         <>
 
-                        <div className="orders-table-scroll-region min-h-0 flex-1 overflow-y-auto overflow-x-auto min-h-[292px] lg:min-h-[352px]">
+                        <div className="orders-table-scroll-region min-h-0 flex-1 overflow-x-auto overflow-y-auto min-h-[292px] lg:min-h-[352px]">
                             <table className="w-full text-left border-collapse">
                                 <thead className={adminUiTokens.tableHeaderSurface}>
                                     <tr>
@@ -727,7 +730,10 @@ export const Customers: React.FC = () => {
                         </>
                     )}
                     {users.length > 0 && (
-                        <div className="flex flex-col gap-3 border-t border-white/[0.06] px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
+                        <div
+                            data-testid="customers-pagination-footer"
+                            className="mt-auto flex shrink-0 flex-col gap-3 border-t border-white/[0.06] px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6"
+                        >
                             <p className="text-xs text-white/42">
                                 {t('pagination.rangeSummary', {
                                     start: rangeStart,
@@ -738,7 +744,7 @@ export const Customers: React.FC = () => {
                             </p>
 
                             {totalPages > 1 && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex min-w-[14rem] items-center justify-end gap-2 self-end lg:self-auto">
                                 <button
                                     type="button"
                                     onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}

@@ -91,7 +91,7 @@ export const productMediaService = {
 
     return {
       imageId: productImage.imageId,
-      imageUrl: result.optimizedUrl,
+      imageUrl: result.secureUrl,
       thumbnailUrl: result.thumbnailUrl,
       publicId: result.publicId,
       width: result.width,
@@ -132,7 +132,7 @@ export const productMediaService = {
 
       uploaded.push({
         imageId: productImage.imageId,
-        imageUrl: result.optimizedUrl,
+        imageUrl: result.secureUrl,
         thumbnailUrl: result.thumbnailUrl,
         publicId: result.publicId,
       });
@@ -191,7 +191,7 @@ export const productMediaService = {
 
             uploaded.push({
               imageId: productImage.imageId,
-              imageUrl: outcome.value.optimizedUrl,
+              imageUrl: outcome.value.secureUrl,
               thumbnailUrl: outcome.value.thumbnailUrl,
               publicId: outcome.value.publicId,
             });

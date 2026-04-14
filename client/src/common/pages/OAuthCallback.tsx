@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthSession } from '@/types';
 import { useAuth } from '@/common/contexts/AuthContext';
+import { useCart } from '@/common/contexts/CartContext';
+import { getGuestCart } from '@/common/services/cart.service';
 import { api } from '@/common/utils/api';
 import { getAdminLandingPath, hasAdminShellAccess } from '@/common/utils/adminAccess';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 export const OAuthCallback: React.FC = () => {
   const { t } = useTranslation('pages', { keyPrefix: 'oauthCallback' });
   const { setUserFromSession } = useAuth();
+  const { syncWithMerge } = useCart();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
@@ -18,7 +21,17 @@ export const OAuthCallback: React.FC = () => {
         const session = await api.get<AuthSession>('/api/auth/session');
 
         if (session.isAuthenticated && session.user) {
+          const localItems = getGuestCart();
           setUserFromSession(session);
+
+          if (localItems.length > 0) {
+            try {
+              await syncWithMerge(localItems);
+            } catch (mergeError) {
+              console.error('Failed to merge guest cart after OAuth login:', mergeError);
+            }
+          }
+
           if (hasAdminShellAccess(session.user.roles, session.user.permissions)) {
             navigate(getAdminLandingPath(session.user.roles, session.user.permissions));
           } else {
@@ -37,7 +50,7 @@ export const OAuthCallback: React.FC = () => {
     };
 
     handleCallback();
-  }, [navigate, setUserFromSession, t]);
+  }, [navigate, setUserFromSession, syncWithMerge, t]);
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center">

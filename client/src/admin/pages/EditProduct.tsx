@@ -364,7 +364,8 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                     // Zone A: common image
                     commonImages.push({
                         id: String(img.imageId),
-                        url: img.thumbnailUrl || img.imageUrl,
+                        url: img.imageUrl,
+                        thumbnailUrl: img.thumbnailUrl,
                         isPrimary: img.isPrimary,
                         status: 'done' as const,
                         publicId: undefined,
@@ -378,7 +379,8 @@ export const EditProduct: React.FC<Props> = ({ productId }) => {
                             variantImagesSeen.add(dedupeKey);
                             variantImages.push({
                                 id: String(img.imageId),
-                                url: img.thumbnailUrl || img.imageUrl,
+                                url: img.imageUrl,
+                                thumbnailUrl: img.thumbnailUrl,
                                 isPrimary: false,
                                 associatedAttributeValue: colorValue,
                                 status: 'done' as const,
